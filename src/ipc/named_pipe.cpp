@@ -5,6 +5,7 @@
 #include "owo/ipc/model_candidate_confidence.h"
 #include "owo/ipc/user_lexicon_management.h"
 #include "owo/config/config_monitor.h"
+#include "owo/diagnostics/candidate_timing.h"
 #include "owo/model/model_backend.h"
 #include "owo/model/model_protocol.h"
 
@@ -1472,6 +1473,14 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
         const auto request_json = read_frame(pipe);
         if (request_json.empty()) break;
         auto incoming = protocol::decode_message(request_json);
+        diagnostics::CandidateTiming::instance().refresh();
+        const auto diagnostic_started = diagnostics::timing_now_us();
+        const bool diagnostic_candidate = incoming.validation &&
+            (incoming.message.type == protocol::MessageType::candidate_request ||
+             incoming.message.type == protocol::MessageType::candidate_update_request);
+        if (diagnostic_candidate)
+            diagnostics::candidate_timing(incoming.message.request_id, "core", "received", {
+                {"update", incoming.message.type == protocol::MessageType::candidate_update_request}});
         const auto composition_symbol_key = model_key(incoming.message.request_id, incoming.message.context_generation);
         const auto cancel_name = candidate_cancellation_event_name(
             incoming.message.request_id, incoming.message.context_generation);
@@ -1483,6 +1492,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
         // No recursive pipe connection or separate reduced candidate algorithm.
         const auto evaluate = [&](auto&& self, protocol::DecodeResult decoded,
                                    const bool auxiliary) -> protocol::Message {
+        const auto prepare_started = diagnostics::timing_now_us();
         std::optional<engine::FullPinyinIncrementalState> saved_parse_state;
         if (auxiliary) saved_parse_state = incremental_parse_state;
         std::shared_ptr<SymbolRequestState> symbol_state;
@@ -1526,6 +1536,18 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
             const auto& generator = imported
                 ? (dictionary_sources.base_enabled() ? combined_generator : imported_generator)
                 : (dictionary_sources.base_enabled() ? base_generator : empty_generator);
+            if (decoded.message.type == protocol::MessageType::candidate_request ||
+                decoded.message.type == protocol::MessageType::candidate_update_request)
+                diagnostics::candidate_timing(decoded.message.request_id, "core", "prepare", {
+                    {"duration_us", static_cast<std::int64_t>(diagnostics::timing_now_us() - prepare_started)},
+                    {"auxiliary", auxiliary},
+                    {"update", decoded.message.type == protocol::MessageType::candidate_update_request},
+                    {"full_pinyin", full_pinyin_scheme},
+                    {"page_size", runtime_config ? runtime_config->candidate_page_size : 7},
+                    {"partition", runtime_config && runtime_config->candidate_partition_enabled},
+                    {"model_enabled", adaptive_ranking_enabled},
+                    {"model_timeout_ms", runtime_config ? runtime_config->model_timeout_ms : 50},
+                    {"base_dictionary", dictionary_sources.base_enabled()}, {"imported_dictionary", imported}});
             const auto symbol_key = model_key(decoded.message.request_id, decoded.message.context_generation);
             if (decoded.message.type == protocol::MessageType::candidate_update_request) {
                 if (const auto found = symbol_requests.find(symbol_key); found != symbol_requests.end())
@@ -2718,6 +2740,25 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     const auto generation_us = generation_phase_us;
                     const auto total_us = std::chrono::duration_cast<std::chrono::microseconds>(
                         generation_finished - request_started).count();
+                    diagnostics::candidate_timing(decoded.message.request_id, "core", "generation", {
+                        {"parse_us", static_cast<std::int64_t>(parse_us)},
+                        {"normalization_us", static_cast<std::int64_t>(parse_metrics.normalization_us)},
+                        {"segmentation_us", static_cast<std::int64_t>(parse_metrics.segmentation_us)},
+                        {"correction_us", static_cast<std::int64_t>(parse_metrics.correction_us)},
+                        {"assistance_us", static_cast<std::int64_t>(parse_metrics.assistance_us)},
+                        {"generation_us", static_cast<std::int64_t>(generation_us)},
+                        {"lookup_us", static_cast<std::int64_t>(generation_metrics.lexicon_lookup_us)},
+                        {"sort_us", static_cast<std::int64_t>(generation_metrics.sort_us)},
+                        {"lookup_count", static_cast<std::int64_t>(generation_metrics.lexicon_lookup_count)},
+                        {"beam_transitions", static_cast<std::int64_t>(generation_metrics.beam_transitions)},
+                        {"beam_materialized", static_cast<std::int64_t>(generation_metrics.beam_materialized)},
+                        {"search_us", total_us},
+                        {"layout_us", std::chrono::duration_cast<std::chrono::microseconds>(
+                            std::chrono::steady_clock::now() - generation_finished).count()},
+                        {"cache_hit", cache_hit}, {"cancelled", request_cancelled},
+                        {"auxiliary", auxiliary}, {"correction_fallback", correction_fallback},
+                        {"parse_paths", static_cast<std::int64_t>(parsed.paths.size())},
+                        {"candidate_count", static_cast<std::int64_t>(candidates.size())}});
                     std::clog
                         << R"({"process":"core_service","module":"candidate","level":"info","event_id":"candidate_generated","request_id":)"
                         << decoded.message.request_id
@@ -2837,10 +2878,18 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     if (!auxiliary) model_requests.clear();
                     PendingModelRequest pending_model;
                     pending_model.cache_key = model_cache_key;
+                    diagnostics::candidate_timing(decoded.message.request_id, "core", "model_queued", {
+                        {"auxiliary", auxiliary}});
                     auto rank = [model_pipe, request = std::move(model_request), model_timeout] {
+                            const auto started = diagnostics::timing_now_us();
+                            diagnostics::candidate_timing(request.request_id, "core", "model_begin");
                             const auto exchanged = exchange(
                                 model_pipe.c_str(), model::encode_model_message(request),
                                 std::chrono::milliseconds(model_timeout + 25U));
+                            diagnostics::candidate_timing(request.request_id, "core", "model_end", {
+                                {"duration_us", static_cast<std::int64_t>(diagnostics::timing_now_us() - started)},
+                                {"ok", static_cast<bool>(exchanged.status)}});
+                            diagnostics::CandidateTiming::instance().flush();
                             if (!exchanged.status) return model::ModelMessage{};
                             const auto decoded_model =
                                 model::decode_model_message(exchanged.response);
@@ -3063,7 +3112,15 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
         return response;
         };
         auto response = evaluate(evaluate, std::move(incoming), false);
+        if (diagnostic_candidate)
+            diagnostics::candidate_timing(response.request_id, "core", "response_ready", {
+                {"duration_us", static_cast<std::int64_t>(diagnostics::timing_now_us() - diagnostic_started)},
+                {"update", response.type == protocol::MessageType::candidate_update_response},
+                {"refinement_pending", response.candidate_refinement_pending},
+                {"model_pending", response.model_pending},
+                {"candidate_count", static_cast<std::int64_t>(response.candidates.size())}});
         if (composition_cancel) CloseHandle(composition_cancel);
+        const auto encoding_started = diagnostics::timing_now_us();
         auto encoded = protocol::encode_message(response);
         if (encoded.empty()) {
             std::clog << R"({"process":"core_service","module":"ipc","level":"error","event_id":"response_encoding_failed","request_id":)"
@@ -3075,8 +3132,19 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
             error.text = "invalid service response";
             encoded = protocol::encode_message(error);
         }
-        if (!encoded.empty()) write_frame(pipe, encoded);
+        if (diagnostic_candidate)
+            diagnostics::candidate_timing(response.request_id, "core", "encoded", {
+                {"duration_us", static_cast<std::int64_t>(diagnostics::timing_now_us() - encoding_started)},
+                {"update", response.type == protocol::MessageType::candidate_update_response}});
+        const auto writing_started = diagnostics::timing_now_us();
+        const bool written = !encoded.empty() && static_cast<bool>(write_frame(pipe, encoded));
+        if (diagnostic_candidate)
+            diagnostics::candidate_timing(response.request_id, "core", "written", {
+                {"duration_us", static_cast<std::int64_t>(diagnostics::timing_now_us() - writing_started)},
+                {"update", response.type == protocol::MessageType::candidate_update_response},
+                {"ok", written}});
         FlushFileBuffers(pipe);
+        diagnostics::CandidateTiming::instance().flush();
         }
         DisconnectNamedPipe(pipe);
         CloseHandle(pipe);
@@ -3138,6 +3206,9 @@ int run_model_server(const wchar_t* pipe_name, model::IModelBackend& backend) {
         const auto request_json = read_frame(pipe);
         if (request_json.empty()) break;
         const auto decoded = model::decode_model_message(request_json);
+        diagnostics::CandidateTiming::instance().refresh();
+        if (decoded.validation && decoded.message.type == model::ModelMessageType::rank_request)
+            diagnostics::candidate_timing(decoded.message.request_id, "model", "begin");
         model::ModelMessage response;
         if (!decoded.validation) {
             response.type = model::ModelMessageType::error_response;
@@ -3169,6 +3240,10 @@ int run_model_server(const wchar_t* pipe_name, model::IModelBackend& backend) {
                     auto result = backend.rank(request, {});
                     const auto rank_us = std::chrono::duration_cast<std::chrono::microseconds>(
                         std::chrono::steady_clock::now() - rank_started).count();
+                    diagnostics::candidate_timing(decoded.message.request_id, "model", "ranked", {
+                        {"duration_us", rank_us},
+                        {"candidate_count", static_cast<std::int64_t>(request.candidates.size())},
+                        {"status", static_cast<std::int64_t>(result.status)}});
                     std::clog
                         << R"({"process":"model_host","module":"ranking","level":"info","event_id":"candidates_ranked","request_id":)"
                         << decoded.message.request_id
@@ -3190,6 +3265,7 @@ int run_model_server(const wchar_t* pipe_name, model::IModelBackend& backend) {
         const auto encoded = model::encode_model_message(response);
         if (!encoded.empty()) write_frame(pipe, encoded);
         FlushFileBuffers(pipe);
+        diagnostics::CandidateTiming::instance().flush();
         }
         DisconnectNamedPipe(pipe);
         CloseHandle(pipe);

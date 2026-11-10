@@ -216,6 +216,8 @@ public sealed partial class MainPage
             GeneralSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             UserLexiconPageHost.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             ModelManagerPageHost.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            DiagnosticsPageHost.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            (DiagnosticsPageHost.Content as CandidateDiagnosticsPage)?.SetPageActive(false);
             ShortcutSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             ChinesePunctuationPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;

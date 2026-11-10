@@ -17,6 +17,9 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Closed += (_, _) => (RootFrame.Content as MainPage)?.StopCandidateDiagnostics();
+        Activated += (_, args) => (RootFrame.Content as MainPage)?.SetDiagnosticsWindowActive(
+            args.WindowActivationState != WindowActivationState.Deactivated);
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);

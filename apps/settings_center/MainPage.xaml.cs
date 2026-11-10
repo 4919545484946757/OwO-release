@@ -9,6 +9,9 @@ public sealed partial class MainPage : Page
 {
     private readonly Microsoft.UI.Xaml.DispatcherTimer _statusExpiry = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly SettingsNoticeDeadline _statusDeadline = new();
+    internal void StopCandidateDiagnostics() => (DiagnosticsPageHost.Content as CandidateDiagnosticsPage)?.Close();
+    internal void SetDiagnosticsWindowActive(bool active) =>
+        (DiagnosticsPageHost.Content as CandidateDiagnosticsPage)?.SetWindowActive(active);
     private readonly WindowDownloads _windowDownloads;
     private readonly ConfigShellClient _client = new();
     private readonly PluginShellClient _pluginClient = new();
@@ -106,6 +109,7 @@ public sealed partial class MainPage : Page
         UserLexiconNavigationItem.Content = "词库管理器";
         UserLexiconPageHost.Content = new DictionaryManager(ShowStatus, _windowDownloads.Start);
         ModelManagerPageHost.Content = new ModelManagerPage(_client.ConfigPath, ShowStatus);
+        DiagnosticsPageHost.Content = new CandidateDiagnosticsPage(ShowStatus);
         PluginDiscoveryHost.Content = new PluginDiscoveryView(InstallPluginSourceAsync, () => PluginTabs.SelectedItem = InstalledPluginsTab, ShowStatus, _windowDownloads.Start,
             (Microsoft.UI.Xaml.Style)Resources["PluginCardBackingStyle"]);
         OnlineDistributionHost.Content = new OnlineDistributionView(
@@ -126,7 +130,8 @@ public sealed partial class MainPage : Page
             await LoadConfigAsync();
             await LoadPluginsAsync();
         };
-        Unloaded += (_, _) => { StopShortcutCaptureHook(); _statusExpiry.Stop(); _windowDownloads.Close(); };
+        Unloaded += (_, _) => { StopShortcutCaptureHook(); _statusExpiry.Stop(); _windowDownloads.Close();
+            (DiagnosticsPageHost.Content as CandidateDiagnosticsPage)?.Close(); };
     }
 
     private async Task LoadConfigAsync()
@@ -231,6 +236,8 @@ public sealed partial class MainPage : Page
     private void ShowPage(string page)
     {
         _currentPage = page;
+        DiagnosticsPageHost.Visibility = page == "diagnostics" ? Visibility.Visible : Visibility.Collapsed;
+        (DiagnosticsPageHost.Content as CandidateDiagnosticsPage)?.SetPageActive(page == "diagnostics");
         ModelManagerPageHost.Visibility = page == "models" ? Visibility.Visible : Visibility.Collapsed;
         var generalPage = page is "schemes" or "candidates" or "intelligence";
         GeneralSettingsPage.Visibility = generalPage
@@ -276,6 +283,7 @@ public sealed partial class MainPage : Page
             "shortcuts" => ("快捷键", "管理输入、翻页和模式切换的多组按键绑定"),
             "plugins" => ("插件管理器", "管理已安装插件、浏览官方目录并独立审核权限"),
             "models" => ("模型管理器", "管理模型 API、选区翻译、润色、代码纠错和内容生成"),
+            "diagnostics" => ("调试与性能", "本地测量候选生成全链路，定位排队、搜索、模型与界面耗时"),
             _ => ("输入方案", "选择编码方案并查看当前方案能力"),
         };
         UpdateSchemeHintVisibility();
@@ -308,6 +316,7 @@ public sealed partial class MainPage : Page
                 Capability: SettingsCapability.ChinesePunctuation));
         Add("词库管理器", "用户词库 字典 搜索 编辑 新增 删除 清除 导入 导出 Gboard Rime CSV TSV 词频", "user-lexicon", UserLexiconPageHost);
         Add("模型管理器", "API 大模型 翻译 润色 代码纠错 内容生成 首选语言 次选语言 密钥", "models", ModelManagerPageHost);
+        Add("候选生成计时", "调试 性能 速度 延迟 阻塞 IPC Core TSF 模型 解析 P50 P95 报告", "diagnostics", DiagnosticsPageHost);
         Add("插件管理器", "下载 在线 发现 搜索 插件 更新 安装 权限 卸载 恢复", "plugins", PluginSection);
     }
 
@@ -360,6 +369,8 @@ public sealed partial class MainPage : Page
             "user-lexicon" => UserLexiconNavigationItem,
             "shortcuts" => ShortcutNavigationItem,
             "plugins" => PluginNavigationItem,
+            "models" => ModelManagerNavigationItem,
+            "diagnostics" => DiagnosticsNavigationItem,
             _ => SchemeNavigationItem,
         };
         ShowPage(item.Page);

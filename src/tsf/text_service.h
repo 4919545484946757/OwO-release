@@ -435,6 +435,7 @@ private:
     std::uint64_t context_generation_{0};
     std::uint64_t next_request_id_{1};
     std::uint64_t active_candidate_request_id_{0};
+    std::uint64_t diagnostic_input_started_us_{};
     std::atomic<std::uint64_t> latest_candidate_request_id_{0};
     HANDLE candidate_cancellation_event_{nullptr};
     std::vector<HANDLE> retired_cancellation_events_;

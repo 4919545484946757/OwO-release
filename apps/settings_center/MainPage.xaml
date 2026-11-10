@@ -117,6 +117,9 @@
                         <FontIcon Glyph=""/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem x:Name="DiagnosticsNavigationItem" Content="调试与性能" Tag="diagnostics">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE9D9;"/></NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.PaneFooter>
                 <TextBlock Text="OwO 0.2.9" Margin="16,8,8,16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
@@ -753,6 +756,7 @@
                     </Grid>
                     <ContentControl x:Name="UserLexiconPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                     <ContentControl x:Name="ModelManagerPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+                    <ContentControl x:Name="DiagnosticsPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                     <ScrollViewer x:Name="GeneralPreferencesPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">
                             <Border x:Name="AutoSaveCard" Style="{StaticResource SettingsCardStyle}">

@@ -12,6 +12,7 @@
 #include "owo/tsf/unicode_palette_scroll.h"
 
 #include "owo/config/config_paths.h"
+#include "owo/diagnostics/candidate_timing.h"
 #include "owo/agent/agent_protocol.h"
 #include "owo/ipc/named_pipe.h"
 #include "owo/protocol/messages.h"
@@ -1276,6 +1277,12 @@ HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags
 
 HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) { activation_trace("OnKeyDown", S_OK, context);
     if (eaten == nullptr) return E_POINTER;
+    struct InputTimingReset {
+        std::uint64_t& value; std::uint64_t previous;
+        ~InputTimingReset() { value = previous; }
+    } timing_reset{diagnostic_input_started_us_, diagnostic_input_started_us_};
+    diagnostic_input_started_us_ = diagnostics::CandidateTiming::instance().active()
+        ? diagnostics::timing_now_us() : 0;
     refresh_shortcut_config();
     if (selection_assistant_.key(context, key)) { *eaten = TRUE; return S_OK; }
     if (plugin_scheme_selected()) return handle_plugin_key(context, key, flags, eaten);
@@ -4074,12 +4081,21 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
                         std::wstring_view(input_buffer_).substr(0, offset)).size());
         }
         pending_request_ = std::move(pending);
+        diagnostics::candidate_timing(active_candidate_request_id_, "tsf", "queued", {
+            {"generation", static_cast<std::int64_t>(context_generation_)},
+            {"page", static_cast<std::int64_t>(candidate_page_)},
+            {"expanded", candidates_expanded_},
+            {"input_started_us", static_cast<std::int64_t>(diagnostic_input_started_us_)},
+            {"input_units", static_cast<std::int64_t>(request_input.size())},
+            {"correction", correction_enabled_}});
     }
     request_ready_.notify_one();
     // Draw the edited pinyin immediately but retain the current geometry until
     // Core returns its matching candidate snapshot. Recomputing the layered
     // window size with stale candidates and then again with the response caused
     // two visible resizes for every key press.
+    const auto preview_request = active_candidate_request_id_;
+    const auto preview_started = std::chrono::steady_clock::now();
     sync_inline_preedit();
     if (candidate_window_ != nullptr && IsWindowVisible(candidate_window_) &&
         candidate_present_expanded_ == candidates_expanded_) {
@@ -4089,6 +4105,9 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
     } else {
         update_candidate_window();
     }
+    diagnostics::candidate_timing(preview_request, "tsf", "preedit_update", {
+        {"duration_us", std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now() - preview_started).count()}});
 }
 
 void TextService::append_language_context(const std::wstring_view text) {
@@ -4143,6 +4162,8 @@ void TextService::queue_commit_feedback(std::wstring candidate, std::wstring inp
 void TextService::worker_loop(const std::stop_token stop_token) {
     ipc::PersistentPipeClient core_client(ipc::kCorePipeName);
     while (!stop_token.stop_requested()) {
+        diagnostics::CandidateTiming::instance().refresh();
+        diagnostics::CandidateTiming::instance().flush();
         PendingRequest request{};
         {
             std::unique_lock lock(request_mutex_);
@@ -4223,12 +4244,25 @@ void TextService::worker_loop(const std::stop_token stop_token) {
             : request_type == protocol::MessageType::agent_request
                 ? std::chrono::milliseconds(2500) : kFeedbackRequestTimeout;
         const auto exchange_started = std::chrono::steady_clock::now();
+        if (request_type == protocol::MessageType::candidate_request)
+            diagnostics::candidate_timing(request.request_id, "tsf", "exchange_begin", {
+                {"queue_us", std::chrono::duration_cast<std::chrono::microseconds>(
+                    exchange_started - request.queued_at).count()},
+                {"defer_expensive", request.defer_expensive_candidates},
+                {"generation", static_cast<std::int64_t>(request.generation)}});
         const auto exchanged = core_client.exchange(
             protocol::encode_message(paged_message), timeout);
         const auto exchange_finished = std::chrono::steady_clock::now();
+        if (request_type == protocol::MessageType::candidate_request)
+            diagnostics::candidate_timing(request.request_id, "tsf", "exchange_end", {
+                {"duration_us", std::chrono::duration_cast<std::chrono::microseconds>(
+                    exchange_finished - exchange_started).count()},
+                {"ok", static_cast<bool>(exchanged.status)},
+                {"error", static_cast<std::int64_t>(exchanged.status.error)}});
         if (request_type == protocol::MessageType::candidate_request &&
             latest_candidate_request_id_.load(std::memory_order_acquire) !=
                 request.request_id) {
+            diagnostics::candidate_timing(request.request_id, "tsf", "superseded");
             std::clog
                 << R"({"process":"tsf","module":"candidate","level":"info","event_id":"candidate_request_superseded","request_id":)"
                 << request.request_id
@@ -4413,6 +4447,12 @@ void TextService::worker_loop(const std::stop_token stop_token) {
                     decoded.message.candidate_groups[index]);
         }
         const auto converted_at = std::chrono::steady_clock::now();
+        diagnostics::candidate_timing(request.request_id, "tsf", "response_posted", {
+            {"conversion_us", std::chrono::duration_cast<std::chrono::microseconds>(
+                converted_at - exchange_finished).count()},
+            {"candidate_count", static_cast<std::int64_t>(result->candidates.size())},
+            {"refinement_pending", decoded.message.candidate_refinement_pending},
+            {"model_pending", decoded.message.model_pending}});
         std::clog
             << R"({"process":"tsf","module":"candidate","level":"info","event_id":"candidate_response_received","request_id":)"
             << request.request_id
@@ -4491,8 +4531,13 @@ void TextService::worker_loop(const std::stop_token stop_token) {
             const protocol::Message update_request{
                 protocol::MessageType::candidate_update_request,
                 request.request_id, request.generation, {}};
+            const auto update_started = diagnostics::timing_now_us();
+            diagnostics::candidate_timing(request.request_id, "tsf", "model_poll_begin");
             const auto update_exchange = core_client.exchange(
                 protocol::encode_message(update_request), std::chrono::milliseconds(90));
+            diagnostics::candidate_timing(request.request_id, "tsf", "model_poll_end", {
+                {"duration_us", static_cast<std::int64_t>(diagnostics::timing_now_us() - update_started)},
+                {"ok", static_cast<bool>(update_exchange.status)}});
             if (!update_exchange.status) break;
             const auto update = protocol::decode_message(update_exchange.response);
             if (!update.validation ||
@@ -4532,14 +4577,20 @@ void TextService::worker_loop(const std::stop_token stop_token) {
             break;
         }
     }
+    diagnostics::CandidateTiming::instance().flush();
 }
 
 void TextService::handle_candidate_result(CandidateResult* raw_result) {
     std::unique_ptr<CandidateResult> result(raw_result);
+    if (result) diagnostics::candidate_timing(result->request_id, "tsf", "ui_received", {
+        {"model_update", result->preserve_paging}, {"failed", result->request_failed}});
     if (result == nullptr || result->generation != context_generation_ ||
         result->request_id != active_candidate_request_id_ ||
         result->page != candidate_page_ || result->expanded != candidates_expanded_ ||
-        input_buffer_.empty()) return;
+        input_buffer_.empty()) {
+        if (result) diagnostics::candidate_timing(result->request_id, "tsf", "stale_discarded");
+        return;
+    }
     if (result->request_failed && candidate_retry_count_ == 0) {
         ++candidate_retry_count_;
         schedule_candidate_request(false);
@@ -4659,6 +4710,11 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
     update_candidate_window();
     const auto render_us = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now() - render_started).count();
+    diagnostics::candidate_timing(result->request_id, "tsf", "ui_applied", {
+        {"render_us", render_us}, {"candidate_count", static_cast<std::int64_t>(candidates_.size())},
+        {"refinement_pending", result->refinement_pending}, {"model_update", result->preserve_paging},
+        {"failed", result->request_failed},
+        {"visible", candidate_window_ && IsWindowVisible(candidate_window_)}});
     std::clog
         << R"({"process":"tsf","module":"candidate","level":"info","event_id":"candidate_rendered","request_id":)"
         << result->request_id
