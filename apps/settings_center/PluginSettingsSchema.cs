@@ -21,6 +21,7 @@ internal sealed record PluginSettingField(
 
 internal sealed class PluginSettingsModel
 {
+    private string _versionRoot = "";
     private static readonly Regex SafeKey = new("^[A-Za-z0-9_.-]{1,64}$",
         RegexOptions.CultureInvariant);
 
@@ -129,6 +130,7 @@ internal sealed class PluginSettingsModel
         foreach (var field in fields)
             if (!values.ContainsKey(field.Key)) values[field.Key] = field.DefaultValue.Clone();
         return new PluginSettingsModel {
+            _versionRoot = versionRoot,
             Plugin = plugin, Title = title, Description = description,
             ConfigPath = configPath, Fields = fields, Pages = pages, Values = values,
         };
@@ -136,6 +138,11 @@ internal sealed class PluginSettingsModel
 
     internal void Save(IReadOnlyDictionary<string, object?> values)
     {
+        // A retained editor/debounced save must not recreate data after uninstall.
+        using var manifest = ReadBoundedJson(Path.Combine(_versionRoot, "manifest.json"), 64 * 1024);
+        if (manifest.RootElement.GetProperty("id").GetString() != Plugin.Id ||
+            manifest.RootElement.GetProperty("version").GetString() != Plugin.Version)
+            throw new InvalidOperationException("插件版本已移除或变更，请刷新插件管理器后重试。");
         var directory = Path.GetDirectoryName(ConfigPath)
             ?? throw new InvalidOperationException("插件配置目录无效。" );
         Directory.CreateDirectory(directory);

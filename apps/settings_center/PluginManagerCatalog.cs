@@ -25,11 +25,23 @@ internal static class PluginManagerCatalog
     internal static PluginVersionSnapshot? Latest(IEnumerable<PluginVersionSnapshot> values) =>
         values.OrderByDescending(p => p.Version, Comparer<string>.Create(CompareVersions)).FirstOrDefault();
 
+    // Both the installed cards and configuration navigation use this version policy.
+    // Search/state filters are local to cards and must not remove global navigation.
+    internal static IReadOnlyList<PluginVersionSnapshot> DisplayVersions(
+        IEnumerable<PluginVersionSnapshot> source, bool history) {
+        var all = source.ToList();
+        var selected = history ? all : all.GroupBy(p => p.Id, StringComparer.Ordinal)
+            .Select(g => g.FirstOrDefault(p => p.Active) ?? Latest(g)!).ToList();
+        return selected.OrderByDescending(p => p.Active).ThenBy(p => p.Name, StringComparer.CurrentCulture)
+            .ThenByDescending(p => p.Version, Comparer<string>.Create(CompareVersions)).ToList();
+    }
+
+    internal static bool ContainsVersion(IEnumerable<PluginVersionSnapshot> source, PluginVersionSnapshot plugin) =>
+        source.Any(p => p.Id == plugin.Id && p.Version == plugin.Version);
+
     internal static IReadOnlyList<PluginVersionSnapshot> Filter(IEnumerable<PluginVersionSnapshot> source,
         string query, string filter, bool history) {
-        var all = source.ToList();
-        IEnumerable<PluginVersionSnapshot> selected = history ? all : all.GroupBy(p => p.Id, StringComparer.Ordinal)
-            .Select(g => g.FirstOrDefault(p => p.Active) ?? Latest(g)!);
+        var selected = DisplayVersions(source, history);
         query = query.Trim();
         return selected.Where(p => filter switch {
             "enabled" => p.Active, "disabled" => !p.Active, "unauthorized" => !p.PermissionsAuthorized, _ => true

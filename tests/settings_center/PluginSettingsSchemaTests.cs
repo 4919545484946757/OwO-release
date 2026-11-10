@@ -121,4 +121,25 @@ foreach (var property in legacy["properties"]!.AsObject()) property.Value!.AsObj
 File.WriteAllText(schemaPath, legacy.ToJsonString());
 if (PluginSettingsModel.Load(root, plugin).Pages.Count != 0)
     throw new Exception("Legacy schemas unexpectedly require pages.");
+var savedBeforeRemoval = File.ReadAllText(model.ConfigPath);
+var installedManifest = Path.Combine(versionRoot, "manifest.json");
+var detachedManifest = installedManifest + ".removed";
+File.Move(installedManifest, detachedManifest);
+try {
+    var blocked = false;
+    try { model.Save(edited); } catch (InvalidOperationException) { blocked = true; }
+    if (!blocked || File.ReadAllText(model.ConfigPath) != savedBeforeRemoval)
+        throw new Exception("Stale editor wrote settings after its plugin version was removed.");
+} finally { File.Move(detachedManifest, installedManifest); }
+var changedManifest = JsonNode.Parse(File.ReadAllText(installedManifest))!.AsObject();
+var manifestBeforeChange = File.ReadAllText(installedManifest);
+changedManifest["version"] = "99.0.0";
+File.WriteAllText(installedManifest, changedManifest.ToJsonString());
+try {
+    var blocked = false;
+    try { model.Save(edited); } catch (InvalidOperationException) { blocked = true; }
+    if (!blocked || File.ReadAllText(model.ConfigPath) != savedBeforeRemoval)
+        throw new Exception("Stale editor wrote settings after its plugin identity changed.");
+} finally { File.WriteAllText(installedManifest, manifestBeforeChange); }
 Console.WriteLine("PASS: 17 independent color/opacity pairs per palette, declarative pages, palette isolation and legacy schemas.");
+Console.WriteLine("PASS: removed/changed plugin versions reject stale configuration writes and preserve retained data.");

@@ -56,7 +56,13 @@ public sealed partial class MainWindow : Window
         } else {
             AppWindow.Resize(new SizeInt32(1080, 760));
             RootFrame.Navigate(typeof(MainPage));
-            if (Environment.GetCommandLineArgs().Contains("--verify-plugin-navigation") && RootFrame.Content is MainPage navigationPage) {
+            if (Environment.GetCommandLineArgs().Contains("--verify-plugin-catalog") && RootFrame.Content is MainPage catalogPage) {
+                catalogPage.Loaded += async (_, _) => {
+                    try { await catalogPage.VerifyPluginCatalogAsync(); }
+                    catch (Exception error) { Environment.ExitCode = 1; App.LogStage("Plugin catalog verification failed: " + error); }
+                    finally { Close(); }
+                };
+            } else if (Environment.GetCommandLineArgs().Contains("--verify-plugin-navigation") && RootFrame.Content is MainPage navigationPage) {
                 navigationPage.Loaded += async (_, _) => {
                     try { await navigationPage.VerifyPluginNavigationAsync(); }
                     catch (Exception error) { Environment.ExitCode = 1; App.LogStage("Plugin navigation verification failed: " + error); }

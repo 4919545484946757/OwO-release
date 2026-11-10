@@ -217,10 +217,12 @@ public sealed partial class MainPage : Page
     private async void SettingsNavigation_SelectionChanged(
         NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
+        if (_rebuildingPluginNavigation) return;
         if (args.SelectedItemContainer?.Tag is not string page) return;
         if (page.StartsWith("plugin:", StringComparison.Ordinal)) {
             if (_pluginPages.TryGetValue(page, out var plugin))
                 await ShowPluginSettingsAsync(plugin);
+            else ShowUnavailablePluginConfiguration();
             return;
         }
         ShowPage(page);
@@ -342,10 +344,11 @@ public sealed partial class MainPage : Page
 
     private async Task NavigateToSearchItemAsync(SearchItem item)
     {
-        if (item.Page.StartsWith("plugin:", StringComparison.Ordinal) &&
-            _pluginPages.TryGetValue(item.Page, out var plugin)) {
-            SelectPluginNavigation(item.Page);
-            await ShowPluginSettingsAsync(plugin, item.PluginField);
+        if (item.Page.StartsWith("plugin:", StringComparison.Ordinal)) {
+            if (_pluginPages.TryGetValue(item.Page, out var plugin)) {
+                SelectPluginNavigation(item.Page);
+                await ShowPluginSettingsAsync(plugin, item.PluginField);
+            } else ShowUnavailablePluginConfiguration();
             return;
         }
         SettingsNavigation.SelectedItem = item.Page switch {

@@ -16,6 +16,9 @@ public sealed partial class MainPage
     }
     private IReadOnlyList<PluginVersionSnapshot> _installedPlugins = [];
     private IReadOnlyList<PluginVersionSnapshot> _visiblePlugins = [];
+    private IReadOnlyList<PluginVersionSnapshot> _navigationPlugins = [];
+    private bool _rebuildingPluginNavigation;
+    private int _pluginSnapshotRequest;
 
     private void RenderInstalledPlugins()
     {
@@ -41,7 +44,10 @@ public sealed partial class MainPage
         if (PluginDiscoveryHost?.Content is PluginDiscoveryView view) view.SetQuery(PluginSearch.Text);
     }
     private void PluginFilter_SelectionChanged(object sender, SelectionChangedEventArgs args) => RenderInstalledPlugins();
-    private void PluginHistory_Changed(object sender, Microsoft.UI.Xaml.RoutedEventArgs args) => RenderInstalledPlugins();
+    private void PluginHistory_Changed(object sender, Microsoft.UI.Xaml.RoutedEventArgs args) {
+        RenderInstalledPlugins();
+        RebuildPluginNavigation(_installedPlugins);
+    }
     private async void PluginVersionDetails_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs args) {
         if (sender is not Microsoft.UI.Xaml.FrameworkElement { Tag: PluginVersionSnapshot plugin }) return;
         try {
@@ -50,9 +56,11 @@ public sealed partial class MainPage
     }
     private async Task LoadPluginsAsync()
     {
+        var request = ++_pluginSnapshotRequest;
         SetBusy(true);
         try {
             var value = await _pluginClient.LoadAsync();
+            if (request != _pluginSnapshotRequest) return; // Ignore a refresh overtaken by a newer mutation/refresh.
             _installedPlugins = value.Plugins;
             RenderInstalledPlugins();
             if (PluginDiscoveryHost.Content is PluginDiscoveryView discovery) discovery.SetInstalled(value.Plugins);
@@ -64,23 +72,46 @@ public sealed partial class MainPage
             ShowStatus($"插件状态已刷新：{value.Plugins.Count} 个版本，{value.Recovery.Count} 个恢复项。",
                        InfoBarSeverity.Success);
         } catch (Exception error) {
-            ShowStatus(error.Message, InfoBarSeverity.Error);
+            if (request == _pluginSnapshotRequest) ShowStatus(error.Message, InfoBarSeverity.Error);
         } finally {
-            SetBusy(false);
+            if (request == _pluginSnapshotRequest) SetBusy(false);
         }
     }
 
     private void RebuildPluginNavigation(IReadOnlyList<PluginVersionSnapshot> plugins)
     {
+        foreach (var pending in _pendingPluginSaves.Keys.Where(model =>
+                     !PluginManagerCatalog.ContainsVersion(plugins, model.Plugin)).ToArray())
+            _pendingPluginSaves.Remove(pending);
+        var displayed = PluginManagerCatalog.DisplayVersions(plugins, PluginHistory.IsChecked == true);
+        var currentConfiguration = _currentPage.StartsWith("plugin:", StringComparison.Ordinal);
+        if (_pluginSettings is not null && (!PluginManagerCatalog.ContainsVersion(plugins, _pluginSettings.Plugin) ||
+            (currentConfiguration && !PluginManagerCatalog.ContainsVersion(displayed, _pluginSettings.Plugin)))) {
+            ClearPluginConfiguration();
+            if (currentConfiguration) {
+                ShowPage("plugins");
+                SettingsNavigation.SelectedItem = PluginNavigationItem;
+            }
+        }
+        if (_navigationPlugins.Select(p => (p.Id, p.Version, p.Name, p.Detail, p.PermissionsAuthorized))
+            .SequenceEqual(displayed.Select(p => (p.Id, p.Version, p.Name, p.Detail, p.PermissionsAuthorized)))) return;
         var expanded = _pluginPagesGroup?.IsExpanded ?? true;
         var selectedPage = (SettingsNavigation.SelectedItem as NavigationViewItem)?.Tag as string;
+        _rebuildingPluginNavigation = true;
+        try { ReplacePluginNavigation(displayed, expanded, selectedPage); }
+        finally { _rebuildingPluginNavigation = false; }
+        _navigationPlugins = displayed;
+    }
+
+    private void ReplacePluginNavigation(IReadOnlyList<PluginVersionSnapshot> displayed, bool expanded, string? selectedPage)
+    {
         if (_pluginPagesGroup is not null) SettingsNavigation.MenuItems.Remove(_pluginPagesGroup);
         if (_pluginPagesSeparator is not null) SettingsNavigation.MenuItems.Remove(_pluginPagesSeparator);
         _pluginPagesGroup = null;
         _pluginPagesSeparator = null;
         _pluginPages.Clear();
         _pluginSearchItems.Clear();
-        if (plugins.Count == 0) return;
+        if (displayed.Count == 0) return;
         _pluginPagesSeparator = new NavigationViewItemSeparator {
             HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch,
             Margin = new Microsoft.UI.Xaml.Thickness(12, 8, 12, 8),
@@ -99,12 +130,11 @@ public sealed partial class MainPage
                 child.Visibility = group.IsExpanded ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         });
         SettingsNavigation.MenuItems.Add(_pluginPagesGroup);
-        foreach (var plugin in plugins.OrderByDescending(value => value.Active)
-                                      .ThenBy(value => value.Name, StringComparer.Ordinal)) {
+        foreach (var plugin in displayed) {
             var page = $"plugin:{plugin.Id}:{plugin.Version}";
             _pluginPages[page] = plugin;
             var navigation = new NavigationViewItem {
-                Content = plugin.Name, Tag = page,
+                Content = $"{plugin.Name} {plugin.Version} · {(plugin.Active ? "已启用" : "未启用")}", Tag = page,
                 Icon = new FontIcon { Glyph = "\uE74C" },
                 Visibility = expanded ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed,
             };
@@ -126,6 +156,27 @@ public sealed partial class MainPage
         var selected = _pluginPagesGroup.MenuItems.OfType<NavigationViewItem>()
             .FirstOrDefault(item => Equals(item.Tag, selectedPage));
         if (selected is not null) SettingsNavigation.SelectedItem = selected;
+    }
+
+    private void ClearPluginConfiguration()
+    {
+        _pluginSettings = null;
+        _buildingPluginSettings = true;
+        try {
+            PluginConfigFields.Children.Clear();
+            _pluginConfigControls.Clear();
+            _pluginConfigExpanders.Clear();
+            _pluginConfigPageSelector = null;
+            PluginConfigSaveButton.IsEnabled = PluginConfigResetButton.IsEnabled = false;
+        } finally { _buildingPluginSettings = false; }
+    }
+
+    private void ShowUnavailablePluginConfiguration()
+    {
+        ClearPluginConfiguration();
+        ShowPage("plugins");
+        SettingsNavigation.SelectedItem = PluginNavigationItem;
+        ShowStatus("该插件版本已移除或隐藏，请从插件管理器重新选择。", InfoBarSeverity.Warning);
     }
 
     private void SelectPluginNavigation(string page)
@@ -150,7 +201,10 @@ public sealed partial class MainPage
                                           string? focusField = null)
     {
         try {
+            plugin = _installedPlugins.FirstOrDefault(p => p.Id == plugin.Id && p.Version == plugin.Version)
+                ?? throw new InvalidOperationException("该插件版本已移除，请刷新插件管理器。");
             _pluginSettings = PluginSettingsModel.Load(_pluginClient.StorePath, plugin);
+            var openedModel = _pluginSettings;
             _currentPage = $"plugin:{plugin.Id}:{plugin.Version}";
             UpdateSchemeHintVisibility();
             PluginConfigFields.Children.Clear();
@@ -176,6 +230,8 @@ public sealed partial class MainPage
                 InfoBarSeverity.Informational);
             if (focusField is not null && _pluginConfigControls.TryGetValue(focusField, out var target))
                 DispatcherQueue.TryEnqueue(() => {
+                    if (!ReferenceEquals(_pluginSettings, openedModel) ||
+                        _currentPage != $"plugin:{plugin.Id}:{plugin.Version}") return;
                     if (_pluginConfigPageSelector is not null) {
                         var pageId = _pluginSettings.Fields.First(field => field.Key == focusField).PageId;
                         var page = _pluginSettings.Pages.FirstOrDefault(value => value.Id == pageId);
@@ -187,6 +243,7 @@ public sealed partial class MainPage
                     target.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
                 });
         } catch (Exception error) {
+            ClearPluginConfiguration();
             ShowPage("plugins");
             SettingsNavigation.SelectedItem = PluginNavigationItem;
             ShowStatus($"无法打开插件设置：{error.Message}", InfoBarSeverity.Error);
