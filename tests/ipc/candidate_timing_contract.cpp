@@ -61,7 +61,16 @@ int wmain(int argc, wchar_t** argv) {
     const auto first = send({owo::protocol::MessageType::candidate_request, 100, 1, "nihao"});
     const auto cached = send({owo::protocol::MessageType::candidate_request, 101, 1, "nihao"});
     const auto update = send({owo::protocol::MessageType::candidate_update_request, 101, 1, {}});
-    const auto shutdown = send({owo::protocol::MessageType::shutdown_request, 102, 1, {}});
+    owo::protocol::Message next_page{owo::protocol::MessageType::candidate_request, 103, 1, "nihao"};
+    next_page.page = 1;
+    const auto off_page = send(next_page);
+    const auto generation = monitor.generation();
+    config.model_ranking_enabled = false;
+    if (!config_writer.save(config).success || !monitor.wait_for_generation(generation, std::chrono::seconds(2))) {
+        TerminateProcess(GetCurrentProcess(), 22); return 22;
+    }
+    const auto disabled = send({owo::protocol::MessageType::candidate_request, 104, 1, "nihao"});
+    const auto shutdown = send({owo::protocol::MessageType::shutdown_request, 110, 1, {}});
     if (!shutdown.validation) { TerminateProcess(GetCurrentProcess(), 6); return 6; }
     server.join();
     owo::model::ModelMessage model_shutdown;
@@ -70,11 +79,27 @@ int wmain(int argc, wchar_t** argv) {
     if (!model_ack.status) { TerminateProcess(GetCurrentProcess(), 19); return 19; }
     model_server.join(); recorder.flush();
     if (server_exit != 0 || !first.validation || first.message.candidates.empty() ||
-        !cached.validation || !update.validation || first.message.candidates != cached.message.candidates) return 7;
+        !cached.validation || !update.validation || !off_page.validation || !disabled.validation ||
+        first.message.candidates != cached.message.candidates || first.message.candidates != disabled.message.candidates) return 7;
     const auto file = directory / (std::string(session) + "-" + std::to_string(GetCurrentProcessId()) + ".jsonl");
     std::ifstream input(file, std::ios::binary);
     std::string records((std::istreambuf_iterator<char>(input)), {});
     input.close();
+    auto preparation = [&](std::uint64_t id, bool prepared) {
+        const auto request = "\"request_id\":" + std::to_string(id) + ',';
+        const auto expected = std::string("\"model_prepared\":") + (prepared ? '1' : '0');
+        std::size_t begin = 0;
+        while (begin < records.size()) {
+            const auto end = records.find('\n', begin);
+            const auto line = std::string_view(records).substr(begin, end == std::string::npos ? end : end - begin);
+            if (line.find(request) != std::string_view::npos && line.find("\"event\":\"generation\"") != std::string_view::npos)
+                return line.find(expected) != std::string_view::npos;
+            if (end == std::string::npos) break;
+            begin = end + 1;
+        }
+        return false;
+    };
+    if (!preparation(100, true) || !preparation(103, false) || !preparation(104, false)) return 23;
     for (const auto* event : {"received", "prepare", "generation", "response_ready", "encoded", "written", "model_queued", "model_begin", "model_end", "ranked"})
         if (records.find(std::string("\"event\":\"") + event + '"') == std::string::npos) return 8;
     if (records.find("\"cache_hit\":1") == std::string::npos || records.find("nihao") != std::string::npos ||

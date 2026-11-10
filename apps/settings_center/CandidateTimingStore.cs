@@ -127,7 +127,7 @@ internal sealed class CandidateTimingStore {
     private static readonly HashSet<string> AllowedEvents = new(StringComparer.Ordinal) {
         "queued", "preedit_update", "exchange_begin", "exchange_end", "superseded", "response_posted", "ui_received",
         "stale_discarded", "ui_applied", "model_poll_begin", "model_poll_end", "received", "prepare",
-        "generation", "model_queued", "model_begin", "model_end", "response_ready", "encoded", "written", "begin", "ranked"
+        "generation", "model_queued", "model_begin", "model_end", "model_wait_cancelled", "response_ready", "encoded", "written", "begin", "ranked"
     };
     private static readonly HashSet<string> AllowedFields = new(StringComparer.Ordinal) {
         "generation", "page", "expanded", "input_started_us", "input_units", "correction", "queue_us",
@@ -136,7 +136,7 @@ internal sealed class CandidateTimingStore {
         "partition", "model_enabled", "model_timeout_ms", "base_dictionary", "imported_dictionary", "parse_us",
         "normalization_us", "segmentation_us", "correction_us", "assistance_us", "generation_us", "lookup_us", "sort_us",
         "lookup_count", "beam_transitions", "beam_materialized", "search_us", "layout_us", "cache_hit", "cancelled",
-        "correction_fallback", "parse_paths", "status", "dropped_total", "render_us"
+        "correction_fallback", "parse_paths", "status", "dropped_total", "render_us", "model_prepare_us", "model_prepared"
     };
     internal static bool TryParse(string line, string session, out CandidateTimingEvent? record) {
         record = null;
@@ -188,7 +188,7 @@ internal sealed class CandidateTimingStore {
             Sum("prepare", "core", "prepare", "duration_us", true);
             foreach (var (key, field) in new[] { ("parse", "parse_us"), ("normalize", "normalization_us"), ("segment", "segmentation_us"),
                 ("correction", "correction_us"), ("assistance", "assistance_us"),
-                ("generation", "generation_us"), ("lookup", "lookup_us"), ("sort", "sort_us"), ("layout", "layout_us") })
+                ("generation", "generation_us"), ("lookup", "lookup_us"), ("sort", "sort_us"), ("layout", "layout_us"), ("model_prepare", "model_prepare_us") })
                 Sum(key, "core", "generation", field, true);
             Sum("encode", "core", "encoded", "duration_us", true);
             Sum("write", "core", "written", "duration_us", true);

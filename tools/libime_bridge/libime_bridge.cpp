@@ -112,13 +112,14 @@ TokenizationState score_best_tokenization(
     return result;
 }
 
-bool calibrate_singleton_pair(const libime::LanguageModel& model, const char* context,
+bool calibrate_singleton_pair(const libime::LanguageModel& model, const libime::State& initial,
+                          const bool has_context,
                           const char* const* candidates, const std::size_t count, float* scores,
                           const bool standalone_head = false) {
     // Sentence-initial priors dominate short function-word alternatives.
     // Calibrate only without external context; do not discount a real
     // application-context preference for a particular sentence head.
-    if (count < 2 || (standalone_head && context && context[0])) return false;
+    if (count < 2 || (standalone_head && has_context)) return false;
     std::size_t anchor_index = count;
     for (std::size_t i = 0; i < count; ++i) {
         const auto length = utf8_character_count(candidates[i]);
@@ -153,8 +154,6 @@ bool calibrate_singleton_pair(const libime::LanguageModel& model, const char* co
         }
     }
     if (best == count || scores[best] <= scores[second] || scores[best] - scores[second] > 1.0F) return false;
-    auto initial = model.beginState();
-    if (context && context[0]) initial = score_best_tokenization(model, initial, context).language_state;
     const auto first = score_best_tokenization(model, initial, candidates[best], nullptr, position);
     const auto other = score_best_tokenization(model, initial, candidates[second], nullptr, position);
     if (!first.inspected_singleton || !other.inspected_singleton) return false;
@@ -241,59 +240,76 @@ extern "C" int owo_libime_score(const owo_libime_handle handle, const char* cont
     return score_candidate(handle, context, candidate, score, diagnostic, diagnostic_size);
 }
 
-extern "C" int owo_libime_score_batch(const owo_libime_handle handle,
-                                        const char* context,
-                                        const char* const* candidates,
-                                        const std::size_t candidate_count,
-                                        float* scores,
-                                        char* diagnostic,
-                                        const std::size_t diagnostic_size) {
-    if (handle == nullptr || candidates == nullptr || candidate_count == 0 ||
-        scores == nullptr) {
+extern "C" int owo_libime_score_batch(const owo_libime_handle handle, const char *context,
+                                      const char *const *candidates,
+                                      const std::size_t candidate_count, float *scores,
+                                      char *diagnostic, const std::size_t diagnostic_size) {
+    if (handle == nullptr || candidates == nullptr || candidate_count == 0 || scores == nullptr) {
         set_diagnostic(diagnostic, diagnostic_size, "invalid batch score request");
         return 0;
     }
-    bool paired_endings = false;
-    std::string_view pair_prefix;
-    std::size_t pair_characters = 0;
-    if (candidate_count >= 2 && candidates[0] && candidates[1]) {
-        const std::string_view first(candidates[0]), second(candidates[1]);
-        const auto a = utf8_boundaries(first), b = utf8_boundaries(second);
-        paired_endings = a.size() >= 4 && a.size() == b.size() && first != second &&
-            first.substr(0, a[a.size()-2]) == second.substr(0, b[b.size()-2]);
-        if (paired_endings) { pair_prefix = first.substr(0, a[a.size()-2]); pair_characters = a.size(); }
-    }
-    float independent[2]{};
-    for (std::size_t index = 0; index < candidate_count; ++index) {
-        if (candidates[index] == nullptr || candidates[index][0] == '\0' ||
-            !score_candidate(handle, context, candidates[index], &scores[index],
-                              diagnostic, diagnostic_size,
-                              paired_endings && index < 2 ? &independent[index] : nullptr))
-            return 0;
-    }
-    // The host's first two candidates are its bounded, quality-gated visible
-    // alternatives. Calibrate only this same-prefix pair, and only if it
-    // contains the model's original same-prefix-family winner. Swap original score slots
-    // rather than penalizing the entire pool: unrelated hidden variants must
-    // not rise merely because a plausible visible word was down-weighted.
-    bool pair_has_family_winner = paired_endings;
-    if (paired_endings) for (std::size_t index = 2; index < candidate_count; ++index) {
-        const std::string_view text(candidates[index]);
-        if (text.starts_with(pair_prefix) && utf8_boundaries(text).size() == pair_characters &&
-            scores[index] > std::max(scores[0], scores[1])) { pair_has_family_winner = false; break; }
-    }
-    if (pair_has_family_winner &&
-        owo::model::terminal_pair_flips(scores[0], scores[1], independent[0], independent[1]))
-        std::swap(scores[0], scores[1]);
     try {
-        const auto& model = static_cast<const BridgeState*>(handle)->model;
-        if (!calibrate_singleton_pair(model, context, candidates, candidate_count, scores, true))
-            calibrate_singleton_pair(model, context, candidates, candidate_count, scores);
-    } catch (const std::exception& error) {
+        for (std::size_t index = 0; index < candidate_count; ++index) {
+            if (!candidates[index] || candidates[index][0] == '\0') {
+                set_diagnostic(diagnostic, diagnostic_size, "invalid score request");
+                return 0;
+            }
+        }
+        const auto &model = static_cast<const BridgeState *>(handle)->model;
+        const bool has_context = context && context[0];
+        auto initial = model.beginState();
+        if (has_context)
+            initial = score_best_tokenization(model, initial, context).language_state;
+        // Every candidate/calibration starts from the exact same prepared state.
+        // Do not tokenize an unchanged context once per candidate (or per pair).
+        bool paired_endings = false;
+        std::string_view pair_prefix;
+        std::size_t pair_characters = 0;
+        if (candidate_count >= 2 && candidates[0] && candidates[1]) {
+            const std::string_view first(candidates[0]), second(candidates[1]);
+            const auto a = utf8_boundaries(first), b = utf8_boundaries(second);
+            paired_endings = a.size() >= 4 && a.size() == b.size() && first != second &&
+                             first.substr(0, a[a.size() - 2]) == second.substr(0, b[b.size() - 2]);
+            if (paired_endings) {
+                pair_prefix = first.substr(0, a[a.size() - 2]);
+                pair_characters = a.size();
+            }
+        }
+        float independent[2]{};
+        for (std::size_t index = 0; index < candidate_count; ++index) {
+            scores[index] =
+                score_best_tokenization(model, initial, candidates[index],
+                                        paired_endings && index < 2 ? &independent[index] : nullptr)
+                    .score;
+        }
+        // The host's first two candidates are its bounded, quality-gated visible
+        // alternatives. Calibrate only this same-prefix pair, and only if it
+        // contains the model's original same-prefix-family winner. Swap original score slots
+        // rather than penalizing the entire pool: unrelated hidden variants must
+        // not rise merely because a plausible visible word was down-weighted.
+        bool pair_has_family_winner = paired_endings;
+        if (paired_endings)
+            for (std::size_t index = 2; index < candidate_count; ++index) {
+                const std::string_view text(candidates[index]);
+                if (text.starts_with(pair_prefix) &&
+                    utf8_boundaries(text).size() == pair_characters &&
+                    scores[index] > std::max(scores[0], scores[1])) {
+                    pair_has_family_winner = false;
+                    break;
+                }
+            }
+        if (pair_has_family_winner &&
+            owo::model::terminal_pair_flips(scores[0], scores[1], independent[0], independent[1]))
+            std::swap(scores[0], scores[1]);
+        if (!calibrate_singleton_pair(model, initial, has_context, candidates, candidate_count,
+                                      scores, true))
+            calibrate_singleton_pair(model, initial, has_context, candidates, candidate_count,
+                                     scores);
+    } catch (const std::exception &error) {
         set_diagnostic(diagnostic, diagnostic_size, error.what());
         return 0;
     } catch (...) {
-        set_diagnostic(diagnostic, diagnostic_size, "unknown medial calibration failure");
+        set_diagnostic(diagnostic, diagnostic_size, "unknown batch scoring failure");
         return 0;
     }
     set_diagnostic(diagnostic, diagnostic_size, {});
@@ -301,5 +317,5 @@ extern "C" int owo_libime_score_batch(const owo_libime_handle handle,
 }
 
 extern "C" void owo_libime_close(const owo_libime_handle handle) {
-    delete static_cast<BridgeState*>(handle);
+    delete static_cast<BridgeState *>(handle);
 }

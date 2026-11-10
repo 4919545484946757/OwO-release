@@ -32,6 +32,8 @@ OWO_LIBIME_BRIDGE_API int owo_libime_score(owo_libime_handle handle,
 // Batch ranking may calibrate a bounded pair of same-prefix endings or
 // standalone medial-character alternatives, preserving original score slots.
 // Returned scores are ranking evidence, not raw normalized LM probabilities.
+// Context tokenization/state is shared within a batch only; no application
+// context is retained between requests. Scalar and calibration rules are unchanged.
 OWO_LIBIME_BRIDGE_API int owo_libime_score_batch(owo_libime_handle handle,
                                                  const char* context,
                                                  const char* const* candidates,

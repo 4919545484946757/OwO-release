@@ -19,7 +19,7 @@ var events = new[] {
     Event("tsf", "queued", 1100, ("input_started_us", 1000), ("input_units", 5)),
     Event("tsf", "exchange_begin", 1300, ("queue_us", 200)),
     Event("core", "received", 1500), Event("core", "prepare", 1700, ("duration_us", 200)),
-    Event("core", "generation", 4000, ("parse_us", 300), ("generation_us", 1400), ("cache_hit", 0)),
+    Event("core", "generation", 4000, ("parse_us", 300), ("generation_us", 1400), ("cache_hit", 0), ("model_prepare_us", 0)),
     Event("core", "response_ready", 4500, ("duration_us", 3000)),
     Event("core", "encoded", 4510, ("duration_us", 0)), Event("core", "written", 4520, ("duration_us", 0)),
     Event("tsf", "exchange_end", 5000, ("duration_us", 3700), ("ok", 1)),
@@ -33,6 +33,7 @@ var row = snapshot.Rows.Single();
 Check(row.FirstMs == 5 && row.SettledMs == 5 && row.ModelMs == 8, "distinct first/refined/model timing");
 Check(row.Stages["core"] == 3 && Math.Abs(row.Stages["transport_wait"] - .7) < .000001 && row.Stages["dispatch"] == .2, "nested metrics and transport residual");
 Check(!row.Stages.ContainsKey("lookup"), "missing metric must not be fabricated");
+Check(row.Stages["model_prepare"] == 0, "skipped model metadata has actual zero cost");
 Check(!CandidateTimingStore.Build(events.Where(e => e.Event != "written").ToArray()).Rows.Single().Stages.ContainsKey("transport_wait"), "incomplete IPC trace has unknown residual");
 Check(row.Status == "模型已应用", "model application status");
 var fragment = CandidateTimingStore.Build(events.Where(e => e.Component != "tsf").ToArray());

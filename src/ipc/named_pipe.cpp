@@ -1815,16 +1815,33 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 const auto key = model_key(decoded.message.request_id,
                                            decoded.message.context_generation);
                 const auto found = model_requests.find(key);
-                if (found != model_requests.end() &&
-                    found->second.future.wait_for(std::chrono::milliseconds(0)) !=
-                        std::future_status::ready) {
-                    // Consolidate the former sequence of short TSF polls into
-                    // one bounded update wait. Base candidates were already
-                    // returned by candidate_response.
-                    found->second.future.wait_for(std::chrono::milliseconds(
-                        std::min<std::uint32_t>(model_timeout, 60U)));
+                bool update_cancelled = false;
+                if (found != model_requests.end()) {
+                    const auto cancellation = candidate_cancellation_event_name(
+                        decoded.message.request_id, decoded.message.context_generation);
+                    const HANDLE event = OpenEventW(SYNCHRONIZE, FALSE, cancellation.c_str());
+                    const auto cancelled = [&] {
+                        return (event && WaitForSingleObject(event, 0) == WAIT_OBJECT_0) ||
+                            (composition_cancel && WaitForSingleObject(composition_cancel, 0) == WAIT_OBJECT_0);
+                    };
+                    const auto deadline = std::chrono::steady_clock::now() +
+                        std::chrono::milliseconds(std::min<std::uint32_t>(model_timeout, 60U));
+                    // Keep the same total model budget, but never hold the
+                    // serial candidate service for an already superseded UI.
+                    // This cancels waiting/publication, not in-flight libime.
+                    while (!(update_cancelled = cancelled()) &&
+                           found->second.future.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready) {
+                        const auto wait_now = std::chrono::steady_clock::now();
+                        if (wait_now >= deadline) break;
+                        found->second.future.wait_for(std::min(deadline - wait_now,
+                            std::chrono::steady_clock::duration(std::chrono::milliseconds(2))));
+                    }
+                    if (event) CloseHandle(event);
                 }
-                if (found != model_requests.end() &&
+                if (update_cancelled) {
+                    model_requests.erase(found);
+                    diagnostics::candidate_timing(decoded.message.request_id, "core", "model_wait_cancelled");
+                } else if (found != model_requests.end() &&
                     found->second.future.wait_for(std::chrono::milliseconds(0)) !=
                         std::future_status::ready) {
                     response.model_pending = true;
@@ -1991,7 +2008,6 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 std::size_t full_input_bytes = 0;
                 bool request_cancelled = false;
                 std::vector<std::string> model_candidate_pool;
-                std::vector<std::size_t> model_candidate_consumed;
                 std::vector<std::uint64_t> model_candidate_confidence;
                 std::vector<bool> model_candidate_joint_partition;
                 std::vector<bool> model_candidate_generated_sentence;
@@ -2003,10 +2019,14 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 std::vector<std::string> model_hidden_candidates;
                 std::vector<std::uint64_t> model_hidden_consumed;
                 std::vector<std::uint64_t> model_hidden_groups;
+                std::vector<std::size_t> model_hidden_sources;
+                std::vector<std::size_t> model_visible_sources;
                 std::vector<std::string> contextual_preferences;
                 std::vector<std::string> learned_preferences;
                 CandidateCacheKey model_cache_key;
                 bool model_refined = false;
+                bool model_metadata_prepared = false;
+                std::uint64_t model_prepare_us = 0;
                 std::size_t model_visible_count = 0;
                 std::size_t abbreviation_sentence_limit = 0;
                 bool abbreviation_recall = false;
@@ -2538,132 +2558,149 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         });
                     const auto visible_candidate_count = static_cast<std::size_t>(
                         first_model_only - candidates.begin());
-                    model_visible_count = visible_candidate_count;
-                    model_sentence_capacity = engine::sentence_candidate_limit(candidates, full_input_bytes);
-                    model_candidate_pool.reserve(candidates.size());
-                    model_candidate_consumed.reserve(candidates.size());
-                    // Preserve lexical evidence when a rank-only backend
-                    // returns an arbitrary permutation. This is not a pinned
-                    // first candidate: alternatives within one confidence band
-                    // remain free to respond to context/model evidence.
-                    constexpr std::int64_t kModelLexicalConfidenceBand = 8'000;
-                    const auto reference = std::find_if(candidates.begin(), candidates.end(),
-                        [full_input_bytes](const engine::Candidate& candidate) {
-                            return !candidate.model_only && !candidate.user_preferred() &&
+                    // Symbol projection is presentation state, not model state:
+                    // retain it even when no model request will be submitted.
+                    if (symbol_state) for (const auto& candidate : candidates)
+                        symbol_state->source_segments.insert_or_assign(
+                            candidate.text + ':' + std::to_string(candidate.consumed_input_bytes),
+                            candidate.source_segments);
+                    model_metadata_prepared = !request_cancelled && !response.candidate_refinement_pending &&
+                        external_model_ranking_enabled && !model_refined && page == 0 &&
+                        visible_candidate_count != 0 && model_requests.size() < 128 &&
+                        (!full_pinyin_scheme || !is_double_initial_input(decoded.message.text));
+                    if (model_metadata_prepared) {
+                        const auto model_prepare_started = std::chrono::steady_clock::now();
+                        model_visible_count = visible_candidate_count;
+                        model_sentence_capacity = engine::sentence_candidate_limit(candidates, full_input_bytes);
+                        model_candidate_pool.reserve(candidates.size());
+                        model_candidate_joint_partition.reserve(candidates.size());
+                        model_candidate_generated_sentence.reserve(candidates.size());
+                        model_candidate_segments.reserve(candidates.size());
+                        model_candidate_head_identities.reserve(candidates.size());
+                        model_candidate_readings.reserve(candidates.size());
+                        model_candidate_confidence.reserve(candidates.size());
+                        // Preserve lexical evidence when a rank-only backend
+                        // returns an arbitrary permutation. This is not a pinned
+                        // first candidate: alternatives within one confidence band
+                        // remain free to respond to context/model evidence.
+                        constexpr std::int64_t kModelLexicalConfidenceBand = 8'000;
+                        const auto reference = std::find_if(candidates.begin(), candidates.end(),
+                            [full_input_bytes](const engine::Candidate& candidate) {
+                                return !candidate.model_only && !candidate.user_preferred() &&
+                                    candidate.match_kind == engine::InputMatchKind::exact &&
+                                    candidate.segment_count > 1 &&
+                                    candidate.consumed_input_bytes == full_input_bytes;
+                            });
+                        const engine::Candidate* joint_reference = nullptr;
+                        for (const auto& candidate : candidates) {
+                            if (candidate.joint_phrase_partition && !candidate.model_only &&
+                                !candidate.user_preferred() &&
+                                (joint_reference == nullptr || candidate.score > joint_reference->score))
+                                joint_reference = &candidate;
+                        }
+                        for (const auto& candidate : candidates) {
+                            model_candidate_pool.push_back(candidate.text);
+                            model_candidate_joint_partition.push_back(candidate.joint_phrase_partition);
+                            model_candidate_generated_sentence.push_back(
+                                candidate.segment_count > 1 && candidate.syllables.size() >= 3 &&
+                                candidate.consumed_input_bytes == full_input_bytes &&
+                                utf8_character_count(candidate.text) == candidate.syllables.size());
+                            model_candidate_segments.push_back(candidate.segment_count);
+                            model_candidate_head_identities.push_back(standalone_head_identity(candidate, full_input_bytes));
+                            model_candidate_readings.push_back(candidate.qualified_sentence_reading
+                                ? engine::sentence_reading_key(candidate) : std::string{});
+                            std::uint64_t confidence = 0;
+                            if (reference != candidates.end() && !candidate.user_preferred() &&
+                                !standalone_head_alternative(*reference, candidate, full_input_bytes) &&
                                 candidate.match_kind == engine::InputMatchKind::exact &&
                                 candidate.segment_count > 1 &&
-                                candidate.consumed_input_bytes == full_input_bytes;
-                        });
-                    const engine::Candidate* joint_reference = nullptr;
-                    for (const auto& candidate : candidates) {
-                        if (symbol_state)
-                            symbol_state->source_segments.insert_or_assign(
-                                candidate.text + ':' + std::to_string(candidate.consumed_input_bytes),
-                                candidate.source_segments);
-                        if (candidate.joint_phrase_partition && !candidate.model_only &&
-                            !candidate.user_preferred() &&
-                            (joint_reference == nullptr || candidate.score > joint_reference->score))
-                            joint_reference = &candidate;
-                    }
-                    for (const auto& candidate : candidates) {
-                        model_candidate_pool.push_back(candidate.text);
-                        model_candidate_consumed.push_back(
-                            candidate.consumed_input_bytes);
-                        model_candidate_joint_partition.push_back(candidate.joint_phrase_partition);
-                        model_candidate_generated_sentence.push_back(
-                            candidate.segment_count > 1 && candidate.syllables.size() >= 3 &&
-                            candidate.consumed_input_bytes == full_input_bytes &&
-                            utf8_character_count(candidate.text) == candidate.syllables.size());
-                        model_candidate_segments.push_back(candidate.segment_count);
-                        model_candidate_head_identities.push_back(standalone_head_identity(candidate, full_input_bytes));
-                        model_candidate_readings.push_back(candidate.qualified_sentence_reading
-                            ? engine::sentence_reading_key(candidate) : std::string{});
-                        std::uint64_t confidence = 0;
-                        if (reference != candidates.end() && !candidate.user_preferred() &&
-                            !standalone_head_alternative(*reference, candidate, full_input_bytes) &&
-                            candidate.match_kind == engine::InputMatchKind::exact &&
-                            candidate.segment_count > 1 &&
-                            candidate.consumed_input_bytes == full_input_bytes &&
-                            candidate.source_segments == reference->source_segments &&
-                            candidate.syllables == reference->syllables &&
-                            // A different word boundary is a genuine model
-                            // alternative, not a low-confidence character swap.
-                            candidate.segment_lengths == reference->segment_lengths &&
-                            candidate.coherence_score <= reference->coherence_score &&
-                            candidate.score < reference->score)
-                            confidence = static_cast<std::uint64_t>(
-                                (reference->score - candidate.score) / kModelLexicalConfidenceBand);
-                        model_candidate_confidence.push_back(confidence);
-                        // A recovered vowel boundary backed by complete real
-                        // word coverage must not disappear behind unsupported
-                        // character combinations of another reading. Preserve
-                        // explicit learning and the within-reading LM order.
-                        if (reference != candidates.end() && !candidate.user_preferred() &&
-                            candidate.match_kind == engine::InputMatchKind::exact &&
-                            candidate.segment_count > 1 &&
-                            candidate.consumed_input_bytes == full_input_bytes &&
-                            candidate.source_segments != reference->source_segments &&
-                            reference->segment_lengths.size() >= 2 &&
-                            std::all_of(reference->segment_lengths.begin(), reference->segment_lengths.end(),
-                                [](const auto length) { return length >= 2; }) &&
-                            candidate.coherence_score < reference->coherence_score / 2 &&
-                            reference->coherence_score >= kModelLexicalConfidenceBand)
-                            model_candidate_confidence.back() = std::max<std::uint64_t>(confidence, 1);
-                        if (candidate.joint_phrase_partition && !candidate.user_preferred() &&
-                            joint_reference != nullptr && candidate.score < joint_reference->score &&
-                            candidate.source_segments == joint_reference->source_segments &&
-                            candidate.syllables == joint_reference->syllables &&
-                            (candidate.segment_count == 1 ||
-                             !abbreviated_model_alternative(candidate, full_input_bytes)) &&
-                            !standalone_head_alternative(*joint_reference, candidate, full_input_bytes))
-                            model_candidate_confidence.back() = std::max(model_candidate_confidence.back(),
-                                static_cast<std::uint64_t>((joint_reference->score - candidate.score) /
-                                    kModelLexicalConfidenceBand));
-                    }
-                    // Reserve bounded model slots for hidden alternatives even
-                    // when expanded mode already has 256 visible entries.
-                    // Metadata for unscored visible entries stays available.
-                    const auto hidden_count = candidates.size() - visible_candidate_count;
-                    const auto ranked_hidden_count = model_candidate_pool.size() > protocol::kMaximumCandidateCount
-                        ? std::min<std::size_t>(64, hidden_count) : hidden_count;
-                    if (begin == 0) {
-                        // Abbreviations have many equally valid readings.
-                        // Allow a bounded slice of existing off-page whole
-                        // matches to compete, not just the accidental first
-                        // page and generator's model-only tail. Reserve the
-                        // already generated sentence alternatives before
-                        // dictionary words can exhaust the recall budget.
-                        if (external_model_ranking_enabled && full_pinyin_scheme) {
-                            std::size_t recalled = 0;
-                            for (const bool composed : {true, false}) {
-                                for (std::size_t index = 0; index < visible_candidate_count; ++index) {
-                                    const auto& candidate = candidates[index];
-                                    if ((candidate.segment_count > 1) != composed ||
-                                        !abbreviated_model_alternative(candidate, full_input_bytes)) continue;
-                                    if (composed)
-                                        abbreviation_sentence_limit = std::min(model_sentence_capacity, abbreviation_sentence_limit + 1);
-                                    if (index < result_size || recalled >= 24) continue;
-                                    model_hidden_candidates.push_back(candidate.text);
-                                    model_hidden_consumed.push_back(candidate.consumed_input_bytes);
-                                    model_hidden_groups.push_back(candidate_group(candidate, full_input_bytes));
-                                    abbreviation_recall = true;
-                                    ++recalled;
+                                candidate.consumed_input_bytes == full_input_bytes &&
+                                candidate.source_segments == reference->source_segments &&
+                                candidate.syllables == reference->syllables &&
+                                // A different word boundary is a genuine model
+                                // alternative, not a low-confidence character swap.
+                                candidate.segment_lengths == reference->segment_lengths &&
+                                candidate.coherence_score <= reference->coherence_score &&
+                                candidate.score < reference->score)
+                                confidence = static_cast<std::uint64_t>(
+                                    (reference->score - candidate.score) / kModelLexicalConfidenceBand);
+                            model_candidate_confidence.push_back(confidence);
+                            // A recovered vowel boundary backed by complete real
+                            // word coverage must not disappear behind unsupported
+                            // character combinations of another reading. Preserve
+                            // explicit learning and the within-reading LM order.
+                            if (reference != candidates.end() && !candidate.user_preferred() &&
+                                candidate.match_kind == engine::InputMatchKind::exact &&
+                                candidate.segment_count > 1 &&
+                                candidate.consumed_input_bytes == full_input_bytes &&
+                                candidate.source_segments != reference->source_segments &&
+                                reference->segment_lengths.size() >= 2 &&
+                                std::all_of(reference->segment_lengths.begin(), reference->segment_lengths.end(),
+                                    [](const auto length) { return length >= 2; }) &&
+                                candidate.coherence_score < reference->coherence_score / 2 &&
+                                reference->coherence_score >= kModelLexicalConfidenceBand)
+                                model_candidate_confidence.back() = std::max<std::uint64_t>(confidence, 1);
+                            if (candidate.joint_phrase_partition && !candidate.user_preferred() &&
+                                joint_reference != nullptr && candidate.score < joint_reference->score &&
+                                candidate.source_segments == joint_reference->source_segments &&
+                                candidate.syllables == joint_reference->syllables &&
+                                (candidate.segment_count == 1 ||
+                                 !abbreviated_model_alternative(candidate, full_input_bytes)) &&
+                                !standalone_head_alternative(*joint_reference, candidate, full_input_bytes))
+                                model_candidate_confidence.back() = std::max(model_candidate_confidence.back(),
+                                    static_cast<std::uint64_t>((joint_reference->score - candidate.score) /
+                                        kModelLexicalConfidenceBand));
+                        }
+                        // Reserve bounded model slots for hidden alternatives even
+                        // when expanded mode already has 256 visible entries.
+                        // Metadata for unscored visible entries stays available.
+                        const auto hidden_count = candidates.size() - visible_candidate_count;
+                        const auto ranked_hidden_count = model_candidate_pool.size() > protocol::kMaximumCandidateCount
+                            ? std::min<std::size_t>(64, hidden_count) : hidden_count;
+                        if (begin == 0) {
+                            // Abbreviations have many equally valid readings.
+                            // Allow a bounded slice of existing off-page whole
+                            // matches to compete, not just the accidental first
+                            // page and generator's model-only tail. Reserve the
+                            // already generated sentence alternatives before
+                            // dictionary words can exhaust the recall budget.
+                            if (external_model_ranking_enabled && full_pinyin_scheme) {
+                                std::size_t recalled = 0;
+                                for (const bool composed : {true, false}) {
+                                    for (std::size_t index = 0; index < visible_candidate_count; ++index) {
+                                        const auto& candidate = candidates[index];
+                                        if ((candidate.segment_count > 1) != composed ||
+                                            !abbreviated_model_alternative(candidate, full_input_bytes)) continue;
+                                        if (composed)
+                                            abbreviation_sentence_limit = std::min(model_sentence_capacity, abbreviation_sentence_limit + 1);
+                                        if (index < result_size || recalled >= 24) continue;
+                                        model_hidden_candidates.push_back(candidate.text);
+                                        model_hidden_sources.push_back(index);
+                                        model_hidden_consumed.push_back(candidate.consumed_input_bytes);
+                                        model_hidden_groups.push_back(candidate_group(candidate, full_input_bytes));
+                                        abbreviation_recall = true;
+                                        ++recalled;
+                                    }
                                 }
                             }
+                            for (std::size_t index = visible_candidate_count;
+                                 index < candidates.size() && index - visible_candidate_count < ranked_hidden_count; ++index) {
+                                if (!candidates[index].model_only) continue;
+                                if (model_hidden_candidates.size() >= 64) break;
+                                if (model_candidate_generated_sentence[index] &&
+                                    abbreviated_model_alternative(candidates[index], full_input_bytes))
+                                    abbreviation_sentence_limit = std::min(model_sentence_capacity, abbreviation_sentence_limit + 1);
+                                model_hidden_candidates.push_back(candidates[index].text);
+                                model_hidden_sources.push_back(index);
+                                model_hidden_consumed.push_back(
+                                    candidates[index].consumed_input_bytes);
+                                model_hidden_groups.push_back(candidate_group(
+                                    candidates[index], full_input_bytes));
+                            }
                         }
-                        for (std::size_t index = visible_candidate_count;
-                             index < candidates.size() && index - visible_candidate_count < ranked_hidden_count; ++index) {
-                            if (!candidates[index].model_only) continue;
-                            if (model_hidden_candidates.size() >= 64) break;
-                            if (model_candidate_generated_sentence[index] &&
-                                abbreviated_model_alternative(candidates[index], full_input_bytes))
-                                abbreviation_sentence_limit = std::min(model_sentence_capacity, abbreviation_sentence_limit + 1);
-                            model_hidden_candidates.push_back(candidates[index].text);
-                            model_hidden_consumed.push_back(
-                                candidates[index].consumed_input_bytes);
-                            model_hidden_groups.push_back(candidate_group(
-                                candidates[index], full_input_bytes));
-                        }
+                        model_prepare_us = static_cast<std::uint64_t>(
+                            std::chrono::duration_cast<std::chrono::microseconds>(
+                                std::chrono::steady_clock::now() - model_prepare_started).count());
                     }
                     auto end = std::min(visible_candidate_count, begin + result_size);
                     if (partitioned_layout && !decoded.message.expanded) {
@@ -2674,7 +2711,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         begin = page + 1 < boundaries.size() ? boundaries[page] : visible_candidate_count;
                         end = page + 1 < boundaries.size() ? boundaries[page + 1] : visible_candidate_count;
                     }
-                    if (partitioned_layout && !decoded.message.expanded && page == 0 && external_model_ranking_enabled) {
+                    if (partitioned_layout && !decoded.message.expanded && page == 0 && model_metadata_prepared) {
                         // Page membership is presentation, not a model quality
                         // barrier. Let qualified later-page sentences compete
                         // for the same two slots, then swap displaced entries
@@ -2687,6 +2724,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             if (model_hidden_candidates.size() >= 64) break;
                             if (std::find(model_hidden_candidates.begin(), model_hidden_candidates.end(), candidate.text) != model_hidden_candidates.end()) continue;
                             model_hidden_candidates.push_back(candidate.text);
+                            model_hidden_sources.push_back(index);
                             model_hidden_consumed.push_back(candidate.consumed_input_bytes);
                             model_hidden_groups.push_back(candidate_group(candidate, full_input_bytes));
                             sentence_recall = true;
@@ -2723,9 +2761,12 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         response.candidates.reserve(end - begin);
                         response.candidate_consumed.reserve(end - begin);
                         response.candidate_groups.reserve(end - begin);
+                        if (model_metadata_prepared) model_visible_sources.reserve(end - begin);
                         const auto append_candidate = [
                             &response, &candidates, partitioned_layout,
+                            &model_visible_sources, model_metadata_prepared,
                             full_input_bytes](const std::size_t index) {
+                            if (model_metadata_prepared) model_visible_sources.push_back(index);
                             response.candidates.push_back(candidates[index].text);
                             response.candidate_consumed.push_back(
                                 candidates[index].consumed_input_bytes);
@@ -2752,6 +2793,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         {"lookup_count", static_cast<std::int64_t>(generation_metrics.lexicon_lookup_count)},
                         {"beam_transitions", static_cast<std::int64_t>(generation_metrics.beam_transitions)},
                         {"beam_materialized", static_cast<std::int64_t>(generation_metrics.beam_materialized)},
+                        {"model_prepare_us", static_cast<std::int64_t>(model_prepare_us)},
+                        {"model_prepared", model_metadata_prepared},
                         {"search_us", total_us},
                         {"layout_us", std::chrono::duration_cast<std::chrono::microseconds>(
                             std::chrono::steady_clock::now() - generation_finished).count()},
@@ -2801,156 +2844,160 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 // Transitional compatibility for the P1 TSF consumer. It is removed when
                 // TSF owns a paged candidate list later in P2.1.
                 if (!response.candidates.empty()) response.text = response.candidates.front();
-                if (user_frequency != nullptr && user_learning_enabled &&
-                    !response.candidates.empty()) {
-                    struct LearnedPreference {
-                        std::string text;
-                        std::int64_t score{};
-                        std::size_t index{};
-                    };
-                    std::vector<LearnedPreference> learned;
-                    learned.reserve(response.candidates.size());
-                    for (std::size_t index = 0; index < response.candidates.size(); ++index) {
-                        const auto& text = response.candidates[index];
-                        const auto score = user_frequency->score(text) +
-                            user_frequency->contextual_score(
-                                decoded.message.text, text) +
-                            user_frequency->language_context_score(
-                                decoded.message.context, decoded.message.text, text);
-                        if (score > 0) learned.push_back({text, score, index});
-                    }
-                    std::stable_sort(learned.begin(), learned.end(),
-                                     [](const auto& left, const auto& right) {
-                        if (left.score != right.score) return left.score > right.score;
-                        return left.index < right.index;
-                    });
-                    for (const auto& preference : learned) {
-                        learned_preferences.push_back(preference.text);
-                        if (learned_preferences.size() == 2) break;
-                    }
-                }
-                auto model_update_candidates = response.candidates;
-                auto model_update_consumed = response.candidate_consumed;
-                auto model_update_groups = response.candidate_groups;
-                // Normal candidates remain page-local so a delayed model
-                // result cannot replace page N with page zero. Hidden
-                // whole-input alternatives are the deliberate exception:
-                // they exist only to let sentence-level scoring replace a
-                // raw-frequency composition on the first page.
-                model_update_candidates.insert(model_update_candidates.end(),
-                                               model_hidden_candidates.begin(),
-                                               model_hidden_candidates.end());
-                model_update_consumed.insert(model_update_consumed.end(),
-                                             model_hidden_consumed.begin(),
-                                             model_hidden_consumed.end());
-                if (!model_update_groups.empty())
-                    model_update_groups.insert(model_update_groups.end(),
-                                               model_hidden_groups.begin(),
-                                               model_hidden_groups.end());
-                if (!request_cancelled && !response.candidate_refinement_pending &&
-                    external_model_ranking_enabled && !model_refined && response.page == 0 &&
-                    !response.candidates.empty() &&
-                    (!full_pinyin_scheme ||
-                     !is_double_initial_input(decoded.message.text)) &&
-                    model_requests.size() < 128) {
-                    model::ModelMessage model_request;
-                    model_request.type = model::ModelMessageType::rank_request;
-                    model_request.status = model::ModelStatus::success;
-                    model_request.request_id = decoded.message.request_id;
-                    model_request.timeout_ms = model_timeout;
-                    // An empty identifier selects the active ModelHost backend. Explicit
-                    // identifiers remain available to diagnostic clients.
-                    model_request.model_id.clear();
-                    model_request.input = decoded.message.text;
-                    model_request.context = decoded.message.context;
-                    model_request.candidates = model_candidate_pool;
-                    if (model_request.candidates.size() > protocol::kMaximumCandidateCount) {
-                        const auto visible_keep = std::min(model_visible_count,
-                            protocol::kMaximumCandidateCount - model_hidden_candidates.size());
-                        model_request.candidates.erase(model_request.candidates.begin() + static_cast<std::ptrdiff_t>(visible_keep),
-                            model_request.candidates.begin() + static_cast<std::ptrdiff_t>(model_visible_count));
-                        model_request.candidates.resize(visible_keep + model_hidden_candidates.size());
-                    }
-                    const std::wstring model_pipe(model_pipe_name);
-                    // Only the newest composition can affect the active TSF
-                    // window. Drop mappings for older generations before the
-                    // latest-only worker accepts the new ranking task.
-                    if (!auxiliary) model_requests.clear();
-                    PendingModelRequest pending_model;
-                    pending_model.cache_key = model_cache_key;
-                    diagnostics::candidate_timing(decoded.message.request_id, "core", "model_queued", {
-                        {"auxiliary", auxiliary}});
-                    auto rank = [model_pipe, request = std::move(model_request), model_timeout] {
-                            const auto started = diagnostics::timing_now_us();
-                            diagnostics::candidate_timing(request.request_id, "core", "model_begin");
-                            const auto exchanged = exchange(
-                                model_pipe.c_str(), model::encode_model_message(request),
-                                std::chrono::milliseconds(model_timeout + 25U));
-                            diagnostics::candidate_timing(request.request_id, "core", "model_end", {
-                                {"duration_us", static_cast<std::int64_t>(diagnostics::timing_now_us() - started)},
-                                {"ok", static_cast<bool>(exchanged.status)}});
-                            diagnostics::CandidateTiming::instance().flush();
-                            if (!exchanged.status) return model::ModelMessage{};
-                            const auto decoded_model =
-                                model::decode_model_message(exchanged.response);
-                            return decoded_model.validation ? decoded_model.message
-                                                            : model::ModelMessage{};
+                // No preference rescoring, response copies or hidden metadata
+                // are needed for disabled/already-refined/off-page requests.
+                if (model_metadata_prepared) {
+                    if (user_frequency != nullptr && user_learning_enabled &&
+                        !response.candidates.empty()) {
+                        struct LearnedPreference {
+                            std::string text;
+                            std::int64_t score{};
+                            std::size_t index{};
                         };
-                    if (auxiliary) {
-                        // Resolve this page's model through the same update
-                        // path without replacing/cancelling the active row's
-                        // latest-only ranking task.
-                        std::promise<model::ModelMessage> ready;
-                        pending_model.future = ready.get_future();
-                        ready.set_value(rank());
-                    } else pending_model.future = model_queue.submit(std::move(rank));
-                    pending_model.created = std::chrono::steady_clock::now();
-                    pending_model.candidates = std::move(model_update_candidates);
-                    pending_model.candidate_consumed = std::move(model_update_consumed);
-                    pending_model.candidate_groups = std::move(model_update_groups);
-                    pending_model.joint_phrase_partition.reserve(pending_model.candidates.size());
-                    pending_model.candidate_confidence.reserve(pending_model.candidates.size());
-                    pending_model.generated_sentences.reserve(pending_model.candidates.size());
-                    for (std::size_t index = 0; index < pending_model.candidates.size(); ++index) {
-                        auto match = model_candidate_pool.size();
-                        for (std::size_t source = 0; source < model_candidate_pool.size(); ++source) {
-                            if (model_candidate_pool[source] == pending_model.candidates[index] &&
-                                model_candidate_consumed[source] == pending_model.candidate_consumed[index]) {
-                                match = source;
-                                break;
-                            }
+                        std::vector<LearnedPreference> learned;
+                        learned.reserve(response.candidates.size());
+                        for (std::size_t index = 0; index < response.candidates.size(); ++index) {
+                            const auto& text = response.candidates[index];
+                            const auto score = user_frequency->score(text) +
+                                user_frequency->contextual_score(
+                                    decoded.message.text, text) +
+                                user_frequency->language_context_score(
+                                    decoded.message.context, decoded.message.text, text);
+                            if (score > 0) learned.push_back({text, score, index});
                         }
-                        pending_model.joint_phrase_partition.push_back(
-                            match < model_candidate_pool.size() && model_candidate_joint_partition[match]);
-                        pending_model.candidate_confidence.push_back(match < model_candidate_pool.size()
-                            ? model_candidate_confidence[match] : 0);
-                        const bool sentence = match < model_candidate_pool.size() && model_candidate_generated_sentence[match];
-                        pending_model.generated_sentences.push_back(sentence);
-                        pending_model.sentence_segments.push_back(match < model_candidate_pool.size()
-                            ? model_candidate_segments[match] : 0);
-                        pending_model.sentence_readings.push_back(match < model_candidate_pool.size()
-                            ? model_candidate_readings[match] : std::string{});
-                        pending_model.sentence_head_identities.push_back(match < model_candidate_pool.size()
-                            ? model_candidate_head_identities[match] : std::string{});
-                        if (index < response.candidates.size() && sentence) ++pending_model.sentence_limit;
+                        std::stable_sort(learned.begin(), learned.end(),
+                                         [](const auto& left, const auto& right) {
+                            if (left.score != right.score) return left.score > right.score;
+                            return left.index < right.index;
+                        });
+                        for (const auto& preference : learned) {
+                            learned_preferences.push_back(preference.text);
+                            if (learned_preferences.size() == 2) break;
+                        }
                     }
-                    pending_model.full_input_bytes = full_input_bytes;
-                    pending_model.sentence_limit = std::max(
-                        pending_model.sentence_limit, abbreviation_sentence_limit);
-                    pending_model.visible_count = response.candidates.size();
-                    pending_model.page_size = static_cast<std::size_t>(candidate_page_size);
-                    pending_model.expanded = response.expanded;
-                    pending_model.partitioned = candidate_partition_enabled && candidate_page_size >= 4;
-                    pending_model.sentence_recall = sentence_recall;
-                    pending_model.abbreviation_recall = abbreviation_recall;
-                    pending_model.contextual_preferences =
-                        std::move(contextual_preferences);
-                    pending_model.learned_preferences = std::move(learned_preferences);
-                    model_requests.insert_or_assign(
-                        model_key(decoded.message.request_id,
-                                  decoded.message.context_generation),
-                        std::move(pending_model));
-                    response.model_pending = true;
+                    auto model_update_candidates = response.candidates;
+                    auto model_update_consumed = response.candidate_consumed;
+                    auto model_update_groups = response.candidate_groups;
+                    auto model_update_sources = std::move(model_visible_sources);
+                    model_update_sources.insert(model_update_sources.end(),
+                        model_hidden_sources.begin(), model_hidden_sources.end());
+                    // Normal candidates remain page-local so a delayed model
+                    // result cannot replace page N with page zero. Hidden
+                    // whole-input alternatives are the deliberate exception:
+                    // they exist only to let sentence-level scoring replace a
+                    // raw-frequency composition on the first page.
+                    model_update_candidates.insert(model_update_candidates.end(),
+                                                   model_hidden_candidates.begin(),
+                                                   model_hidden_candidates.end());
+                    model_update_consumed.insert(model_update_consumed.end(),
+                                                 model_hidden_consumed.begin(),
+                                                 model_hidden_consumed.end());
+                    if (!model_update_groups.empty())
+                        model_update_groups.insert(model_update_groups.end(),
+                                                   model_hidden_groups.begin(),
+                                                   model_hidden_groups.end());
+                    if (!request_cancelled && !response.candidate_refinement_pending &&
+                        external_model_ranking_enabled && !model_refined && response.page == 0 &&
+                        !response.candidates.empty() &&
+                        (!full_pinyin_scheme ||
+                         !is_double_initial_input(decoded.message.text)) &&
+                        model_requests.size() < 128) {
+                        model::ModelMessage model_request;
+                        model_request.type = model::ModelMessageType::rank_request;
+                        model_request.status = model::ModelStatus::success;
+                        model_request.request_id = decoded.message.request_id;
+                        model_request.timeout_ms = model_timeout;
+                        // An empty identifier selects the active ModelHost backend. Explicit
+                        // identifiers remain available to diagnostic clients.
+                        model_request.model_id.clear();
+                        model_request.input = decoded.message.text;
+                        model_request.context = decoded.message.context;
+                        model_request.candidates = model_candidate_pool;
+                        if (model_request.candidates.size() > protocol::kMaximumCandidateCount) {
+                            const auto visible_keep = std::min(model_visible_count,
+                                protocol::kMaximumCandidateCount - model_hidden_candidates.size());
+                            model_request.candidates.erase(model_request.candidates.begin() + static_cast<std::ptrdiff_t>(visible_keep),
+                                model_request.candidates.begin() + static_cast<std::ptrdiff_t>(model_visible_count));
+                            model_request.candidates.resize(visible_keep + model_hidden_candidates.size());
+                        }
+                        const std::wstring model_pipe(model_pipe_name);
+                        // Only the newest composition can affect the active TSF
+                        // window. Drop mappings for older generations before the
+                        // latest-only worker accepts the new ranking task.
+                        if (!auxiliary) model_requests.clear();
+                        PendingModelRequest pending_model;
+                        pending_model.cache_key = model_cache_key;
+                        diagnostics::candidate_timing(decoded.message.request_id, "core", "model_queued", {
+                            {"auxiliary", auxiliary}});
+                        auto rank = [model_pipe, request = std::move(model_request), model_timeout] {
+                                const auto started = diagnostics::timing_now_us();
+                                diagnostics::candidate_timing(request.request_id, "core", "model_begin");
+                                const auto exchanged = exchange(
+                                    model_pipe.c_str(), model::encode_model_message(request),
+                                    std::chrono::milliseconds(model_timeout + 25U));
+                                diagnostics::candidate_timing(request.request_id, "core", "model_end", {
+                                    {"duration_us", static_cast<std::int64_t>(diagnostics::timing_now_us() - started)},
+                                    {"ok", static_cast<bool>(exchanged.status)}});
+                                diagnostics::CandidateTiming::instance().flush();
+                                if (!exchanged.status) return model::ModelMessage{};
+                                const auto decoded_model =
+                                    model::decode_model_message(exchanged.response);
+                                return decoded_model.validation ? decoded_model.message
+                                                                : model::ModelMessage{};
+                            };
+                        if (auxiliary) {
+                            // Resolve this page's model through the same update
+                            // path without replacing/cancelling the active row's
+                            // latest-only ranking task.
+                            std::promise<model::ModelMessage> ready;
+                            pending_model.future = ready.get_future();
+                            ready.set_value(rank());
+                        } else pending_model.future = model_queue.submit(std::move(rank));
+                        pending_model.created = std::chrono::steady_clock::now();
+                        pending_model.candidates = std::move(model_update_candidates);
+                        pending_model.candidate_consumed = std::move(model_update_consumed);
+                        pending_model.candidate_groups = std::move(model_update_groups);
+                        pending_model.joint_phrase_partition.reserve(pending_model.candidates.size());
+                        pending_model.candidate_confidence.reserve(pending_model.candidates.size());
+                        pending_model.generated_sentences.reserve(pending_model.candidates.size());
+                        // Keep each candidate's original row while slicing and
+                        // recalling it. No text hashing, allocations per key or
+                        // repeated full-pool scans are needed to find metadata.
+                        for (std::size_t index = 0; index < pending_model.candidates.size(); ++index) {
+                            const auto match = index < model_update_sources.size()
+                                ? model_update_sources[index] : model_candidate_pool.size();
+                            pending_model.joint_phrase_partition.push_back(
+                                match < model_candidate_pool.size() && model_candidate_joint_partition[match]);
+                            pending_model.candidate_confidence.push_back(match < model_candidate_pool.size()
+                                ? model_candidate_confidence[match] : 0);
+                            const bool sentence = match < model_candidate_pool.size() && model_candidate_generated_sentence[match];
+                            pending_model.generated_sentences.push_back(sentence);
+                            pending_model.sentence_segments.push_back(match < model_candidate_pool.size()
+                                ? model_candidate_segments[match] : 0);
+                            pending_model.sentence_readings.push_back(match < model_candidate_pool.size()
+                                ? model_candidate_readings[match] : std::string{});
+                            pending_model.sentence_head_identities.push_back(match < model_candidate_pool.size()
+                                ? model_candidate_head_identities[match] : std::string{});
+                            if (index < response.candidates.size() && sentence) ++pending_model.sentence_limit;
+                        }
+                        pending_model.full_input_bytes = full_input_bytes;
+                        pending_model.sentence_limit = std::max(
+                            pending_model.sentence_limit, abbreviation_sentence_limit);
+                        pending_model.visible_count = response.candidates.size();
+                        pending_model.page_size = static_cast<std::size_t>(candidate_page_size);
+                        pending_model.expanded = response.expanded;
+                        pending_model.partitioned = candidate_partition_enabled && candidate_page_size >= 4;
+                        pending_model.sentence_recall = sentence_recall;
+                        pending_model.abbreviation_recall = abbreviation_recall;
+                        pending_model.contextual_preferences =
+                            std::move(contextual_preferences);
+                        pending_model.learned_preferences = std::move(learned_preferences);
+                        model_requests.insert_or_assign(
+                            model_key(decoded.message.request_id,
+                                      decoded.message.context_generation),
+                            std::move(pending_model));
+                        response.model_pending = true;
+                    }
                 }
                 if (cancellation_event != nullptr) CloseHandle(cancellation_event);
             } else if (decoded.message.type ==
