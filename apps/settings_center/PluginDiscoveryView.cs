@@ -7,6 +7,7 @@ namespace OwO_Settings;
 internal sealed class PluginDiscoveryView : UserControl
 {
     private readonly OnlineDistribution _client = new();
+    private readonly OnlinePluginCatalog _catalog;
     private readonly StackPanel _cards = new() { Spacing = 10 };
     private readonly Action<string, InfoBarSeverity> _reportStatus;
     private readonly DownloadProgressView _progress = new("PluginDownload");
@@ -18,13 +19,14 @@ internal sealed class PluginDiscoveryView : UserControl
     private readonly Func<string, string, Task> _install;
     private readonly Action _showInstalled;
     private readonly Style _cardBackingStyle;
-    private IReadOnlyList<OnlineResource> _resources = [];
     private IReadOnlyList<PluginVersionSnapshot> _installed = [];
     private CancellationTokenSource? _operation;
+    private bool _pageActive;
     private string _query = "";
     private readonly string _downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OwO", "InputMethod", "downloads");
 
     internal PluginDiscoveryView(Func<string, string, Task> install, Action showInstalled, Action<string, InfoBarSeverity> reportStatus, Func<string, CancellationToken, DownloadOperation> beginDownload, Style cardBackingStyle) {
+        _catalog = new(_client);
         _cardBackingStyle = cardBackingStyle;
         _install = install; _showInstalled = showInstalled; _reportStatus = reportStatus; _beginDownload = beginDownload;
         var body = new StackPanel { Spacing = 12 };
@@ -34,17 +36,23 @@ internal sealed class PluginDiscoveryView : UserControl
         body.Children.Add(_updatesOnly); body.Children.Add(_progress); body.Children.Add(_cards);
         Content = body;
         AutomationProperties.SetAutomationId(_refresh, "PluginCatalogRefresh");
-        _refresh.Click += async (_, _) => await RunAsync(async token => {
-            Notice("正在查询官方插件目录……");
-            using var query = CancellationTokenSource.CreateLinkedTokenSource(token); query.CancelAfter(TimeSpan.FromSeconds(30));
-            var release = await _client.LatestAsync(query.Token);
-            var resources = await _client.ResourcesAsync(release, query.Token);
-            _resources = resources.Where(r => r.Kind == "plugin").ToList(); Render();
-            Notice($"目录 {release.Tag} · {_resources.Count} 个插件。下载会校验大小及 SHA-256，安装仍需独立确认。", InfoBarSeverity.Success);
-        });
+        _refresh.Click += async (_, _) => await RefreshCatalogAsync(refresh: true);
         _updatesOnly.Checked += (_, _) => Render(); _updatesOnly.Unchecked += (_, _) => Render();
         Unloaded += (_, _) => { if (_download is null) _operation?.Cancel(); };
     }
+    internal void SetPageActive(bool active) {
+        if (_pageActive == active) return;
+        _pageActive = active;
+        if (active && _catalog.Current is null) _ = RefreshCatalogAsync(refresh: false);
+    }
+    private Task RefreshCatalogAsync(bool refresh) => RunAsync(async token => {
+        Notice("正在查询官方插件目录……");
+        using var query = CancellationTokenSource.CreateLinkedTokenSource(token);
+        query.CancelAfter(TimeSpan.FromSeconds(30));
+        var catalog = await _catalog.LoadAsync(refresh, query.Token);
+        if (_pageActive)
+            Notice($"目录 {catalog.ReleaseTag} · {catalog.Resources.Count} 个插件。下载会校验大小及 SHA-256，安装仍需独立确认。", InfoBarSeverity.Success);
+    }, catalogRefresh: true);
     internal void SetInstalled(IReadOnlyList<PluginVersionSnapshot> values) { _installed = values; Render(); }
     internal void SetQuery(string query) { _query = query.Trim(); Render(); }
     private void Notice(string message, InfoBarSeverity severity = InfoBarSeverity.Informational) {
@@ -52,7 +60,9 @@ internal sealed class PluginDiscoveryView : UserControl
     }
     private void Render() {
         _cards.Children.Clear(); _actions.Clear();
-        var matched = _resources.Where(r => $"{r.Name} {r.Id} {r.Version}".Contains(_query, StringComparison.OrdinalIgnoreCase))
+        var catalog = _catalog.Current;
+        if (catalog is null) return;
+        var matched = catalog.Resources.Where(r => $"{r.Name} {r.Id} {r.Version}".Contains(_query, StringComparison.OrdinalIgnoreCase))
             .Where(r => _updatesOnly.IsChecked != true || PluginManagerCatalog.OnlineState(r, _installed) == "可更新").ToList();
         foreach (var resource in matched) {
             var state = PluginManagerCatalog.OnlineState(resource, _installed);
@@ -95,16 +105,27 @@ internal sealed class PluginDiscoveryView : UserControl
             });
             _cards.Children.Add(frame);
         }
-        if (_resources.Count != 0 && matched.Count == 0) _cards.Children.Add(new TextBlock { Text = "没有匹配的在线插件。" });
+        if (matched.Count == 0) _cards.Children.Add(new TextBlock { Text = catalog.Resources.Count == 0 ? "官方目录暂无插件。" : "没有匹配的在线插件。" });
     }
-    private async Task RunAsync(Func<CancellationToken, Task> action) {
+    private async Task RunAsync(Func<CancellationToken, Task> action, bool catalogRefresh = false) {
         if (_operation is not null) return;
         using var operation = new CancellationTokenSource(); _operation = operation;
         _refresh.IsEnabled = false; foreach (var actionButton in _actions) actionButton.IsEnabled = false;
         try { await action(operation.Token); }
-        catch (OperationCanceledException) { Notice("已取消或超时，本机插件保持原状态。可刷新目录或重试。"); }
-        catch (Exception error) { Notice($"操作失败：{error.Message} 可重试；不会自动降低校验要求。", InfoBarSeverity.Error); }
+        catch (OperationCanceledException) {
+            if (!catalogRefresh) Notice("已取消或超时，本机插件保持原状态。可刷新目录或重试。");
+            else ReportCatalogFailure("已取消或超时。", InfoBarSeverity.Warning);
+        }
+        catch (Exception error) {
+            if (!catalogRefresh) Notice($"操作失败：{error.Message} 可重试；不会自动降低校验要求。", InfoBarSeverity.Error);
+            else ReportCatalogFailure(error.Message, InfoBarSeverity.Error);
+        }
         finally { _operation = null; _refresh.IsEnabled = true; _progress.Bind(null); Render(); }
+    }
+    private void ReportCatalogFailure(string detail, InfoBarSeverity severity) {
+        if (!_pageActive) return;
+        var fallback = _catalog.Current is null ? "可点击刷新重试。" : "已保留上次成功获取的目录。";
+        Notice($"目录刷新失败：{detail} {fallback}", severity);
     }
     private async Task<bool> ConfirmAsync(string title, string text, string primary) =>
         await new ContentDialog { XamlRoot = XamlRoot, Title = title,

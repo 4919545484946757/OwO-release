@@ -38,6 +38,11 @@ public sealed partial class MainPage
         InstalledPluginPanel.Visibility = sender.SelectedItem == InstalledPluginsTab ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         PluginDiscoveryHost.Visibility = sender.SelectedItem == DiscoverPluginsTab ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         PluginRecoveryPanel.Visibility = sender.SelectedItem != InstalledPluginsTab && sender.SelectedItem != DiscoverPluginsTab ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        UpdatePluginDiscoveryActivation();
+    }
+    private void UpdatePluginDiscoveryActivation() {
+        if (PluginDiscoveryHost?.Content is PluginDiscoveryView discovery)
+            discovery.SetPageActive(_currentPage == "plugins" && PluginTabs.SelectedItem == DiscoverPluginsTab);
     }
     private void PluginSearch_TextChanged(object sender, TextChangedEventArgs args) {
         RenderInstalledPlugins();
@@ -216,10 +221,11 @@ public sealed partial class MainPage
             GeneralSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             UserLexiconPageHost.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             ModelManagerPageHost.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-            DiagnosticsPageHost.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            DiagnosticsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             (DiagnosticsPageHost.Content as CandidateDiagnosticsPage)?.SetPageActive(false);
             ShortcutSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            UpdatePluginDiscoveryActivation();
             ChinesePunctuationPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             GeneralPreferencesPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Visible;

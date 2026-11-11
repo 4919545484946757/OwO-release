@@ -236,7 +236,7 @@ public sealed partial class MainPage : Page
     private void ShowPage(string page)
     {
         _currentPage = page;
-        DiagnosticsPageHost.Visibility = page == "diagnostics" ? Visibility.Visible : Visibility.Collapsed;
+        DiagnosticsPage.Visibility = page == "diagnostics" ? Visibility.Visible : Visibility.Collapsed;
         (DiagnosticsPageHost.Content as CandidateDiagnosticsPage)?.SetPageActive(page == "diagnostics");
         ModelManagerPageHost.Visibility = page == "models" ? Visibility.Visible : Visibility.Collapsed;
         var generalPage = page is "schemes" or "candidates" or "intelligence";
@@ -287,6 +287,15 @@ public sealed partial class MainPage : Page
             _ => ("输入方案", "选择编码方案并查看当前方案能力"),
         };
         UpdateSchemeHintVisibility();
+        UpdatePluginDiscoveryActivation();
+    }
+
+    private void OpenDiagnostics_Click(object sender, RoutedEventArgs args) => ShowPage("diagnostics");
+
+    private void SettingsNavigation_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+    {
+        if (_currentPage == "diagnostics" && args.InvokedItemContainer?.Tag is "general")
+            ShowPage("general");
     }
 
     private static void SetVisibility(
@@ -316,7 +325,7 @@ public sealed partial class MainPage : Page
                 Capability: SettingsCapability.ChinesePunctuation));
         Add("词库管理器", "用户词库 字典 搜索 编辑 新增 删除 清除 导入 导出 Gboard Rime CSV TSV 词频", "user-lexicon", UserLexiconPageHost);
         Add("模型管理器", "API 大模型 翻译 润色 代码纠错 内容生成 首选语言 次选语言 密钥", "models", ModelManagerPageHost);
-        Add("候选生成计时", "调试 性能 速度 延迟 阻塞 IPC Core TSF 模型 解析 P50 P95 报告", "diagnostics", DiagnosticsPageHost);
+        Add("调试与性能 · 候选生成计时", "调试 性能 速度 延迟 阻塞 IPC Core TSF 模型 解析 P50 P95 报告", "diagnostics", DiagnosticsPageHost);
         Add("插件管理器", "下载 在线 发现 搜索 插件 更新 安装 权限 卸载 恢复", "plugins", PluginSection);
     }
 
@@ -361,7 +370,7 @@ public sealed partial class MainPage : Page
             return;
         }
         SettingsNavigation.SelectedItem = item.Page switch {
-            "general" => GeneralNavigationItem,
+            "general" or "diagnostics" => GeneralNavigationItem,
             "schemes" => SchemeNavigationItem,
             "candidates" => CandidateNavigationItem,
             "punctuation" => CandidateNavigationItem,
@@ -370,7 +379,6 @@ public sealed partial class MainPage : Page
             "shortcuts" => ShortcutNavigationItem,
             "plugins" => PluginNavigationItem,
             "models" => ModelManagerNavigationItem,
-            "diagnostics" => DiagnosticsNavigationItem,
             _ => SchemeNavigationItem,
         };
         ShowPage(item.Page);

@@ -15,6 +15,48 @@ internal static class OnlineDistributionTests
     private static void Check(bool value) { if (!value) throw new Exception("distribution assertion failed"); }
     private static void Reject(Action action) { try { action(); } catch (InvalidDataException) { return; } throw new Exception("unsafe metadata accepted"); }
     private static async Task RejectAsync(Func<Task> action) { try { await action(); } catch (InvalidDataException) { return; } throw new Exception("unsafe download accepted"); }
+    private static async Task CheckPluginCatalogCacheAsync() {
+        var requests = 0;
+        var tag = "0.2.7";
+        var empty = false;
+        var corrupt = true;
+        var digest = new string('a', 64);
+        var plugin = new { id = "sample.plugin", name = "Sample", kind = "plugin", version = "1.0.0", license = "test-only", asset = "sample.owopkg", sha256 = digest };
+        var model = new { id = "sample.model", name = "Sample", kind = "model", version = "1.0.0", license = "test-only", asset = "sample.lm", sha256 = digest };
+        byte[] Manifest() => JsonSerializer.SerializeToUtf8Bytes(new { schema_version = 1, release_tag = tag, resources = empty ? new[] { model } : [plugin, model] });
+        using var source = new OnlineDistribution(new Handler(request => {
+            requests++;
+            var manifest = Manifest();
+            if (request.RequestUri!.Host != "api.github.com")
+                return new(HttpStatusCode.OK) { Content = new ByteArrayContent(corrupt ? new byte[manifest.Length] : manifest) };
+            var prefix = $"https://github.com/{OnlineDistribution.Repository}/releases/download/{tag}/";
+            var release = JsonSerializer.SerializeToUtf8Bytes(new { tag_name = tag, draft = false, prerelease = false, assets = new[] {
+                new { name = "owo-resources.json", browser_download_url = prefix + "owo-resources.json", size = manifest.Length, digest = "sha256:" + Convert.ToHexString(SHA256.HashData(manifest)) },
+                new { name = plugin.asset, browser_download_url = prefix + plugin.asset, size = 64, digest = "sha256:" + digest },
+                new { name = model.asset, browser_download_url = prefix + model.asset, size = 64, digest = "sha256:" + digest }
+            }});
+            return new(HttpStatusCode.OK) { Content = new ByteArrayContent(release) };
+        }));
+        var cache = new OnlinePluginCatalog(source);
+        var token = CancellationToken.None;
+        Check(cache.Current is null && requests == 0);
+        await RejectAsync(() => cache.LoadAsync(refresh: false, token));
+        Check(cache.Current is null && requests == 2);
+        corrupt = false;
+        var first = await cache.LoadAsync(refresh: false, token);
+        Check(first.ReleaseTag == "0.2.7" && first.Resources.Single().Id == plugin.id && requests == 4);
+        Check(ReferenceEquals(first, await cache.LoadAsync(refresh: false, token)) && requests == 4);
+        tag = "0.2.8"; corrupt = true;
+        await RejectAsync(() => cache.LoadAsync(refresh: true, token));
+        Check(ReferenceEquals(first, cache.Current) && requests == 6);
+        corrupt = false; empty = true;
+        var refreshed = await cache.LoadAsync(refresh: true, token);
+        Check(refreshed.ReleaseTag == "0.2.8" && refreshed.Resources.Count == 0 && requests == 8);
+        Check(ReferenceEquals(refreshed, await cache.LoadAsync(refresh: false, token)) && requests == 8);
+        using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+        try { await cache.LoadAsync(refresh: true, cancelled.Token); throw new Exception("catalog cancellation ignored"); }
+        catch (OperationCanceledException) { Check(ReferenceEquals(refreshed, cache.Current)); }
+    }
     public static async Task Main(string[] args) {
         if (args.SequenceEqual(new[] { "--live-read-only" })) {
             using var live = new OnlineDistribution(); using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -87,6 +129,7 @@ internal static class OnlineDistributionTests
             using var releases = new OnlineDistribution(new Handler(_ => new(HttpStatusCode.OK) { Content = new ByteArrayContent(json) }));
             Check((await releases.LatestAsync(CancellationToken.None)).Version == new Version(0,2,7));
         } finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        await CheckPluginCatalogCacheAsync();
         Console.WriteLine("Online distribution: versions, origins, redirects, hashes, lengths, cancellation, catalog and cleanup passed.");
     }
 }

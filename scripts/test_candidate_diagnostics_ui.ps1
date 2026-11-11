@@ -36,12 +36,18 @@ try {
         if ($process.HasExited) { throw "Settings exited: $($process.ExitCode)" }
         if ($process.MainWindowHandle -ne [IntPtr]::Zero) {
             $window = [Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
-            $navigation = Find-Name $window '调试与性能'
+            $navigation = Find-Name $window '通用设置'
         }
     } until ($null -ne $navigation -or [DateTime]::UtcNow -ge $deadline)
-    if ($null -eq $navigation) { throw 'Diagnostics navigation did not load.' }
+    if ($null -eq $navigation) { throw 'General settings navigation did not load.' }
+    if ($null -ne (Find-Name $window '调试与性能')) { throw 'Diagnostics must not appear in the sidebar.' }
     $navigation.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Start-Sleep -Milliseconds 500
+    $entry = Find-Id $window 'OpenCandidateDiagnostics'
+    if ($null -eq $entry) { throw 'General settings diagnostics entry did not load.' }
+    $entry.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Start-Sleep -Milliseconds 500
+    $checks += 2
     foreach ($id in @('CandidateTimingStart', 'CandidateTimingStop', 'CandidateTimingExport', 'CandidateTimingRefresh',
         'CandidateTimingState', 'CandidateTimingSummary', 'CandidateTimingRequests', 'CandidateTimingDetails')) {
         $element = Find-Id $window $id
@@ -56,10 +62,11 @@ try {
     # native capture behavior have separate isolated automated contracts.
     (Find-Id $window 'CandidateTimingRefresh').GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 300
-    (Find-Name $window '通用设置').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    (Find-Id $window 'CandidateDiagnosticsBack').GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 200
     $hiddenStart = Find-Id $window 'CandidateTimingStart'
     if ($null -ne $hiddenStart -and -not $hiddenStart.Current.IsOffscreen) { throw 'Diagnostics overlaps other pages.' }
+    if ($null -eq (Find-Id $window 'OpenCandidateDiagnostics')) { throw 'Back did not restore general settings.' }
     $checks++
     Write-Output "Candidate diagnostics real WinUI smoke: $checks checks passed; capture remained disabled."
 } finally {

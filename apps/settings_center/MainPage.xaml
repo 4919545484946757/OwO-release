@@ -64,7 +64,7 @@
         <Grid x:Name="GlobalSearchArea" Grid.Row="0" Margin="16,16,16,10">
             <AutoSuggestBox x:Name="SettingsSearchBox" PlaceholderText="查找设置" QueryIcon="Find" TextChanged="SettingsSearchBox_TextChanged" SuggestionChosen="SettingsSearchBox_SuggestionChosen" QuerySubmitted="SettingsSearchBox_QuerySubmitted" HorizontalAlignment="Stretch" MaxWidth="720"/>
         </Grid>
-        <NavigationView Grid.Row="1" x:Name="SettingsNavigation" PaneDisplayMode="Auto" OpenPaneLength="260" CompactPaneLength="48" IsBackButtonVisible="Collapsed" IsSettingsVisible="False" AlwaysShowHeader="False" SelectionChanged="SettingsNavigation_SelectionChanged" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+        <NavigationView Grid.Row="1" x:Name="SettingsNavigation" PaneDisplayMode="Auto" OpenPaneLength="260" CompactPaneLength="48" IsBackButtonVisible="Collapsed" IsSettingsVisible="False" AlwaysShowHeader="False" SelectionChanged="SettingsNavigation_SelectionChanged" ItemInvoked="SettingsNavigation_ItemInvoked" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
             <NavigationView.PaneHeader>
                 <StackPanel Orientation="Horizontal"
                             Spacing="10"
@@ -101,13 +101,13 @@
                         <FontIcon Glyph=""/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="ModelManagerNavigationItem" Content="模型管理器" Tag="models">
-                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE774;"/></NavigationViewItem.Icon>
-                </NavigationViewItem>
                 <NavigationViewItem x:Name="ShortcutNavigationItem" Content="快捷键" Tag="shortcuts">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph=""/>
                     </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="ModelManagerNavigationItem" Content="模型管理器" Tag="models">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE774;"/></NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="UserLexiconNavigationItem" Content="用户词库" Tag="user-lexicon">
                     <NavigationViewItem.Icon><SymbolIcon Symbol="Library"/></NavigationViewItem.Icon>
@@ -116,9 +116,6 @@
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph=""/>
                     </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem x:Name="DiagnosticsNavigationItem" Content="调试与性能" Tag="diagnostics">
-                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE9D9;"/></NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.PaneFooter>
@@ -756,7 +753,11 @@
                     </Grid>
                     <ContentControl x:Name="UserLexiconPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                     <ContentControl x:Name="ModelManagerPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
-                    <ContentControl x:Name="DiagnosticsPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+                    <Grid x:Name="DiagnosticsPage" Visibility="Collapsed" RowSpacing="8">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <Button Content="返回通用设置" Click="GeneralSettings_Click" Margin="32,0,32,0" AutomationProperties.AutomationId="CandidateDiagnosticsBack"/>
+                        <ContentControl Grid.Row="1" x:Name="DiagnosticsPageHost" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+                    </Grid>
                     <ScrollViewer x:Name="GeneralPreferencesPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">
                             <Border x:Name="AutoSaveCard" Style="{StaticResource SettingsCardStyle}">
@@ -778,6 +779,20 @@
                                         <Button Content="导出配置" Click="ExportConfiguration_Click"/>
                                     </StackPanel>
                                 </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <Button x:Name="OpenDiagnosticsButton" Click="OpenDiagnostics_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                        Background="Transparent" BorderThickness="0" Padding="0" AutomationProperties.Name="调试与性能" AutomationProperties.AutomationId="OpenCandidateDiagnostics">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <FontIcon Glyph="&#xE9D9;" FontSize="18"/>
+                                        <StackPanel Grid.Column="1" Spacing="3">
+                                            <TextBlock Text="调试与性能" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="测量候选生成各阶段耗时，查看和导出本地报告。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="12"/>
+                                    </Grid>
+                                </Button>
                             </Border>
                             <ContentControl x:Name="OnlineDistributionHost" HorizontalContentAlignment="Stretch"/>
                         </StackPanel>
