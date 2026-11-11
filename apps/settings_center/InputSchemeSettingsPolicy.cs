@@ -47,12 +47,13 @@ internal static class InputSchemeSettingsPolicy
             BuiltIn | SettingsCapability.Correction | SettingsCapability.UserCompletion |
                 SettingsCapability.SingleCharacterFirst | SettingsCapability.PinyinSymbols | SettingsCapability.InlinePreedit),
         new("exact_code", "精确编码（实验性）", "按显式撇号分段并精确查询词典，用于验证表码方案接入。",
-            "不启用拼音纠错、自动补全或缩写展开；当前仍使用拼音词典数据。", BuiltIn)
+            "不启用拼音纠错、自动补全或缩写展开；当前仍使用拼音词典数据。", BuiltIn),
+        new("english", "英文输入", "直接使用当前键盘布局输入，不生成候选。", "", SettingsCapability.LanguageSwitch | SettingsCapability.AltCodePreview)
     ];
 
     internal static InputSchemeOption Plugin(string id, string name, string description) =>
         new(id, name, description,
-            "使用插件自身的编码与候选规则；宿主提供候选显示、编码光标、分页、原样输出和中英文切换。" +
+            "使用插件自身的编码与候选规则；宿主提供候选显示、编码光标、分页、原样输出和方案切换。" +
             "宿主拼音补全、纠错、词频学习和模型排序不参与。", Shared, Owner(id));
 
     // Discovery proves descriptor availability at refresh time, not future runtime health.
@@ -68,6 +69,30 @@ internal static class InputSchemeSettingsPolicy
 
     internal static bool NeedsFallback(string schemeId, string pluginId) =>
         Resolve(schemeId).OwnerPluginId == pluginId;
+
+    internal const int MaximumOrderedSchemes = 32;
+    internal static string SchemeId(string entry) => entry.StartsWith('!') ? entry[1..] : entry;
+    internal static bool IsEnabled(string entry) => !entry.StartsWith('!');
+    internal static List<string> BuildOrder(string savedOrder, string primary, IEnumerable<string> available) {
+        var entries = savedOrder.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (entries.Count == 0) {
+            entries.Add(primary);
+            if (primary != "english") entries.Add("english");
+        }
+        var present = entries.Select(SchemeId).ToHashSet(StringComparer.Ordinal);
+        foreach (var id in available)
+            if (present.Add(id)) entries.Add("!" + id);
+        return entries;
+    }
+
+    internal static string[] DisablePlugin(IEnumerable<string> entries, string pluginId) {
+        var result = entries.Select(entry => NeedsFallback(SchemeId(entry), pluginId) ? "!" + SchemeId(entry) : entry).ToList();
+        if (!result.Any(IsEnabled)) {
+            var index = result.FindIndex(entry => SchemeId(entry) == "english");
+            if (index < 0) result.Insert(0, "english"); else result[index] = "english";
+        }
+        return result.ToArray();
+    }
 
     internal static InputSchemeOption Resolve(string id) => BuiltIns.FirstOrDefault(s => s.Id == id)
         ?? (id.StartsWith("plugin:", StringComparison.Ordinal)

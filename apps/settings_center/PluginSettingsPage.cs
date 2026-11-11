@@ -659,7 +659,7 @@ public sealed partial class MainPage
         try {
             if (plugin.Active) {
                 await _pluginClient.DeactivateAsync(plugin.Id, plugin.Version);
-                await RestorePinyinForPluginAsync(plugin.Id);
+                await DisablePluginInputSchemesAsync(plugin.Id);
             } else await _pluginClient.ActivateAsync(
                 plugin.Id, plugin.Version, agentPrivacyConsent);
             await LoadPluginsAsync();
@@ -725,7 +725,7 @@ public sealed partial class MainPage
         try {
             if (plugin.Active) await _pluginClient.DeactivateAsync(plugin.Id, plugin.Version);
             await _pluginClient.RevokeAsync(plugin.Id, plugin.Version);
-            await RestorePinyinForPluginAsync(plugin.Id);
+            await DisablePluginInputSchemesAsync(plugin.Id);
             await LoadPluginsAsync();
             NotifyCandidateThemeChanged();
             ShowStatus("插件权限已撤销，插件已停用。", InfoBarSeverity.Success);

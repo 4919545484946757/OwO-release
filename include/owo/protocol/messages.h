@@ -65,6 +65,8 @@ struct Message {
     std::string symbol_preview;
     std::vector<std::vector<std::string>> following_previews;
     std::vector<std::vector<std::uint64_t>> following_groups;
+    // Optional for legacy clients; only native candidate providers use this lane.
+    std::string input_scheme;
 };
 
 struct DecodeResult {

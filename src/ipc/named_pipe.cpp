@@ -526,6 +526,7 @@ struct CandidateCacheKey {
     bool correction_enabled{};
     bool contextual_ranking{};
     std::string symbol_layout;
+    bool full_pinyin{true};
 
     bool operator==(const CandidateCacheKey&) const = default;
 };
@@ -545,6 +546,7 @@ struct CandidateCacheKeyHash {
         combine(key.correction_enabled);
         combine(key.contextual_ranking);
         combine(std::hash<std::string>{}(key.symbol_layout));
+        combine(key.full_pinyin);
         return value;
     }
 };
@@ -1522,8 +1524,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                             : std::shared_ptr<const config::AppConfig>{};
             const bool adaptive_ranking_enabled = runtime_config != nullptr &&
                 runtime_config->model_ranking_enabled;
-            const bool full_pinyin_scheme = runtime_config == nullptr ||
-                runtime_config->input_scheme == "full_pinyin";
+            const bool full_pinyin_scheme = decoded.message.input_scheme.empty()
+                ? runtime_config == nullptr || runtime_config->input_scheme != "exact_code"
+                : decoded.message.input_scheme == "full_pinyin";
             dictionary_sources.set_enabled(full_pinyin_scheme);
             if (dictionary_sources.refresh()) {
                 ++learning_generation;
@@ -2111,6 +2114,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         adaptive_ranking_enabled};
                     if (symbol_state && !symbol_state->composition.segments.front().weak_spans.empty())
                         cache_key.symbol_layout = symbol_state->composition.source;
+                    cache_key.full_pinyin = full_pinyin_scheme;
                     model_cache_key = cache_key;
                     std::optional<engine::ParseResult> refinement_parse;
                     if (decoded.message.defer_expensive_candidates) {

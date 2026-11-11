@@ -391,7 +391,8 @@ std::string encode_message(const Message& message) {
            ",\"symbol_composition\":" + (message.symbol_composition ? "true" : "false") +
            ",\"manual_breaks\":" + breaks +
            ",\"symbol_preview\":\"" + preview + "\",\"following_previews\":" + following +
-           ",\"following_groups\":" + following_groups + "}";
+           ",\"following_groups\":" + following_groups +
+           (message.input_scheme.empty() ? std::string{} : ",\"input_scheme\":\"" + escape_json(message.input_scheme) + "\"") + "}";
 }
 
 DecodeResult decode_message(const std::string_view json) {
@@ -591,6 +592,13 @@ DecodeResult decode_message(const std::string_view json) {
         auto value = parse_matrix<std::uint64_t>(json, offset, parse_uint_array);
         if (!value) goto invalid;
         output.message.following_groups = std::move(*value);
+    }
+    if (consume(json, offset, ",\"input_scheme\":")) {
+        const auto scheme = parse_string(json, offset);
+        if (!scheme || (*scheme != "full_pinyin" && *scheme != "exact_code") ||
+            (output.message.type != MessageType::candidate_request &&
+             output.message.type != MessageType::candidate_committed)) goto invalid;
+        output.message.input_scheme = *scheme;
     }
     if (!consume(json, offset, "}") || offset != json.size()) goto invalid;
     if (!valid_candidate_consumed(output.message) ||

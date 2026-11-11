@@ -89,8 +89,6 @@ public sealed partial class MainPage : Page
         _windowDownloads = new(WindowDownloadHost, ShowStatus);
         _statusExpiry.Tick += (_, _) => { if (_statusDeadline.Expired) { Status.IsOpen = false; _statusExpiry.Stop(); } };
         Status.Closed += (_, _) => _statusExpiry.Stop();
-        InputScheme.ItemsSource = _availableSchemes;
-        InputScheme.SelectedIndex = 0;
         SetShortcutBindings("correction", ["Ctrl+Q"]);
         SetShortcutBindings("language", ["Ctrl+Space"]);
         SetShortcutBindings("raw", ["Enter"]);
@@ -259,8 +257,7 @@ public sealed partial class MainPage : Page
             ChinesePunctuationPage.ChangeView(null, 0, null, true);
             UpdatePunctuationNotice();
         }
-        SetVisibility(page == "schemes", InputSchemeSectionTitle, InputSchemeCard,
-                      DiscoverSchemesButton);
+        SetVisibility(page == "schemes", InputSchemeSectionTitle, InputSchemeCard);
         SetVisibility(page == "candidates", CandidateSectionTitle,
                       CandidatePageSizeCard, CandidateWrapLengthCard,
                       CandidatePartitionCard, CandidateSingleCharacterFirstCard, CandidateImmediateCommitCard,

@@ -62,8 +62,13 @@ bool parse_shortcuts(const std::wstring_view text, std::vector<std::string>& out
 
 bool apply(owo::config::AppConfig& config, const std::wstring_view field,
            const std::wstring_view value) {
-    if (field == L"input_scheme")
-        return parse_ascii(value, config.input_scheme);
+    if (field == L"input_scheme") {
+        const auto previous = config.input_scheme;
+        if (!parse_ascii(value, config.input_scheme)) return false;
+        if (previous != config.input_scheme) config.input_scheme_order.clear();
+        return true;
+    }
+    if (field == L"input_scheme_order") return parse_shortcuts(value, config.input_scheme_order);
     if (field == L"chinese_punctuation_mask")
         return parse_u32(value, config.chinese_punctuation_mask);
     if (field == L"candidate_page_size")
@@ -369,7 +374,7 @@ int wmain(const int argc, wchar_t** argv) {
     if (command == L"set-all" &&
         (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23 ||
          argc == 24 || argc == 27 || argc == 30 || argc == 32 || argc == 35 ||
-         argc == 36 || argc == 38 || argc == 39 || argc == 40 || argc == 44 || argc == 47 || argc == 48)) {
+         argc == 36 || argc == 38 || argc == 39 || argc == 40 || argc == 44 || argc == 47 || argc == 48 || argc == 49)) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);
         if (!loaded.success) return 3;
@@ -427,7 +432,8 @@ int wmain(const int argc, wchar_t** argv) {
             (argc >= 47 && (!apply(value, L"pinyin_symbol_compatibility_enabled", argv[44]) ||
              !apply(value, L"separator_shortcut_enabled", argv[45]) ||
              !apply(value, L"separator_shortcut", argv[46]))) ||
-            (argc >= 48 && !apply(value, L"pinyin_preview_location", argv[47]))) {
+            (argc >= 48 && !apply(value, L"pinyin_preview_location", argv[47])) ||
+            (argc >= 49 && !apply(value, L"input_scheme_order", argv[48]))) {
             std::cerr << "invalid configuration value type\n";
             return 4;
         }

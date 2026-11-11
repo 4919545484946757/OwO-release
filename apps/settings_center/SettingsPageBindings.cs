@@ -25,8 +25,9 @@ public sealed partial class MainPage
             _settingsCards.Add(new(key, card, title, keywords, page, dependency, hint));
 
         _settingsEditors.Bind(nameof(SettingsSnapshot.InputScheme),
-            () => CurrentScheme.Id, SelectInputScheme, InputScheme);
-        Card(nameof(SettingsSnapshot.InputScheme), InputSchemeCard, "输入方案", "全拼 拼音 精确编码 表码");
+            () => PreferredInputScheme, SelectInputScheme);
+        _settingsEditors.Bind(nameof(SettingsSnapshot.InputSchemeOrder), CaptureInputSchemeOrder, LoadInputSchemeOrder);
+        Card(nameof(SettingsSnapshot.InputScheme), InputSchemeCard, "输入方案", "全拼 拼音 英文 精确编码 表码 插件 启用 排序");
 
         Number(nameof(SettingsSnapshot.CandidatePageSize), CandidatePageSize, 1, 9, "每页候选数");
         _settingsEditors.Bind(nameof(SettingsSnapshot.PinyinPreviewLocation),
@@ -85,7 +86,7 @@ public sealed partial class MainPage
             Card(enabledKey, card, title, keywords);
         }
         Shortcut(nameof(SettingsSnapshot.CorrectionShortcutEnabled), nameof(SettingsSnapshot.CorrectionShortcuts), CorrectionShortcutEnabled, "correction", CorrectionShortcutCard, "切换输入纠错", "快捷键 全拼 严格输入");
-        Shortcut(nameof(SettingsSnapshot.LanguageShortcutEnabled), nameof(SettingsSnapshot.LanguageShortcuts), LanguageShortcutEnabled, "language", LanguageShortcutCard, "切换中英文输入", "快捷键 语言");
+        Shortcut(nameof(SettingsSnapshot.LanguageShortcutEnabled), nameof(SettingsSnapshot.LanguageShortcuts), LanguageShortcutEnabled, "language", LanguageShortcutCard, "切换输入方案", "快捷键 语言 中英文 全拼 英文");
         Shortcut(nameof(SettingsSnapshot.RawInputShortcutEnabled), nameof(SettingsSnapshot.RawInputShortcuts), RawInputShortcutEnabled, "raw", RawInputShortcutCard, "输入编码原样上屏", "快捷键 Enter");
         Shortcut(nameof(SettingsSnapshot.SeparatorShortcutEnabled), nameof(SettingsSnapshot.SeparatorShortcuts), SeparatorShortcutEnabled, "separator", SeparatorShortcutCard, "拼音分割", "快捷键 撇号 单引号 分隔 拼音边界");
         Shortcut(nameof(SettingsSnapshot.CursorLeftShortcutEnabled), nameof(SettingsSnapshot.CursorLeftShortcuts), CursorLeftShortcutEnabled, "cursor-left", CursorLeftShortcutCard, "预编辑光标左移", "快捷键 编码 光标");
@@ -140,13 +141,14 @@ public sealed partial class MainPage
     {
         if (_settingsCards.Count == 0) return;
         foreach (var binding in _settingsCards) {
+            if (ReferenceEquals(binding.Card, InputSchemeCard)) continue; // per-row availability and move boundaries
             var supported = CurrentScheme.Supports(_settingsModules.Field(binding.Key).Capability);
             var dependencyMet = binding.Dependency?.Invoke() ?? true;
             var enabled = supported && dependencyMet;
             SetDescendantControlsEnabled(binding.Card, enabled);
             binding.Card.Opacity = enabled ? 1 : 0.55;
             ToolTipService.SetToolTip(binding.Card, !supported
-                ? $"当前方案“{CurrentScheme.Name}”不支持此宿主功能；原配置已保留。"
+                ? "已启用的可用方案均不支持此宿主功能；原配置已保留。"
                 : !dependencyMet ? binding.DependencyHint : null);
         }
         UpdatePunctuationNotice();

@@ -12,10 +12,13 @@
 #include "owo/tsf/unicode_palette_scroll.h"
 
 #include "owo/config/config_paths.h"
+#include "owo/config/input_scheme_order.h"
 #include "owo/diagnostics/candidate_timing.h"
 #include "owo/agent/agent_protocol.h"
 #include "owo/ipc/named_pipe.h"
 #include "owo/protocol/messages.h"
+#include "owo/plugin/plugin_store.h"
+#include "owo/plugin/plugin_authorization_store.h"
 
 #include <d2d1.h>
 #include <d2d1helper.h>
@@ -802,9 +805,13 @@ public:
     HRESULT STDMETHODCALLTYPE Show(BOOL) override { return S_OK; }
     HRESULT STDMETHODCALLTYPE GetTooltipString(BSTR* text) override {
         if (text == nullptr) return E_INVALIDARG;
-        *text = SysAllocString(owner_ != nullptr && owner_->chinese_mode_
-                                   ? L"OwO 中文输入"
-                                   : L"OwO 英文输入");
+        std::wstring name = L"OwO 英文输入";
+        if (owner_ && owner_->chinese_mode_) {
+            const auto& id = owner_->shortcut_config_.input_scheme;
+            name = id == "full_pinyin" ? L"OwO 全拼" : id == "exact_code" ? L"OwO 精确编码"
+                : L"OwO 输入方案：" + wide_from_utf8(id.starts_with("plugin:") ? id.substr(7) : id);
+        }
+        *text = SysAllocString(name.c_str());
         return *text == nullptr ? E_OUTOFMEMORY : S_OK;
     }
 
@@ -1185,7 +1192,9 @@ HRESULT TextService::OnKillThreadFocus() {
 HRESULT TextService::OnChange(REFGUID guid) {
     if (!IsEqualGUID(guid, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE)) return S_OK;
     const auto mode = system_language_mode();
-    if (!mode.has_value() || *mode == chinese_mode_) return S_OK;
+    if (!mode.has_value()) return S_OK;
+    system_keyboard_closed_ = !*mode;
+    if (*mode == chinese_mode_) return S_OK;
 
     ITfDocumentMgr* document_manager = nullptr;
     ITfContext* context = nullptr;
@@ -3806,8 +3815,13 @@ void TextService::refresh_shortcut_config(const bool force) {
         if (!loaded.success) return;
         shortcut_config_initialized_ = true;
         shortcut_config_ = shortcut_config_store_.snapshot();
-        if (shortcut_config_.input_scheme != "full_pinyin")
-            correction_enabled_ = true;
+        saved_input_scheme_ = shortcut_config_.input_scheme;
+        if (shortcut_config_.input_scheme_order.empty()) {
+            shortcut_config_.input_scheme_order = {shortcut_config_.input_scheme};
+            if (shortcut_config_.input_scheme != "english") shortcut_config_.input_scheme_order.push_back("english");
+        }
+        shortcut_config_.input_scheme = next_input_scheme({});
+        chinese_mode_ = shortcut_config_.input_scheme != "english";
         chinese_punctuation_enabled_ = shortcut_config_.chinese_punctuation_enabled;
         sync_preserved_language_key();
         return;
@@ -3817,14 +3831,25 @@ void TextService::refresh_shortcut_config(const bool force) {
         const bool configured_punctuation = shortcut_config_.chinese_punctuation_enabled;
         const auto configured_scheme = shortcut_config_.input_scheme;
         shortcut_config_ = shortcut_config_store_.snapshot();
-        if (configured_scheme != shortcut_config_.input_scheme) clear_composition();
+        const bool legacy = shortcut_config_.input_scheme_order.empty();
+        if (legacy) {
+            shortcut_config_.input_scheme_order = {shortcut_config_.input_scheme};
+            if (shortcut_config_.input_scheme != "english") shortcut_config_.input_scheme_order.push_back("english");
+        }
+        const auto& order = shortcut_config_.input_scheme_order;
+        const bool keep = (system_keyboard_closed_ && configured_scheme == "english") ||
+            (std::ranges::find(order, configured_scheme) != order.end() &&
+             !(legacy && saved_input_scheme_ != shortcut_config_.input_scheme));
+        saved_input_scheme_ = shortcut_config_.input_scheme;
+        shortcut_config_.input_scheme = configured_scheme;
+        if (!keep) {
+            const auto next = next_input_scheme({});
+            if (next != configured_scheme) activate_input_scheme(next);
+        }
         if (configured_punctuation != shortcut_config_.chinese_punctuation_enabled)
             chinese_punctuation_enabled_ = shortcut_config_.chinese_punctuation_enabled;
         if (!shortcut_config_.alt_code_preview_enabled)
             finish_alt_code_preview();
-        if (configured_scheme != shortcut_config_.input_scheme &&
-            shortcut_config_.input_scheme != "full_pinyin")
-            correction_enabled_ = true;
         sync_preserved_language_key();
     }
 }
@@ -3883,7 +3908,7 @@ void TextService::sync_preserved_language_key() {
     if (desired.empty()) return;
     ITfKeystrokeMgr* manager = nullptr;
     if (FAILED(thread_manager_->QueryInterface(IID_PPV_ARGS(&manager)))) return;
-    constexpr wchar_t description[] = L"OwO 切换中英文输入";
+    constexpr wchar_t description[] = L"OwO 切换输入方案";
     for (const auto& shortcut : desired) {
         TF_PRESERVEDKEY key{};
         if (!preserved_shortcut(shortcut, key)) continue;
@@ -3919,15 +3944,14 @@ void TextService::initialize_language_compartment() {
         GUID_COMPARTMENT_KEYBOARD_OPENCLOSE, &compartment);
     compartments->Release();
     if (FAILED(found) || compartment == nullptr) return;
+    system_keyboard_closed_ = false;
 
-    // OwO starts in Chinese mode whenever a new TSF instance is activated.
-    // Do not inherit a host process's stale closed value: applications often
-    // retain this compartment after another IME was last used in English.
+    // Keep the TSF profile open to receive the scheme shortcut in English.
+    // Pass-through itself follows the selected OwO provider, not a stale host value.
     VARIANT initial_mode{};
     initial_mode.vt = VT_I4;
     initial_mode.lVal = 1;
-    const HRESULT initialized = compartment->SetValue(client_id_, &initial_mode);
-    if (SUCCEEDED(initialized)) chinese_mode_ = true;
+    compartment->SetValue(client_id_, &initial_mode);
 
     ITfSource* source = nullptr;
     if (SUCCEEDED(compartment->QueryInterface(IID_PPV_ARGS(&source)))) {
@@ -3937,10 +3961,6 @@ void TextService::initialize_language_compartment() {
         source->Release();
     }
     compartment->Release();
-    if (FAILED(initialized)) {
-        const auto mode = system_language_mode();
-        if (mode.has_value()) chinese_mode_ = *mode;
-    }
 }
 
 void TextService::uninitialize_language_compartment() noexcept {
@@ -4074,6 +4094,7 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
         pending.defer_expensive_candidates = candidate_page_ == 0 &&
                                               !candidates_expanded_;
         pending.symbol_composition = symbol_composition_enabled();
+        pending.input_scheme = shortcut_config_.input_scheme;
         if (pending.symbol_composition) {
             for (const auto offset : manual_breaks_)
                 if (offset < input_buffer_.size() && input_buffer_[offset] == L'\'')
@@ -4144,6 +4165,7 @@ void TextService::queue_agent_context(std::wstring text) {
 
 void TextService::queue_commit_feedback(std::wstring candidate, std::wstring input,
                                         std::wstring context) {
+    if (shortcut_config_.input_scheme != "full_pinyin" && shortcut_config_.input_scheme != "exact_code") return;
     // Symbol-decorated commits are not new phonetic dictionary entries. Keep
     // their document/context effect, but do not teach punctuation as syllables
     // or concatenate it into a later learned phrase.
@@ -4156,6 +4178,7 @@ void TextService::queue_commit_feedback(std::wstring candidate, std::wstring inp
         static_cast<std::uint8_t>(protocol::MessageType::candidate_committed),
         next_request_id_++, context_generation_, 0, std::move(candidate), false, true,
         std::move(input), std::move(context)});
+    feedback_requests_.back().input_scheme = shortcut_config_.input_scheme;
     request_ready_.notify_one();
 }
 
@@ -4202,6 +4225,7 @@ void TextService::worker_loop(const std::stop_token stop_token) {
             request.defer_expensive_candidates;
         paged_message.symbol_composition = request.symbol_composition;
         paged_message.manual_breaks = request.manual_breaks;
+        paged_message.input_scheme = request.input_scheme;
         paged_message.application_context_id = request.application_context.context_id;
         paged_message.application_process_id = request.application_context.process_id;
         paged_message.application_thread_id = request.application_context.thread_id;
@@ -5940,8 +5964,39 @@ void TextService::commit_pending_on_focus_loss() {
 }
 
 HRESULT TextService::toggle_language_mode(ITfContext* context) {
-    if (selection_assistant_.active()) clear_composition();
-    return apply_language_mode(!chinese_mode_, context);
+    system_keyboard_closed_ = false;
+    return switch_input_scheme(next_input_scheme(shortcut_config_.input_scheme), context);
+}
+
+std::string TextService::next_input_scheme(std::string_view current, bool composition_only) const {
+    const auto& order = shortcut_config_.input_scheme_order;
+    if (order.empty()) return current == "full_pinyin" && !composition_only ? "english" : "full_pinyin";
+    return config::next_enabled_input_scheme(order, current, [composition_only](const std::string& id) {
+        if (composition_only && id == "english") return false;
+        if (config::is_plugin_input_scheme(id)) {
+            const auto data = config::local_data_root();
+            if (data.empty()) return false;
+            const auto root = data / L"plugins";
+            const auto plugin_id = id.substr(7, id.find('/') - 7);
+            const auto active = plugin::query_active_plugin_version(root, plugin_id);
+            if (!active.ok || active.manifest.runtime != "process") return false;
+            const auto grant = plugin::load_plugin_authorization(root, plugin_id, active.manifest.version);
+            return grant.ok && plugin::is_plugin_permission_granted(grant.value, active.manifest,
+                active.inventory_sha256, active.publisher_certificate_sha256, "input.scheme");
+        }
+        return true;
+    });
+}
+
+void TextService::activate_input_scheme(std::string target) {
+    if (is_agent_mode()) cancel_agent_session();
+    clear_composition();
+    recent_language_context_.clear();
+    recent_language_input_.clear();
+    shortcut_config_.input_scheme = std::move(target);
+    chinese_mode_ = shortcut_config_.input_scheme != "english";
+    if (shortcut_config_.input_scheme != "full_pinyin") correction_enabled_ = true;
+    update_language_bar();
 }
 
 HRESULT TextService::toggle_language_mode_from_window() {
@@ -5960,11 +6015,16 @@ HRESULT TextService::toggle_language_mode_from_window() {
 }
 
 HRESULT TextService::apply_language_mode(const bool chinese, ITfContext* context) {
-    if (chinese == chinese_mode_) return S_OK;
-    if (plugin_scheme_selected() && !chinese && has_composition()) {
-        commit_plugin_text(input_buffer_, false, true); return S_OK;
+    return switch_input_scheme(chinese ? next_input_scheme({}, true) : "english", context);
+}
+
+HRESULT TextService::switch_input_scheme(std::string target, ITfContext* context) {
+    if (target == shortcut_config_.input_scheme || plugin_input_committing_ || plugin_replay_context_) return S_OK;
+    if (selection_assistant_.active()) clear_composition();
+    if (plugin_scheme_selected() && has_composition()) {
+        commit_plugin_text(input_buffer_, false, std::move(target)); return S_OK;
     }
-    if (!chinese && is_agent_mode()) {
+    if (is_agent_mode()) {
         const bool commit_marker = input_buffer_ == L"v" &&
                                    staged_candidates_.empty() &&
                                    !agent_request_submitted_;
@@ -5977,15 +6037,13 @@ HRESULT TextService::apply_language_mode(const bool chinese, ITfContext* context
         clear_composition();
         rotate_agent_context();
     }
-    if (!chinese && has_composition()) {
+    if (has_composition()) {
         if (context == nullptr) return E_UNEXPECTED;
         const HRESULT committed = staged_candidates_.empty()
             ? commit_raw_input(context) : commit_pending_composition(context);
         if (FAILED(committed)) return committed;
     }
-    chinese_mode_ = chinese;
-    if (!chinese_mode_) clear_composition();
-    update_language_bar();
+    activate_input_scheme(std::move(target));
     return S_OK;
 }
 
@@ -6127,7 +6185,7 @@ void TextService::reset_plugin_input() {
     release_interface(plugin_replay_context_);
     release_interface(plugin_replay_selection_);
     plugin_input_needs_compose_ = false;
-    plugin_switch_after_commit_ = false;
+    plugin_switch_after_commit_.clear();
     if (message_window_) KillTimer(message_window_, kPluginInputTimer);
 }
 
@@ -6486,7 +6544,7 @@ void TextService::apply_pending_plugin_selection(){
     }
 }
 
-void TextService::commit_plugin_text(std::wstring text, bool selected, bool switch_language) {
+void TextService::commit_plugin_text(std::wstring text, bool selected, std::string next_scheme) {
     // The asynchronous read/write callback performs the authoritative safety and
     // selection checks with its granted cookie. A second synchronous read here
     // is not supported by all TextStores (including Word).
@@ -6505,7 +6563,7 @@ void TextService::commit_plugin_text(std::wstring text, bool selected, bool swit
     const auto deadline = plugin_commit_deadline_;
     SetTimer(message_window_, kPluginInputTimer, 16, nullptr);
     auto* edit = new (std::nothrow) SchemeEditSession(context,
-        [this, context, generation, deadline, selected, switch_language, text = std::move(text)](TfEditCookie cookie) {
+        [this, context, generation, deadline, selected, next_scheme = std::move(next_scheme), text = std::move(text)](TfEditCookie cookie) {
             const bool current = plugin_context_is_current(context);
             const bool valid = input_method_write_allowed({generation, plugin_input_document_.generation(),
                 deadline, plugin_commit_deadline_, GetTickCount64(), plugin_scheme_selected(),
@@ -6536,7 +6594,7 @@ void TextService::commit_plugin_text(std::wstring text, bool selected, bool swit
             }
             // Re-enter outside the TSF write lock; nested read sessions would otherwise drop queued keys.
             if (valid) {
-                plugin_switch_after_commit_ = switch_language && SUCCEEDED(written);
+                plugin_switch_after_commit_ = SUCCEEDED(written) ? next_scheme : std::string{};
                 plugin_deferred_keys_ = std::move(deferred);
                 release_interface(plugin_replay_context_);
                 plugin_replay_context_ = context; context->AddRef();
@@ -6575,8 +6633,9 @@ void TextService::finish_plugin_input_on_ui() {
     const bool valid = plugin_replay_generation_ == context_generation_ && plugin_scheme_selected() &&
         plugin_context_is_current(context) && SUCCEEDED(request) && SUCCEEDED(checked) && same_selection;
     if (valid) {
-        if (std::exchange(plugin_switch_after_commit_, false)) {
-            // Keys entered while switching to English are raw output, never new scheme selections.
+        if (auto target = std::exchange(plugin_switch_after_commit_, {}); !target.empty()) {
+            // Keys already accepted by the retiring provider are raw output,
+            // never candidate selections in a different provider.
             std::wstring tail;
             BYTE current[256]{}; GetKeyboardState(current);
             for (auto& key : plugin_deferred_keys_) {
@@ -6593,13 +6652,17 @@ void TextService::finish_plugin_input_on_ui() {
                 else tail += scheme_key_text(key.key, key.flags);
             }
             SetKeyboardState(current); plugin_deferred_keys_.clear();
-            if (tail.empty()) { chinese_mode_ = false; clear_composition(); update_language_bar(); }
+            if (tail.empty()) {
+                if (target != "english" && std::ranges::find(shortcut_config_.input_scheme_order, target) == shortcut_config_.input_scheme_order.end())
+                    target = next_input_scheme(shortcut_config_.input_scheme);
+                activate_input_scheme(std::move(target));
+            }
             else {
                 if (!plugin_input_context_) { plugin_input_context_ = context; context->AddRef(); }
                 if (!plugin_input_selection_) { plugin_input_selection_ = selection; selection->AddRef(); }
                 input_buffer_ = std::move(tail); input_cursor_ = input_buffer_.size();
                 (void)plugin_input_document_.enter(++context_generation_);
-                commit_plugin_text(input_buffer_, false, true);
+                commit_plugin_text(input_buffer_, false, std::move(target));
             }
             if (selection) selection->Release();
             context->Release(); return;
@@ -6626,7 +6689,7 @@ void TextService::finish_plugin_input_on_ui() {
         SetKeyboardState(current);
     } else {
         plugin_deferred_keys_.clear(); plugin_input_needs_compose_ = false;
-        plugin_switch_after_commit_ = false;
+        plugin_switch_after_commit_.clear();
     }
     if (selection) selection->Release();
     context->Release();

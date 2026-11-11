@@ -149,6 +149,7 @@ private:
         bool defer_expensive_candidates{};
         bool symbol_composition{};
         std::vector<std::uint64_t> manual_breaks;
+        std::string input_scheme;
     };
     enum class HitKind : std::uint8_t {
         pinyin_cursor,
@@ -232,6 +233,9 @@ private:
     void uninitialize_language_compartment() noexcept;
     [[nodiscard]] std::optional<bool> system_language_mode() const;
     HRESULT apply_language_mode(bool chinese, ITfContext* context);
+    HRESULT switch_input_scheme(std::string target, ITfContext* context);
+    [[nodiscard]] std::string next_input_scheme(std::string_view current, bool composition_only = false) const;
+    void activate_input_scheme(std::string target);
     void initialize_language_bar();
     void uninitialize_language_bar() noexcept;
     void update_language_bar() noexcept;
@@ -312,7 +316,7 @@ private:
     void change_plugin_page(int);
     void sync_plugin_display();
     void reset_plugin_input();
-    void commit_plugin_text(std::wstring, bool selected, bool switch_language = false);
+    void commit_plugin_text(std::wstring, bool selected, std::string next_scheme = {});
     // Explicitly selected, independently authorized plugin scheme path.
     InputMethodDocumentSession plugin_input_document_;
     std::unique_ptr<ipc::InputMethodAsyncClient> plugin_input_client_;
@@ -322,7 +326,7 @@ private:
     ITfRange* plugin_replay_selection_{nullptr};
     std::uint64_t plugin_replay_generation_{};
     bool plugin_input_needs_compose_{};
-    bool plugin_switch_after_commit_{};
+    std::string plugin_switch_after_commit_;
     ULONGLONG plugin_commit_deadline_{};
     std::optional<engine::InputMethodDescriptor> plugin_input_descriptor_;
     std::future<ipc::InputMethodClientResult> plugin_input_future_;
@@ -449,6 +453,7 @@ private:
     bool candidates_expanded_{false};
     ExpandedCandidatePages expanded_pages_;
     config::ConfigStore shortcut_config_store_;
+    std::string saved_input_scheme_;
     config::AppConfig shortcut_config_;
     ULONGLONG next_shortcut_config_refresh_{0};
     bool shortcut_config_initialized_{false};
@@ -467,6 +472,7 @@ private:
     std::vector<TF_PRESERVEDKEY> preserved_language_keys_;
     bool correction_enabled_{true};
     bool chinese_mode_{true};
+    bool system_keyboard_closed_{};
     bool chinese_punctuation_enabled_{true};
     bool single_quote_open_{true};
     bool double_quote_open_{true};

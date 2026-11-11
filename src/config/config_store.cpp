@@ -231,9 +231,23 @@ ConfigValidationResult validate_config(const AppConfig& value) {
         return {false, "pinyin_preview_location must be candidate or input"};
     if (value.chinese_punctuation_mask & ~kChinesePunctuationAll)
         return {false, "chinese_punctuation_mask contains unknown punctuation bits"};
-    if (value.input_scheme != "full_pinyin" &&
-        value.input_scheme != "exact_code" && !is_plugin_input_scheme(value.input_scheme))
-        return {false, "input_scheme must be full_pinyin, exact_code or plugin:<id>/<scheme>"};
+    const auto valid_scheme = [](std::string_view id) {
+        return id == "full_pinyin" || id == "exact_code" || id == "english" || is_plugin_input_scheme(id);
+    };
+    if (!valid_scheme(value.input_scheme)) return {false, "invalid input_scheme"};
+    if (value.input_scheme_order.size() > 32) return {false, "too many input schemes"};
+    std::vector<std::string_view> scheme_ids;
+    std::string_view first_enabled;
+    for (std::string_view entry : value.input_scheme_order) {
+        const bool disabled = entry.starts_with('!');
+        if (disabled) entry.remove_prefix(1);
+        if (!valid_scheme(entry) || std::ranges::find(scheme_ids, entry) != scheme_ids.end())
+            return {false, "invalid or duplicate input scheme in order"};
+        scheme_ids.push_back(entry);
+        if (!disabled && first_enabled.empty()) first_enabled = entry;
+    }
+    if (!value.input_scheme_order.empty() && first_enabled != value.input_scheme)
+        return {false, "input_scheme must be the first enabled scheme"};
     if (value.candidate_page_size < 1 || value.candidate_page_size > 9)
         return {false, "candidate_page_size must be between 1 and 9"};
     if (value.candidate_wrap_length < 4 || value.candidate_wrap_length > 64)
@@ -376,7 +390,7 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 16 ? 1 : 0) +
                                (version >= 17 ? std::size(expanded_navigation_required) : 0) +
                                (version >= 18 ? std::size(symbol_required) : 0) +
-                               (version >= 19 ? 1 : 0);
+                               (version >= 19 ? 1 : 0) + (version >= 20 ? 1 : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -419,6 +433,9 @@ ConfigParseResult parse_config(const std::string_view utf8) {
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
+    if (version >= 20 && (!fields.contains("input_scheme_order") ||
+        !parse_shortcut_list(fields["input_scheme_order"], value.input_scheme_order) || value.input_scheme_order.empty()))
+        return {false, {}, "input_scheme_order is missing or invalid"};
     if (version >= 19) {
         if (!fields.contains("pinyin_preview_location"))
             return {false, {}, "pinyin_preview_location is missing"};
@@ -593,8 +610,9 @@ ConfigParseResult parse_config(const std::string_view utf8) {
 
 std::string serialize_config(const AppConfig& value) {
     if (!validate_config(value).ok) return {};
-    return "schema_version=" + std::to_string(kConfigSchemaVersion) +
+    return "schema_version=" + std::to_string(value.input_scheme_order.empty() ? 19 : kConfigSchemaVersion) +
            "\ninput_scheme=" + value.input_scheme +
+           (value.input_scheme_order.empty() ? std::string{} : "\ninput_scheme_order=" + serialize_shortcut_list(value.input_scheme_order)) +
            "\ncandidate_page_size=" + std::to_string(value.candidate_page_size) +
            "\ncandidate_wrap_length=" + std::to_string(value.candidate_wrap_length) +
            "\npinyin_preview_location=" + value.pinyin_preview_location +

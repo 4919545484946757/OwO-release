@@ -95,6 +95,19 @@ int wmain(int argc, wchar_t** argv) {
     });
     const auto model_disabled = send(pipe, {owo::protocol::MessageType::candidate_request,
                                             10, 1, "nihao"});
+    owo::protocol::Message explicit_scheme{owo::protocol::MessageType::candidate_request, 101, 1, "nihao"};
+    explicit_scheme.input_scheme = "exact_code";
+    const auto exact_client = send(pipe, explicit_scheme);
+    explicit_scheme.request_id++;
+    explicit_scheme.input_scheme = "full_pinyin";
+    const auto pinyin_client = send(pipe, explicit_scheme);
+    explicit_scheme.request_id++;
+    explicit_scheme.input_scheme = "exact_code";
+    const auto exact_cached = send(pipe, explicit_scheme);
+    const bool scheme_cache_isolated = exact_client.validation && pinyin_client.validation && exact_cached.validation &&
+        exact_client.message.type == owo::protocol::MessageType::candidate_response &&
+        exact_client.message.candidates.empty() && exact_cached.message.candidates.empty() &&
+        pinyin_client.message.candidates == model_disabled.message.candidates && !pinyin_client.message.candidates.empty();
     const auto page_of_three = send(pipe, {owo::protocol::MessageType::candidate_request,
                                            20, 1, "ce"});
     const auto compact_double_initial = send(
@@ -260,6 +273,10 @@ int wmain(int argc, wchar_t** argv) {
     const auto shutdown = send(pipe, {owo::protocol::MessageType::shutdown_request,
                                       3, 1, {}});
     server.join();
+    if (!scheme_cache_isolated) {
+        std::cerr << "per-request input scheme or candidate cache isolation failed\n";
+        return 1;
+    }
     if (!single_first_pages_ok) {
         std::cerr << "single-character-first per-page/configuration/expanded contract failed\n";
         return 3;

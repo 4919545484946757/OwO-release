@@ -159,21 +159,15 @@
                     <ScrollViewer x:Name="GeneralSettingsPage" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                         <Grid x:Name="GeneralContentArea" Margin="32,0,32,24">
                             <StackPanel Margin="0" Spacing="8" HorizontalAlignment="Stretch" MaxWidth="960">
-                                <TextBlock x:Name="InputSchemeSectionTitle" Text="当前输入方案" Style="{StaticResource SectionTitleStyle}"/>
-                                <Border x:Name="InputSchemeCard" Style="{StaticResource SettingsCardStyle}">
-                                    <Grid ColumnSpacing="16">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Spacing="3">
-                                            <TextBlock Text="输入方案" Style="{StaticResource SettingTitleStyle}"/>
-                                            <TextBlock x:Name="InputSchemeDescription" Text="选择用于解释预编辑编码的输入方案。" Style="{StaticResource SettingDescriptionStyle}"/>
-                                        </StackPanel>
-                                        <ComboBox x:Name="InputScheme" Grid.Column="1" MinWidth="200" SelectedValuePath="Id" DisplayMemberPath="Name" VerticalAlignment="Center" SelectionChanged="InputScheme_SelectionChanged"/>
-                                    </Grid>
-                                </Border>
-                                <Button x:Name="DiscoverSchemesButton" Content="发现已授权插件输入方案" Click="DiscoverSchemes_Click"/>
+                                <TextBlock x:Name="InputSchemeSectionTitle" Text="输入方案" Style="{StaticResource SectionTitleStyle}"/>
+                                <StackPanel x:Name="InputSchemeCard" Spacing="8">
+                                    <TextBlock Text="切换快捷键按列表顺序轮换已启用方案；第一个已启用方案用于新窗口。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button x:Name="DiscoverSchemesButton" Content="刷新方案" Click="DiscoverSchemes_Click"/>
+                                        <Button Content="前往插件管理器安装" Click="InstallSchemes_Click"/>
+                                    </StackPanel>
+                                    <StackPanel x:Name="InputSchemeRows" Spacing="8"/>
+                                </StackPanel>
                                 <TextBlock x:Name="CandidateSectionTitle" Text="候选显示与组合" Style="{StaticResource SectionTitleStyle}"/>
                                 <Border x:Name="PinyinPreviewLocationCard" Style="{StaticResource SettingsCardStyle}">
                                     <Grid ColumnSpacing="16">
@@ -476,8 +470,8 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel>
-                                                    <TextBlock Text="切换中 / 英文输入" Style="{StaticResource SettingTitleStyle}"/>
-                                                    <TextBlock Text="切换输入语言模式。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                                    <TextBlock Text="切换输入方案" Style="{StaticResource SettingTitleStyle}"/>
+                                                    <TextBlock Text="按输入方案列表的顺序轮换已启用方案。" Style="{StaticResource SettingDescriptionStyle}"/>
                                                 </StackPanel>
                                                 <ToggleSwitch x:Name="LanguageShortcutEnabled" Grid.Column="1"/>
                                                 <Button Grid.Column="2" Content="＋" Tag="language" Click="AddShortcutButton_Click"/>

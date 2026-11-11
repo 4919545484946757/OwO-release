@@ -8,7 +8,8 @@ internal static class SettingsModuleDefinitions
 
     internal static SettingsModule[] Create() => [
         new("input-scheme", "schemes", [
-            F(nameof(SettingsSnapshot.InputScheme), s => s.InputScheme, (s, v) => s with { InputScheme = v })]),
+            F(nameof(SettingsSnapshot.InputScheme), s => s.InputScheme, (s, v) => s with { InputScheme = v }),
+            F(nameof(SettingsSnapshot.InputSchemeOrder), s => s.InputSchemeOrder, (s, v) => s with { InputSchemeOrder = v })]),
         new("candidate-display", "candidates", [
             F(nameof(SettingsSnapshot.PinyinPreviewLocation), s => s.PinyinPreviewLocation, (s, v) => s with { PinyinPreviewLocation = v }, SettingsCapability.InlinePreedit),
             F(nameof(SettingsSnapshot.CandidatePageSize), s => s.CandidatePageSize, (s, v) => s with { CandidatePageSize = v }, SettingsCapability.CandidateDisplay),

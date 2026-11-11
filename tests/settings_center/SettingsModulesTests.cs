@@ -85,6 +85,16 @@ try {
     Check((await client.LoadAsync()).InputScheme == wubi.Id, "Real config backend persists Wubi selection");
     await client.SaveAsync(defaults with { InputScheme = "full_pinyin" });
     Check((await client.LoadAsync()).InputScheme == "full_pinyin", "Real config backend persists pinyin fallback");
+    var english = InputSchemeSettingsPolicy.Resolve("english");
+    Check(english.Supports(SettingsCapability.LanguageSwitch) && !english.Supports(SettingsCapability.CandidateDisplay), "English is pass-through with scheme switching");
+    var legacy = InputSchemeSettingsPolicy.BuildOrder("", wubi.Id, ["full_pinyin", "english", "exact_code", wubi.Id]);
+    Check(legacy.SequenceEqual(new[] { wubi.Id, "english", "!full_pinyin", "!exact_code" }), "Legacy scheme remains first; English remains enabled");
+    var order = $"!full_pinyin;english;{wubi.Id};!exact_code";
+    await client.SaveAsync(defaults with { InputScheme = "english", InputSchemeOrder = order });
+    var savedOrder = await client.LoadAsync();
+    Check(savedOrder.InputScheme == "english" && savedOrder.InputSchemeOrder == order, "Native config persists ordered switches");
+    Check(InputSchemeSettingsPolicy.DisablePlugin(["!english", wubi.Id, "!full_pinyin"], wubi.OwnerPluginId!)
+        .SequenceEqual(new[] { "english", "!" + wubi.Id, "!full_pinyin" }), "Disabling last plugin leaves safe keyboard fallback");
     // Return the isolated file to the baseline expected by the remaining module checks.
     File.WriteAllBytes(client.ConfigPath, before);
 

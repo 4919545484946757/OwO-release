@@ -1,4 +1,5 @@
 #include "owo/config/config_store.h"
+#include "owo/config/input_scheme_order.h"
 
 #include <filesystem>
 #include <fstream>
@@ -317,6 +318,24 @@ int main(const int argc, char** argv) {
     if (!owo::config::validate_config(plugin_scheme).ok) return 70;
     const auto scheme_roundtrip = owo::config::parse_config(owo::config::serialize_config(plugin_scheme));
     if (!scheme_roundtrip.ok || scheme_roundtrip.value != plugin_scheme) return 71;
+    auto rotation = changed;
+    rotation.input_scheme = "english";
+    rotation.input_scheme_order = {"!exact_code", "english", plugin_scheme.input_scheme, "full_pinyin"};
+    const auto ordered_roundtrip = owo::config::parse_config(owo::config::serialize_config(rotation));
+    if (!ordered_roundtrip.ok || ordered_roundtrip.value != rotation || !scheme_roundtrip.value.input_scheme_order.empty()) return 90;
+    const auto available = [](const auto&) { return true; };
+    const auto builtins_only = [](std::string_view id) { return !id.starts_with("plugin:"); };
+    if (owo::config::next_enabled_input_scheme(rotation.input_scheme_order, "", available) != "english" ||
+        owo::config::next_enabled_input_scheme(rotation.input_scheme_order, "english", available) != plugin_scheme.input_scheme ||
+        owo::config::next_enabled_input_scheme(rotation.input_scheme_order, "english", builtins_only) != "full_pinyin" ||
+        owo::config::next_enabled_input_scheme(rotation.input_scheme_order, "full_pinyin", available) != "english" ||
+        owo::config::next_enabled_input_scheme(rotation.input_scheme_order, "", [](const auto&) { return false; }) != "english") return 94;
+    rotation.input_scheme_order.push_back("!full_pinyin");
+    if (owo::config::validate_config(rotation).ok) return 91;
+    rotation.input_scheme_order = {"!english", "!full_pinyin"};
+    if (owo::config::validate_config(rotation).ok) return 92;
+    rotation.input_scheme_order = {"full_pinyin", "english"};
+    if (owo::config::validate_config(rotation).ok) return 93;
     for (const auto bad : {"plugin:", "plugin:../table", "plugin:owo.test/../table", "plugin:owo.test/", "plugin:owo.test/a/b"}) {
         plugin_scheme.input_scheme = bad;
         if (owo::config::validate_config(plugin_scheme).ok) return 72;
