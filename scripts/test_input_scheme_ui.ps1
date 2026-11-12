@@ -128,21 +128,21 @@ try {
     Check-ScopeLabel $window $fullName
     (Wait-Id $window 'SchemeNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Start-Sleep -Milliseconds 250
-    $up = Find-Id $window 'InputSchemeMoveUp:english'
+    $up = Wait-Id $window 'InputSchemeMoveUp:english'
     $up.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-Config 'input_scheme=english'
     $pluginSuffix = if ($EnglishPackage) { ';!plugin:owo.plugin.english/english' } else { '' }
     Wait-Config ('input_scheme_order=english;full_pinyin;!exact_code' + $pluginSuffix)
-    $exact = Find-Id $window 'InputSchemeToggle:exact_code'
+    $exact = Wait-Id $window 'InputSchemeToggle:exact_code'
     $exact.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
     Wait-Config ('input_scheme_order=english;full_pinyin;exact_code' + $pluginSuffix)
-    $exact = Find-Id $window 'InputSchemeToggle:exact_code'
+    $exact = Wait-Id $window 'InputSchemeToggle:exact_code'
     $exact.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
     Wait-Config ('input_scheme_order=english;full_pinyin;!exact_code' + $pluginSuffix)
-    $pinyin = Find-Id $window 'InputSchemeToggle:full_pinyin'
+    $pinyin = Wait-Id $window 'InputSchemeToggle:full_pinyin'
     $pinyin.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
     Wait-Config ('input_scheme_order=english;!full_pinyin;!exact_code' + $pluginSuffix)
-    $english = Find-Id $window 'InputSchemeToggle:english'
+    $english = Wait-Id $window 'InputSchemeToggle:english'
     $english.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
     Start-Sleep -Milliseconds 300
     if ($english.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne [Windows.Automation.ToggleState]::On) {
