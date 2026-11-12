@@ -33,6 +33,7 @@ public sealed partial class MainPage
                 _schemeEditors.Remove(key);
         }
         if (IsSchemeScopedPage) ShowPage(_currentPage);
+        else UpdateConfigurationSchemeBadge();
     }
     private void SelectConfigurationScheme(string id) {
         _configurationSchemeId = id;
@@ -51,6 +52,16 @@ public sealed partial class MainPage
     private bool PluginVersionIsCurrent(string owner, string version) => _installedPlugins.Any(plugin =>
         plugin.Id == owner && plugin.Version == version && plugin.Active && plugin.PermissionsAuthorized && plugin.Permissions.Contains("input.scheme"));
 
+    private void UpdateConfigurationSchemeBadge() {
+        if (SettingsPageSchemeBadge is null || SettingsPageSchemeLabel is null) return;
+        var visible = IsSchemeScopedPage || _currentPage == "punctuation";
+        SettingsPageSchemeBadge.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (visible) {
+            SettingsPageSchemeLabel.Text = $"配置方案：{ConfigurationScheme.Name}";
+            ToolTipService.SetToolTip(SettingsPageSchemeBadge, SettingsPageSchemeLabel.Text);
+        }
+    }
+
     private void UpdateSchemeScopePage() {
         if (SchemeScopeHost is null || SchemeShortcutHost is null) return;
         var scoped = IsSchemeScopedPage && (_currentPage == "user-lexicon" ? !UsesHostDictionary : !IsHostConfigurationScope);
@@ -67,7 +78,9 @@ public sealed partial class MainPage
         }
         var host = _currentPage == "shortcuts" ? SchemeShortcutHost : SchemeScopeHost;
         host.Content = BuildSchemeScopeContent();
-        CurrentPageDescription.Text = $"配置目标：{ConfigurationScheme.Name} · 不影响当前输入方案";
+        CurrentPageDescription.Text = _currentPage == "shortcuts"
+            ? "方案快捷键仅对所选方案生效；切换输入方案仍是全局快捷键。"
+            : "此页只显示所选方案的配置，不会切换正在使用的输入方案。";
     }
 
     private FrameworkElement BuildSchemeScopeContent() {

@@ -154,7 +154,15 @@
                 </VisualStateManager.VisualStateGroups>
                 <Grid x:Name="PageHeaderArea" Margin="32,6,32,16" Grid.Row="0">
                     <StackPanel x:Name="PageHeaderContent" Spacing="4" HorizontalAlignment="Stretch" MaxWidth="960">
-                        <TextBlock x:Name="CurrentPageTitle" Text="输入方案" Style="{StaticResource TitleTextBlockStyle}"/>
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock x:Name="CurrentPageTitle" Text="输入方案" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            <Border Grid.Column="1" x:Name="SettingsPageSchemeBadge" Visibility="Collapsed" MaxWidth="200" Padding="8,4" CornerRadius="6"
+                                    VerticalAlignment="Center" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                <TextBlock x:Name="SettingsPageSchemeLabel" FontSize="12" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="SettingsPageSchemeLabel"/>
+                            </Border>
+                        </Grid>
                         <TextBlock x:Name="CurrentPageDescription" Text="选择编码方案并查看当前方案能力" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     </StackPanel>
                 </Grid>

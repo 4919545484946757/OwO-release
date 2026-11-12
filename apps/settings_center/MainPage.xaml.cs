@@ -288,6 +288,7 @@ public sealed partial class MainPage : Page
         };
         UpdateSchemeHintVisibility();
         UpdatePluginDiscoveryActivation();
+        UpdateConfigurationSchemeBadge();
         UpdateSchemeScopePage();
     }
 

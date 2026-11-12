@@ -38,6 +38,16 @@ function Select-Scope($window, [string]$name) {
     if ($expanded.Current.ExpandCollapseState -eq [Windows.Automation.ExpandCollapseState]::Expanded) { $expanded.Collapse() }
     Start-Sleep -Milliseconds 250
 }
+function Check-ScopeLabel($window, [string]$name) {
+    $label = Wait-Id $window 'SettingsPageSchemeLabel'
+    if ($label.Current.IsOffscreen -or -not $label.Current.Name.EndsWith($name, [StringComparison]::Ordinal)) {
+        throw "Expected a visible configuration label ending with '$name'; got '$($label.Current.Name)'."
+    }
+}
+function Check-NoScopeLabel($window) {
+    $label = Find-Id $window 'SettingsPageSchemeLabel'
+    if ($null -ne $label -and -not $label.Current.IsOffscreen) { throw 'Configuration label leaked onto an unrelated page.' }
+}
 function Wait-Config([string]$line) {
     $deadline = [DateTime]::UtcNow.AddSeconds(8)
     do {
@@ -68,14 +78,28 @@ try {
         }
     } until (($null -ne $up -and $up.Current.IsEnabled) -or [DateTime]::UtcNow -ge $deadline)
     if ($null -eq $up -or -not $up.Current.IsEnabled) { throw 'English row did not load.' }
+    $fullName = -join (0x5168,0x62fc | ForEach-Object { [char]$_ })
+    $englishName = -join (0x82f1,0x6587,0x8f93,0x5165 | ForEach-Object { [char]$_ })
+    Check-NoScopeLabel $window
     (Wait-Id $window 'UserLexiconNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     $null = Wait-Id $window 'DictionarySearch'
-    Select-Scope $window (-join (0x82f1,0x6587,0x8f93,0x5165 | ForEach-Object { [char]$_ }))
+    Check-ScopeLabel $window $fullName
+    Select-Scope $window $englishName
+    Check-ScopeLabel $window $englishName
     $tabs = Find-Id $window 'DictionarySearch'
     if ($null -ne $tabs -and -not $tabs.Current.IsOffscreen) { throw 'Host dictionary leaked into English scope.' }
     Wait-Config 'input_scheme=full_pinyin'
-    Select-Scope $window (-join (0x5168,0x62fc | ForEach-Object { [char]$_ }))
+    foreach ($page in @('CandidateNavigationItem','IntelligenceNavigationItem','ShortcutNavigationItem')) {
+        (Wait-Id $window $page).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        Check-ScopeLabel $window $englishName
+    }
+    (Wait-Id $window 'GeneralNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Start-Sleep -Milliseconds 200
+    Check-NoScopeLabel $window
+    (Wait-Id $window 'UserLexiconNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Select-Scope $window $fullName
     $null = Wait-Id $window 'DictionarySearch'
+    Check-ScopeLabel $window $fullName
     (Wait-Id $window 'SchemeNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Start-Sleep -Milliseconds 250
     $up = Find-Id $window 'InputSchemeMoveUp:english'
@@ -97,7 +121,7 @@ try {
     if ($english.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne [Windows.Automation.ToggleState]::On) {
         throw 'The last enabled provider must remain enabled.'
     }
-    Write-Output 'PASS: WinUI scheme scopes, dictionary isolation, reorder, toggles and native autosave (isolated config).'
+    Write-Output 'PASS: WinUI scheme labels, scopes, dictionary isolation, reorder, toggles and native autosave (isolated config).'
 } finally {
     $process.Refresh()
     if (-not $process.HasExited) {

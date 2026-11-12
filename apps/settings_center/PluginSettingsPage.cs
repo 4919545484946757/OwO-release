@@ -211,6 +211,7 @@ public sealed partial class MainPage
             _pluginSettings = PluginSettingsModel.Load(_pluginClient.StorePath, plugin);
             var openedModel = _pluginSettings;
             _currentPage = $"plugin:{plugin.Id}:{plugin.Version}";
+            UpdateConfigurationSchemeBadge();
             UpdateSchemeHintVisibility();
             PluginConfigFields.Children.Clear();
             _pluginConfigControls.Clear();
