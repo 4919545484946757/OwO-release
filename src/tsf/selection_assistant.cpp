@@ -241,7 +241,7 @@ void SelectionAssistant::show() {
     service_.candidate_request_pending_ = false; service_.candidates_expanded_ = false;
     service_.update_candidate_window();
 }
-std::wstring SelectionAssistant::header() const { return failed_ ? error_ : busy_ ? L"大模型 · 原文保留中" : L"大模型 · 选择功能（数字键 1–4）"; }
+std::wstring SelectionAssistant::header() const { return failed_ ? error_ : busy_ ? L"v模式原文保留中" : L"v模式：选择功能"; }
 void SelectionAssistant::choose(std::size_t index) {
     if (!active_ || busy_) return;
     if (failed_) { if (index == 0) start(operation_); else if (index == 1) service_.clear_composition(); }
