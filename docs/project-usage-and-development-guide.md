@@ -614,3 +614,23 @@ TSF 描述缓存或已打开应用可能保留旧 DLL。运行 `owo_tsf_profile_
 - 性能诊断：`docs\candidate-performance-debugging.md`
 - 安装向导：`docs\standalone-winui-setup.md`
 - 发行说明：`docs\releases\`
+
+## 10. 一键配置环境依赖
+
+在仓库根目录运行：
+
+```powershell
+.\setup-owo-environment.cmd
+```
+
+该入口使用 winget 安装缺失的必需系统工具，下载并校验项目本地 .NET SDK 10.0.403，准备 rime-ice v2/v3 词典和 libime 模型，并完成 x64/x86 与设置中心基础构建。可追加 `-Start` 在完成后启动开发版。
+
+常用变体：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-development-environment.ps1 -CheckOnly
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-development-environment.ps1 -InstallMissing -SkipBuild
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-development-environment.ps1 -InstallMissing -IncludeInnoSetup -IncludeMsys2 -IncludeOptionalDependencies
+```
+
+`-CheckOnly` 只检查不安装、不联网、不构建。系统级安装通过 winget 完成；Inno Setup、MSYS2、ONNX Runtime 和 zlib 属于可选功能，默认不安装或下载。MSYS2 安装后仍需按第 4.2 节准备 CLANG64 包并构建 libime 桥接。

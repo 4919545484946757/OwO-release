@@ -115,3 +115,7 @@ cmake --build --preset windows-release
 当前构建未进行商业代码签名。请只从可信来源获取，并核对发行目录中的 `SHA256SUMS.txt`。
 
 Setup 引导与 WinUI 安装助手的构建、安全校验与测试说明见 [WinUI 安装器](docs/standalone-winui-setup.md)。
+
+## 一键配置环境依赖
+
+新环境可运行 `setup-owo-environment.cmd`：安装缺失的必需系统工具，准备项目本地 .NET SDK、rime-ice 词典和 libime 模型，并完成基础构建。只读检查使用 `scripts/setup-development-environment.ps1 -CheckOnly`。
