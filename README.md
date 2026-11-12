@@ -1,5 +1,7 @@
 # OwO 输入法
 
+安装、日常使用、源代码环境配置、构建运行、测试调试与打包的统一入口见[项目使用及源代码环境配置与运行说明书](docs/project-usage-and-development-guide.md)。
+
 OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入方案；解析、候选服务和设置层允许切换或扩展其他编码方案。基础输入、词典查询和上屏均可离线运行；智能排序不可用时保留基础候选。明确选择的插件输入方案不可用时保留编码，不自动切回拼音。
 
 当前版本：`0.3.0`（[更新说明](docs/releases/0.3.0.md)；本次仅本地打包，未上传）
@@ -83,7 +85,7 @@ Agent 返回的自然语言只用于显示，控制行为必须使用结构化�
 
 安装版可在“调试与性能”测量内置候选主链路的分阶段耗时、P50/P95 和请求时间线，并导出不含输入原文的本地报告。默认关闭、不自动上传；详见[候选性能诊断](docs/candidate-performance-debugging.md)。
 
-需要 Visual Studio 2022 Build Tools、MSVC x64、CMake 3.25+、.NET 10 SDK 和 Windows 11 SDK；Setup 打包另需 Inno Setup 6/7（可通过 `-CompilerPath` 指定编译器）。
+需要 Visual Studio 2022 Build Tools、MSVC x64/x86、CMake 3.25+、.NET 10 SDK 和 Windows 11 SDK；Setup 打包另需 Inno Setup 6/7（可通过 `-CompilerPath` 指定编译器）。完整环境准备、词典与 libime 依赖、开发启动、测试和发行步骤见[项目使用及源代码环境配置与运行说明书](docs/project-usage-and-development-guide.md)。
 
 ```powershell
 cmake --preset windows-debug
