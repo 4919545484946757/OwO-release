@@ -5,6 +5,7 @@
 #include "owo/tsf/candidate_ui_element.h"
 #include "owo/tsf/candidate_window_order.h"
 #include <functional>
+#include <fstream>
 #include "owo/tsf/language_context.h"
 #include "owo/tsf/learning_anchor.h"
 
@@ -13,6 +14,7 @@
 
 #include "owo/config/config_paths.h"
 #include "owo/config/input_scheme_order.h"
+#include "owo/config/scheme_shortcuts.h"
 #include "owo/diagnostics/candidate_timing.h"
 #include "owo/agent/agent_protocol.h"
 #include "owo/ipc/named_pipe.h"
@@ -3822,6 +3824,7 @@ void TextService::refresh_shortcut_config(const bool force) {
         }
         shortcut_config_.input_scheme = next_input_scheme({});
         chinese_mode_ = shortcut_config_.input_scheme != "english";
+        apply_plugin_scheme_shortcuts(true);
         chinese_punctuation_enabled_ = shortcut_config_.chinese_punctuation_enabled;
         sync_preserved_language_key();
         return;
@@ -3846,6 +3849,7 @@ void TextService::refresh_shortcut_config(const bool force) {
             const auto next = next_input_scheme({});
             if (next != configured_scheme) activate_input_scheme(next);
         }
+        apply_plugin_scheme_shortcuts(false);
         if (configured_punctuation != shortcut_config_.chinese_punctuation_enabled)
             chinese_punctuation_enabled_ = shortcut_config_.chinese_punctuation_enabled;
         if (!shortcut_config_.alt_code_preview_enabled)
@@ -5993,10 +5997,61 @@ void TextService::activate_input_scheme(std::string target) {
     clear_composition();
     recent_language_context_.clear();
     recent_language_input_.clear();
+    if (shortcut_config_initialized_) {
+        auto order = std::move(shortcut_config_.input_scheme_order);
+        shortcut_config_ = shortcut_config_store_.snapshot();
+        shortcut_config_.input_scheme_order = std::move(order);
+    }
     shortcut_config_.input_scheme = std::move(target);
     chinese_mode_ = shortcut_config_.input_scheme != "english";
+    apply_plugin_scheme_shortcuts(true);
     if (shortcut_config_.input_scheme != "full_pinyin") correction_enabled_ = true;
     update_language_bar();
+}
+
+void TextService::apply_plugin_scheme_shortcuts(bool force) {
+    scheme_shortcuts_scoped_ = false;
+    if (!plugin_scheme_selected()) return;
+    const auto now = GetTickCount64();
+    const auto& id = shortcut_config_.input_scheme;
+    if (force || id != scheme_shortcut_identity_ || now >= next_scheme_shortcut_read_) {
+        scheme_shortcut_identity_ = id;
+        next_scheme_shortcut_read_ = now + 1000;
+        scheme_shortcut_defaults_.clear(); scheme_shortcut_overrides_.clear();
+        const auto read = [](const std::filesystem::path& path) {
+            for (auto cursor = path; !cursor.empty(); cursor = cursor.parent_path()) {
+                const auto attributes = GetFileAttributesW(cursor.c_str());
+                if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) return std::string{};
+                if (cursor == cursor.parent_path()) break;
+            }
+            std::ifstream file(path, std::ios::binary);
+            char bytes[4097]{}; file.read(bytes, sizeof(bytes));
+            if (file.gcount() > 4096 || file.bad()) return std::string{};
+            return std::string(bytes, static_cast<std::size_t>(file.gcount()));
+        };
+        const auto data = config::local_data_root();
+        if (!data.empty()) {
+            const auto root = data / L"plugins";
+            const auto slash = id.find('/');
+            const auto owner = id.substr(7, slash - 7), local = id.substr(slash + 1);
+            const auto active = plugin::query_active_plugin_version(root, owner);
+            if (active.ok && active.manifest.runtime == "process") {
+                const auto grant = plugin::load_plugin_authorization(root, owner, active.manifest.version);
+                if (grant.ok && plugin::is_plugin_permission_granted(grant.value, active.manifest,
+                    active.inventory_sha256, active.publisher_certificate_sha256, "input.scheme")) {
+                    scheme_shortcut_defaults_ = read(active.installed_path / L"input-schemes" / local / L"shortcuts.conf");
+                    if (!scheme_shortcut_defaults_.empty()) scheme_shortcut_overrides_ = read(root / L"data" / owner / L"input-schemes" / local / L"shortcuts.conf");
+                }
+            }
+        }
+    }
+    if (const auto defaults = config::parse_scheme_shortcuts(scheme_shortcut_defaults_)) {
+        const auto overrides = config::parse_scheme_shortcuts(scheme_shortcut_overrides_);
+        scheme_shortcuts_scoped_ = (overrides && config::apply_scheme_shortcuts(shortcut_config_, *defaults, *overrides)) ||
+            config::apply_scheme_shortcuts(shortcut_config_, *defaults, {});
+    }
+    if (!scheme_shortcuts_scoped_ && !scheme_shortcut_defaults_.empty())
+        scheme_shortcuts_scoped_ = config::apply_scheme_shortcuts(shortcut_config_, {}, {});
 }
 
 HRESULT TextService::toggle_language_mode_from_window() {
@@ -6149,8 +6204,8 @@ bool TextService::plugin_should_eat_key(ITfContext* context, WPARAM key, LPARAM 
     if (!chinese_mode_) { activation_trace("ENGLISH_MODE", S_OK, context); return false; }
     if (!plugin_context_allowed(context)) return false;
     if (has_composition()) {
-        if (key == VK_PRIOR || key == VK_NEXT) return !command_modifier_down();
-        if (key == VK_ESCAPE || key == VK_BACK || key == VK_DELETE || key == VK_RETURN || key == VK_SPACE)
+        if (!scheme_shortcuts_scoped_ && (key == VK_PRIOR || key == VK_NEXT || key == VK_RETURN)) return !command_modifier_down();
+        if (key == VK_ESCAPE || key == VK_BACK || key == VK_DELETE || key == VK_SPACE)
             return !command_modifier_down();
         if (shortcut_config_.raw_input_shortcut_enabled && shortcut_matches(shortcut_config_.raw_input_shortcuts, key)) return true;
         if (shortcut_config_.cursor_left_shortcut_enabled && shortcut_matches(shortcut_config_.cursor_left_shortcuts, key)) return true;
@@ -6232,7 +6287,7 @@ HRESULT TextService::handle_plugin_key(ITfContext* context, WPARAM key, LPARAM f
         shortcut_matches(shortcut_config_.expanded_next_page_shortcuts, key)) {
         move_expanded_page(1); return S_OK;
     }
-    if (key == VK_RETURN || (shortcut_config_.raw_input_shortcut_enabled &&
+    if ((!scheme_shortcuts_scoped_ && key == VK_RETURN) || (shortcut_config_.raw_input_shortcut_enabled &&
         shortcut_matches(shortcut_config_.raw_input_shortcuts, key))) {
         commit_plugin_text(input_buffer_, false); return S_OK;
     }
@@ -6258,7 +6313,7 @@ HRESULT TextService::handle_plugin_key(ITfContext* context, WPARAM key, LPARAM f
         if (candidates_expanded_) move_expanded_page(1); else change_plugin_page(1);
         return S_OK;
     }
-    if (key == VK_PRIOR || key == VK_NEXT) { change_plugin_page(key == VK_PRIOR ? -1 : 1); return S_OK; }
+    if (!scheme_shortcuts_scoped_ && (key == VK_PRIOR || key == VK_NEXT)) { change_plugin_page(key == VK_PRIOR ? -1 : 1); return S_OK; }
     if (!plugin_input_descriptor_) {
         // The descriptor is not known until open completes. Raw encoding never disappears on open failure.
         plugin_pending_selection_.reset();

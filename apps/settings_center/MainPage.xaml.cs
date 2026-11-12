@@ -105,7 +105,8 @@ public sealed partial class MainPage : Page
         InitializePunctuationSettings();
         InitializeSettingsModules();
         UserLexiconNavigationItem.Content = "词库管理器";
-        UserLexiconPageHost.Content = new DictionaryManager(ShowStatus, _windowDownloads.Start);
+        _hostDictionaries = new DictionaryManager(ShowStatus, _windowDownloads.Start);
+        UserLexiconPageHost.Content = _hostDictionaries;
         ModelManagerPageHost.Content = new ModelManagerPage(_client.ConfigPath, ShowStatus);
         DiagnosticsPageHost.Content = new CandidateDiagnosticsPage(ShowStatus);
         PluginDiscoveryHost.Content = new PluginDiscoveryView(InstallPluginSourceAsync, () => PluginTabs.SelectedItem = InstalledPluginsTab, ShowStatus, _windowDownloads.Start,
@@ -113,6 +114,7 @@ public sealed partial class MainPage : Page
         OnlineDistributionHost.Content = new OnlineDistributionView(
             async (name, path) => {
                 if (UserLexiconPageHost.Content is DictionaryManager manager) {
+                    SelectConfigurationScheme("full_pinyin");
                     await manager.ImportDownloadedAsync(name, path, XamlRoot);
                     SettingsNavigation.SelectedItem = UserLexiconNavigationItem;
                     ShowPage("user-lexicon");
@@ -121,6 +123,7 @@ public sealed partial class MainPage : Page
         InitializeAutoSave();
         InitializeLogoSettings();
         InitializeSearchIndex();
+        RefreshConfigurationSchemes();
         ShowPage("schemes");
         ConfigPath.Text = _client.ConfigPath;
         PluginPath.Text = _pluginClient.StorePath;
@@ -242,7 +245,7 @@ public sealed partial class MainPage : Page
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         UserLexiconPageHost.Visibility = page == "user-lexicon"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
-        if (page == "user-lexicon" && UserLexiconPageHost.Content is DictionaryManager manager)
+        if (page == "user-lexicon" && UsesHostDictionary && UserLexiconPageHost.Content is DictionaryManager manager)
             _ = manager.RefreshAsync();
         ShortcutSettingsPage.Visibility = page == "shortcuts"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
@@ -258,7 +261,7 @@ public sealed partial class MainPage : Page
             UpdatePunctuationNotice();
         }
         SetVisibility(page == "schemes", InputSchemeSectionTitle, InputSchemeCard);
-        SetVisibility(page == "candidates", CandidateSectionTitle,
+        SetVisibility(page == "candidates", CandidateSectionTitle, PinyinPreviewLocationCard,
                       CandidatePageSizeCard, CandidateWrapLengthCard,
                       CandidatePartitionCard, CandidateSingleCharacterFirstCard, CandidateImmediateCommitCard,
                       FocusLossCommitCard, ChinesePunctuationCard, PinyinSymbolCompatibilityCard,
@@ -285,6 +288,7 @@ public sealed partial class MainPage : Page
         };
         UpdateSchemeHintVisibility();
         UpdatePluginDiscoveryActivation();
+        UpdateSchemeScopePage();
     }
 
     private void OpenDiagnostics_Click(object sender, RoutedEventArgs args) => ShowPage("diagnostics");
@@ -379,7 +383,7 @@ public sealed partial class MainPage : Page
             _ => SchemeNavigationItem,
         };
         ShowPage(item.Page);
-        if (!CurrentScheme.Supports(item.Capability))
+        if (!ConfigurationScheme.Supports(item.Capability))
             ShowStatus("当前输入方案不支持此功能，原配置已保留；切换受支持的方案后可编辑。", InfoBarSeverity.Informational);
         if (item.Target is not null) DispatcherQueue.TryEnqueue(() => {
             item.Target.StartBringIntoView();

@@ -63,6 +63,7 @@ public sealed partial class MainPage
         }
         _schemeOrder = InputSchemeSettingsPolicy.BuildOrder(string.Join(';', _schemeOrder), PreferredInputScheme, _availableSchemeIds);
         UpdateInputSchemePresentation();
+        RefreshConfigurationSchemes();
         return discovered.Select(s => s.Id).Distinct(StringComparer.Ordinal).Count();
     }
 

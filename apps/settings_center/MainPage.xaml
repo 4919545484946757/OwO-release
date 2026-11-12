@@ -61,8 +61,11 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <!-- Global search belongs to the page shell, not to any individual settings section. -->
-        <Grid x:Name="GlobalSearchArea" Grid.Row="0" Margin="16,16,16,10">
+        <Grid x:Name="GlobalSearchArea" Grid.Row="0" Margin="16,16,16,10" ColumnSpacing="12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <AutoSuggestBox x:Name="SettingsSearchBox" PlaceholderText="查找设置" QueryIcon="Find" TextChanged="SettingsSearchBox_TextChanged" SuggestionChosen="SettingsSearchBox_SuggestionChosen" QuerySubmitted="SettingsSearchBox_QuerySubmitted" HorizontalAlignment="Stretch" MaxWidth="720"/>
+            <ComboBox Grid.Column="1" x:Name="SettingsSchemeSelector" PlaceholderText="配置输入方案" MinWidth="136" MaxWidth="220" VerticalAlignment="Center" HorizontalAlignment="Right"
+                      DisplayMemberPath="Name" SelectionChanged="SettingsSchemeSelector_Changed" AutomationProperties.Name="选择要配置的输入方案" AutomationProperties.AutomationId="SettingsSchemeSelector"/>
         </Grid>
         <NavigationView Grid.Row="1" x:Name="SettingsNavigation" PaneDisplayMode="Auto" OpenPaneLength="260" CompactPaneLength="48" IsBackButtonVisible="Collapsed" IsSettingsVisible="False" AlwaysShowHeader="False" SelectionChanged="SettingsNavigation_SelectionChanged" ItemInvoked="SettingsNavigation_ItemInvoked" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
             <NavigationView.PaneHeader>
@@ -424,7 +427,7 @@
                         <Grid x:Name="ShortcutContentArea" Margin="32,0,32,24">
                             <ContentControl x:Name="ShortcutSection" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" MaxWidth="960">
                                 <StackPanel Margin="0" Spacing="8" HorizontalAlignment="Stretch">
-                                    <TextBlock Text="每项可绑定多种方案。点击快捷键按钮后按下新组合；使用加号添加，减号删除。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                    <TextBlock x:Name="NativeShortcutHint" Text="每项可绑定多种方案。点击快捷键按钮后按下新组合；使用加号添加，减号删除。" Style="{StaticResource SettingDescriptionStyle}"/>
                                     <Border x:Name="PunctuationShortcutCard" Style="{StaticResource SettingsCardStyle}">
                                         <StackPanel Spacing="10">
                                             <Grid ColumnSpacing="8">
@@ -479,6 +482,7 @@
                                             <StackPanel x:Name="LanguageShortcutBindings" Spacing="8"/>
                                         </StackPanel>
                                     </Border>
+                                    <ContentControl x:Name="SchemeShortcutHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch"/>
                                     <Border x:Name="RawInputShortcutCard" Style="{StaticResource SettingsCardStyle}">
                                         <StackPanel Spacing="10">
                                             <Grid ColumnSpacing="8">
@@ -746,6 +750,7 @@
                         </ScrollViewer>
                     </Grid>
                     <ContentControl x:Name="UserLexiconPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+                    <ContentControl x:Name="SchemeScopeHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                     <ContentControl x:Name="ModelManagerPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                     <Grid x:Name="DiagnosticsPage" Visibility="Collapsed" RowSpacing="8">
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>

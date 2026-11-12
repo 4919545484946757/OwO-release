@@ -1310,6 +1310,7 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:owo_wubi86_plugin> "${OWO_WUBI86_STAGE}/bin/owo_wubi86_plugin.exe"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/plugins/wubi86/manifest.json" "${OWO_WUBI86_STAGE}/manifest.json"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/plugins/wubi86/config.schema.json" "${OWO_WUBI86_STAGE}/config.schema.json"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/plugins/wubi86/input-schemes" "${OWO_WUBI86_STAGE}/input-schemes"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/main.tsv" "${OWO_WUBI86_STAGE}/assets/main.tsv"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/LICENSE.upstream" "${OWO_WUBI86_STAGE}/assets/LICENSE.upstream"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/LICENSE.pywubi" "${OWO_WUBI86_STAGE}/assets/LICENSE.pywubi")

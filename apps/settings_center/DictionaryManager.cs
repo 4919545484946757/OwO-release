@@ -105,6 +105,7 @@ internal sealed class DictionaryManager : UserControl
         _page.Content = _overview; Content = _page;
     }
     private void ShowInstalled() { _tabs.SelectedItem = _installedTab; _page.Content = _overview; }
+    internal void CancelDiscoveryForScopeChange() => (_discoveryHost.Content as DictionaryDiscoveryView)?.CancelPending();
     internal async Task RefreshAsync() => await RunAsync(async () => {
         _catalog = await _store.LoadAsync();
         if (!ReferenceEquals(_page.Content, _overview)) ShowInstalled();

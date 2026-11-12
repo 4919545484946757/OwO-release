@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include <numeric>
+#include <set>
+#include <fstream>
 #include <Windows.h>
 #include <bcrypt.h>
 namespace owo::wubi86 {
@@ -10,8 +12,43 @@ engine::InputMethodDescriptor descriptor() {
  d.name="五笔86";d.language_tag="zh-Hans";d.kind=engine::InputMethodKind::table;
  d.alphabet=U"abcdefghijklmnopqrstuvwxy";d.max_input_bytes=4;d.max_candidates=128;d.commit_confirmation=true;return d;
 }
-Provider::Provider(const std::filesystem::path& path,const std::filesystem::path& learning) : learning_(learning) {
+Provider::Provider(const std::filesystem::path& path,const std::filesystem::path& learning,
+                   const std::filesystem::path& scheme_data) : learning_(learning) {
  auto loaded=dictionary_.load_file(path);if(!loaded.ok)throw std::runtime_error(loaded.error);
+ if(scheme_data.empty())return;
+ {
+  std::ifstream settings(scheme_data.parent_path().parent_path()/L"settings.json",std::ios::binary);
+  char buffer[4097]{};settings.read(buffer,sizeof(buffer));
+  if(!settings.bad()&&settings.gcount()<sizeof(buffer)) {
+   const std::string_view document(buffer,static_cast<std::size_t>(settings.gcount()));
+   constexpr std::string_view name="\"show_prefix_candidates\"";
+   if(const auto field=document.find(name);field!=document.npos) {
+    auto tail=document.substr(field+name.size());
+    auto first=tail.find_first_not_of(" \r\n\t");
+    if(first!=tail.npos&&tail[first]==':') {
+     tail.remove_prefix(first+1);first=tail.find_first_not_of(" \r\n\t");
+     if(first!=tail.npos&&tail.substr(first).starts_with("false"))show_prefix_candidates_=false;
+    }
+   }
+  }
+ }
+ std::uintmax_t bytes=0;
+ const auto add=[&](const std::filesystem::path& file) {
+  const auto attributes=GetFileAttributesW(file.c_str());
+  if(attributes==INVALID_FILE_ATTRIBUTES||(attributes&(FILE_ATTRIBUTE_REPARSE_POINT|FILE_ATTRIBUTE_DIRECTORY)))return;
+  std::error_code error;const auto size=std::filesystem::file_size(file,error);
+  if(error||size==0||size>16*1024*1024||bytes+size>24*1024*1024)return;
+  bytes+=size;Wubi86Dictionary custom;
+  if(custom.load_file(file).ok)custom_dictionaries_.push_back(std::move(custom));
+ };
+ add(scheme_data/L"user-lexicon.tsv");
+ const auto downloads=scheme_data/L"dictionaries";
+ const auto attributes=GetFileAttributesW(downloads.c_str());
+ if(attributes==INVALID_FILE_ATTRIBUTES||!(attributes&FILE_ATTRIBUTE_DIRECTORY)||(attributes&FILE_ATTRIBUTE_REPARSE_POINT))return;
+ std::error_code error;std::vector<std::filesystem::path> files;
+ for(auto it=std::filesystem::directory_iterator(downloads,error);!error&&it!=std::filesystem::directory_iterator{}&&files.size()<32;it.increment(error))
+  if(it->path().extension()==L".tsv")files.push_back(it->path());
+ std::sort(files.begin(),files.end());for(const auto& file:files)add(file);
 }
 engine::InputMethodResponse Provider::handle(const engine::InputMethodRequest& r,std::stop_token stop) {
  std::lock_guard lock(mutex_);
@@ -43,6 +80,14 @@ engine::InputMethodResponse Provider::handle(const engine::InputMethodRequest& r
  if(r.action==engine::InputMethodAction::cancel) {out.status=engine::InputMethodStatus::cancelled;return out;}
  if(r.input.empty())return out;
  auto matches=dictionary_.trie().prefix(r.input);
+ if(!custom_dictionaries_.empty()) {
+  std::vector<Entry> merged;
+  std::set<std::pair<std::string,std::string>> seen;
+  const auto append=[&](std::vector<Entry> rows) {for(auto& entry:rows)if(seen.emplace(entry.code,entry.text).second)merged.push_back(std::move(entry));};
+  for(const auto& dictionary:custom_dictionaries_)append(dictionary.trie().prefix(r.input));
+  append(std::move(matches));matches=std::move(merged);
+ }
+ if(!show_prefix_candidates_)std::erase_if(matches,[&](const auto& entry){return entry.code!=r.input;});
  // Read each learned frequency once, rather than allocating map keys in every sort comparison.
  std::vector<std::size_t> ranked(matches.size());std::iota(ranked.begin(),ranked.end(),0);
  std::vector<std::uint32_t> learned;learned.reserve(matches.size());bool any_learned=false;

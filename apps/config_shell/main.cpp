@@ -1,5 +1,6 @@
 #include "owo/config/config_monitor.h"
 #include "owo/config/config_store.h"
+#include "owo/config/scheme_shortcuts.h"
 #include "owo/engine/binary_lexicon.h"
 #include "owo/engine/full_pinyin_schema.h"
 #include "owo/engine/managed_dictionary.h"
@@ -326,6 +327,19 @@ int wmain(const int argc, wchar_t** argv) {
     }
     const std::filesystem::path path(argv[1]);
     const std::wstring_view command(argv[2]);
+    if (command == L"validate-scheme-shortcuts" && argc == 5) {
+        std::string defaults_text, override_text;
+        owo::config::ConfigStore store;
+        if (!store.load(path).success || !parse_ascii(argv[3], defaults_text) || !parse_ascii(argv[4], override_text)) return 3;
+        const auto defaults = owo::config::parse_scheme_shortcuts(defaults_text);
+        const auto overrides = owo::config::parse_scheme_shortcuts(override_text);
+        auto candidate = store.snapshot();
+        if (!defaults || !overrides || !owo::config::apply_scheme_shortcuts(candidate, *defaults, *overrides)) {
+            std::cerr << "invalid scheme shortcut or conflict with the global scheme switch\n";
+            return 4;
+        }
+        return 0;
+    }
     if (command == L"defaults" && argc == 3) {
         std::cout << owo::config::serialize_config(owo::config::AppConfig{});
         return 0;

@@ -131,7 +131,7 @@ public sealed partial class MainPage
         _settingsLoaded = false;
         try {
             CancelShortcutCapture();
-            _settingsModules.ResetPage(_currentPage, defaults, _settingsEditors, CurrentScheme);
+            _settingsModules.ResetPage(_currentPage, defaults, _settingsEditors, ConfigurationScheme);
             UpdateShortcutButtons();
             UpdateInputSchemePresentation();
         } finally { _settingsLoaded = loaded; }
@@ -142,13 +142,13 @@ public sealed partial class MainPage
         if (_settingsCards.Count == 0) return;
         foreach (var binding in _settingsCards) {
             if (ReferenceEquals(binding.Card, InputSchemeCard)) continue; // per-row availability and move boundaries
-            var supported = CurrentScheme.Supports(_settingsModules.Field(binding.Key).Capability);
+            var supported = ConfigurationScheme.Supports(_settingsModules.Field(binding.Key).Capability);
             var dependencyMet = binding.Dependency?.Invoke() ?? true;
             var enabled = supported && dependencyMet;
             SetDescendantControlsEnabled(binding.Card, enabled);
             binding.Card.Opacity = enabled ? 1 : 0.55;
             ToolTipService.SetToolTip(binding.Card, !supported
-                ? "已启用的可用方案均不支持此宿主功能；原配置已保留。"
+                ? "配置目标不支持此宿主功能；原配置已保留。"
                 : !dependencyMet ? binding.DependencyHint : null);
         }
         UpdatePunctuationNotice();
@@ -162,6 +162,7 @@ public sealed partial class MainPage
     }
 
     private IEnumerable<SearchItem> SettingsSearchItems() => _baseSearchItems.Concat(_pluginSearchItems)
-        .Select(item => CurrentScheme.Supports(item.Capability) ? item
+        .Where(item => IsHostConfigurationScope || item.Page is not ("candidates" or "intelligence" or "punctuation" or "shortcuts") || ReferenceEquals(item.Target, LanguageShortcutCard))
+        .Select(item => ConfigurationScheme.Supports(item.Capability) ? item
             : item with { Detail = item.Detail + " · 当前方案不支持，原配置保留" });
 }

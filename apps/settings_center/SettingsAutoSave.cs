@@ -103,10 +103,13 @@ public sealed partial class MainPage
 
     private void UpdateManualSettingsActions() {
         var actions = SettingsManualActions.ForPage(_currentPage, AutoSaveSettings.IsOn);
-        SaveButton.Visibility = ReloadButton.Visibility = actions.SaveReload ? Visibility.Visible : Visibility.Collapsed;
-        ResetPageButton.Visibility = actions.ResetPage ? Visibility.Visible : Visibility.Collapsed;
+        var schemePage = !IsHostConfigurationScope && IsSchemeScopedPage;
+        SaveButton.Visibility = ReloadButton.Visibility = actions.SaveReload && (!schemePage || _currentPage == "shortcuts") ? Visibility.Visible : Visibility.Collapsed;
+        ResetPageButton.Visibility = actions.ResetPage && !schemePage ? Visibility.Visible : Visibility.Collapsed;
         PluginConfigSaveButton.Visibility = PluginConfigResetButton.Visibility = actions.PluginSettings ? Visibility.Visible : Visibility.Collapsed;
         FooterActionsGrid.ColumnSpacing = actions.SaveReload || actions.ResetPage ? 12 : 0;
+        foreach (var editor in _schemeEditors.Values)
+            if (editor.SaveButton is { } button) button.Visibility = AutoSaveSettings.IsOn ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void QueueSettingsAutoSave()
@@ -158,6 +161,7 @@ public sealed partial class MainPage
                     ShowStatus($"插件自动保存失败：{error.Message}", InfoBarSeverity.Error);
                 }
             }
+            foreach (var editor in _schemeEditors.Values.ToArray()) success &= await SaveSchemeEditorAsync(editor);
             return success;
         } finally { _settingsSaveGate.Release(); }
     }

@@ -225,6 +225,7 @@ public sealed partial class MainPage
             (DiagnosticsPageHost.Content as CandidateDiagnosticsPage)?.SetPageActive(false);
             ShortcutSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            SchemeScopeHost.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             UpdatePluginDiscoveryActivation();
             ChinesePunctuationPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             GeneralPreferencesPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;

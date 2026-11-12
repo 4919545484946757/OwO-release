@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "scheme": "wubi86",
+  "candidateFields": ["show_prefix_candidates"],
+  "learningFields": [],
+  "lexiconExtension": ".tsv",
+  "sources": []
+}

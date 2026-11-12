@@ -1,1 +1,1 @@
-{}
+{"type":"object","properties":{"show_prefix_candidates":{"type":"boolean","title":"显示前缀候选","description":"编码未输完时也显示可补全的五笔词条。","default":true}}}

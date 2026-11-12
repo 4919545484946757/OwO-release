@@ -236,6 +236,7 @@ private:
     HRESULT switch_input_scheme(std::string target, ITfContext* context);
     [[nodiscard]] std::string next_input_scheme(std::string_view current, bool composition_only = false) const;
     void activate_input_scheme(std::string target);
+    void apply_plugin_scheme_shortcuts(bool force);
     void initialize_language_bar();
     void uninitialize_language_bar() noexcept;
     void update_language_bar() noexcept;
@@ -453,6 +454,9 @@ private:
     bool candidates_expanded_{false};
     ExpandedCandidatePages expanded_pages_;
     config::ConfigStore shortcut_config_store_;
+    std::string scheme_shortcut_identity_, scheme_shortcut_defaults_, scheme_shortcut_overrides_;
+    ULONGLONG next_scheme_shortcut_read_{};
+    bool scheme_shortcuts_scoped_{};
     std::string saved_input_scheme_;
     config::AppConfig shortcut_config_;
     ULONGLONG next_shortcut_config_refresh_{0};

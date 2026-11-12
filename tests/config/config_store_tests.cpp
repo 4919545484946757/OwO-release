@@ -1,5 +1,6 @@
 #include "owo/config/config_store.h"
 #include "owo/config/input_scheme_order.h"
+#include "owo/config/scheme_shortcuts.h"
 
 #include <filesystem>
 #include <fstream>
@@ -323,6 +324,18 @@ int main(const int argc, char** argv) {
     rotation.input_scheme_order = {"!exact_code", "english", plugin_scheme.input_scheme, "full_pinyin"};
     const auto ordered_roundtrip = owo::config::parse_config(owo::config::serialize_config(rotation));
     if (!ordered_roundtrip.ok || ordered_roundtrip.value != rotation || !scheme_roundtrip.value.input_scheme_order.empty()) return 90;
+    const auto scheme_defaults = owo::config::parse_scheme_shortcuts("OWO_SCHEME_SHORTCUTS_V1\nraw=Enter\nnext_page=];PageDown\n");
+    const auto scheme_override = owo::config::parse_scheme_shortcuts("OWO_SCHEME_SHORTCUTS_V1\nraw=Ctrl+R\n");
+    auto live = rotation; live.input_scheme = plugin_scheme.input_scheme;
+    if (!scheme_defaults || !scheme_override || !owo::config::apply_scheme_shortcuts(live, *scheme_defaults, *scheme_override) ||
+        live.raw_input_shortcuts != std::vector<std::string>{"Ctrl+R"} || live.cursor_left_shortcut_enabled ||
+        live.language_shortcuts != rotation.language_shortcuts || live.input_scheme_order != rotation.input_scheme_order) return 95;
+    const auto same_as_switch = owo::config::parse_scheme_shortcuts("OWO_SCHEME_SHORTCUTS_V1\nraw=Ctrl+Space\n");
+    live.language_shortcut_enabled = true; live.language_shortcuts = {"Ctrl+Space"};
+    if (!same_as_switch || owo::config::apply_scheme_shortcuts(live, *scheme_defaults, *same_as_switch) ||
+        owo::config::apply_scheme_shortcuts(live, *scheme_defaults, {{"raw", {"Ctrl+C"}}}) ||
+        owo::config::apply_scheme_shortcuts(live, *scheme_defaults, {{"cursor_left", {"Left"}}}) ||
+        owo::config::parse_scheme_shortcuts("OWO_SCHEME_SHORTCUTS_V1\nlanguage=Ctrl+X\n")) return 96;
     const auto available = [](const auto&) { return true; };
     const auto builtins_only = [](std::string_view id) { return !id.starts_with("plugin:"); };
     if (owo::config::next_enabled_input_scheme(rotation.input_scheme_order, "", available) != "english" ||

@@ -70,7 +70,8 @@ int wmain(int argc, wchar_t** argv) {
             result.diagnostic = "Invalid experimental scheme request";
         } else {
             if (!provider) {
-                try { provider = std::make_unique<wubi86::Provider>(std::filesystem::path(L"assets") / L"main.tsv",std::filesystem::path(argv[6])/L"wubi86-learning.v1.tsv"); }
+                try { const std::filesystem::path data(argv[6]);
+                    provider = std::make_unique<wubi86::Provider>(std::filesystem::path(L"assets") / L"main.tsv", data/L"wubi86-learning.v1.tsv", data/L"input-schemes"/L"wubi86"); }
                 catch (const std::exception&) { return 12; }
             }
             result.payload = plugin::encode_input_method_response(descriptor, request, provider->handle(request, {}));

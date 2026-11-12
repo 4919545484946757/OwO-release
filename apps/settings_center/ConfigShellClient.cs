@@ -53,6 +53,8 @@ internal sealed class ConfigShellClient
     }
 
     internal string ConfigPath => _configPath;
+    internal Task ValidateSchemeShortcutsAsync(string defaults, string overrides) =>
+        RunAsync([_configPath, "validate-scheme-shortcuts", defaults, overrides], CancellationToken.None);
 
     internal async Task<SettingsSnapshot> ValidateAsync(SettingsSnapshot value,
                                                        CancellationToken cancellationToken = default)

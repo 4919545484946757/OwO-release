@@ -137,6 +137,12 @@ internal sealed class PluginSettingsModel
     }
 
     internal void Save(IReadOnlyDictionary<string, object?> values)
+        => SaveValues(values, merge: false);
+
+    internal void SavePatch(IReadOnlyDictionary<string, object?> values)
+        => SaveValues(values, merge: true);
+
+    private void SaveValues(IReadOnlyDictionary<string, object?> values, bool merge)
     {
         // A retained editor/debounced save must not recreate data after uninstall.
         using var manifest = ReadBoundedJson(Path.Combine(_versionRoot, "manifest.json"), 64 * 1024);
@@ -147,7 +153,14 @@ internal sealed class PluginSettingsModel
             ?? throw new InvalidOperationException("插件配置目录无效。" );
         Directory.CreateDirectory(directory);
         var temporary = ConfigPath + ".tmp";
-        var json = JsonSerializer.Serialize(values, new JsonSerializerOptions { WriteIndented = true });
+        var output = new Dictionary<string, object?>(StringComparer.Ordinal);
+        if (merge && File.Exists(ConfigPath)) {
+            using var existing = ReadBoundedJson(ConfigPath, 256 * 1024);
+            if (existing.RootElement.ValueKind != JsonValueKind.Object) throw new InvalidDataException("插件设置必须为对象。");
+            foreach (var item in existing.RootElement.EnumerateObject()) output[item.Name] = item.Value.Clone();
+        }
+        foreach (var item in values) output[item.Key] = item.Value;
+        var json = JsonSerializer.Serialize(output, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(temporary, json);
         File.Move(temporary, ConfigPath, true);
     }

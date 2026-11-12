@@ -15,6 +15,29 @@ function Find-Id($window, [string]$id) {
     $condition = [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
     $window.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition)
 }
+function Wait-Id($window, [string]$id) {
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $item = Find-Id $window $id
+        if ($null -ne $item -and $item.Current.IsEnabled) { return $item }
+        Start-Sleep -Milliseconds 100
+    } until ([DateTime]::UtcNow -ge $deadline)
+    throw "Missing or disabled UI control: $id"
+}
+function Select-Scope($window, [string]$name) {
+    $combo = Find-Id $window 'SettingsSchemeSelector'
+    if ($null -eq $combo) { throw 'Configuration scheme selector is missing.' }
+    $combo.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    Start-Sleep -Milliseconds 200
+    $condition = [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty, $name)
+    $item = $combo.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition)
+    if ($null -eq $item) { $item = $window.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition) }
+    if ($null -eq $item) { throw "Configuration choice not found: $name" }
+    $item.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $expanded = $combo.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern)
+    if ($expanded.Current.ExpandCollapseState -eq [Windows.Automation.ExpandCollapseState]::Expanded) { $expanded.Collapse() }
+    Start-Sleep -Milliseconds 250
+}
 function Wait-Config([string]$line) {
     $deadline = [DateTime]::UtcNow.AddSeconds(8)
     do {
@@ -29,6 +52,7 @@ $start.WorkingDirectory = $publish
 $start.UseShellExecute = $false
 $start.EnvironmentVariables['OWO_CONFIG_PATH'] = $config
 $start.EnvironmentVariables['OWO_PLUGIN_STORE_PATH'] = Join-Path $fixture 'plugins'
+$start.EnvironmentVariables['OWO_DICTIONARY_STORE_PATH'] = Join-Path $fixture 'dictionaries'
 $process = [Diagnostics.Process]::Start($start)
 try {
     $deadline = [DateTime]::UtcNow.AddSeconds(20)
@@ -44,6 +68,17 @@ try {
         }
     } until (($null -ne $up -and $up.Current.IsEnabled) -or [DateTime]::UtcNow -ge $deadline)
     if ($null -eq $up -or -not $up.Current.IsEnabled) { throw 'English row did not load.' }
+    (Wait-Id $window 'UserLexiconNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $null = Wait-Id $window 'DictionarySearch'
+    Select-Scope $window (-join (0x82f1,0x6587,0x8f93,0x5165 | ForEach-Object { [char]$_ }))
+    $tabs = Find-Id $window 'DictionarySearch'
+    if ($null -ne $tabs -and -not $tabs.Current.IsOffscreen) { throw 'Host dictionary leaked into English scope.' }
+    Wait-Config 'input_scheme=full_pinyin'
+    Select-Scope $window (-join (0x5168,0x62fc | ForEach-Object { [char]$_ }))
+    $null = Wait-Id $window 'DictionarySearch'
+    (Wait-Id $window 'SchemeNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Start-Sleep -Milliseconds 250
+    $up = Find-Id $window 'InputSchemeMoveUp:english'
     $up.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-Config 'input_scheme=english'
     Wait-Config 'input_scheme_order=english;full_pinyin;!exact_code'
@@ -62,7 +97,7 @@ try {
     if ($english.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne [Windows.Automation.ToggleState]::On) {
         throw 'The last enabled provider must remain enabled.'
     }
-    Write-Output 'PASS: WinUI scheme rows, reorder, toggles and native autosave (isolated config).'
+    Write-Output 'PASS: WinUI scheme scopes, dictionary isolation, reorder, toggles and native autosave (isolated config).'
 } finally {
     $process.Refresh()
     if (-not $process.HasExited) {
