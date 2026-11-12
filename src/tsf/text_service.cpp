@@ -807,10 +807,11 @@ public:
     HRESULT STDMETHODCALLTYPE Show(BOOL) override { return S_OK; }
     HRESULT STDMETHODCALLTYPE GetTooltipString(BSTR* text) override {
         if (text == nullptr) return E_INVALIDARG;
-        std::wstring name = L"OwO 英文输入";
+        std::wstring name = L"OwO 纯净键盘";
         if (owner_ && owner_->chinese_mode_) {
             const auto& id = owner_->shortcut_config_.input_scheme;
             name = id == "full_pinyin" ? L"OwO 全拼" : id == "exact_code" ? L"OwO 精确编码"
+                : !owner_->scheme_plugin_label_.empty() ? wide_from_utf8(owner_->scheme_plugin_label_)
                 : L"OwO 输入方案：" + wide_from_utf8(id.starts_with("plugin:") ? id.substr(7) : id);
         }
         *text = SysAllocString(name.c_str());
@@ -824,12 +825,12 @@ public:
     HRESULT STDMETHODCALLTYPE OnMenuSelect(UINT) override { return E_NOTIMPL; }
     HRESULT STDMETHODCALLTYPE GetIcon(HICON* icon) override {
         if (icon == nullptr) return E_INVALIDARG;
-        *icon = create_mode_icon(owner_ != nullptr && owner_->chinese_mode_ ? L"中" : L"英");
+        *icon = create_mode_icon(mode_glyph());
         return *icon == nullptr ? E_OUTOFMEMORY : S_OK;
     }
     HRESULT STDMETHODCALLTYPE GetText(BSTR* text) override {
         if (text == nullptr) return E_INVALIDARG;
-        *text = SysAllocString(owner_ != nullptr && owner_->chinese_mode_ ? L"中" : L"英");
+        *text = SysAllocString(mode_glyph());
         return *text == nullptr ? E_OUTOFMEMORY : S_OK;
     }
 
@@ -853,6 +854,11 @@ public:
 
     void notify_mode_changed() noexcept {
         if (sink_ != nullptr) sink_->OnUpdate(TF_LBI_ICON | TF_LBI_TEXT | TF_LBI_TOOLTIP);
+    }
+
+    const wchar_t* mode_glyph() const noexcept {
+        if (!owner_ || !owner_->chinese_mode_) return L"键";
+        return owner_->scheme_word_typing_ ? L"A" : L"中";
     }
 
 private:
@@ -5592,12 +5598,20 @@ void TextService::reset_learning_chain() {
     release_interface(learning_document_);
 }
 
-void TextService::clear_composition() {
+void TextService::clear_composition(bool keep_plugin_session) {
     selection_assistant_.cancel();
     if (inline_preedit_) inline_preedit_->cancel();
-    reset_plugin_input();
+    if (keep_plugin_session) {
+        plugin_input_document_.composition().discard_input();
+        plugin_pending_selection_.reset();
+        plugin_input_needs_compose_ = false;
+        scheme_word_idle_deadline_ = GetTickCount64() + 3500;
+        if (message_window_) SetTimer(message_window_, kPluginInputTimer, 250, nullptr);
+    } else {
+        reset_plugin_input();
+        ++context_generation_;
+    }
     reset_learning_chain();
-    ++context_generation_;
     latest_candidate_request_id_.store(0, std::memory_order_release);
     if (candidate_cancellation_event_ != nullptr) SetEvent(candidate_cancellation_event_);
     input_buffer_.clear();
@@ -6011,12 +6025,18 @@ void TextService::activate_input_scheme(std::string target) {
 
 void TextService::apply_plugin_scheme_shortcuts(bool force) {
     scheme_shortcuts_scoped_ = false;
-    if (!plugin_scheme_selected()) return;
+    if (!plugin_scheme_selected()) {
+        scheme_word_typing_ = false;
+        scheme_plugin_label_.clear();
+        return;
+    }
     const auto now = GetTickCount64();
     const auto& id = shortcut_config_.input_scheme;
     if (force || id != scheme_shortcut_identity_ || now >= next_scheme_shortcut_read_) {
         scheme_shortcut_identity_ = id;
         next_scheme_shortcut_read_ = now + 1000;
+        scheme_word_typing_ = false;
+        scheme_plugin_label_.clear();
         scheme_shortcut_defaults_.clear(); scheme_shortcut_overrides_.clear();
         const auto read = [](const std::filesystem::path& path) {
             for (auto cursor = path; !cursor.empty(); cursor = cursor.parent_path()) {
@@ -6039,7 +6059,12 @@ void TextService::apply_plugin_scheme_shortcuts(bool force) {
                 const auto grant = plugin::load_plugin_authorization(root, owner, active.manifest.version);
                 if (grant.ok && plugin::is_plugin_permission_granted(grant.value, active.manifest,
                     active.inventory_sha256, active.publisher_certificate_sha256, "input.scheme")) {
-                    scheme_shortcut_defaults_ = read(active.installed_path / L"input-schemes" / local / L"shortcuts.conf");
+                    scheme_plugin_label_ = active.manifest.name;
+                    const auto scheme_assets = active.installed_path / L"input-schemes" / local;
+                    scheme_shortcut_defaults_ = read(scheme_assets / L"shortcuts.conf");
+                    const auto typing = read(scheme_assets / L"typing.conf");
+                    scheme_word_typing_ = typing == "OWO_SCHEME_WORD_TYPING_V1\n" ||
+                        typing == "OWO_SCHEME_WORD_TYPING_V1\r\n";
                     if (!scheme_shortcut_defaults_.empty()) scheme_shortcut_overrides_ = read(root / L"data" / owner / L"input-schemes" / local / L"shortcuts.conf");
                 }
             }
@@ -6129,6 +6154,12 @@ std::wstring scheme_key_text(WPARAM key, LPARAM flags) {
     if (count <= 0 || count > 8 || text[0] < L' ') return {};
     return std::wstring(text, static_cast<std::size_t>(count));
 }
+bool word_typing_letter(wchar_t c) {
+    return (c >= L'a' && c <= L'z') || (c >= L'A' && c <= L'Z');
+}
+bool word_typing_token_key(std::wstring_view text) {
+    return text.size() == 1 && (word_typing_letter(text.front()) || text.front() == L'\'' || text.front() == L'-');
+}
 bool same_context(ITfContext* a, ITfContext* b) {
     if (!a || !b) return false;
     IUnknown *left = nullptr, *right = nullptr;
@@ -6202,7 +6233,14 @@ bool TextService::plugin_should_eat_key(ITfContext* context, WPARAM key, LPARAM 
     if (shortcut_config_.language_shortcut_enabled &&
         shortcut_matches(shortcut_config_.language_shortcuts, key)) return true;
     if (!chinese_mode_) { activation_trace("ENGLISH_MODE", S_OK, context); return false; }
-    if (!plugin_context_allowed(context)) return false;
+    if (scheme_word_idle_deadline_ && GetTickCount64() >= scheme_word_idle_deadline_) clear_composition();
+    bool context_allowed = plugin_context_allowed(context);
+    if (!context_allowed && scheme_word_idle_deadline_) {
+        // A caret move retires the idle session. Recheck from scratch before sending new input.
+        clear_composition();
+        context_allowed = plugin_context_allowed(context);
+    }
+    if (!context_allowed) return false;
     if (has_composition()) {
         if (!scheme_shortcuts_scoped_ && (key == VK_PRIOR || key == VK_NEXT || key == VK_RETURN)) return !command_modifier_down();
         if (key == VK_ESCAPE || key == VK_BACK || key == VK_DELETE || key == VK_SPACE)
@@ -6218,13 +6256,19 @@ bool TextService::plugin_should_eat_key(ITfContext* context, WPARAM key, LPARAM 
     }
     const auto text = scheme_key_text(key, flags);
     if (text.empty()) return false;
-    if (plugin_input_committing_) return true; // defer until the prepared write completes
+    if (plugin_input_committing_ || (scheme_word_typing_ && plugin_commit_future_.valid())) return true;
+    if (scheme_word_typing_) {
+        if (!has_composition()) return text.size() == 1 && word_typing_letter(text.front());
+        // Printable delimiters and a key beyond the word limit must follow the buffered text.
+        return true;
+    }
     if (!plugin_input_descriptor_) return key != VK_SPACE; // open asynchronously; preserve raw text if rejected
     auto probe = plugin_input_document_.composition();
     return probe.insert(utf8_from_wide(text));
 }
 
 void TextService::reset_plugin_input() {
+    scheme_word_idle_deadline_ = 0;
     plugin_input_document_.invalidate();
     if(plugin_commit_future_.valid() && plugin_input_client_)
         retire_commit_feedback(std::move(plugin_input_client_),std::move(plugin_commit_future_));
@@ -6256,6 +6300,7 @@ HRESULT TextService::handle_plugin_key(ITfContext* context, WPARAM key, LPARAM f
     if (shortcut_config_.language_shortcut_enabled && shortcut_matches(shortcut_config_.language_shortcuts, key))
         return toggle_language_mode(context);
     if (!plugin_context_allowed(context)) { *eaten = FALSE; return S_OK; }
+    scheme_word_idle_deadline_ = 0;
     if (plugin_input_context_ && !same_context(context, plugin_input_context_)) clear_composition();
     if (!plugin_input_context_) {
         plugin_input_context_ = context; context->AddRef();
@@ -6292,6 +6337,7 @@ HRESULT TextService::handle_plugin_key(ITfContext* context, WPARAM key, LPARAM f
         commit_plugin_text(input_buffer_, false); return S_OK;
     }
     if (key == VK_SPACE) {
+        if (scheme_word_typing_) { commit_plugin_text(input_buffer_ + L' ', false); return S_OK; }
         const auto index = candidate_shortcut_index(0);
         if (index || candidate_request_pending_) select_plugin_candidate(index.value_or(
             expanded_pages_.selected * candidate_page_width()), true, 0);
@@ -6314,6 +6360,14 @@ HRESULT TextService::handle_plugin_key(ITfContext* context, WPARAM key, LPARAM f
         return S_OK;
     }
     if (!scheme_shortcuts_scoped_ && (key == VK_PRIOR || key == VK_NEXT)) { change_plugin_page(key == VK_PRIOR ? -1 : 1); return S_OK; }
+    if (scheme_word_typing_ && has_composition()) {
+        const auto text = scheme_key_text(key, flags);
+        if (!text.empty() && (!word_typing_token_key(text) ||
+            input_buffer_.size() >= (plugin_input_descriptor_ ? plugin_input_descriptor_->max_input_bytes : 64) ||
+            (plugin_input_descriptor_ && plugin_input_descriptor_->alphabet.find(text.front()) == std::u32string::npos))) {
+            commit_plugin_text(input_buffer_ + text, false); return S_OK;
+        }
+    }
     if (!plugin_input_descriptor_) {
         // The descriptor is not known until open completes. Raw encoding never disappears on open failure.
         plugin_pending_selection_.reset();
@@ -6458,6 +6512,10 @@ void TextService::poll_plugin_input() {
     if(plugin_read_pending_)return;
     auto* context=plugin_input_context_;
     if(!context || !plugin_scheme_selected() || !plugin_context_is_current(context)){clear_composition();return;}
+    if (scheme_word_idle_deadline_) {
+        if (GetTickCount64() >= scheme_word_idle_deadline_) clear_composition();
+        return;
+    }
     const auto generation=context_generation_;
     plugin_read_pending_=true;
     auto* edit=new(std::nothrow) SchemeEditSession(context,[this,context,generation](TfEditCookie cookie){
@@ -6518,7 +6576,10 @@ void TextService::poll_plugin_input_locked() {
         if(!confirmed)OutputDebugStringW(L"OwO: input scheme commit acknowledgement failed; application text will not be replayed.\n");
         plugin_commit_request_.reset();plugin_commit_retries_=0;
         if(plugin_replay_context_)finish_plugin_input_on_ui();
-        if(plugin_input_document_.composition().input().empty()&&!candidate_request_pending_){clear_composition();return;}
+        if (plugin_input_committing_) return;
+        if(plugin_input_document_.composition().input().empty()&&!candidate_request_pending_){
+            clear_composition(scheme_word_typing_ && plugin_input_descriptor_.has_value() && plugin_input_selection_);return;
+        }
         if(!candidate_request_pending_)queue_plugin_compose();return;
     }
     if (!plugin_input_future_.valid() || plugin_input_future_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
@@ -6607,10 +6668,12 @@ void TextService::commit_plugin_text(std::wstring text, bool selected, std::stri
     if (!plugin_input_document_.generation()) (void)plugin_input_document_.enter(++context_generation_);
     const auto generation = plugin_input_document_.generation();
     auto* context = plugin_input_context_;
+    const bool keep_word_session = scheme_word_typing_ && plugin_input_descriptor_ && plugin_input_client_ && next_scheme.empty();
     if (!selected) {
         plugin_input_future_ = {};
         plugin_pending_selection_.reset();
-        if (plugin_input_client_) (void)plugin_input_client_->close();
+        plugin_commit_request_.reset();
+        if (plugin_input_client_ && !keep_word_session) (void)plugin_input_client_->close();
         plugin_input_opening_ = false; candidate_request_pending_ = false;
     }
     plugin_input_committing_ = true;
@@ -6618,7 +6681,8 @@ void TextService::commit_plugin_text(std::wstring text, bool selected, std::stri
     const auto deadline = plugin_commit_deadline_;
     SetTimer(message_window_, kPluginInputTimer, 16, nullptr);
     auto* edit = new (std::nothrow) SchemeEditSession(context,
-        [this, context, generation, deadline, selected, next_scheme = std::move(next_scheme), text = std::move(text)](TfEditCookie cookie) {
+        [this, context, generation, deadline, selected, keep_word_session,
+            next_scheme = std::move(next_scheme), text = std::move(text)](TfEditCookie cookie) {
             const bool current = plugin_context_is_current(context);
             const bool valid = input_method_write_allowed({generation, plugin_input_document_.generation(),
                 deadline, plugin_commit_deadline_, GetTickCount64(), plugin_scheme_selected(),
@@ -6641,8 +6705,12 @@ void TextService::commit_plugin_text(std::wstring text, bool selected, std::stri
             if (selected) (void)plugin_input_document_.finish_commit(generation, SUCCEEDED(written));
             auto deferred = std::move(plugin_deferred_keys_);
             if (SUCCEEDED(written)) {
-                if ((!selected || plugin_input_document_.composition().input().empty()) && !plugin_commit_future_.valid()) clear_composition();
-                else { candidate_page_ = 0; sync_plugin_display(); plugin_input_needs_compose_ = true; }
+                if ((!selected || plugin_input_document_.composition().input().empty()) && !plugin_commit_future_.valid())
+                    clear_composition(keep_word_session && plugin_input_selection_);
+                else {
+                    candidate_page_ = 0; sync_plugin_display();
+                    plugin_input_needs_compose_ = !scheme_word_typing_ || !plugin_input_document_.composition().input().empty();
+                }
             } else {
                 candidate_request_failed_ = true; candidate_failure_detail_ = L"上屏失败；编码已保留";
                 update_candidate_window();
@@ -6732,6 +6800,14 @@ void TextService::finish_plugin_input_on_ui() {
             if (!eaten) {
                 const auto text = scheme_key_text(key.key, key.flags);
                 if (!text.empty()) {
+                    if (scheme_word_typing_ && !has_composition() &&
+                        (text.size() != 1 || !word_typing_letter(text.front()))) {
+                        // The physical key was already swallowed while a write was pending.
+                        if (!plugin_input_context_) { plugin_input_context_ = context; context->AddRef(); }
+                        if (!plugin_input_selection_ && selection) { plugin_input_selection_ = selection; selection->AddRef(); }
+                        commit_plugin_text(text, false);
+                        continue;
+                    }
                     // A key accepted before the write may now exceed the descriptor limit. Preserve it locally.
                     input_buffer_ += text; input_cursor_ = input_buffer_.size();
                     plugin_input_document_.invalidate(); plugin_input_descriptor_.reset();

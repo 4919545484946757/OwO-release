@@ -82,5 +82,12 @@ int main() {
     auto invalid = d; invalid.alphabet = {};
     check(!c.begin(invalid, "other") && c.insert("a"), "invalid scheme switch preserves old state");
     check(!c.insert(std::string(16, 'a')) && c.input() == "a", "byte limit enforced without mutation");
+    auto pending_word = c.compose_request(12, 0, 7);
+    check(pending_word.has_value(), "queue word before literal commit");
+    c.discard_input();
+    check(c.input().empty() && !c.display() && !c.selectable() && !c.apply(result(*pending_word)).accepted,
+        "next word cannot see the previous word's pending result");
+    check(c.insert("be") && !c.compose_request(12, 0, 7) && c.compose_request(13, 0, 7)->session_id == "session",
+        "reuse the verified session without reusing request identity");
     return failures ? 1 : 0;
 }

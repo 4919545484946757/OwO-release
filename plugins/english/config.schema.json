@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "show_completions": {"type": "boolean", "title": "显示英文单词补全", "description": "按词频提供前缀候选，不自动改写输入。", "default": true},
+    "show_spelling_suggestions": {"type": "boolean", "title": "显示拼写纠错候选", "description": "原拼写没有命中且补全较少时，提供一次编辑距离内的候选。", "default": true},
+    "learn_selected_words": {"type": "boolean", "title": "学习已选英文候选", "description": "仅在候选成功写入应用后记录本地词频；不读取应用正文，不联网。", "default": true}
+  }
+}

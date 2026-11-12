@@ -22,7 +22,8 @@ plugins/
 
 - `candidate-glass`：声明式半透明候选框主题；
 - `unicode-palette`：分类 Unicode 符号列表；
-- `agent-ipc`：需逐版本知情授权的本机第三方 Agent 连接器。
+- `agent-ipc`：需逐版本知情授权的本机第三方 Agent 连接器；
+- [`english`](english/README.md)：独立的英文输入方案，随包附带 wordfreq；打包前先构建 `owo_english_package`。
 
 插件内容发生变化时必须提升 manifest 版本，禁止发布“同版本、不同摘要”的包。
 

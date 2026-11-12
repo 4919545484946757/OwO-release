@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using System.Text;
 using System.Text.Json;
@@ -86,7 +87,7 @@ public sealed partial class MainPage
     private FrameworkElement BuildSchemeScopeContent() {
         var scheme = ConfigurationScheme;
         if (scheme.OwnerPluginId is not { } owner)
-            return SchemeNote(_currentPage == "shortcuts" ? "英文透传不接管组合快捷键。" : "此方案未声明独立配置或用户词库。", _currentPage != "shortcuts");
+            return SchemeNote(_currentPage == "shortcuts" ? "纯净键盘不接管组合快捷键。" : "此方案未声明独立配置或用户词库。", _currentPage != "shortcuts");
         var plugin = _installedPlugins.FirstOrDefault(item => item.Id == owner && item.Active && item.PermissionsAuthorized && item.Permissions.Contains("input.scheme"));
         if (plugin is null) return SchemeNote("方案未启用或未获授权。", _currentPage != "shortcuts");
         var key = (scheme.Id, plugin.Version, _currentPage);
@@ -161,6 +162,8 @@ public sealed partial class MainPage
                 reads.Add(key, () => ((PluginSettingOption)options.SelectedItem).Value);
             } else if (field.Type == "boolean") {
                 var toggle = new ToggleSwitch { IsOn = value.ValueKind == JsonValueKind.True, HorizontalAlignment = HorizontalAlignment.Left };
+                AutomationProperties.SetName(toggle, field.Title);
+                AutomationProperties.SetAutomationId(toggle, $"SchemeField:{key}");
                 var previous = toggle.IsOn;
                 toggle.Toggled += (_, _) => { if (previous != toggle.IsOn) { previous = toggle.IsOn; Edited(key); } };
                 group.Children.Add(toggle); reads.Add(key, () => toggle.IsOn);
@@ -239,7 +242,7 @@ public sealed partial class MainPage
 
     private void BuildSchemeDictionaries(StackPanel panel, SchemePackageProfile profile, PluginVersionSnapshot plugin) {
         if (profile.Document.LexiconExtension is not { } extension) { panel.Children.Add(SchemeNote("方案包未声明用户词库格式或在线来源。")); return; }
-        panel.Children.Add(SchemeNote($"用户词库格式：{extension}。由此方案读取，不会导入全拼词库。"));
+        panel.Children.Add(SchemeNote(profile.Document.LexiconHelp ?? $"用户词库格式：{extension}。由此方案读取，不会导入全拼词库。"));
         var controls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         bool busy = false;
         async Task Run(Func<Task> operation) {
@@ -261,27 +264,70 @@ public sealed partial class MainPage
             ShowStatus("方案用户词库已导入，由方案读取。", InfoBarSeverity.Success);
         });
         var export = new Button { Content = "导出用户词库" }; controls.Children.Add(export);
-        export.Click += async (_, _) => await Run(async () => {
-            if (!File.Exists(profile.UserLexiconPath)) { ShowStatus("此方案暂无可导出的用户词库。", InfoBarSeverity.Informational); return; }
-            var picker = new FileSavePicker { SuggestedFileName = "user-lexicon" }; picker.FileTypeChoices.Add("方案词库", [extension]);
+        async Task Export(string path, string filename) {
+            if (!File.Exists(path)) { ShowStatus("此方案暂无可导出的词条。", InfoBarSeverity.Informational); return; }
+            var picker = new FileSavePicker { SuggestedFileName = filename }; picker.FileTypeChoices.Add("方案词库", [extension]);
             DictionaryManager.InitializePicker(picker); var file = await picker.PickSaveFileAsync(); if (file is null) return;
-            var bytes = await SchemePackageProfile.ReadLexiconAsync(profile.UserLexiconPath);
+            var bytes = await SchemePackageProfile.ReadLexiconAsync(path);
             SchemePackageProfile.WriteFile(file.Path, bytes);
-            ShowStatus("方案用户词库已导出。", InfoBarSeverity.Success);
-        });
+            ShowStatus("词库已导出。", InfoBarSeverity.Success);
+        }
+        async Task Remove(string path, string title, string explanation) {
+            SchemePackageProfile.CheckPath(path);
+            if (!File.Exists(path)) { ShowStatus("此方案暂无可移除的词库文件。", InfoBarSeverity.Informational); return; }
+            if (!await ConfirmAsync(title, explanation, "移除")) return;
+            if (!PluginVersionIsCurrent(plugin.Id, plugin.Version)) throw new IOException("方案所属插件版本已变更。");
+            SchemePackageProfile.CheckPath(path);
+            File.Delete(path);
+            ShowStatus("已移除。", InfoBarSeverity.Success);
+        }
+        export.Click += async (_, _) => await Run(() => Export(profile.UserLexiconPath, "user-lexicon"));
+        var clear = new Button { Content = "移除用户词库" }; controls.Children.Add(clear);
+        clear.Click += async (_, _) => await Run(() => Remove(profile.UserLexiconPath, "移除方案用户词库",
+            "仅移除当前方案的手动导入词库。不会删除学习记录。"));
         panel.Children.Add(controls);
+        if (profile.LearnedLexiconPath is { } learned) {
+            var learning = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var exportLearned = new Button { Content = "导出学习记录" };
+            var clearLearned = new Button { Content = "清除学习记录" };
+            AutomationProperties.SetAutomationId(exportLearned, "SchemeExportLearned");
+            AutomationProperties.SetAutomationId(clearLearned, "SchemeClearLearned");
+            exportLearned.Click += async (_, _) => await Run(() => Export(learned, "learned"));
+            clearLearned.Click += async (_, _) => await Run(() => Remove(learned, "清除方案学习记录",
+                "仅删除当前方案的本地学习记录，建议先导出。不会删除手动导入词库。"));
+            learning.Children.Add(exportLearned); learning.Children.Add(clearLearned); panel.Children.Add(learning);
+        }
         if (profile.Document.Sources.Length == 0) { panel.Children.Add(SchemeNote("方案包未声明可下载词库。")); return; }
         foreach (var source in profile.Document.Sources) {
-            var download = new Button { Content = $"下载 {source.Title}" }; panel.Children.Add(download);
-            panel.Children.Add(SchemeNote($"许可：{source.License} · {source.Bytes:N0} 字节"));
+            var path = profile.DownloadPath(source);
+            var title = SchemeNote(source.Title);
+            var details = SchemeNote($"许可：{source.License} · {source.Bytes:N0} 字节");
+            var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var download = new Button();
+            AutomationProperties.SetAutomationId(download, $"SchemeDownload:{source.Id}");
+            AutomationProperties.SetName(download, $"下载 {source.Title}");
+            var remove = new Button { Content = "移除" };
+            void Refresh() {
+                var installed = File.Exists(path);
+                download.Content = installed ? "重新下载" : "下载";
+                remove.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
+            }
+            Refresh();
+            actions.Children.Add(download); actions.Children.Add(remove);
+            panel.Children.Add(title); panel.Children.Add(details); panel.Children.Add(actions);
             download.Click += async (_, _) => await Run(async () => {
                 if (!await ConfirmAsync("下载方案词库", $"{source.Title}\n{source.License}\n{source.Url}\n仅安装到当前方案。", "下载并校验")) return;
                 using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
                 using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
                 var bytes = await SchemePackageProfile.DownloadAsync(source, http, timeout.Token);
                 if (!PluginVersionIsCurrent(plugin.Id, plugin.Version)) throw new IOException("方案所属插件版本已变更。");
-                SchemePackageProfile.WriteFile(profile.DownloadPath(source), bytes);
+                SchemePackageProfile.WriteFile(path, bytes);
+                Refresh();
                 ShowStatus("词库校验通过，已保存到当前方案。", InfoBarSeverity.Success);
+            });
+            remove.Click += async (_, _) => await Run(async () => {
+                await Remove(path, "移除已下载词库", $"仅移除当前方案的 {source.Title}，可再次下载。");
+                Refresh();
             });
         }
     }

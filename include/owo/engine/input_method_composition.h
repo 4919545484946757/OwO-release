@@ -17,6 +17,8 @@ class InputMethodComposition final {
 public:
     [[nodiscard]] bool begin(InputMethodDescriptor, std::string session_id);
     void close();
+    // Reset a finished token without forgetting the verified provider/session or request sequence.
+    void discard_input();
     [[nodiscard]] bool insert(std::string_view utf8);
     [[nodiscard]] bool backspace();
     [[nodiscard]] bool erase_forward();

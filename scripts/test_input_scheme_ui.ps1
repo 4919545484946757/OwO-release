@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$PublishDirectory = '')
+param([string]$PublishDirectory = '', [string]$EnglishPackage = '')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 Add-Type -AssemblyName UIAutomationClient
@@ -11,6 +11,18 @@ $fixture = Join-Path $project ('build/input-scheme-ui-' + [Guid]::NewGuid().ToSt
 [void](New-Item -ItemType Directory -Path $fixture)
 $config = Join-Path $fixture 'owo.conf'
 $backend = Join-Path $publish 'owo_config_shell.exe'
+$pluginFixture = Join-Path $fixture 'plugins'
+if ($EnglishPackage) {
+    $EnglishPackage = (Resolve-Path -LiteralPath $EnglishPackage).Path
+    $pluginBackend = Join-Path $publish 'owo_plugin_shell.exe'
+    $preview = & $pluginBackend $pluginFixture inspect-install $EnglishPackage | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0 -or !$preview.ok -or $preview.plugin_id -ne 'owo.plugin.english') { throw 'Invalid English test package.' }
+    # Consent applies only to the unique, isolated automation store above.
+    $installed = & $pluginBackend $pluginFixture install-risk $EnglishPackage $preview.inventory_sha256 1 I_ACCEPT_PLUGIN_RISK_V1 | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0 -or !$installed.ok) { throw "English fixture failed to install: $($installed.diagnostic)" }
+    $activated = & $pluginBackend $pluginFixture activate $preview.plugin_id $preview.version | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0 -or !$activated.ok) { throw 'English fixture failed to activate.' }
+}
 function Find-Id($window, [string]$id) {
     $condition = [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
     $window.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition)
@@ -61,7 +73,7 @@ $start = [Diagnostics.ProcessStartInfo]::new((Join-Path $publish 'OwO.Settings.e
 $start.WorkingDirectory = $publish
 $start.UseShellExecute = $false
 $start.EnvironmentVariables['OWO_CONFIG_PATH'] = $config
-$start.EnvironmentVariables['OWO_PLUGIN_STORE_PATH'] = Join-Path $fixture 'plugins'
+$start.EnvironmentVariables['OWO_PLUGIN_STORE_PATH'] = $pluginFixture
 $start.EnvironmentVariables['OWO_DICTIONARY_STORE_PATH'] = Join-Path $fixture 'dictionaries'
 $process = [Diagnostics.Process]::Start($start)
 try {
@@ -79,11 +91,25 @@ try {
     } until (($null -ne $up -and $up.Current.IsEnabled) -or [DateTime]::UtcNow -ge $deadline)
     if ($null -eq $up -or -not $up.Current.IsEnabled) { throw 'English row did not load.' }
     $fullName = -join (0x5168,0x62fc | ForEach-Object { [char]$_ })
-    $englishName = -join (0x82f1,0x6587,0x8f93,0x5165 | ForEach-Object { [char]$_ })
+    $englishName = -join (0x7eaf,0x51c0,0x952e,0x76d8 | ForEach-Object { [char]$_ })
     Check-NoScopeLabel $window
     (Wait-Id $window 'UserLexiconNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     $null = Wait-Id $window 'DictionarySearch'
     Check-ScopeLabel $window $fullName
+    if ($EnglishPackage) {
+        $pluginName = -join (0x82f1,0x6587,0x8f93,0x5165 | ForEach-Object { [char]$_ })
+        Select-Scope $window $pluginName
+        Check-ScopeLabel $window $pluginName
+        foreach ($control in @('SchemeExportLearned', 'SchemeClearLearned', 'SchemeDownload:libreoffice-en-us', 'SchemeDownload:libreoffice-en-gb')) {
+            $null = Wait-Id $window $control
+        }
+        (Wait-Id $window 'CandidateNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        $null = Wait-Id $window 'SchemeField:show_completions'
+        $null = Wait-Id $window 'SchemeField:show_spelling_suggestions'
+        (Wait-Id $window 'IntelligenceNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        $null = Wait-Id $window 'SchemeField:learn_selected_words'
+        (Wait-Id $window 'UserLexiconNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    }
     Select-Scope $window $englishName
     Check-ScopeLabel $window $englishName
     $tabs = Find-Id $window 'DictionarySearch'
@@ -105,21 +131,27 @@ try {
     $up = Find-Id $window 'InputSchemeMoveUp:english'
     $up.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-Config 'input_scheme=english'
-    Wait-Config 'input_scheme_order=english;full_pinyin;!exact_code'
+    $pluginSuffix = if ($EnglishPackage) { ';!plugin:owo.plugin.english/english' } else { '' }
+    Wait-Config ('input_scheme_order=english;full_pinyin;!exact_code' + $pluginSuffix)
     $exact = Find-Id $window 'InputSchemeToggle:exact_code'
     $exact.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
-    Wait-Config 'input_scheme_order=english;full_pinyin;exact_code'
+    Wait-Config ('input_scheme_order=english;full_pinyin;exact_code' + $pluginSuffix)
     $exact = Find-Id $window 'InputSchemeToggle:exact_code'
     $exact.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
-    Wait-Config 'input_scheme_order=english;full_pinyin;!exact_code'
+    Wait-Config ('input_scheme_order=english;full_pinyin;!exact_code' + $pluginSuffix)
     $pinyin = Find-Id $window 'InputSchemeToggle:full_pinyin'
     $pinyin.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
-    Wait-Config 'input_scheme_order=english;!full_pinyin;!exact_code'
+    Wait-Config ('input_scheme_order=english;!full_pinyin;!exact_code' + $pluginSuffix)
     $english = Find-Id $window 'InputSchemeToggle:english'
     $english.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
     Start-Sleep -Milliseconds 300
     if ($english.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne [Windows.Automation.ToggleState]::On) {
         throw 'The last enabled provider must remain enabled.'
+    }
+    if ($EnglishPackage) {
+        $pluginToggle = Wait-Id $window 'InputSchemeToggle:plugin:owo.plugin.english/english'
+        $pluginToggle.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
+        Wait-Config 'input_scheme_order=english;!full_pinyin;!exact_code;plugin:owo.plugin.english/english'
     }
     Write-Output 'PASS: WinUI scheme labels, scopes, dictionary isolation, reorder, toggles and native autosave (isolated config).'
 } finally {

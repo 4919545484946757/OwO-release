@@ -282,7 +282,7 @@ private:
     void clear_deferred_punctuation() noexcept;
     [[nodiscard]] std::optional<HitTarget> hit_test(POINT point) const;
     void update_candidate_anchor(ITfContext* context);
-    void clear_composition();
+    void clear_composition(bool keep_plugin_session = false);
     void reset_learning_chain();
     [[nodiscard]] bool should_eat_key(WPARAM key) const noexcept;
     [[nodiscard]] std::optional<std::wstring> chinese_punctuation_for_key(
@@ -457,6 +457,9 @@ private:
     std::string scheme_shortcut_identity_, scheme_shortcut_defaults_, scheme_shortcut_overrides_;
     ULONGLONG next_scheme_shortcut_read_{};
     bool scheme_shortcuts_scoped_{};
+    bool scheme_word_typing_{};
+    std::string scheme_plugin_label_;
+    ULONGLONG scheme_word_idle_deadline_{};
     std::string saved_input_scheme_;
     config::AppConfig shortcut_config_;
     ULONGLONG next_shortcut_config_refresh_{0};

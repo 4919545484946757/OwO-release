@@ -23,9 +23,12 @@ bool InputMethodComposition::begin(InputMethodDescriptor d, std::string session)
     close(); descriptor_ = std::move(d); session_ = std::move(session); return true;
 }
 void InputMethodComposition::close() {
-    descriptor_.reset(); session_.clear(); input_.clear(); caret_ = 0;
-    pending_.reset(); prepared_.reset(); display_.reset(); selectable_ = false; ++revision_;
+    descriptor_.reset(); session_.clear(); discard_input();
     // Do not reset IDs: late responses must not match a reopened session.
+}
+void InputMethodComposition::discard_input() {
+    input_.clear(); caret_ = 0; displayed_page_size_ = 0;
+    prepared_.reset(); display_.reset(); edited();
 }
 void InputMethodComposition::edited() { ++revision_; pending_.reset(); selectable_ = false; }
 bool InputMethodComposition::insert(std::string_view text) {

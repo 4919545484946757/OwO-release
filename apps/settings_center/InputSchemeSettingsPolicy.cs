@@ -48,7 +48,7 @@ internal static class InputSchemeSettingsPolicy
                 SettingsCapability.SingleCharacterFirst | SettingsCapability.PinyinSymbols | SettingsCapability.InlinePreedit),
         new("exact_code", "精确编码（实验性）", "按显式撇号分段并精确查询词典，用于验证表码方案接入。",
             "不启用拼音纠错、自动补全或缩写展开；当前仍使用拼音词典数据。", BuiltIn),
-        new("english", "英文输入", "直接使用当前键盘布局输入，不生成候选。", "", SettingsCapability.LanguageSwitch | SettingsCapability.AltCodePreview)
+        new("english", "纯净键盘", "直接使用当前键盘布局输入，不生成候选。", "", SettingsCapability.LanguageSwitch | SettingsCapability.AltCodePreview)
     ];
 
     internal static InputSchemeOption Plugin(string id, string name, string description) =>

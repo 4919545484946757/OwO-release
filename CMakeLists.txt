@@ -1281,6 +1281,33 @@ if(BUILD_TESTING AND Python3_Interpreter_FOUND)
 endif()
 
 if(WIN32)
+# English word completion is an opt-in process plugin, not a built-in language mode.
+    add_library(owo_english_provider STATIC plugins/english/src/provider.cpp)
+    target_link_libraries(owo_english_provider PUBLIC owo_engine bcrypt)
+    target_compile_options(owo_english_provider PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    add_executable(owo_english_plugin plugins/english/src/main.cpp)
+    target_link_libraries(owo_english_plugin PRIVATE owo_english_provider owo_plugin_contract owo_input_method_protocol advapi32)
+    target_compile_options(owo_english_plugin PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    set(OWO_ENGLISH_STAGE "${CMAKE_CURRENT_BINARY_DIR}/english-plugin/$<CONFIG>")
+    add_custom_target(owo_english_package
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${OWO_ENGLISH_STAGE}/bin"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:owo_english_plugin> "${OWO_ENGLISH_STAGE}/bin/owo_english_plugin.exe"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/plugins/english/manifest.json" "${CMAKE_CURRENT_SOURCE_DIR}/plugins/english/config.schema.json" "${CMAKE_CURRENT_SOURCE_DIR}/plugins/english/README.md" "${OWO_ENGLISH_STAGE}"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/plugins/english/input-schemes" "${OWO_ENGLISH_STAGE}/input-schemes"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/plugins/english/assets" "${OWO_ENGLISH_STAGE}/assets"
+        DEPENDS owo_english_plugin VERBATIM)
+    if(BUILD_TESTING)
+        add_executable(owo_english_tests tests/english/english_tests.cpp)
+        target_link_libraries(owo_english_tests PRIVATE owo_english_provider owo_core_plugin owo_ipc)
+        target_compile_options(owo_english_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+        add_dependencies(owo_english_tests owo_english_package)
+        add_test(NAME owo.english.provider COMMAND owo_english_tests provider "${OWO_ENGLISH_STAGE}" "${CMAKE_CURRENT_BINARY_DIR}/english-test-stores")
+        add_test(NAME owo.english.process COMMAND owo_english_tests process "${OWO_ENGLISH_STAGE}" "${CMAKE_CURRENT_BINARY_DIR}/english-test-stores")
+        set_tests_properties(owo.english.provider owo.english.process PROPERTIES TIMEOUT 30)
+    endif()
+endif()
+
+if(WIN32)
 # Wubi process adapter reuses the existing engine DTO and PluginHost wire contract.
 add_library(owo_wubi86_provider STATIC plugins/wubi86/src/provider.cpp plugins/wubi86/src/learning.cpp)
 target_link_libraries(owo_wubi86_provider PUBLIC owo_wubi86 owo_engine bcrypt)

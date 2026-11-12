@@ -7,7 +7,7 @@ namespace OwO_Settings;
 
 internal sealed record SchemeDictionarySource(string Id, string Title, string License, string Url, int Bytes, string Sha256);
 internal sealed record SchemePackageDocument(int Version, string Scheme, string[] CandidateFields, string[] LearningFields,
-    string? LexiconExtension, SchemeDictionarySource[] Sources);
+    string? LexiconExtension, SchemeDictionarySource[] Sources, string? LearnedLexiconFile = null, string? LexiconHelp = null);
 
 // Declarative package assets only. No plugin XAML/code is loaded into Settings.
 internal sealed class SchemePackageProfile
@@ -26,6 +26,7 @@ internal sealed class SchemePackageProfile
     internal bool HasShortcuts => File.Exists(DefaultsPath);
     internal string ShortcutPath => Path.Combine(DataDirectory, "shortcuts.conf");
     internal string UserLexiconPath => Path.Combine(DataDirectory, "user-lexicon" + Document.LexiconExtension);
+    internal string? LearnedLexiconPath => Document.LearnedLexiconFile is { } file ? Path.Combine(DataDirectory, file) : null;
     private SchemePackageProfile(SchemePackageDocument document, string data, string defaults) {
         Document = document; DataDirectory = data; DefaultsPath = defaults;
     }
@@ -48,7 +49,9 @@ internal sealed class SchemePackageProfile
         var document = JsonSerializer.Deserialize<SchemePackageDocument>(bytes, Json) ?? throw new InvalidDataException("输入方案配置声明无效。");
         if (document.Version != 1 || document.Scheme != local || document.CandidateFields is null || document.LearningFields is null || document.Sources is null ||
             document.Sources.Length > 32 || document.LexiconExtension is not null && !Extension.IsMatch(document.LexiconExtension) ||
-            document.Sources.Length != 0 && document.LexiconExtension is null)
+            document.Sources.Length != 0 && document.LexiconExtension is null ||
+            document.LearnedLexiconFile is { } learned && (document.LexiconExtension is null ||
+                learned != "learned" + document.LexiconExtension) || document.LexiconHelp?.Length > 512)
             throw new InvalidDataException("输入方案配置声明与方案身份不匹配。");
         var keys = document.CandidateFields.Concat(document.LearningFields).ToArray();
         if (keys.Length > 128 || keys.Any(key => !SafeId(key)) || keys.Distinct(StringComparer.Ordinal).Count() != keys.Length ||

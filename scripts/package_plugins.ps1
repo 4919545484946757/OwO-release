@@ -41,6 +41,16 @@ foreach ($directory in Get-ChildItem -LiteralPath $plugins -Directory | Sort-Obj
     $package = Join-Path $output "$baseName.owopkg"
     $packageSource = $directory.FullName
     $staging = $null
+    if ($manifest.id -eq 'owo.plugin.english' -and
+        -not (Test-Path -LiteralPath (Join-Path $packageSource $manifest.entry) -PathType Leaf)) {
+        $configuration = Split-Path -Leaf $build
+        $packageSource = Join-Path (Split-Path -Parent $build) "english-plugin/$configuration"
+        if (-not (Test-Path -LiteralPath (Join-Path $packageSource $manifest.entry) -PathType Leaf) -or
+            (Get-FileHash -LiteralPath $manifestPath).Hash -ne
+            (Get-FileHash -LiteralPath (Join-Path $packageSource 'manifest.json')).Hash) {
+            throw 'Build owo_english_package for the requested configuration before packaging English.'
+        }
+    }
     if ($manifest.id -eq 'org.owo.agent-ipc') {
         $agentBinary = Join-Path $build 'owo_agent_ipc_plugin.exe'
         if (-not (Test-Path -LiteralPath $agentBinary -PathType Leaf)) {
