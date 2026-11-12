@@ -390,7 +390,7 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 16 ? 1 : 0) +
                                (version >= 17 ? std::size(expanded_navigation_required) : 0) +
                                (version >= 18 ? std::size(symbol_required) : 0) +
-                               (version >= 19 ? 1 : 0) + (version >= 20 ? 1 : 0);
+                               (version >= 19 ? 1 : 0) + (version >= 20 ? 1 : 0) + (version >= 21 ? 1 : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -434,8 +434,12 @@ ConfigParseResult parse_config(const std::string_view utf8) {
             return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
     if (version >= 20 && (!fields.contains("input_scheme_order") ||
-        !parse_shortcut_list(fields["input_scheme_order"], value.input_scheme_order) || value.input_scheme_order.empty()))
+        (!fields["input_scheme_order"].empty() && !parse_shortcut_list(fields["input_scheme_order"], value.input_scheme_order)) ||
+        (version == 20 && value.input_scheme_order.empty())))
         return {false, {}, "input_scheme_order is missing or invalid"};
+    if (version >= 21 && (!fields.contains("input_scheme_picker_enabled") ||
+        !parse_bool(fields["input_scheme_picker_enabled"], value.input_scheme_picker_enabled)))
+        return {false, {}, "input_scheme_picker_enabled is missing or invalid"};
     if (version >= 19) {
         if (!fields.contains("pinyin_preview_location"))
             return {false, {}, "pinyin_preview_location is missing"};
@@ -610,9 +614,11 @@ ConfigParseResult parse_config(const std::string_view utf8) {
 
 std::string serialize_config(const AppConfig& value) {
     if (!validate_config(value).ok) return {};
-    return "schema_version=" + std::to_string(value.input_scheme_order.empty() ? 19 : kConfigSchemaVersion) +
+    const bool legacy = value.input_scheme_order.empty() && value.input_scheme_picker_enabled;
+    return "schema_version=" + std::to_string(legacy ? 19 : kConfigSchemaVersion) +
            "\ninput_scheme=" + value.input_scheme +
-           (value.input_scheme_order.empty() ? std::string{} : "\ninput_scheme_order=" + serialize_shortcut_list(value.input_scheme_order)) +
+           (legacy ? std::string{} : "\ninput_scheme_order=" + serialize_shortcut_list(value.input_scheme_order) +
+               "\ninput_scheme_picker_enabled=" + (value.input_scheme_picker_enabled ? "true" : "false")) +
            "\ncandidate_page_size=" + std::to_string(value.candidate_page_size) +
            "\ncandidate_wrap_length=" + std::to_string(value.candidate_wrap_length) +
            "\npinyin_preview_location=" + value.pinyin_preview_location +

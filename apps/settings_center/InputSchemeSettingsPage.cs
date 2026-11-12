@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Media;
 
 namespace OwO_Settings;
 
@@ -58,7 +59,7 @@ public sealed partial class MainPage
         var discovered = await _pluginClient.DiscoverInputSchemesAsync();
         _availableSchemeIds = InputSchemeSettingsPolicy.BuiltIns.Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
         foreach (var scheme in discovered) {
-            _knownSchemes[scheme.Id] = InputSchemeSettingsPolicy.Plugin(scheme.Id, scheme.Name, $"{scheme.PluginId} · {scheme.Language}");
+            _knownSchemes[scheme.Id] = InputSchemeSettingsPolicy.Plugin(scheme.Id, scheme.Name, $"{scheme.PluginId} · {scheme.Language}", scheme.Icon);
             _availableSchemeIds.Add(scheme.Id);
         }
         _schemeOrder = InputSchemeSettingsPolicy.BuildOrder(string.Join(';', _schemeOrder), PreferredInputScheme, _availableSchemeIds);
@@ -106,15 +107,17 @@ public sealed partial class MainPage
             var available = _availableSchemeIds.Contains(id);
             var scheme = _knownSchemes.GetValueOrDefault(id) ?? InputSchemeSettingsPolicy.Resolve(id);
             var row = new Grid { ColumnSpacing = 8 };
+            row.ColumnDefinitions.Add(new() { Width = new(24) });
             row.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
             row.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+            row.Children.Add(SchemeRowIcon(scheme));
             var labels = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
             labels.Children.Add(new TextBlock { Text = scheme.Name, TextWrapping = TextWrapping.Wrap, Style = (Style)Resources["SettingTitleStyle"] });
             var detail = scheme.OwnerPluginId is null ? "内置方案" : "插件方案";
             if (!available) detail += " · 不可用（请在插件管理器核对启用与授权）";
             else if (id == preferred) detail += " · 默认";
             labels.Children.Add(new TextBlock { Text = $"{detail} · {scheme.Description}", Style = (Style)Resources["SettingDescriptionStyle"] });
-            row.Children.Add(labels);
+            Grid.SetColumn(labels, 1); row.Children.Add(labels);
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
             var toggle = new ToggleSwitch { IsOn = enabled, OnContent = null, OffContent = null, IsEnabled = available || enabled, MinWidth = 0 };
             AutomationProperties.SetName(toggle, $"启用{scheme.Name}");
@@ -134,9 +137,27 @@ public sealed partial class MainPage
                 };
                 actions.Children.Add(move);
             }
-            Grid.SetColumn(actions, 1); row.Children.Add(actions);
+            Grid.SetColumn(actions, 2); row.Children.Add(actions);
             InputSchemeRows.Children.Add(new Border { Style = (Style)Resources["SettingsCardStyle"], Child = row });
         }
+    }
+
+    private static FrameworkElement SchemeRowIcon(InputSchemeOption scheme) {
+        FrameworkElement icon;
+        if (scheme.Icon is { } mask) {
+            var geometry = new GeometryGroup();
+            for (var y = 0; y < mask.Length; ++y)
+                for (var x = 0; x < 16; ++x)
+                    if ((mask[y] & (0x8000 >> x)) != 0)
+                        geometry.Children.Add(new RectangleGeometry { Rect = new Windows.Foundation.Rect(x, y, 1, 1) });
+            icon = new PathIcon { Data = geometry, Width = 20, Height = 20 };
+            AutomationProperties.SetAutomationId(icon, "InputSchemePackageIcon:" + scheme.Id);
+        } else {
+            icon = new TextBlock { Text = scheme.Id switch { "full_pinyin" => "中", "english" => "键", "exact_code" => "码", _ => "◇" }, FontSize = 16 };
+        }
+        icon.HorizontalAlignment = HorizontalAlignment.Center;
+        icon.VerticalAlignment = VerticalAlignment.Center;
+        return icon;
     }
 
     private void SetSchemeEnabled(string id, ToggleSwitch toggle) {

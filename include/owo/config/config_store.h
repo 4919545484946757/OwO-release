@@ -8,7 +8,7 @@
 
 namespace owo::config {
 
-inline constexpr std::uint32_t kConfigSchemaVersion = 20;
+inline constexpr std::uint32_t kConfigSchemaVersion = 21;
 
 // Append-only bit order: each physical ASCII punctuation has its own preference.
 inline constexpr std::string_view kChinesePunctuationSources = ",.<>?;:[]{}\\|-_+=`~'\"()!$^";
@@ -54,6 +54,7 @@ struct AppConfig {
     std::vector<std::string> correction_shortcuts{"Ctrl+Q"};
     bool language_shortcut_enabled{true};
     std::vector<std::string> language_shortcuts{"Ctrl+Space"};
+    bool input_scheme_picker_enabled{true};
     bool raw_input_shortcut_enabled{true};
     std::vector<std::string> raw_input_shortcuts{"Enter"};
     bool cursor_left_shortcut_enabled{true};

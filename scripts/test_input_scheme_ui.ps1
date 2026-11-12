@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$PublishDirectory = '', [string]$EnglishPackage = '')
+param([string]$PublishDirectory = '', [string]$EnglishPackage = '', [switch]$RequirePackageIcon)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 Add-Type -AssemblyName UIAutomationClient
@@ -22,6 +22,13 @@ if ($EnglishPackage) {
     if ($LASTEXITCODE -ne 0 -or !$installed.ok) { throw "English fixture failed to install: $($installed.diagnostic)" }
     $activated = & $pluginBackend $pluginFixture activate $preview.plugin_id $preview.version | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or !$activated.ok) { throw 'English fixture failed to activate.' }
+    if ($RequirePackageIcon) {
+        $scheme = (& $pluginBackend $pluginFixture input-schemes | ConvertFrom-Json).schemes |
+            Where-Object id -eq 'plugin:owo.plugin.english/english'
+        if ($LASTEXITCODE -ne 0 -or !$scheme -or @($scheme.icon).Count -ne 16 -or !$scheme.icon[8]) {
+            throw 'English package icon was not discovered.'
+        }
+    }
 }
 function Find-Id($window, [string]$id) {
     $condition = [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
@@ -153,6 +160,14 @@ try {
         $pluginToggle.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
         Wait-Config 'input_scheme_order=english;!full_pinyin;!exact_code;plugin:owo.plugin.english/english'
     }
+    (Wait-Id $window 'ShortcutNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $picker = Wait-Id $window 'InputSchemePickerEnabled'
+    $pattern = $picker.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
+    if ($pattern.Current.ToggleState -ne [Windows.Automation.ToggleState]::On) { throw 'Scheme picker is not on by default.' }
+    $pattern.Toggle()
+    Wait-Config 'input_scheme_picker_enabled=false'
+    (Wait-Id $window 'InputSchemePickerEnabled').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Wait-Config 'input_scheme_picker_enabled=true'
     Write-Output 'PASS: WinUI scheme labels, scopes, dictionary isolation, reorder, toggles and native autosave (isolated config).'
 } finally {
     $process.Refresh()

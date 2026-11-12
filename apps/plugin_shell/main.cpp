@@ -1,4 +1,5 @@
 #include "owo/plugin/plugin_installer.h"
+#include "owo/plugin/input_scheme_icon.h"
 #include "owo/plugin/plugin_authorization_store.h"
 #include "owo/plugin/plugin_permissions.h"
 #include "owo/plugin/plugin_store.h"
@@ -230,13 +231,26 @@ int input_schemes(const std::filesystem::path& root) {
             version.manifest.permissions.end(), "input.scheme") == version.manifest.permissions.end()) continue;
         const auto discovery = owo::core::discover_plugin_input_methods(root, version.manifest.id);
         if (!discovery.validation.ok) continue; // revoked/unavailable is not selectable
+        const auto active = owo::plugin::query_active_plugin_version(root, version.manifest.id);
+        if (!active.ok || discovery.version != active.manifest.version ||
+            discovery.inventory != active.inventory_sha256 || discovery.publisher != active.publisher_certificate_sha256) continue;
         for (const auto& scheme : discovery.descriptors) {
             if (comma) std::cout << ',';
             comma = true;
             std::cout << "{\"id\":" << json_escape("plugin:" + scheme.id)
                 << ",\"name\":" << json_escape(scheme.name)
                 << ",\"plugin_id\":" << json_escape(scheme.plugin_id)
-                << ",\"language\":" << json_escape(scheme.language_tag) << '}';
+                << ",\"language\":" << json_escape(scheme.language_tag);
+            if (const auto icon = owo::plugin::read_input_scheme_icon(active.installed_path,
+                std::string_view(scheme.id).substr(scheme.plugin_id.size() + 1))) {
+                std::cout << ",\"icon\":[";
+                for (std::size_t row = 0; row < icon->size(); ++row) {
+                    if (row) std::cout << ',';
+                    std::cout << (*icon)[row];
+                }
+                std::cout << ']';
+            }
+            std::cout << '}';
         }
     }
     std::cout << "]}\n";

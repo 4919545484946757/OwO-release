@@ -4,6 +4,8 @@
 #include "owo/agent/agent_protocol.h"
 #include "owo/plugin/candidate_theme.h"
 #include "owo/plugin/unicode_palette.h"
+#include "owo/plugin/input_scheme_icon.h"
+#include "owo/tsf/input_scheme_picker.h"
 #include "owo/tsf/input_method_session.h"
 #include "owo/tsf/composition_learning.h"
 #include "owo/tsf/expanded_candidate_pages.h"
@@ -46,6 +48,8 @@ inline constexpr GUID kLanguageProfileGuid{
     0x5d9f39c3, 0xbdb4, 0x453c, {0xa7, 0xba, 0xb9, 0xef, 0x82, 0x48, 0x76, 0x29}};
 inline constexpr GUID kLanguageModePreservedKeyGuid{
     0x409a6b54, 0xd599, 0x4d7d, {0xa4, 0x36, 0xa1, 0x80, 0x60, 0xf5, 0xe1, 0x81}};
+inline constexpr GUID kSchemePickerPreservedKeyGuid{
+    0x1d0ad9c1, 0x4306, 0x4d90, {0x98, 0x24, 0x0e, 0xef, 0x22, 0x46, 0xb9, 0x06}};
 inline constexpr LANGID kSimplifiedChinese = 0x0804;
 
 class TextService final : public ITfTextInputProcessorEx,
@@ -295,6 +299,30 @@ private:
     HRESULT commit_candidate_from_window(std::size_t index);
     HRESULT toggle_language_mode(ITfContext* context);
     HRESULT toggle_language_mode_from_window();
+    bool scheme_picker_binding_enabled() const;
+    bool scheme_picker_shortcut(WPARAM key) const;
+    HRESULT tap_scheme_picker(ITfContext*, HWND foreground = nullptr);
+    HRESULT finish_scheme_picker(std::optional<std::size_t> clicked = {});
+    void cancel_scheme_picker() noexcept;
+    void poll_scheme_picker();
+    void position_scheme_picker();
+    void draw_scheme_picker(HDC) const;
+    void remember_scheme_indicator(const RECT*);
+    HWND scheme_picker_window_{}, scheme_picker_foreground_{};
+    ITfContext* scheme_picker_context_{};
+    RECT scheme_indicator_rect_{};
+    ULONGLONG scheme_indicator_updated_{};
+    struct SchemeChoice {
+        std::string id;
+        std::wstring label;
+        std::optional<plugin::InputSchemeIcon> icon;
+    };
+    InputSchemePicker scheme_picker_;
+    bool scheme_picker_escape_suppressed_{};
+    std::vector<SchemeChoice> scheme_picker_choices_;
+    int scheme_picker_header_{}, scheme_picker_row_{}, scheme_picker_padding_{}, scheme_picker_visible_{};
+    std::size_t scheme_picker_first_{};
+    UINT scheme_picker_dpi_{96};
 
     LONG references_{1};
     bool plugin_scheme_selected() const noexcept;
@@ -459,6 +487,7 @@ private:
     bool scheme_shortcuts_scoped_{};
     bool scheme_word_typing_{};
     std::string scheme_plugin_label_;
+    std::optional<plugin::InputSchemeIcon> scheme_plugin_icon_;
     ULONGLONG scheme_word_idle_deadline_{};
     std::string saved_input_scheme_;
     config::AppConfig shortcut_config_;
@@ -476,7 +505,9 @@ private:
     POINT unicode_hover_point_{};
     ULONGLONG next_candidate_theme_refresh_{0};
     std::vector<std::string> preserved_language_shortcuts_;
-    std::vector<TF_PRESERVEDKEY> preserved_language_keys_;
+    struct PreservedSchemeKey { TF_PRESERVEDKEY key; GUID guid; };
+    std::vector<PreservedSchemeKey> preserved_language_keys_;
+    bool preserved_scheme_picker_enabled_{};
     bool correction_enabled_{true};
     bool chinese_mode_{true};
     bool system_keyboard_closed_{};

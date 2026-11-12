@@ -1,7 +1,7 @@
 {
   "id": "owo.plugin.english",
   "name": "OwO 英文输入",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "api_version": 1,
   "runtime": "process",
   "entry": "bin/owo_english_plugin.exe",

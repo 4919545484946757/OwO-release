@@ -87,6 +87,7 @@ public sealed partial class MainPage
         }
         Shortcut(nameof(SettingsSnapshot.CorrectionShortcutEnabled), nameof(SettingsSnapshot.CorrectionShortcuts), CorrectionShortcutEnabled, "correction", CorrectionShortcutCard, "切换输入纠错", "快捷键 全拼 严格输入");
         Shortcut(nameof(SettingsSnapshot.LanguageShortcutEnabled), nameof(SettingsSnapshot.LanguageShortcuts), LanguageShortcutEnabled, "language", LanguageShortcutCard, "切换输入方案", "快捷键 语言 中英文 全拼 英文");
+        Toggle(nameof(SettingsSnapshot.InputSchemePickerEnabled), InputSchemePickerEnabled);
         Shortcut(nameof(SettingsSnapshot.RawInputShortcutEnabled), nameof(SettingsSnapshot.RawInputShortcuts), RawInputShortcutEnabled, "raw", RawInputShortcutCard, "输入编码原样上屏", "快捷键 Enter");
         Shortcut(nameof(SettingsSnapshot.SeparatorShortcutEnabled), nameof(SettingsSnapshot.SeparatorShortcuts), SeparatorShortcutEnabled, "separator", SeparatorShortcutCard, "拼音分割", "快捷键 撇号 单引号 分隔 拼音边界");
         Shortcut(nameof(SettingsSnapshot.CursorLeftShortcutEnabled), nameof(SettingsSnapshot.CursorLeftShortcuts), CursorLeftShortcutEnabled, "cursor-left", CursorLeftShortcutCard, "预编辑光标左移", "快捷键 编码 光标");

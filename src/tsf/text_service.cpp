@@ -29,6 +29,7 @@
 #include <ctfutb.h>
 #include <ctffunc.h>
 #include <olectl.h>
+#include <shellapi.h>
 #include <windowsx.h>
 
 #include <algorithm>
@@ -86,6 +87,7 @@ void retire_commit_feedback(std::unique_ptr<ipc::InputMethodAsyncClient> client,
 constexpr wchar_t kMessageClass[] = L"OwO.P1.MessageWindow";
 constexpr wchar_t kCandidateShadowClass[] = L"OwO.P1.CandidateShadowWindow";
 constexpr wchar_t kCandidateClass[] = L"OwO.P1.CandidateWindow";
+constexpr wchar_t kSchemePickerClass[] = L"OwO.SchemePickerWindow";
 constexpr wchar_t kCandidateThemeChangedMessageName[] = L"OwO.CandidateTheme.Refresh.v1";
 constexpr UINT kCandidateReady = WM_APP + 1;
 constexpr UINT kLanguageShortcutPressed = WM_APP + 2;
@@ -94,8 +96,11 @@ constexpr UINT kAltCodeFinished = WM_APP + 4;
 constexpr UINT kAgentReady = WM_APP + 5;
 constexpr UINT_PTR kPluginInputTimer = 0x4f57;
 constexpr UINT_PTR kCandidateWindowOrderTimer = 0x4f58;
+constexpr UINT_PTR kSchemePickerTimer = 0x4f59;
 constexpr UINT kPluginCommitReady = WM_APP + 6;
 constexpr UINT kInlinePreeditChanged = WM_APP + 7;
+constexpr UINT kSchemePickerRelease = WM_APP + 8;
+constexpr UINT kSchemePickerCancel = WM_APP + 9;
 constexpr float kCandidateWindowMinWidthDip = 240.0F;
 constexpr float kCandidateWindowMaxWidthDip = 1400.0F;
 constexpr float kHeaderHeightDip = 40.0F;
@@ -130,6 +135,26 @@ thread_local TextService* keyboard_hook_service = nullptr;
 
 std::string utf8_from_wide(std::wstring_view input);
 bool same_context(ITfContext* a, ITfContext* b);
+
+plugin::InstalledPluginVersionResult usable_scheme_plugin(std::string_view id) {
+    if (!config::is_plugin_input_scheme(id)) return {};
+    const auto data = config::local_data_root();
+    if (data.empty()) return {};
+    const auto owner = id.substr(7, id.find('/') - 7);
+    auto active = plugin::query_active_plugin_version(data / L"plugins", owner);
+    if (!active.ok || active.manifest.runtime != "process") return {};
+    const auto grant = plugin::load_plugin_authorization(data / L"plugins", owner, active.manifest.version);
+    if (!grant.ok || !plugin::is_plugin_permission_granted(grant.value, active.manifest,
+        active.inventory_sha256, active.publisher_certificate_sha256, "input.scheme")) return {};
+    return active;
+}
+
+std::wstring_view builtin_scheme_glyph(std::string_view id) {
+    if (id == "full_pinyin") return L"中";
+    if (id == "english") return L"键";
+    if (id == "exact_code") return L"码";
+    return L"◇";
+}
 
 std::wstring compact_feedback_input(const std::wstring_view input) {
     std::wstring result;
@@ -818,14 +843,16 @@ public:
         return *text == nullptr ? E_OUTOFMEMORY : S_OK;
     }
 
-    HRESULT STDMETHODCALLTYPE OnClick(TfLBIClick, POINT, const RECT*) override {
-        return owner_ == nullptr ? E_UNEXPECTED : owner_->toggle_language_mode_from_window();
+    HRESULT STDMETHODCALLTYPE OnClick(TfLBIClick, POINT, const RECT* area) override {
+        if (!owner_) return E_UNEXPECTED;
+        owner_->remember_scheme_indicator(area);
+        return owner_->toggle_language_mode_from_window();
     }
     HRESULT STDMETHODCALLTYPE InitMenu(ITfMenu*) override { return S_OK; }
     HRESULT STDMETHODCALLTYPE OnMenuSelect(UINT) override { return E_NOTIMPL; }
     HRESULT STDMETHODCALLTYPE GetIcon(HICON* icon) override {
         if (icon == nullptr) return E_INVALIDARG;
-        *icon = create_mode_icon(mode_glyph());
+        *icon = create_mode_icon(mode_glyph(), owner_ ? owner_->scheme_plugin_icon_ : std::nullopt);
         return *icon == nullptr ? E_OUTOFMEMORY : S_OK;
     }
     HRESULT STDMETHODCALLTYPE GetText(BSTR* text) override {
@@ -866,7 +893,7 @@ private:
         if (sink_ != nullptr) sink_->Release();
     }
 
-    static HICON create_mode_icon(const wchar_t* label) {
+    static HICON create_mode_icon(const wchar_t* label, const std::optional<plugin::InputSchemeIcon>& custom) {
         constexpr int size = 20;
         BITMAPV5HEADER header{};
         header.bV5Size = sizeof(header);
@@ -886,30 +913,35 @@ private:
         ReleaseDC(nullptr, screen);
         if (color == nullptr || raw_pixels == nullptr) return nullptr;
         auto* pixels = static_cast<std::uint32_t*>(raw_pixels);
-        std::fill_n(pixels, size * size, 0x00000001U);
-
-        HDC memory = CreateCompatibleDC(nullptr);
-        HGDIOBJ old_bitmap = SelectObject(memory, color);
-        HFONT font = CreateFontW(-17, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-                                 DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                                 ANTIALIASED_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
-        HGDIOBJ old_font = SelectObject(memory, font);
-        SetBkMode(memory, TRANSPARENT);
         const COLORREF foreground = system_uses_light_theme()
                                         ? RGB(0, 0, 0)
                                         : RGB(255, 255, 255);
-        SetTextColor(memory, foreground);
-        RECT bounds{0, 0, size, size};
-        DrawTextW(memory, label, 1, &bounds,
-                  DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-        SelectObject(memory, old_font);
-        SelectObject(memory, old_bitmap);
-        DeleteObject(font);
-        DeleteDC(memory);
-
-        for (int index = 0; index < size * size; ++index) {
-            if (pixels[index] == 0x00000001U) pixels[index] = 0;
-            else pixels[index] |= 0xff000000U;
+        if (custom) {
+            std::fill_n(pixels, size * size, 0U);
+            for (int y = 0; y < 16; ++y)
+                for (int x = 0; x < 16; ++x)
+                    if ((*custom)[y] & (0x8000U >> x)) pixels[(y + 2) * size + x + 2] = 0xff000000U | foreground;
+        } else {
+            std::fill_n(pixels, size * size, 0x00000001U);
+            HDC memory = CreateCompatibleDC(nullptr);
+            HGDIOBJ old_bitmap = SelectObject(memory, color);
+            HFONT font = CreateFontW(-17, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                                     DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                     ANTIALIASED_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
+            HGDIOBJ old_font = SelectObject(memory, font);
+            SetBkMode(memory, TRANSPARENT);
+            SetTextColor(memory, foreground);
+            RECT bounds{0, 0, size, size};
+            DrawTextW(memory, label, 1, &bounds,
+                      DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            SelectObject(memory, old_font);
+            SelectObject(memory, old_bitmap);
+            DeleteObject(font);
+            DeleteDC(memory);
+            for (int index = 0; index < size * size; ++index) {
+                if (pixels[index] == 0x00000001U) pixels[index] = 0;
+                else pixels[index] |= 0xff000000U;
+            }
         }
         HBITMAP mask = CreateBitmap(size, size, 1, 1, nullptr);
         ICONINFO icon_info{};
@@ -1026,6 +1058,7 @@ HRESULT TextService::ActivateEx(ITfThreadMgr* thread_manager,
     keyboard_hook_service = this;
     keyboard_hook_ = SetWindowsHookExW(WH_KEYBOARD, keyboard_hook_proc, nullptr,
                                        GetCurrentThreadId());
+    activation_trace("SCHEME_KEYBOARD_HOOK", keyboard_hook_ ? S_OK : HRESULT_FROM_WIN32(GetLastError()));
     worker_ = std::jthread([this](const std::stop_token token) { worker_loop(token); });
     try {context_verifier_=std::make_unique<compatibility::UiaTextVerifier>();}
     catch(...){Deactivate();return E_OUTOFMEMORY;}
@@ -1096,6 +1129,9 @@ HRESULT TextService::OnSetFocus(const BOOL foreground) {
     foreground_focus_ = foreground != FALSE;
     if(context_verifier_)context_verifier_->invalidate();
     if (!foreground_focus_) {
+        language_space_key_suppressed_ = false;
+        scheme_picker_escape_suppressed_ = false;
+        scheme_picker_.reset();
         if (is_agent_mode()) cancel_agent_session();
         else commit_pending_on_focus_loss();
         clear_composition();
@@ -1284,8 +1320,14 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
 HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) { activation_trace("OnTestKeyDown", S_OK, context);
     if (eaten == nullptr) return E_POINTER;
     refresh_shortcut_config();
+    if (key == VK_SPACE) activation_trace("SCHEME_SPACE_TSF_TEST", scheme_picker_shortcut(key) ? S_OK : S_FALSE, context);
+    if (key == VK_SPACE && (key_down(VK_LWIN) || key_down(VK_RWIN))) {
+        cancel_scheme_picker(); *eaten = FALSE; return S_OK;
+    }
+    if (scheme_picker_shortcut(key) || (scheme_picker_.showing() && key == VK_ESCAPE)) { *eaten = TRUE; return S_OK; }
+    if (scheme_picker_.showing() && !is_control_key(key)) cancel_scheme_picker();
     if (selection_assistant_.test(context, key)) { *eaten = TRUE; return S_OK; }
-    if (selection_assistant_.active()) clear_composition();
+    if (selection_assistant_.active() && !(is_control_key(key) && scheme_picker_binding_enabled())) clear_composition();
     *eaten = (plugin_scheme_selected() ? plugin_should_eat_key(context, key, flags)
                                      : should_eat_key(key)) ? TRUE : FALSE;
     if(*eaten && !plugin_scheme_selected() && context && !plugin_context_allowed(context)) *eaten=FALSE;
@@ -1301,7 +1343,19 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
     diagnostic_input_started_us_ = diagnostics::CandidateTiming::instance().active()
         ? diagnostics::timing_now_us() : 0;
     refresh_shortcut_config();
-    if (selection_assistant_.key(context, key)) { *eaten = TRUE; return S_OK; }
+    if (key == VK_SPACE && (key_down(VK_LWIN) || key_down(VK_RWIN))) {
+        cancel_scheme_picker(); *eaten = FALSE; return S_OK;
+    }
+    if (scheme_picker_shortcut(key)) {
+        *eaten = TRUE;
+        return (static_cast<ULONG_PTR>(flags) & (1ULL << 30)) == 0 ? tap_scheme_picker(context) : S_OK;
+    }
+    if (scheme_picker_.showing() && !is_control_key(key)) {
+        cancel_scheme_picker();
+        if (key == VK_ESCAPE) { *eaten = TRUE; return S_OK; }
+    }
+    if (!(is_control_key(key) && scheme_picker_binding_enabled()) &&
+        selection_assistant_.key(context, key)) { *eaten = TRUE; return S_OK; }
     if (plugin_scheme_selected()) return handle_plugin_key(context, key, flags, eaten);
     if (inline_preedit_ && inline_preedit_->take_termination()) clear_composition();
     if (context && inline_preedit_ && inline_preedit_->active()) {
@@ -1641,12 +1695,23 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
 
 HRESULT TextService::OnTestKeyUp(ITfContext*, const WPARAM key, LPARAM, BOOL* eaten) {
     if (eaten == nullptr) return E_POINTER;
-    *eaten = is_alt_key(key) && alt_code_preview_active_ ? TRUE : FALSE;
+    *eaten = ((is_alt_key(key) && alt_code_preview_active_) ||
+              (key == VK_SPACE && scheme_picker_.space_latched())) ? TRUE : FALSE;
     return S_OK;
 }
 
 HRESULT TextService::OnKeyUp(ITfContext* context, const WPARAM key, LPARAM, BOOL* eaten) { activation_trace("OnKeyUp", S_OK, context);
     if (eaten == nullptr) return E_POINTER;
+    if (key == VK_SPACE) {
+        *eaten = scheme_picker_.space_latched() ? TRUE : FALSE;
+        scheme_picker_.release_space();
+        return S_OK;
+    }
+    if (is_control_key(key) && scheme_picker_.showing()) {
+        poll_scheme_picker();
+        *eaten = FALSE; // modifier release still belongs to the application
+        return S_OK;
+    }
     if (!is_alt_key(key) || !alt_code_preview_active_) {
         *eaten = FALSE;
         return S_OK;
@@ -1661,6 +1726,11 @@ HRESULT TextService::OnKeyUp(ITfContext* context, const WPARAM key, LPARAM, BOOL
 HRESULT TextService::OnPreservedKey(ITfContext* context, REFGUID guid, BOOL* eaten) {
     if (eaten == nullptr) return E_POINTER;
     refresh_shortcut_config();
+    if (IsEqualGUID(guid, kSchemePickerPreservedKeyGuid)) {
+        activation_trace("SCHEME_PICKER_PRESERVED_KEY", S_OK, context);
+        *eaten = scheme_picker_binding_enabled() && !key_down(VK_LWIN) && !key_down(VK_RWIN) ? TRUE : FALSE;
+        return *eaten ? tap_scheme_picker(context) : S_OK;
+    }
     if (!IsEqualGUID(guid, kLanguageModePreservedKeyGuid) ||
         !shortcut_config_.language_shortcut_enabled) {
         *eaten = FALSE;
@@ -1696,6 +1766,10 @@ HRESULT TextService::initialize_windows() {
     if (RegisterClassW(&shadow_class) == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
         return HRESULT_FROM_WIN32(GetLastError());
     }
+    WNDCLASSW picker_class = candidate_class;
+    picker_class.lpszClassName = kSchemePickerClass;
+    picker_class.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    (void)RegisterClassW(&picker_class); // optional UI; on failure the key still switches directly
     message_window_ = CreateWindowExW(0, kMessageClass, L"", 0, 0, 0, 0, 0,
                                       HWND_MESSAGE, nullptr, message_class.hInstance, this);
     if (message_window_ == nullptr) return HRESULT_FROM_WIN32(GetLastError());
@@ -1718,6 +1792,8 @@ HRESULT TextService::initialize_windows() {
 }
 
 void TextService::destroy_windows() noexcept {
+    cancel_scheme_picker();
+    if (scheme_picker_window_) DestroyWindow(std::exchange(scheme_picker_window_, nullptr));
     discard_rendering();
     if (candidate_window_ != nullptr) DestroyWindow(candidate_window_);
     if (candidate_shadow_window_ != nullptr) DestroyWindow(candidate_shadow_window_);
@@ -3286,6 +3362,9 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     if (message == WM_TIMER && wparam == kCandidateWindowOrderTimer && service != nullptr) {
         service->maintain_candidate_window_order(); return 0;
     }
+    if (message == WM_TIMER && wparam == kSchemePickerTimer && service != nullptr) {
+        service->poll_scheme_picker(); return 0;
+    }
     if (message == kPluginCommitReady && service != nullptr) {
         service->finish_plugin_input_on_ui(); return 0;
     }
@@ -3294,7 +3373,17 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
         return 0;
     }
     if (message == kLanguageShortcutPressed && service != nullptr) {
-        service->toggle_language_mode_from_window();
+        if (wparam) (void)service->tap_scheme_picker(nullptr, reinterpret_cast<HWND>(lparam));
+        else (void)service->toggle_language_mode_from_window();
+        return 0;
+    }
+    if (message == kSchemePickerRelease && service != nullptr) {
+        if (wparam == VK_SPACE) service->scheme_picker_.release_space();
+        else if (service->scheme_picker_.showing()) (void)service->finish_scheme_picker();
+        return 0;
+    }
+    if (message == kSchemePickerCancel && service != nullptr) {
+        service->cancel_scheme_picker();
         return 0;
     }
     if (message == kAltCodeDigitPressed && service != nullptr) {
@@ -3304,6 +3393,32 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     if (message == kAltCodeFinished && service != nullptr) {
         service->commit_alt_code_preview_from_window();
         return 0;
+    }
+    if (service && window == service->scheme_picker_window_) {
+        if (message == WM_MOUSEACTIVATE) return MA_NOACTIVATE;
+        if (message == WM_ERASEBKGND) return 1;
+        if (message == WM_PAINT) {
+            PAINTSTRUCT paint{};
+            HDC dc = BeginPaint(window, &paint);
+            service->draw_scheme_picker(dc);
+            EndPaint(window, &paint);
+            return 0;
+        }
+        if (message == WM_LBUTTONUP && service->scheme_picker_.showing()) {
+            const auto y = GET_Y_LPARAM(lparam) - service->scheme_picker_header_;
+            if (y >= 0 && service->scheme_picker_row_ > 0) {
+                const auto row = y / service->scheme_picker_row_;
+                if (row < service->scheme_picker_visible_)
+                    (void)service->finish_scheme_picker(service->scheme_picker_first_ + row);
+            }
+            return 0;
+        }
+        if (message == WM_DPICHANGED || message == WM_DISPLAYCHANGE || message == WM_SETTINGCHANGE) {
+            if (message == WM_DISPLAYCHANGE) service->scheme_indicator_updated_ = 0;
+            if (service->scheme_picker_.showing()) service->position_scheme_picker();
+            return 0;
+        }
+        if (message == WM_CANCELMODE) { service->cancel_scheme_picker(); return 0; }
     }
     if (message == WM_NCHITTEST && service != nullptr &&
         window == service->candidate_shadow_window_) return HTTRANSPARENT;
@@ -3507,18 +3622,48 @@ LRESULT CALLBACK TextService::keyboard_hook_proc(const int code, const WPARAM ke
         const bool released = (bits & (1ULL << 31)) != 0;
         const bool repeated = (bits & (1ULL << 30)) != 0;
         if (!released) {
+            // Some hosts inspect keyboard messages with PM_NOREMOVE before TSF
+            // can report a preserved key. Suppress the same press only once.
+            if (service->language_space_key_suppressed_) return 1;
             service->refresh_shortcut_config();
-            if (service->shortcut_config_.language_shortcut_enabled &&
-                service->shortcut_matches(service->shortcut_config_.language_shortcuts,
-                                           VK_SPACE)) {
+            const bool picker = service->scheme_picker_shortcut(VK_SPACE);
+            if (!key_down(VK_LWIN) && !key_down(VK_RWIN) &&
+                service->shortcut_config_.language_shortcut_enabled &&
+                (picker || service->shortcut_matches(service->shortcut_config_.language_shortcuts, VK_SPACE))) {
                 service->language_space_key_suppressed_ = true;
-                if (!repeated && service->message_window_ != nullptr)
-                    PostMessageW(service->message_window_, kLanguageShortcutPressed, 0, 0);
+                if (!repeated && service->message_window_ != nullptr) {
+                    activation_trace(picker ? "SCHEME_PICKER_SPACE_HOOK" : "SCHEME_DIRECT_SPACE_HOOK");
+                    PostMessageW(service->message_window_, kLanguageShortcutPressed, picker,
+                                 reinterpret_cast<LPARAM>(GetForegroundWindow()));
+                }
                 return 1;
             }
         } else if (service->language_space_key_suppressed_) {
             service->language_space_key_suppressed_ = false;
+            if (service->message_window_)
+                PostMessageW(service->message_window_, kSchemePickerRelease, VK_SPACE, 0);
             return 1;
+        }
+    }
+    if (code == HC_ACTION && service && service->message_window_) {
+        const auto bits = static_cast<ULONG_PTR>(flags);
+        const bool released = (bits & (1ULL << 31)) != 0;
+        const int other_ctrl = (bits & (1ULL << 24)) != 0 ? VK_LCONTROL : VK_RCONTROL;
+        if (released && is_control_key(key) && !key_down(other_ctrl) && service->scheme_picker_binding_enabled())
+            PostMessageW(service->message_window_, kSchemePickerRelease, VK_CONTROL, 0);
+        if (!released && key != VK_SPACE && key != VK_ESCAPE && !is_control_key(key) && service->scheme_picker_.showing())
+            PostMessageW(service->message_window_, kSchemePickerCancel, 0, 0);
+    }
+    if (code >= 0 && service && key == VK_ESCAPE && service->message_window_) {
+        const bool released = (static_cast<ULONG_PTR>(flags) & (1ULL << 31)) != 0;
+        if (released) {
+            if (std::exchange(service->scheme_picker_escape_suppressed_, false)) return 1;
+        } else if (service->scheme_picker_.showing() || service->scheme_picker_escape_suppressed_) {
+            if (!std::exchange(service->scheme_picker_escape_suppressed_, true)) {
+                activation_trace("SCHEME_PICKER_ESCAPE_HOOK");
+                PostMessageW(service->message_window_, kSchemePickerCancel, 0, 0);
+            }
+            return 1; // cancel the picker, not the underlying composition
         }
     }
     return CallNextHookEx(service == nullptr ? nullptr : service->keyboard_hook_,
@@ -3913,8 +4058,13 @@ void TextService::sync_preserved_language_key() {
     const std::vector<std::string> desired = shortcut_config_.language_shortcut_enabled
                                     ? shortcut_config_.language_shortcuts
                                     : std::vector<std::string>{};
-    if (desired == preserved_language_shortcuts_) return;
+    const bool use_picker = scheme_picker_binding_enabled();
+    if (desired == preserved_language_shortcuts_ && use_picker == preserved_scheme_picker_enabled_) return;
     clear_preserved_language_key();
+    cancel_scheme_picker();
+    scheme_picker_.reset();
+    preserved_scheme_picker_enabled_ = use_picker;
+    preserved_language_shortcuts_ = desired; // a conflicting registration still has the existing thread-hook fallback
     if (desired.empty()) return;
     ITfKeystrokeMgr* manager = nullptr;
     if (FAILED(thread_manager_->QueryInterface(IID_PPV_ARGS(&manager)))) return;
@@ -3922,26 +4072,27 @@ void TextService::sync_preserved_language_key() {
     for (const auto& shortcut : desired) {
         TF_PRESERVEDKEY key{};
         if (!preserved_shortcut(shortcut, key)) continue;
+        const auto& guid = use_picker && shortcut == "Ctrl+Space" ? kSchemePickerPreservedKeyGuid : kLanguageModePreservedKeyGuid;
         if (SUCCEEDED(manager->PreserveKey(
-                client_id_, kLanguageModePreservedKeyGuid, &key, description,
+                client_id_, guid, &key, description,
                 static_cast<ULONG>(std::size(description) - 1)))) {
-            preserved_language_keys_.push_back(key);
+            preserved_language_keys_.push_back({key, guid});
         }
     }
     manager->Release();
-    if (!preserved_language_keys_.empty()) preserved_language_shortcuts_ = desired;
 }
 
 void TextService::clear_preserved_language_key() noexcept {
+    preserved_language_shortcuts_.clear();
+    preserved_scheme_picker_enabled_ = false;
     if (preserved_language_keys_.empty() || thread_manager_ == nullptr) return;
     ITfKeystrokeMgr* manager = nullptr;
     if (SUCCEEDED(thread_manager_->QueryInterface(IID_PPV_ARGS(&manager)))) {
-        for (auto& key : preserved_language_keys_)
-            manager->UnpreserveKey(kLanguageModePreservedKeyGuid, &key);
+        for (auto& binding : preserved_language_keys_)
+            manager->UnpreserveKey(binding.guid, &binding.key);
         manager->Release();
     }
     preserved_language_keys_.clear();
-    preserved_language_shortcuts_.clear();
 }
 
 void TextService::initialize_language_compartment() {
@@ -5599,6 +5750,7 @@ void TextService::reset_learning_chain() {
 }
 
 void TextService::clear_composition(bool keep_plugin_session) {
+    cancel_scheme_picker();
     selection_assistant_.cancel();
     if (inline_preedit_) inline_preedit_->cancel();
     if (keep_plugin_session) {
@@ -5982,6 +6134,7 @@ void TextService::commit_pending_on_focus_loss() {
 }
 
 HRESULT TextService::toggle_language_mode(ITfContext* context) {
+    cancel_scheme_picker();
     system_keyboard_closed_ = false;
     return switch_input_scheme(next_input_scheme(shortcut_config_.input_scheme), context);
 }
@@ -5991,19 +6144,278 @@ std::string TextService::next_input_scheme(std::string_view current, bool compos
     if (order.empty()) return current == "full_pinyin" && !composition_only ? "english" : "full_pinyin";
     return config::next_enabled_input_scheme(order, current, [composition_only](const std::string& id) {
         if (composition_only && id == "english") return false;
-        if (config::is_plugin_input_scheme(id)) {
-            const auto data = config::local_data_root();
-            if (data.empty()) return false;
-            const auto root = data / L"plugins";
-            const auto plugin_id = id.substr(7, id.find('/') - 7);
-            const auto active = plugin::query_active_plugin_version(root, plugin_id);
-            if (!active.ok || active.manifest.runtime != "process") return false;
-            const auto grant = plugin::load_plugin_authorization(root, plugin_id, active.manifest.version);
-            return grant.ok && plugin::is_plugin_permission_granted(grant.value, active.manifest,
-                active.inventory_sha256, active.publisher_certificate_sha256, "input.scheme");
-        }
-        return true;
+        return !config::is_plugin_input_scheme(id) || usable_scheme_plugin(id).ok;
     });
+}
+
+bool TextService::scheme_picker_binding_enabled() const {
+    return shortcut_config_.language_shortcut_enabled && shortcut_config_.input_scheme_picker_enabled &&
+        std::ranges::find(shortcut_config_.language_shortcuts, "Ctrl+Space") != shortcut_config_.language_shortcuts.end();
+}
+
+bool TextService::scheme_picker_shortcut(WPARAM key) const {
+    return key == VK_SPACE && scheme_picker_binding_enabled() &&
+        (key_down(VK_CONTROL) || (GetAsyncKeyState(VK_CONTROL) & 0x8000)) &&
+        !key_down(VK_SHIFT) && !key_down(VK_MENU) && !key_down(VK_LWIN) && !key_down(VK_RWIN);
+}
+
+void TextService::remember_scheme_indicator(const RECT* area) {
+    if (!area || IsRectEmpty(area) || area->right - area->left > 240 || area->bottom - area->top > 240) return;
+    scheme_indicator_rect_ = *area;
+    scheme_indicator_updated_ = GetTickCount64();
+}
+
+HRESULT TextService::tap_scheme_picker(ITfContext* context, HWND observed_foreground) {
+    if (!scheme_picker_binding_enabled() || !message_window_ || !foreground_focus_) {
+        activation_trace("SCHEME_PICKER_NOT_AVAILABLE", S_FALSE); return S_OK;
+    }
+    const HWND foreground = GetForegroundWindow();
+    if (!foreground || (observed_foreground && observed_foreground != foreground)) {
+        activation_trace("SCHEME_PICKER_FOREGROUND_CHANGED", S_FALSE); return S_OK;
+    }
+    if (scheme_picker_.showing()) {
+        if (foreground != scheme_picker_foreground_ ||
+            (context && !same_context(context, scheme_picker_context_))) cancel_scheme_picker();
+        else {
+            if (scheme_picker_.tap(scheme_picker_choices_.size(), {})) position_scheme_picker();
+            return S_OK;
+        }
+    }
+    ITfDocumentMgr* document{};
+    ITfContext* focused{};
+    if (thread_manager_ && SUCCEEDED(thread_manager_->GetFocus(&document)) && document) {
+        (void)document->GetTop(&focused);
+        document->Release();
+    }
+    if (!focused || (context && !same_context(context, focused))) {
+        activation_trace("SCHEME_PICKER_NO_DOCUMENT", S_FALSE);
+        release_interface(focused);
+        return S_OK;
+    }
+    std::optional<std::size_t> selected;
+    const auto add = [&](std::string id) {
+        SchemeChoice choice;
+        choice.id = std::move(id);
+        if (choice.id == "full_pinyin") choice.label = L"全拼";
+        else if (choice.id == "english") choice.label = L"纯净键盘";
+        else if (choice.id == "exact_code") choice.label = L"精确编码";
+        else {
+            const auto active = usable_scheme_plugin(choice.id);
+            if (!active.ok) return;
+            const auto local = std::string_view(choice.id).substr(choice.id.find('/') + 1);
+            choice.label = wide_from_utf8(active.manifest.name);
+            choice.icon = plugin::read_input_scheme_icon(active.installed_path, local);
+            if (plugin_input_descriptor_ && choice.id == "plugin:" + plugin_input_descriptor_->id)
+                choice.label = wide_from_utf8(plugin_input_descriptor_->name);
+            else if (std::ranges::count_if(shortcut_config_.input_scheme_order, [&](const std::string& entry) {
+                return entry.starts_with("plugin:" + active.manifest.id + "/");
+            }) > 1) choice.label += L" · " + wide_from_utf8(local);
+        }
+        if (choice.id == shortcut_config_.input_scheme) selected = scheme_picker_choices_.size();
+        scheme_picker_choices_.push_back(std::move(choice));
+    };
+    scheme_picker_choices_.clear();
+    if (shortcut_config_.input_scheme_order.empty()) { add("full_pinyin"); add("english"); }
+    else for (const auto& id : shortcut_config_.input_scheme_order)
+        if (!id.starts_with('!')) add(id);
+    if (scheme_picker_choices_.size() < 2) {
+        activation_trace("SCHEME_PICKER_SINGLE_SCHEME", S_FALSE);
+        const auto target = scheme_picker_choices_.empty() ? "english" : scheme_picker_choices_.front().id;
+        cancel_scheme_picker();
+        const auto result = switch_input_scheme(target, focused);
+        focused->Release();
+        return result;
+    }
+    if (!scheme_picker_.tap(scheme_picker_choices_.size(), selected)) {
+        focused->Release();
+        return S_OK;
+    }
+    if (!scheme_picker_window_) {
+        const auto module = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(message_window_, GWLP_HINSTANCE));
+        scheme_picker_window_ = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST,
+            kSchemePickerClass, L"OwO 输入方案", WS_POPUP, 0, 0, 1, 1, nullptr, nullptr, module, this);
+        if (scheme_picker_window_) {
+            const DWORD rounded = 2; // DWMWCP_ROUND, ignored by older Windows
+            (void)DwmSetWindowAttribute(scheme_picker_window_, 33, &rounded, sizeof rounded);
+        }
+    }
+    scheme_picker_context_ = focused; // own GetTop reference, never moves across TSF threads
+    scheme_picker_foreground_ = foreground;
+    scheme_picker_first_ = 0;
+    if (!scheme_picker_window_ || !SetTimer(message_window_, kSchemePickerTimer, 20, nullptr)) {
+        activation_trace("SCHEME_PICKER_WINDOW_FAILED", HRESULT_FROM_WIN32(GetLastError()));
+        return finish_scheme_picker();
+    }
+    // Posted taps and releases are processed in order. The timer also observes
+    // modifier release on hosts which only deliver the preserved key.
+    position_scheme_picker();
+    activation_trace("SCHEME_PICKER_SHOWN");
+    return S_OK;
+}
+
+HRESULT TextService::finish_scheme_picker(std::optional<std::size_t> clicked) {
+    refresh_shortcut_config();
+    const auto selection = clicked ? clicked : scheme_picker_.selection();
+    auto* context = std::exchange(scheme_picker_context_, nullptr);
+    const bool valid = selection && *selection < scheme_picker_choices_.size() && context &&
+        GetForegroundWindow() == scheme_picker_foreground_ && plugin_context_is_current(context) &&
+        scheme_picker_binding_enabled();
+    const auto target = valid ? scheme_picker_choices_[*selection].id : std::string{};
+    cancel_scheme_picker();
+    HRESULT result = S_OK;
+    if (!target.empty() && (shortcut_config_.input_scheme_order.empty() ||
+        std::ranges::find(shortcut_config_.input_scheme_order, target) != shortcut_config_.input_scheme_order.end()) &&
+        (!config::is_plugin_input_scheme(target) || usable_scheme_plugin(target).ok)) {
+        // Recheck the original focus and composition safety immediately before writing.
+        if (plugin_context_is_current(context) && (!has_composition() || plugin_context_allowed(context))) {
+            system_keyboard_closed_ = false;
+            result = switch_input_scheme(target, context);
+            activation_trace("SCHEME_PICKER_CONFIRMED", result);
+        }
+    }
+    if (context) context->Release();
+    return result;
+}
+
+void TextService::cancel_scheme_picker() noexcept {
+    const bool shown = scheme_picker_.showing() || scheme_picker_context_;
+    scheme_picker_.close();
+    scheme_picker_choices_.clear();
+    if (!shown) return;
+    if (!(GetAsyncKeyState(VK_SPACE) & 0x8000)) scheme_picker_.release_space();
+    scheme_picker_foreground_ = nullptr;
+    release_interface(scheme_picker_context_);
+    if (message_window_) KillTimer(message_window_, kSchemePickerTimer);
+    if (scheme_picker_window_) ShowWindow(scheme_picker_window_, SW_HIDE);
+}
+
+void TextService::poll_scheme_picker() {
+    if (!scheme_picker_.showing()) return;
+    if (GetForegroundWindow() != scheme_picker_foreground_ || !plugin_context_is_current(scheme_picker_context_)) {
+        cancel_scheme_picker(); return;
+    }
+    if (GetAsyncKeyState(VK_LBUTTON) & 0x8000) {
+        POINT cursor{};
+        RECT bounds{};
+        if (GetCursorPos(&cursor) && GetWindowRect(scheme_picker_window_, &bounds) && !PtInRect(&bounds, cursor)) {
+            cancel_scheme_picker(); return;
+        }
+    }
+    if (!(GetAsyncKeyState(VK_SPACE) & 0x8000)) scheme_picker_.release_space();
+    if (!(GetAsyncKeyState(VK_CONTROL) & 0x8000)) (void)finish_scheme_picker();
+}
+
+void TextService::position_scheme_picker() {
+    if (!scheme_picker_window_ || !scheme_picker_.selection()) return;
+    const auto monitor = MonitorFromWindow(scheme_picker_foreground_, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO screen{sizeof(screen)};
+    if (!GetMonitorInfoW(monitor, &screen)) return;
+    scheme_picker_dpi_ = GetDpiForWindow(scheme_picker_foreground_);
+    if (!scheme_picker_dpi_) scheme_picker_dpi_ = 96;
+    const auto dip = [&](int px) { return MulDiv(px, static_cast<int>(scheme_picker_dpi_), 96); };
+    const auto& work = screen.rcWork;
+    APPBARDATA bar{sizeof(bar)};
+    const bool taskbar_here = SHAppBarMessage(ABM_GETTASKBARPOS, &bar) &&
+        MonitorFromRect(&bar.rc, MONITOR_DEFAULTTONULL) == monitor;
+    const bool use_indicator = scheme_indicator_updated_ && GetTickCount64() - scheme_indicator_updated_ < 30000 &&
+        MonitorFromRect(&scheme_indicator_rect_, MONITOR_DEFAULTTONULL) == monitor &&
+        (taskbar_here ? scheme_indicator_rect_.bottom >= bar.rc.top && scheme_indicator_rect_.top <= bar.rc.bottom &&
+            scheme_indicator_rect_.left <= bar.rc.right && scheme_indicator_rect_.right >= bar.rc.left
+            : scheme_indicator_rect_.bottom >= work.bottom - dip(8));
+    const int gap = dip(8), width = std::max(1, std::min(dip(272), static_cast<int>(work.right - work.left) - 2 * gap));
+    scheme_picker_header_ = dip(38);
+    scheme_picker_row_ = dip(38);
+    scheme_picker_padding_ = dip(8);
+    scheme_picker_visible_ = std::min(static_cast<int>(scheme_picker_choices_.size()),
+        std::clamp((static_cast<int>(work.bottom - work.top) - scheme_picker_header_ - 3 * gap) / scheme_picker_row_, 1, 9));
+    const auto selected = *scheme_picker_.selection();
+    if (selected < scheme_picker_first_) scheme_picker_first_ = selected;
+    else if (selected >= scheme_picker_first_ + scheme_picker_visible_) scheme_picker_first_ = selected + 1 - scheme_picker_visible_;
+    const auto height = scheme_picker_header_ + scheme_picker_row_ * scheme_picker_visible_ + gap;
+    int x = (use_indicator ? scheme_indicator_rect_.right : work.right - gap) - width;
+    int y = (use_indicator ? scheme_indicator_rect_.top : work.bottom) - height - gap;
+    if (taskbar_here) {
+        const auto& edge = bar.rc;
+        const bool horizontal = edge.right - edge.left >= edge.bottom - edge.top;
+        if (horizontal) {
+            if (edge.top < screen.rcMonitor.top + (screen.rcMonitor.bottom - screen.rcMonitor.top) / 2)
+                y = std::max(work.top, edge.bottom) + gap;
+            else y = std::min(work.bottom, edge.top) - height - gap;
+        } else {
+            if (edge.left < screen.rcMonitor.left + (screen.rcMonitor.right - screen.rcMonitor.left) / 2)
+                x = std::max(work.left, edge.right) + gap;
+            else x = std::min(work.right, edge.left) - width - gap;
+        }
+    }
+    x = std::clamp(x, static_cast<int>(work.left), std::max(static_cast<int>(work.left), static_cast<int>(work.right) - width));
+    y = std::clamp(y, static_cast<int>(work.top), std::max(static_cast<int>(work.top), static_cast<int>(work.bottom) - height));
+    SetWindowPos(scheme_picker_window_, HWND_TOPMOST, x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    InvalidateRect(scheme_picker_window_, nullptr, FALSE);
+}
+
+void TextService::draw_scheme_picker(HDC target) const {
+    if (!target) return;
+    RECT bounds{};
+    GetClientRect(scheme_picker_window_, &bounds);
+    const HDC memory = CreateCompatibleDC(target);
+    const HBITMAP bitmap = memory ? CreateCompatibleBitmap(target, bounds.right, bounds.bottom) : nullptr;
+    const auto previous = bitmap ? SelectObject(memory, bitmap) : nullptr;
+    HDC dc = bitmap ? memory : target;
+    const bool light = personalization_uses_light_theme(L"AppsUseLightTheme");
+    HIGHCONTRASTW contrast{sizeof(contrast)};
+    const bool high = SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(contrast), &contrast, 0) &&
+        (contrast.dwFlags & HCF_HIGHCONTRASTON);
+    const auto background = high ? GetSysColor(COLOR_WINDOW) : light ? RGB(249, 249, 249) : RGB(32, 33, 36);
+    const auto foreground = high ? GetSysColor(COLOR_WINDOWTEXT) : light ? RGB(20, 22, 26) : RGB(240, 242, 245);
+    const auto highlight = high ? GetSysColor(COLOR_HIGHLIGHT) : light ? RGB(218, 232, 248) : RGB(53, 75, 103);
+    const auto fill = [&](const RECT& rect, COLORREF color) {
+        if (const auto brush = CreateSolidBrush(color)) { FillRect(dc, &rect, brush); DeleteObject(brush); }
+    };
+    const auto draw = [&](std::wstring_view text, RECT rect, UINT flags) {
+        DrawTextW(dc, text.data(), static_cast<int>(text.size()), &rect,
+            DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | flags);
+    };
+    fill(bounds, background);
+    auto font = CreateFontW(-MulDiv(14, static_cast<int>(scheme_picker_dpi_), 96), 0, 0, 0, FW_NORMAL,
+        FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
+    const auto old_font = font ? SelectObject(dc, font) : nullptr;
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, foreground);
+    const int pad = scheme_picker_padding_;
+    draw(L"切换输入方案", {2 * pad, 0, bounds.right - pad, scheme_picker_header_}, DT_END_ELLIPSIS);
+    for (int row = 0; row < scheme_picker_visible_; ++row) {
+        const auto index = scheme_picker_first_ + row;
+        if (index >= scheme_picker_choices_.size()) break;
+        const auto& item = scheme_picker_choices_[index];
+        const auto y = scheme_picker_header_ + row * scheme_picker_row_;
+        const bool selected = scheme_picker_.selection() == index;
+        if (selected) fill({pad, y, bounds.right - pad, y + scheme_picker_row_ - 1}, highlight);
+        const auto ink = high && selected ? GetSysColor(COLOR_HIGHLIGHTTEXT) : foreground;
+        SetTextColor(dc, ink);
+        const int side = MulDiv(16, static_cast<int>(scheme_picker_dpi_), 96), left = pad * 2;
+        const int top = y + (scheme_picker_row_ - side) / 2;
+        if (item.icon) {
+            for (int yy = 0; yy < 16; ++yy)
+                for (int xx = 0; xx < 16; ++xx)
+                    if ((*item.icon)[yy] & (0x8000U >> xx)) {
+                        SetDCBrushColor(dc, ink);
+                        RECT pixel{left + xx * side / 16, top + yy * side / 16,
+                            left + (xx + 1) * side / 16, top + (yy + 1) * side / 16};
+                        FillRect(dc, &pixel, reinterpret_cast<HBRUSH>(GetStockObject(DC_BRUSH)));
+                    }
+        } else draw(builtin_scheme_glyph(item.id), {left, y, left + side, y + scheme_picker_row_}, DT_CENTER);
+        const auto right = bounds.right - 3 * pad - side;
+        draw(item.label, {left + side + pad, y, right, y + scheme_picker_row_}, DT_END_ELLIPSIS);
+        if (item.id == shortcut_config_.input_scheme) draw(L"✓", {right, y, bounds.right - 2 * pad, y + scheme_picker_row_}, DT_RIGHT);
+    }
+    if (old_font) SelectObject(dc, old_font);
+    if (font) DeleteObject(font);
+    if (bitmap) {
+        BitBlt(target, 0, 0, bounds.right, bounds.bottom, dc, 0, 0, SRCCOPY);
+        SelectObject(memory, previous); DeleteObject(bitmap);
+    }
+    if (memory) DeleteDC(memory);
 }
 
 void TextService::activate_input_scheme(std::string target) {
@@ -6028,6 +6440,7 @@ void TextService::apply_plugin_scheme_shortcuts(bool force) {
     if (!plugin_scheme_selected()) {
         scheme_word_typing_ = false;
         scheme_plugin_label_.clear();
+        scheme_plugin_icon_.reset();
         return;
     }
     const auto now = GetTickCount64();
@@ -6037,6 +6450,7 @@ void TextService::apply_plugin_scheme_shortcuts(bool force) {
         next_scheme_shortcut_read_ = now + 1000;
         scheme_word_typing_ = false;
         scheme_plugin_label_.clear();
+        const auto old_icon = std::exchange(scheme_plugin_icon_, {});
         scheme_shortcut_defaults_.clear(); scheme_shortcut_overrides_.clear();
         const auto read = [](const std::filesystem::path& path) {
             for (auto cursor = path; !cursor.empty(); cursor = cursor.parent_path()) {
@@ -6054,21 +6468,19 @@ void TextService::apply_plugin_scheme_shortcuts(bool force) {
             const auto root = data / L"plugins";
             const auto slash = id.find('/');
             const auto owner = id.substr(7, slash - 7), local = id.substr(slash + 1);
-            const auto active = plugin::query_active_plugin_version(root, owner);
-            if (active.ok && active.manifest.runtime == "process") {
-                const auto grant = plugin::load_plugin_authorization(root, owner, active.manifest.version);
-                if (grant.ok && plugin::is_plugin_permission_granted(grant.value, active.manifest,
-                    active.inventory_sha256, active.publisher_certificate_sha256, "input.scheme")) {
+            const auto active = usable_scheme_plugin(id);
+            if (active.ok) {
                     scheme_plugin_label_ = active.manifest.name;
                     const auto scheme_assets = active.installed_path / L"input-schemes" / local;
                     scheme_shortcut_defaults_ = read(scheme_assets / L"shortcuts.conf");
+                    scheme_plugin_icon_ = plugin::read_input_scheme_icon(active.installed_path, local);
                     const auto typing = read(scheme_assets / L"typing.conf");
                     scheme_word_typing_ = typing == "OWO_SCHEME_WORD_TYPING_V1\n" ||
                         typing == "OWO_SCHEME_WORD_TYPING_V1\r\n";
                     if (!scheme_shortcut_defaults_.empty()) scheme_shortcut_overrides_ = read(root / L"data" / owner / L"input-schemes" / local / L"shortcuts.conf");
-                }
             }
         }
+        if (old_icon != scheme_plugin_icon_) update_language_bar();
     }
     if (const auto defaults = config::parse_scheme_shortcuts(scheme_shortcut_defaults_)) {
         const auto overrides = config::parse_scheme_shortcuts(scheme_shortcut_overrides_);

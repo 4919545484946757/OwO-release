@@ -3,7 +3,7 @@ param([switch]$AcceptDevelopmentPackageRisk, [string]$StorePath, [string]$BuildD
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $build=if($BuildDirectory){[IO.Path]::GetFullPath($BuildDirectory)}else{Join-Path $root 'build/windows-release'}
-& cmake --build $build --config Release --target owo_wubi86_plugin owo_plugin_shell
+& cmake --build $build --config Release --target owo_wubi86_package owo_plugin_shell
 if($LASTEXITCODE){throw 'Wubi Release build failed'}
 $store=if($StorePath){[IO.Path]::GetFullPath($StorePath)}else{Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'OwO/InputMethod/plugins'}
 $shell=Join-Path $build 'Release/owo_plugin_shell.exe'

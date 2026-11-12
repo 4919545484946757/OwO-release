@@ -488,6 +488,9 @@
                                                 <Button Grid.Column="2" Content="＋" Tag="language" Click="AddShortcutButton_Click"/>
                                             </Grid>
                                             <StackPanel x:Name="LanguageShortcutBindings" Spacing="8"/>
+                                            <ToggleSwitch x:Name="InputSchemePickerEnabled" Header="Ctrl+Space 显示输入方案列表"
+                                                AutomationProperties.AutomationId="InputSchemePickerEnabled"
+                                                OnContent="松开 Ctrl 确认切换" OffContent="按下时直接切换"/>
                                         </StackPanel>
                                     </Border>
                                     <ContentControl x:Name="SchemeShortcutHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch"/>

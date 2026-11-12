@@ -103,7 +103,8 @@ internal sealed record InputSchemeSnapshot(
     [property: JsonPropertyName("id")] string Id,
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("plugin_id")] string PluginId,
-    [property: JsonPropertyName("language")] string Language);
+    [property: JsonPropertyName("language")] string Language,
+    [property: JsonPropertyName("icon")] ushort[]? Icon = null);
 internal sealed record InputSchemeList(
     [property: JsonPropertyName("schemes")] List<InputSchemeSnapshot> Schemes);
 

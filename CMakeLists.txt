@@ -519,6 +519,10 @@ if(BUILD_TESTING)
         target_compile_options(owo_input_method_composition_tests PRIVATE /W4 /permissive- /utf-8)
     endif()
     add_test(NAME owo.engine.input_method_composition COMMAND owo_input_method_composition_tests)
+    add_executable(owo_input_scheme_picker_tests tests/tsf/input_scheme_picker_tests.cpp)
+    target_include_directories(owo_input_scheme_picker_tests PRIVATE include)
+    target_compile_features(owo_input_scheme_picker_tests PRIVATE cxx_std_20)
+    add_test(NAME owo.tsf.input_scheme_picker COMMAND owo_input_scheme_picker_tests)
     add_executable(owo_input_method_control_tests tests/ipc/input_method_control_tests.cpp)
     target_link_libraries(owo_input_method_control_tests PRIVATE owo_input_method_control)
     target_compile_features(owo_input_method_control_tests PRIVATE cxx_std_20)
@@ -1332,7 +1336,7 @@ endif()
 
 if(WIN32)
     set(OWO_WUBI86_STAGE "${CMAKE_CURRENT_BINARY_DIR}/wubi86-plugin/$<CONFIG>")
-    add_custom_command(TARGET owo_wubi86_plugin POST_BUILD
+    add_custom_target(owo_wubi86_package
         COMMAND ${CMAKE_COMMAND} -E make_directory "${OWO_WUBI86_STAGE}/bin" "${OWO_WUBI86_STAGE}/assets"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:owo_wubi86_plugin> "${OWO_WUBI86_STAGE}/bin/owo_wubi86_plugin.exe"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/plugins/wubi86/manifest.json" "${OWO_WUBI86_STAGE}/manifest.json"
@@ -1340,14 +1344,15 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/plugins/wubi86/input-schemes" "${OWO_WUBI86_STAGE}/input-schemes"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/main.tsv" "${OWO_WUBI86_STAGE}/assets/main.tsv"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/LICENSE.upstream" "${OWO_WUBI86_STAGE}/assets/LICENSE.upstream"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/LICENSE.pywubi" "${OWO_WUBI86_STAGE}/assets/LICENSE.pywubi")
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/LICENSE.pywubi" "${OWO_WUBI86_STAGE}/assets/LICENSE.pywubi"
+        DEPENDS owo_wubi86_plugin VERBATIM)
 endif()
 
 if(WIN32 AND BUILD_TESTING)
     add_executable(owo_wubi86_process_tests tests/wubi86/process_tests.cpp)
     target_link_libraries(owo_wubi86_process_tests PRIVATE owo_wubi86_provider owo_core_plugin owo_ipc)
     target_compile_options(owo_wubi86_process_tests PRIVATE /utf-8 /EHsc)
-    add_dependencies(owo_wubi86_process_tests owo_wubi86_plugin)
+    add_dependencies(owo_wubi86_process_tests owo_wubi86_package)
     add_test(NAME owo.wubi86.process COMMAND owo_wubi86_process_tests
         ${CMAKE_CURRENT_BINARY_DIR}/wubi86-test-stores ${OWO_WUBI86_STAGE})
     set_tests_properties(owo.wubi86.process PROPERTIES TIMEOUT 90)
@@ -1388,7 +1393,7 @@ if(WIN32 AND BUILD_TESTING)
     target_compile_definitions(owo_wubi_commit_service_tests PRIVATE OWO_TSF_TEST_ACCESS WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
     target_compile_options(owo_wubi_commit_service_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
     target_link_libraries(owo_wubi_commit_service_tests PRIVATE owo_tsf_write owo_wubi86_provider owo_core_plugin owo_ipc owo_plugin owo_agent ole32 oleaut32 advapi32 uuid user32 gdi32 d2d1 dwrite dwmapi)
-    add_dependencies(owo_wubi_commit_service_tests owo_wubi86_plugin)
+    add_dependencies(owo_wubi_commit_service_tests owo_wubi86_package)
     add_test(NAME owo.tsf.wubi_commit_service COMMAND owo_wubi_commit_service_tests
         ${CMAKE_CURRENT_BINARY_DIR}/wubi86-test-stores ${OWO_WUBI86_STAGE})
     set_tests_properties(owo.tsf.wubi_commit_service PROPERTIES TIMEOUT 90)

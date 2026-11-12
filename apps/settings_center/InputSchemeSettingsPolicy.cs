@@ -26,7 +26,7 @@ internal enum SettingsCapability
 }
 
 internal sealed record InputSchemeOption(string Id, string Name, string Description,
-    string Capabilities, SettingsCapability SettingsCapabilities, string? OwnerPluginId = null)
+    string Capabilities, SettingsCapability SettingsCapabilities, string? OwnerPluginId = null, ushort[]? Icon = null)
 {
     internal bool Supports(SettingsCapability capability) =>
         (SettingsCapabilities & capability) == capability;
@@ -51,10 +51,11 @@ internal static class InputSchemeSettingsPolicy
         new("english", "纯净键盘", "直接使用当前键盘布局输入，不生成候选。", "", SettingsCapability.LanguageSwitch | SettingsCapability.AltCodePreview)
     ];
 
-    internal static InputSchemeOption Plugin(string id, string name, string description) =>
+    internal static InputSchemeOption Plugin(string id, string name, string description, ushort[]? icon = null) =>
         new(id, name, description,
             "使用插件自身的编码与候选规则；宿主提供候选显示、编码光标、分页、原样输出和方案切换。" +
-            "宿主拼音补全、纠错、词频学习和模型排序不参与。", Shared, Owner(id));
+            "宿主拼音补全、纠错、词频学习和模型排序不参与。", Shared, Owner(id),
+            icon is { Length: 16 } && icon.Any(row => row != 0) ? icon : null);
 
     // Discovery proves descriptor availability at refresh time, not future runtime health.
     internal static IReadOnlyList<InputSchemeOption> Refresh(IEnumerable<InputSchemeOption> discovered,

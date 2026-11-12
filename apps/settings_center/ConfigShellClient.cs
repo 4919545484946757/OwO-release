@@ -33,6 +33,7 @@ internal sealed record SettingsSnapshot(string InputScheme,
 {
     public bool PinyinSymbolCompatibilityEnabled { get; init; } = true;
     public string InputSchemeOrder { get; init; } = "";
+    public bool InputSchemePickerEnabled { get; init; } = true;
     public string PinyinPreviewLocation { get; init; } = "candidate";
     public bool SeparatorShortcutEnabled { get; init; } = true;
     public IReadOnlyList<string> SeparatorShortcuts { get; init; } = new[] { "Quote" };
@@ -131,6 +132,7 @@ internal sealed class ConfigShellClient
             PinyinSymbolCompatibilityEnabled = bool.Parse(values["pinyin_symbol_compatibility_enabled"]),
             PinyinPreviewLocation = values.GetValueOrDefault("pinyin_preview_location", "candidate"),
             InputSchemeOrder = values.GetValueOrDefault("input_scheme_order", ""),
+            InputSchemePickerEnabled = !values.TryGetValue("input_scheme_picker_enabled", out var picker) || bool.Parse(picker),
             SeparatorShortcutEnabled = bool.Parse(values["separator_shortcut_enabled"]),
             SeparatorShortcuts = SplitShortcuts(values["separator_shortcut"])
         };
@@ -180,7 +182,8 @@ internal sealed class ConfigShellClient
                   JoinShortcuts(value.ExpandedNextPageShortcuts),
                   value.PinyinSymbolCompatibilityEnabled.ToString().ToLowerInvariant(),
                   value.SeparatorShortcutEnabled.ToString().ToLowerInvariant(),
-                  JoinShortcuts(value.SeparatorShortcuts), value.PinyinPreviewLocation, value.InputSchemeOrder], cancellationToken);
+                  JoinShortcuts(value.SeparatorShortcuts), value.PinyinPreviewLocation, value.InputSchemeOrder,
+                  value.InputSchemePickerEnabled.ToString().ToLowerInvariant()], cancellationToken);
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

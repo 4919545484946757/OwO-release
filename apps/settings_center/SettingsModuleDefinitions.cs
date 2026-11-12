@@ -44,6 +44,7 @@ internal static class SettingsModuleDefinitions
             F(nameof(SettingsSnapshot.CorrectionShortcuts), s => s.CorrectionShortcuts, (s, v) => s with { CorrectionShortcuts = v }, SettingsCapability.Correction),
             F(nameof(SettingsSnapshot.LanguageShortcutEnabled), s => s.LanguageShortcutEnabled, (s, v) => s with { LanguageShortcutEnabled = v }, SettingsCapability.LanguageSwitch),
             F(nameof(SettingsSnapshot.LanguageShortcuts), s => s.LanguageShortcuts, (s, v) => s with { LanguageShortcuts = v }, SettingsCapability.LanguageSwitch),
+            F(nameof(SettingsSnapshot.InputSchemePickerEnabled), s => s.InputSchemePickerEnabled, (s, v) => s with { InputSchemePickerEnabled = v }, SettingsCapability.LanguageSwitch),
             F(nameof(SettingsSnapshot.RawInputShortcutEnabled), s => s.RawInputShortcutEnabled, (s, v) => s with { RawInputShortcutEnabled = v }, SettingsCapability.RawCommit),
             F(nameof(SettingsSnapshot.RawInputShortcuts), s => s.RawInputShortcuts, (s, v) => s with { RawInputShortcuts = v }, SettingsCapability.RawCommit),
             F(nameof(SettingsSnapshot.CursorLeftShortcutEnabled), s => s.CursorLeftShortcutEnabled, (s, v) => s with { CursorLeftShortcutEnabled = v }, SettingsCapability.EncodingCursor),
