@@ -13,7 +13,8 @@ internal sealed record PluginVersionSnapshot(
     [property: JsonPropertyName("trust_tier")] string TrustTier,
     [property: JsonPropertyName("risk_level")] string RiskLevel,
     [property: JsonPropertyName("permissions_authorized")] bool PermissionsAuthorized,
-    [property: JsonPropertyName("permissions")] List<string> Permissions)
+    [property: JsonPropertyName("permissions")] List<string> Permissions,
+    [property: JsonPropertyName("description")] string Description = "")
 {
     public string Title => $"{Name}  {Version}";
     public string Detail => $"{Id} · {(Active ? "已启用" : "未启用")} · "
@@ -21,6 +22,15 @@ internal sealed record PluginVersionSnapshot(
         + (Permissions.Count == 0 ? "未申请敏感权限" :
            $"申请：{string.Join("、", Permissions.Select(PluginUiText.Permission))}");
     public string ActionLabel => Active ? "停用" : "启用此版本";
+    public string ActivityLabel => Active ? "已启用" : "未启用";
+    public string ActivityGlyph => Active ? "\uE73E" : "\uE91F";
+    public double ActivityEmphasis => Active ? 1 : 0;
+    public string AuthorizationLabel => Permissions.Count == 0 ? "无需授权" : PermissionsAuthorized ? "已授权" : "未授权";
+    public string AuthorizationGlyph => Permissions.Count == 0 ? "\uE946" : PermissionsAuthorized ? "\uE72E" : "\uE7BA";
+    public bool AuthorizationPending => Permissions.Count != 0 && !PermissionsAuthorized;
+    public double AuthorizedEmphasis => Permissions.Count != 0 && PermissionsAuthorized ? 1 : 0;
+    public double PendingEmphasis => AuthorizationPending ? 1 : 0;
+    public string SettingsLabel => $"打开 {Name} {Version} 设置";
     public bool CanUninstall => !Active;
     public bool CanRevoke => PermissionsAuthorized && Permissions.Count > 0;
 }

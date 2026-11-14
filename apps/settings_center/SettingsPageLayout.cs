@@ -51,13 +51,11 @@ public sealed partial class MainPage
             ExpandedPreviousPageShortcutCard, ExpandedNextPageShortcutCard }) ShortcutContent.Children.Remove(element);
         ShortcutContent.Children.Insert(0, SettingsSection("全局快捷键", "对所有输入方案生效。", [LanguageShortcutCard], "GlobalShortcutLayout"));
         ShortcutContent.Children.Insert(1, SchemeShortcutHost);
-        _nativeShortcutLayout = SettingsStack(12, NativeShortcutHint,
-            SettingsColumns(
-                SettingsSection("输入与模式", null, [CorrectionShortcutCard, PunctuationShortcutCard, RawInputShortcutCard, SeparatorShortcutCard], "CompositionShortcutLayout"),
-                SettingsSection("预编辑光标", null, [CursorLeftShortcutCard, CursorRightShortcutCard], "CursorShortcutLayout")),
-            SettingsColumns(
-                SettingsSection("候选翻页", null, [PreviousPageShortcutCard, NextPageShortcutCard], "PagingShortcutLayout"),
-                SettingsSection("展开并选择候选页", null, [ExpandedPreviousPageShortcutCard, ExpandedNextPageShortcutCard], "ExpandedPagingShortcutLayout")));
+        _nativeShortcutLayout = SettingsStack(8, NativeShortcutHint,
+            SettingsSection("输入与模式", null, [CorrectionShortcutCard, PunctuationShortcutCard, RawInputShortcutCard, SeparatorShortcutCard], "CompositionShortcutLayout", compact: true),
+            SettingsSection("预编辑光标", null, [CursorLeftShortcutCard, CursorRightShortcutCard], "CursorShortcutLayout", compact: true),
+            SettingsSection("候选翻页", null, [PreviousPageShortcutCard, NextPageShortcutCard], "PagingShortcutLayout", compact: true),
+            SettingsSection("展开并选择候选页", null, [ExpandedPreviousPageShortcutCard, ExpandedNextPageShortcutCard], "ExpandedPagingShortcutLayout", compact: true));
         ShortcutContent.Children.Insert(2, _nativeShortcutLayout);
 
         GeneralPreferencesContent.Children.Clear();
@@ -74,12 +72,12 @@ public sealed partial class MainPage
         return stack;
     }
 
-    private Border SettingsSection(string title, string? description, IReadOnlyList<FrameworkElement> rows, string? id = null)
+    private Border SettingsSection(string title, string? description, IReadOnlyList<FrameworkElement> rows, string? id = null, bool compact = false)
     {
         var heading = new TextBlock { Text = title, FontSize = 18, TextWrapping = TextWrapping.Wrap };
         AutomationProperties.SetHeadingLevel(heading, AutomationHeadingLevel.Level2);
         var header = SettingsStack(4, heading);
-        header.Padding = new Thickness(16, 14, 16, 13);
+        header.Padding = compact ? new Thickness(16, 9, 16, 8) : new Thickness(16, 14, 16, 13);
         if (description is not null) header.Children.Add(new TextBlock {
             Text = description, Style = (Style)Resources["SettingDescriptionStyle"]
         });
@@ -87,6 +85,8 @@ public sealed partial class MainPage
         foreach (var row in rows) {
             if (row is Border border) {
                 border.Style = (Style)Resources["SettingsGroupedRowStyle"];
+                if (compact) border.Padding = new Thickness(16, 8, 16, 8);
+                if (compact && border.Child is StackPanel stack) stack.Spacing = 6;
                 body.Children.Add(border);
             } else {
                 var wrapper = new Border { Child = row, Style = (Style)Resources["SettingsGroupedRowStyle"] };

@@ -44,8 +44,8 @@ internal static class PluginManagerCatalog
         var selected = DisplayVersions(source, history);
         query = query.Trim();
         return selected.Where(p => filter switch {
-            "enabled" => p.Active, "disabled" => !p.Active, "unauthorized" => !p.PermissionsAuthorized, _ => true
-        }).Where(p => query.Length == 0 || $"{p.Name} {p.Id} {p.Version} {p.Detail} {string.Join(' ', p.Permissions)}".Contains(query, StringComparison.OrdinalIgnoreCase))
+            "enabled" => p.Active, "disabled" => !p.Active, "unauthorized" => p.AuthorizationPending, _ => true
+        }).Where(p => query.Length == 0 || $"{p.Name} {p.Id} {p.Version} {p.Description} {p.Detail} {p.AuthorizationLabel} {string.Join(' ', p.Permissions)}".Contains(query, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(p => p.Active).ThenBy(p => p.Name, StringComparer.CurrentCulture)
             .ThenByDescending(p => p.Version, Comparer<string>.Create(CompareVersions)).ToList();
     }

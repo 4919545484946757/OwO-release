@@ -87,5 +87,13 @@ int main(const int argc, char** argv) {
                             std::string("ui.candidate_theme").size(),
                             "ui.unicode_palette");
     if (!owo::plugin::parse_manifest(unicode_palette).ok) return 24;
+    auto described = valid;
+    described.insert(described.find("\"version\""), "\"description\":\"拼音输入方案\",");
+    const auto with_description = owo::plugin::parse_manifest(described);
+    if (!with_description.ok || with_description.value.description != "拼音输入方案" ||
+        !parsed.value.description.empty()) return 25;
+    if (!rejected(described, "拼音输入方案", std::string(513, 'a')) ||
+        !rejected(described, "\"拼音输入方案\"", "true") ||
+        !rejected(described, "拼音输入方案", "\xc0\xaf")) return 26;
     return 0;
 }

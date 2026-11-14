@@ -281,6 +281,7 @@ int list(const std::filesystem::path& root) {
         if (index != 0) std::cout << ',';
         std::cout << "{\"id\":" << json_escape(plugin.manifest.id)
                   << ",\"name\":" << json_escape(plugin.manifest.name)
+                  << ",\"description\":" << json_escape(plugin.manifest.description)
                   << ",\"version\":" << json_escape(plugin.manifest.version)
                   << ",\"active\":" << (plugin.active ? "true" : "false")
                   << ",\"trust_tier\":"

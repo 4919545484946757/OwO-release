@@ -34,6 +34,7 @@ my-plugin/
 {
   "id": "com.example.owo.demo",
   "name": "Demo Plugin",
+  "description": "A single-line summary of what this plugin provides.",
   "version": "1.0.0",
   "api_version": 1,
   "runtime": "process",
@@ -50,6 +51,8 @@ my-plugin/
 资源插件不启动代码，只允许申请一个与入口类型对应的 `ui.candidate_theme` 或
 `ui.unicode_palette` 权限。`network` 只有在同时声明 `network.client` 时才可设为
 `true`；要求普通 Win32 用户令牌的能力还必须声明 `system.full_trust`。
+
+`description` 为可选的已安装卡片简介，使用不超过 512 字节的 UTF-8 纯文本，不影响权限。未提供时，设置中心仅回退到包内配置结构顶层明确声明的 `description`；两者都没有时不显示简介。若插件还需兼容只接受九个字段的旧版宿主，可仅使用配置结构的 `description`。
 
 ### 声明式设置页
 

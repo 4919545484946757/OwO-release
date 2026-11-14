@@ -25,8 +25,8 @@ public sealed partial class MainPage
         if (PluginVersions is null || PluginStateFilter is null || PluginSearch is null || PluginHistory is null) return;
         var filter = (PluginStateFilter.SelectedItem as ComboBoxItem)?.Tag as string ?? "all";
         var visible = PluginManagerCatalog.Filter(_installedPlugins, PluginSearch.Text, filter, PluginHistory.IsChecked == true);
-        if (!_visiblePlugins.Select(p => (p.Id, p.Version, p.Detail, p.PermissionsAuthorized))
-            .SequenceEqual(visible.Select(p => (p.Id, p.Version, p.Detail, p.PermissionsAuthorized)))) {
+        if (!_visiblePlugins.Select(p => (p.Id, p.Version, p.Name, p.Description, p.Detail, p.PermissionsAuthorized))
+            .SequenceEqual(visible.Select(p => (p.Id, p.Version, p.Name, p.Description, p.Detail, p.PermissionsAuthorized)))) {
             _visiblePlugins = visible; PluginVersions.ItemsSource = visible;
         }
         NoPlugins.Visibility = visible.Count == 0 ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
@@ -53,10 +53,16 @@ public sealed partial class MainPage
         RenderInstalledPlugins();
         RebuildPluginNavigation(_installedPlugins);
     }
+    private void PluginDescription_DataContextChanged(Microsoft.UI.Xaml.FrameworkElement sender, Microsoft.UI.Xaml.DataContextChangedEventArgs args)
+    {
+        if (sender is not TextBlock text) return;
+        text.Text = (args.NewValue as PluginVersionSnapshot)?.Description ?? "";
+        text.Visibility = string.IsNullOrWhiteSpace(text.Text) ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
+    }
     private async void PluginVersionDetails_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs args) {
         if (sender is not Microsoft.UI.Xaml.FrameworkElement { Tag: PluginVersionSnapshot plugin }) return;
         try {
-            await ConfirmAsync("插件详情与权限", $"{plugin.Title}\n{plugin.Detail}\n\n权限状态：{(plugin.PermissionsAuthorized ? "已授权此精确版本" : "待独立授权")}\n插件位置：{Path.Combine(_pluginClient.StorePath, "versions", plugin.Id, plugin.Version)}\n\n停用不会删除配置；撤权不删除文件；卸载保留用户数据。", "知道了");
+            await ConfirmAsync("插件详情与权限", $"{plugin.Title}\n{plugin.Detail}\n\n权限状态：{plugin.AuthorizationLabel}\n插件位置：{Path.Combine(_pluginClient.StorePath, "versions", plugin.Id, plugin.Version)}\n\n停用不会删除配置；撤权不删除文件；卸载保留用户数据。", "知道了");
         } catch (Exception error) { ShowStatus(error.Message, InfoBarSeverity.Error); }
     }
     private async Task LoadPluginsAsync()
@@ -66,11 +72,15 @@ public sealed partial class MainPage
         try {
             var value = await _pluginClient.LoadAsync();
             if (request != _pluginSnapshotRequest) return; // Ignore a refresh overtaken by a newer mutation/refresh.
-            _installedPlugins = value.Plugins;
+            var store = _pluginClient.StorePath;
+            var installed = await Task.Run(() => value.Plugins.Select(plugin =>
+                plugin with { Description = PluginSettingsModel.DeclaredDescription(store, plugin) }).ToArray());
+            if (request != _pluginSnapshotRequest) return;
+            _installedPlugins = installed;
             RenderInstalledPlugins();
-            if (PluginDiscoveryHost.Content is PluginDiscoveryView discovery) discovery.SetInstalled(value.Plugins);
+            if (PluginDiscoveryHost.Content is PluginDiscoveryView discovery) discovery.SetInstalled(installed);
             RecoveryItems.ItemsSource = value.Recovery;
-            RebuildPluginNavigation(value.Plugins);
+            RebuildPluginNavigation(installed);
             NoRecovery.Visibility = value.Recovery.Count == 0
                 ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
             await RefreshInputSchemesAsync();
@@ -198,8 +208,10 @@ public sealed partial class MainPage
     {
         if (sender is not Button { Tag: PluginVersionSnapshot plugin }) return;
         var page = $"plugin:{plugin.Id}:{plugin.Version}";
+        // SelectionChanged normally opens the editor. Cover the already-selected
+        // case too, without rebuilding the same editor twice for a card click.
         SelectPluginNavigation(page);
-        await ShowPluginSettingsAsync(plugin);
+        if (_currentPage != page) await ShowPluginSettingsAsync(plugin);
     }
 
     private Task ShowPluginSettingsAsync(PluginVersionSnapshot plugin,

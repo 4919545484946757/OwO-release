@@ -15,6 +15,7 @@ foreach ($version in @('1.2.0', '1.4.1')) {
     $manifestPath = Join-Path $source 'manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $manifest.id = $id; $manifest.name = 'Catalog fixture'; $manifest.version = $version
+    if ($version -eq '1.4.1') { $manifest | Add-Member -NotePropertyName description -NotePropertyValue 'Catalog manifest summary' }
     [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
     $preview = (& $shell $store inspect-install $source | ConvertFrom-Json)
     if ($LASTEXITCODE -ne 0 -or !$preview.ok) { throw 'Fixture inspection failed.' }
@@ -23,6 +24,8 @@ foreach ($version in @('1.2.0', '1.4.1')) {
 }
 & $shell $store activate $id '1.4.1' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Fixture activation failed.' }
+& $shell $store revoke $id '1.2.0' | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'Fixture permission revoke failed.' }
 [IO.File]::WriteAllText((Join-Path $config 'settings-ui.json'), '{"AutoSaveEnabled":false}')
 $start = [Diagnostics.ProcessStartInfo]::new()
 $start.FileName = Join-Path $PublishDirectory 'OwO.Settings.exe'

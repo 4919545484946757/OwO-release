@@ -1,7 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 
 namespace OwO_Settings;
@@ -53,13 +52,13 @@ public sealed partial class MainPage
             _punctuationCards.Add(option.Source, card);
         }
         FrameworkElement Group(string title, string id, string keys) =>
-            SettingsSection(title, null, keys.Select(key => _punctuationCards[key]).ToArray(), id);
-        ChinesePunctuationFields.Content = SettingsStack(12,
+            SettingsSection(title, null, keys.Select(key => _punctuationCards[key]).ToArray(), id, compact: true);
+        ChinesePunctuationFields.Content = SettingsStack(8,
             SettingsSection("转换规则", "开启某个符号后按右侧示例转换；关闭单项则保留英文格式。", [_punctuationSummary]),
-            SettingsColumns(Group("语句标点", "PunctuationSentenceLayout", ",.?!;:\\"),
-                Group("引号与书名号", "PunctuationQuotationLayout", "'\"<>"), 610),
-            SettingsColumns(Group("括号与连接符", "PunctuationBracketLayout", "()[]{}-_|"),
-                Group("其他符号", "PunctuationSymbolsLayout", "+=`~$^"), 610));
+            Group("语句标点", "PunctuationSentenceLayout", ",.?!;:\\"),
+            Group("引号与书名号", "PunctuationQuotationLayout", "'\"<>"),
+            Group("括号与连接符", "PunctuationBracketLayout", "()[]{}-_|"),
+            Group("其他符号", "PunctuationSymbolsLayout", "+=`~$^"));
         UpdatePunctuationNotice();
     }
 
@@ -96,14 +95,4 @@ public sealed partial class MainPage
     private void OpenChinesePunctuation_Click(object sender, RoutedEventArgs e) => ShowPage("punctuation");
     private void ChinesePunctuationBack_Click(object sender, RoutedEventArgs e) => ShowPage("candidates");
 
-    private void ChinesePunctuationCard_Tapped(object sender, TappedRoutedEventArgs e)
-    {
-        // Switch clicks (including its text/knob) change only the master switch.
-        for (var node = e.OriginalSource as DependencyObject; node is not null;
-             node = VisualTreeHelper.GetParent(node)) {
-            if (node is ToggleSwitch or Button) return;
-            if (node == ChinesePunctuationCard) break;
-        }
-        ShowPage("punctuation");
-    }
 }

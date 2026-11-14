@@ -113,7 +113,7 @@ private:
 
     bool value_for(const std::string& key, Value& output) {
         static const std::set<std::string> string_fields{"id", "name", "version", "runtime", "entry",
-                                                         "config_schema"};
+                                                         "config_schema", "description"};
         if (string_fields.contains(key)) { std::string value; if (!string(value)) return false; output = std::move(value); return true; }
         if (key == "api_version") { std::uint64_t value{}; if (!unsigned_integer(value)) return false; output = value; return true; }
         if (key == "network") { bool value{}; if (!boolean(value)) return false; output = value; return true; }
@@ -216,7 +216,6 @@ ManifestResult parse_manifest(const std::string_view json) {
     std::unordered_map<std::string, Value> fields;
     Parser parser(json);
     if (!parser.object(fields)) return {false, {}, parser.error()};
-    if (fields.size() != 9) return {false, {}, "manifest must contain exactly the nine v1 fields"};
     PluginManifest result;
     std::uint64_t api_version{};
     if (!get(fields, "id", result.id) || !get(fields, "name", result.name) ||
@@ -225,6 +224,10 @@ ManifestResult parse_manifest(const std::string_view json) {
         !get(fields, "permissions", result.permissions) || !get(fields, "network", result.network) ||
         !get(fields, "config_schema", result.config_schema))
         return {false, {}, "manifest is missing a required field"};
+    if (fields.contains("description") &&
+        (!get(fields, "description", result.description) || result.description.size() > 512 ||
+         !valid_utf8(result.description)))
+        return {false, {}, "plugin description must be valid UTF-8 within 512 bytes"};
     if (!ascii_identifier(result.id)) return {false, {}, "invalid reverse-domain plugin id"};
     if (result.name.empty() || result.name.size() > 128 || !valid_utf8(result.name))
         return {false, {}, "plugin name must be valid UTF-8 within [1, 128] bytes"};

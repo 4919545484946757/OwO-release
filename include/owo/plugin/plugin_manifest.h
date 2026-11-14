@@ -20,6 +20,7 @@ struct PluginManifest {
     std::vector<std::string> permissions;
     bool network{};
     std::string config_schema;
+    std::string description; // optional, plain-text catalog summary
 };
 
 struct ManifestResult {

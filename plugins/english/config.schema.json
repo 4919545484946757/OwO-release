@@ -1,5 +1,6 @@
 {
   "type": "object",
+  "description": "英文单词输入方案，支持单词补全、拼写建议和本地词频学习。",
   "properties": {
     "show_completions": {"type": "boolean", "title": "显示英文单词补全", "description": "按词频提供前缀候选，不自动改写输入。", "default": true},
     "show_spelling_suggestions": {"type": "boolean", "title": "显示拼写纠错候选", "description": "原拼写没有命中且补全较少时，提供一次编辑距离内的候选。", "default": true},

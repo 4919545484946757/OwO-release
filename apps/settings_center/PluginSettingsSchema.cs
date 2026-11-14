@@ -35,7 +35,30 @@ internal sealed class PluginSettingsModel
 
     internal static PluginSettingsModel Load(string storePath, PluginVersionSnapshot plugin)
     {
-        var versionRoot = Path.GetFullPath(Path.Combine(
+        using var schema = ReadPackageSchema(storePath, plugin, out var versionRoot);
+        var root = schema.RootElement;
+        if (root.TryGetProperty("type", out var rootType) && rootType.GetString() != "object")
+            throw new InvalidOperationException("插件配置结构顶层必须是 object。" );
+        var title = Text(root, "title", $"{plugin.Name} 设置", 128);
+        var description = Text(root, "description", "由插件提供的声明式配置页面。", 512);
+        return LoadModel(storePath, versionRoot, plugin, root, title, description);
+    }
+
+    internal static string DeclaredDescription(string storePath, PluginVersionSnapshot plugin)
+    {
+        if (!string.IsNullOrWhiteSpace(plugin.Description)) return plugin.Description;
+        // Legacy manifests had no description field; only use the package's
+        // explicit top-level schema description, never user data or fallback copy.
+        try {
+            using var schema = ReadPackageSchema(storePath, plugin, out _);
+            return Text(schema.RootElement, "description", "", 512);
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or
+            InvalidOperationException or KeyNotFoundException or ArgumentException) { return ""; }
+    }
+
+    private static JsonDocument ReadPackageSchema(string storePath, PluginVersionSnapshot plugin, out string versionRoot)
+    {
+        versionRoot = Path.GetFullPath(Path.Combine(
             storePath, "versions", plugin.Id, plugin.Version));
         var manifestPath = Path.Combine(versionRoot, "manifest.json");
         using var manifest = ReadBoundedJson(manifestPath, 64 * 1024);
@@ -46,12 +69,12 @@ internal sealed class PluginSettingsModel
                                    StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("插件配置结构路径越过版本目录。" );
 
-        using var schema = ReadBoundedJson(schemaPath, 256 * 1024);
-        var root = schema.RootElement;
-        if (root.TryGetProperty("type", out var rootType) && rootType.GetString() != "object")
-            throw new InvalidOperationException("插件配置结构顶层必须是 object。" );
-        var title = Text(root, "title", $"{plugin.Name} 设置", 128);
-        var description = Text(root, "description", "由插件提供的声明式配置页面。", 512);
+        return ReadBoundedJson(schemaPath, 256 * 1024);
+    }
+
+    private static PluginSettingsModel LoadModel(string storePath, string versionRoot, PluginVersionSnapshot plugin,
+        JsonElement root, string title, string description)
+    {
         var fields = new List<PluginSettingField>();
         var pages = new List<PluginSettingPage>();
         if (root.TryGetProperty("x-pages", out var pageArray)) {

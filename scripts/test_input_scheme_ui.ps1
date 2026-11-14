@@ -151,6 +151,12 @@ try {
         Start-Sleep -Milliseconds 300
         Select-Nav $window 'CandidateNavigationItem' $candidateName
         $punctuation = Wait-Id $window 'ChinesePunctuationSettingsButton'
+        $punctuationSwitch = Wait-Id $window 'ChinesePunctuationMasterToggle'
+        $toggle = $punctuationSwitch.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
+        $toggle.Toggle()
+        Start-Sleep -Milliseconds 150
+        $null = Wait-Id $window 'ChinesePunctuationSettingsButton'
+        $toggle.Toggle()
         $punctuation.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
         foreach ($group in @('PunctuationSentenceLayout','PunctuationQuotationLayout','PunctuationBracketLayout','PunctuationSymbolsLayout')) {
             $null = Wait-Id $window $group

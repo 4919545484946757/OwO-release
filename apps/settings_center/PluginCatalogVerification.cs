@@ -1,5 +1,8 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using System.Text.Json;
 
 namespace OwO_Settings;
@@ -36,8 +39,26 @@ public sealed partial class MainPage
         Check(_pluginPagesGroup!.MenuItems.OfType<NavigationViewItem>().All(n =>
             (n.Content is TextBlock text ? text.Text : n.Content.ToString()!).Contains("1.")),
             "navigation distinguishes exact versions");
-        SelectPluginNavigation($"plugin:{old.Id}:{old.Version}");
-        await ShowPluginSettingsAsync(old);
+        SettingsNavigation.SelectedItem = PluginNavigationItem;
+        ShowPage("plugins");
+        await Task.Delay(180);
+        UpdateLayout();
+        var cards = VisualDescendants(PluginVersions).OfType<Button>()
+            .Where(button => AutomationProperties.GetAutomationId(button) == "InstalledPluginCard").ToArray();
+        Check(cards.Length == 2 && cards.All(button => button.ActualWidth > 200), "each version has a full-width accessible card button");
+        var oldCard = cards.Single(button => (button.Tag as PluginVersionSnapshot)?.Version == old.Version);
+        var latestCard = cards.Single(button => (button.Tag as PluginVersionSnapshot)?.Version == latest.Version);
+        var oldTexts = VisualDescendants(oldCard).OfType<TextBlock>().Select(text => text.Text).ToArray();
+        var latestTexts = VisualDescendants(latestCard).OfType<TextBlock>().Select(text => text.Text).ToArray();
+        Check(oldTexts.Contains("未启用") && oldTexts.Contains("未授权") && latestTexts.Contains("已启用") && latestTexts.Contains("已授权"),
+            "card statuses distinguish activity and authorization independently");
+        Check(old.Description.Length > 0 && oldTexts.Contains(old.Description) && latestTexts.Contains("Catalog manifest summary") &&
+            oldTexts.Concat(latestTexts).All(text => !text.Contains("申请：") && !text.Contains(old.Id)),
+            "catalog shows package summary (manifest or legacy schema), without risk and permissions text");
+        ((Microsoft.UI.Xaml.Automation.Provider.IInvokeProvider)new ButtonAutomationPeer(oldCard)).Invoke();
+        await Task.Delay(150);
+        Check(_pluginSettings?.Plugin.Version == old.Version && _currentPage == $"plugin:{old.Id}:{old.Version}",
+            "card body opens exact historical version configuration");
         var editor = _pluginSettings!;
         var firstControl = _pluginConfigControls.Values.First();
         await LoadPluginsAsync();
@@ -89,5 +110,14 @@ public sealed partial class MainPage
             PluginConfigFields.Children.Count == 0 && PluginConfigPage.Visibility == Visibility.Collapsed && _currentPage == "plugins",
             "last uninstall removes navigation, editor, fields and pending writes");
         File.WriteAllText(Path.Combine(root, "plugin-catalog-report.json"), JsonSerializer.Serialize(checks));
+    }
+
+    private static IEnumerable<DependencyObject> VisualDescendants(DependencyObject node)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); ++i) {
+            var child = VisualTreeHelper.GetChild(node, i);
+            yield return child;
+            foreach (var descendant in VisualDescendants(child)) yield return descendant;
+        }
     }
 }

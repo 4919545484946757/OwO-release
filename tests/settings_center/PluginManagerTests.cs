@@ -17,6 +17,12 @@ Check(PluginManagerCatalog.Filter(installed, "", "unauthorized", true).Single() 
 Check(PluginManagerCatalog.Filter(installed, "符号", "all", true).Single() == other);
 Check(PluginManagerCatalog.Filter(installed, "theme", "all", true).Count == 2);
 Check(PluginManagerCatalog.Filter(installed, "missing", "all", true).Count == 0);
+var described = active with { Description = "独立简介" };
+var noPermission = other with { Permissions = [], PermissionsAuthorized = false };
+Check(PluginManagerCatalog.Filter([described], "独立简介", "all", false).Single() == described);
+Check(active.ActivityLabel == "已启用" && next.ActivityLabel == "未启用" && active.ActivityGlyph != next.ActivityGlyph);
+Check(active.AuthorizationLabel == "已授权" && next.AuthorizationLabel == "未授权" && next.AuthorizationPending);
+Check(noPermission.AuthorizationLabel == "无需授权" && PluginManagerCatalog.Filter([noPermission], "", "unauthorized", false).Count == 0);
 foreach (var history in new[] { false, true }) {
     Check(PluginManagerCatalog.DisplayVersions(installed, history)
         .SequenceEqual(PluginManagerCatalog.Filter(installed, "", "all", history)));
