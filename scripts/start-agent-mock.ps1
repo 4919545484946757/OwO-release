@@ -32,11 +32,12 @@ if (Test-Path -LiteralPath $activeRecord -PathType Leaf) {
     if ($null -ne $versionLine) { $activeVersion = $versionLine.Substring(8) }
 }
 if ($activeVersion -ne $requiredVersion) {
-    & (Join-Path $root 'scripts\package_plugins.ps1') `
-        -BuildDirectory (Join-Path $build 'Release') | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "OwO plugin packaging failed: $LASTEXITCODE" }
-    $package = Join-Path $root `
-        "artifacts\plugins\org.owo.agent-ipc-$requiredVersion.owopkg"
+    . (Join-Path $PSScriptRoot 'plugin-package-name.ps1')
+    $package = Join-Path (Join-Path $root 'artifacts/plugins') (Get-OwOPluginPackageName $manifest.name $requiredVersion)
+    if (!(Test-Path -LiteralPath $package -PathType Leaf)) {
+        $package = & (Join-Path $root 'scripts\package_plugins.ps1') `
+            -BuildDirectory (Join-Path $build 'Release') -PluginIds @($manifest.id)
+    }
     throw @"
 The active Agent connector is '$activeVersion', but protocol v3 requires '$requiredVersion'.
 The updated connector package is ready:

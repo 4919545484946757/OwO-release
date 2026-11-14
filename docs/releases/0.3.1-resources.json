@@ -1,0 +1,7 @@
+[
+  {"id":"org.owo.candidate-glass","name":"OwO 亚克力候选框","kind":"plugin","version":"1.4.1","license":"GPL-3.0-only","asset":"org.owo.candidate-glass-1.4.1.owopkg","local_file":"OwO 亚克力候选框-1.4.1.owopkg"},
+  {"id":"org.owo.unicode-palette","name":"OwO Unicode 符号列表","kind":"plugin","version":"1.0.0","license":"GPL-3.0-only","asset":"org.owo.unicode-palette-1.0.0.owopkg","local_file":"OwO Unicode 符号列表-1.0.0.owopkg"},
+  {"id":"owo.plugin.english","name":"OwO 英文输入","kind":"plugin","version":"1.0.3","license":"GPL-3.0-only; wordfreq data CC-BY-SA-4.0","asset":"owo.plugin.english-1.0.3.owopkg","local_file":"OwO 英文输入-1.0.3.owopkg"},
+  {"id":"owo.plugin.wubi86","name":"OwO 五笔86","kind":"plugin","version":"1.1.3","license":"GPL-3.0-only; upstream dictionaries MIT","asset":"owo.plugin.wubi86-1.1.3.owopkg","local_file":"OwO 五笔86-1.1.3.owopkg"},
+  {"id":"org.owo.agent-ipc","name":"OwO Agent IPC 连接器","kind":"plugin","version":"1.2.0","license":"GPL-3.0-only","asset":"org.owo.agent-ipc-1.2.0.owopkg","local_file":"OwO Agent IPC 连接器-1.2.0.owopkg"}
+]

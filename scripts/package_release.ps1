@@ -1,11 +1,12 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.3.0',
+    [string]$Version = '0.3.1',
     [string]$BuildDirectory,
     [string]$X86BuildDirectory,
     [string]$SettingsDirectory,
     [string]$OutputDirectory,
-    [string]$BundledPluginStore
+    [string]$BundledPluginStore,
+    [string]$BundledPluginDirectory
 )
 
 $ErrorActionPreference = 'Stop'
@@ -48,7 +49,7 @@ if (-not $releaseRoot.StartsWith($output + [IO.Path]::DirectorySeparatorChar,
     throw 'Invalid release staging path.'
 }
 if (Test-Path -LiteralPath $releaseRoot) {
-    Remove-Item -LiteralPath $releaseRoot -Recurse -Force
+    throw 'Release directory already exists. Use a fresh OutputDirectory to preserve previous artifacts.'
 }
 [void](New-Item -ItemType Directory -Path $stage -Force)
 
@@ -148,7 +149,26 @@ foreach ($entry in $licenseInputs.GetEnumerator()) {
     Copy-Item -LiteralPath $entry.Value -Destination (Join-Path $stage "LICENSES\$($entry.Key)") -Force
 }
 
-if (-not [string]::IsNullOrWhiteSpace($BundledPluginStore)) {
+if ($BundledPluginStore -and $BundledPluginDirectory) { throw 'Choose only one source for bundled plugins.' }
+if ($BundledPluginDirectory) {
+    . (Join-Path $PSScriptRoot 'plugin-package-name.ps1')
+    $bundle = Join-Path $stage 'bundled-plugins'
+    [void][IO.Directory]::CreateDirectory((Join-Path $bundle 'packages'))
+    $records = @(foreach ($provider in @('candidate-glass', 'unicode-palette')) {
+        $plugin = Get-Content -LiteralPath (Join-Path $root "plugins/$provider/manifest.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+        $file = Get-OwOPluginPackageName $plugin.name $plugin.version
+        $source = Join-Path $BundledPluginDirectory $file
+        if (!(Test-Path -LiteralPath $source -PathType Leaf) -or ((Get-Item -LiteralPath $source).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "Missing or linked bundled package: $file" }
+        # Keep the existing installer catalog's exact internal path contract.
+        $path = "packages/$($plugin.id)-$($plugin.version).owopkg"
+        $target = Join-Path $bundle $path
+        Copy-Item -LiteralPath $source -Destination $target
+        $preview = & (Join-Path $build 'owo_plugin_shell.exe') (Join-Path $bundle 'preview-store') inspect-install $target | ConvertFrom-Json
+        if ($LASTEXITCODE -ne 0 -or !$preview.ok -or $preview.plugin_id -cne $plugin.id -or $preview.version -cne $plugin.version) { throw "Invalid bundled package: $file" }
+        [ordered]@{id=$plugin.id;version=$plugin.version;name=$plugin.name;active=$true;package=$path;sha256=(Get-Sha256Hex -LiteralPath $target);settings=$null;settingsSha256=$null}
+    })
+    [IO.File]::WriteAllText((Join-Path $bundle 'manifest.json'), ([ordered]@{schemaVersion=1;plugins=$records} | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
+} elseif (-not [string]::IsNullOrWhiteSpace($BundledPluginStore)) {
     & (Join-Path $root 'scripts/export-bundled-plugins.ps1') -StorePath $BundledPluginStore `
         -OutputDirectory (Join-Path $stage 'bundled-plugins') -PluginShell (Join-Path $build 'owo_plugin_shell.exe')
 }
@@ -165,33 +185,15 @@ $hashLines = Get-ChildItem -LiteralPath $stage -File -Recurse |
 $binaryZip = Join-Path $releaseRoot "OwO-Input-Method-$Version-windows-x64.zip"
 Compress-Archive -LiteralPath $stage -DestinationPath $binaryZip -CompressionLevel Optimal
 
-$sourceStage = Join-Path $releaseRoot "OwO-Input-Method-$Version-source"
-[void](New-Item -ItemType Directory -Path $sourceStage -Force)
-foreach ($directory in @('apps', 'benchmarks', 'data', 'docs', 'include', 'packaging', 'plugins',
-                         'scripts', 'src', 'tests', 'tools', 'third_party')) {
-    $source = Join-Path $root $directory
-    if (Test-Path -LiteralPath $source) {
-        Copy-Item -LiteralPath $source -Destination $sourceStage -Recurse -Force -Exclude '*.log', '*.dmp'
-    }
-}
-foreach ($name in @('CMakeLists.txt', 'CMakePresets.json', 'global.json', '.gitattributes', 'LICENSE',
-                    'README.md', '项目计划.md')) {
-    $source = Join-Path $root $name
-    if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $sourceStage -Force }
-}
-$sourceBuildDirectories = @(Get-ChildItem -LiteralPath $sourceStage -Directory -Recurse |
-    Where-Object { $_.Name -in @('bin', 'obj') } |
-    Sort-Object FullName -Descending)
-foreach ($directory in $sourceBuildDirectories) {
-    $target = [IO.Path]::GetFullPath($directory.FullName)
-    if (-not $target.StartsWith([IO.Path]::GetFullPath($sourceStage) + [IO.Path]::DirectorySeparatorChar,
-            [StringComparison]::OrdinalIgnoreCase) -or ($directory.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
-        throw 'Unsafe generated source build directory.'
-    }
-}
-foreach ($directory in $sourceBuildDirectories) { Remove-Item -LiteralPath $directory.FullName -Recurse -Force }
 $sourceZip = Join-Path $releaseRoot "OwO-Input-Method-$Version-source.zip"
-Compress-Archive -LiteralPath $sourceStage -DestinationPath $sourceZip -CompressionLevel Optimal
+$commit = (& git -C $root rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[a-f0-9]{40}$') { throw 'Cannot determine source commit.' }
+# Export only tracked source from the recorded commit, never build output,
+# ignored logs or private files that happen to be in the working directory.
+& git -C $root archive --format=zip "--prefix=OwO-Input-Method-$Version-source/" "--output=$sourceZip" $commit -- `
+    apps benchmarks data docs examples include packaging plugins scripts src tests tools third_party `
+    CMakeLists.txt CMakePresets.json global.json vcpkg.json .gitattributes .gitignore LICENSE README.md ':(glob)*.md' ':(glob)*.cmd'
+if ($LASTEXITCODE -ne 0) { throw 'Cannot archive release source commit.' }
 
 $releaseHashes = foreach ($file in @($binaryZip, $sourceZip)) {
     $hash = Get-Sha256Hex -LiteralPath $file
@@ -200,7 +202,6 @@ $releaseHashes = foreach ($file in @($binaryZip, $sourceZip)) {
 [IO.File]::WriteAllLines((Join-Path $releaseRoot 'SHA256SUMS.txt'), $releaseHashes,
                          [Text.UTF8Encoding]::new($false))
 Write-Output $releaseRoot
-$commit = (& git -C $root rev-parse HEAD).Trim()
 $dirty = @(& git -C $root status --porcelain).Count -ne 0
 $provenance = [ordered]@{schema_version=1; version=$Version; git_commit=$commit; dirty=$dirty; built_at_utc=[DateTime]::UtcNow.ToString('o')}
 [IO.File]::WriteAllText((Join-Path $releaseRoot 'release-build.json'), ($provenance | ConvertTo-Json), [Text.UTF8Encoding]::new($false))

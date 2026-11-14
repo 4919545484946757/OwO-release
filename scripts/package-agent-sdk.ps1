@@ -13,7 +13,12 @@ if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
     $BuildDirectory = Join-Path $root 'build\windows-release\Release'
 }
 if ([string]::IsNullOrWhiteSpace($PluginPackage)) {
-    $PluginPackage = Join-Path $root "artifacts\plugins\org.owo.agent-ipc-$Version.owopkg"
+    . (Join-Path $PSScriptRoot 'plugin-package-name.ps1')
+    $manifest = Get-Content -LiteralPath (Join-Path $root 'plugins\agent-ipc\manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $PluginPackage = Join-Path (Join-Path $root 'artifacts\plugins') (Get-OwOPluginPackageName $manifest.name $Version)
+    if (!(Test-Path -LiteralPath $PluginPackage -PathType Leaf)) {
+        $PluginPackage = Join-Path $root "artifacts\plugins\org.owo.agent-ipc-$Version.owopkg"
+    }
 }
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
     $OutputDirectory = Join-Path $root 'artifacts\agent-sdk'
