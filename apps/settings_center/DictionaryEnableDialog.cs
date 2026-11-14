@@ -6,8 +6,11 @@ namespace OwO_Settings;
 
 internal static class DictionaryEnableDialog
 {
-    internal static Task<DictionaryActivationResult> PrepareAsync(XamlRoot root, ManagedDictionary dictionary,
-        bool wasEnabled, bool promptBeforeEnablingPending) => DictionaryActivation.PrepareAsync(
+    internal static async Task<(DictionaryActivationResult Activation, bool Persisted)> PrepareAsync(XamlRoot root, ManagedDictionary dictionary,
+        bool wasEnabled, bool promptBeforeEnablingPending, Func<ManagedDictionary, bool, Task> persist) {
+        var keepReminder = promptBeforeEnablingPending;
+        var persisted = false;
+        var activation = await DictionaryActivation.PrepareAsync(
             dictionary, wasEnabled, promptBeforeEnablingPending, async pending => {
                 var suppress = new CheckBox { Content = "不再提醒（所有字典）" };
                 AutomationProperties.SetAutomationId(suppress, "DictionaryEnableDoNotRemind");
@@ -19,10 +22,16 @@ internal static class DictionaryEnableDialog
                     DefaultButton = ContentDialogButton.Close };
                 AutomationProperties.SetAutomationId(dialog, "DictionaryEnablePrompt");
                 var choice = await dialog.ShowAsync();
+                keepReminder = suppress.IsChecked != true;
                 return new DictionaryActivationDecision(choice switch {
                     ContentDialogResult.Primary => DictionaryActivationChoice.Supplement,
                     ContentDialogResult.Secondary => DictionaryActivationChoice.EnableWithoutEncoding,
                     _ => DictionaryActivationChoice.Cancel
                 }, suppress.IsChecked == true);
-            }, async staged => (await DictionaryEncodingDialog.SupplementAsync(root, staged, autoStart: true))?.Dictionary);
+            }, async staged => (await DictionaryEncodingDialog.SupplementAsync(root, staged, autoStart: true, persist: async result => {
+                await persist(result.Dictionary with { Enabled = true }, keepReminder);
+                persisted = true;
+            }))?.Dictionary);
+        return (activation, persisted);
+    }
 }

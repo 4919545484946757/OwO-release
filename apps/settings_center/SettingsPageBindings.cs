@@ -97,11 +97,11 @@ public sealed partial class MainPage
         Shortcut(nameof(SettingsSnapshot.ExpandedPreviousPageShortcutEnabled), nameof(SettingsSnapshot.ExpandedPreviousPageShortcuts), ExpandedPreviousPageShortcutEnabled, "expanded-previous-page", ExpandedPreviousPageShortcutCard, "展开并选中上一候选页", "快捷键 上方向键 展开 高亮 选中 页");
         Shortcut(nameof(SettingsSnapshot.ExpandedNextPageShortcutEnabled), nameof(SettingsSnapshot.ExpandedNextPageShortcuts), ExpandedNextPageShortcutEnabled, "expanded-next-page", ExpandedNextPageShortcutCard, "展开并选中下一候选页", "快捷键 下方向键 展开 高亮 选中 页");
         Shortcut(nameof(SettingsSnapshot.PunctuationShortcutEnabled), nameof(SettingsSnapshot.PunctuationShortcuts), PunctuationShortcutEnabled, "punctuation", PunctuationShortcutCard, "切换中文标点", "快捷键");
-        Shortcut(nameof(SettingsSnapshot.TextNavigationShortcutEnabled), nameof(SettingsSnapshot.TextNavigationShortcuts), TextNavigationShortcutEnabled, "text-navigation", TextNavigationShortcutCard, "移动应用文本光标", "快捷键 Shift 方向键 选中");
+        // Keep the old config fields round-trippable without exposing an inactive shortcut in search or navigation.
+        Toggle(nameof(SettingsSnapshot.TextNavigationShortcutEnabled), TextNavigationShortcutEnabled);
+        _settingsEditors.Bind<IReadOnlyList<string>>(nameof(SettingsSnapshot.TextNavigationShortcuts),
+            () => ShortcutValues("text-navigation"), values => SetShortcutBindings("text-navigation", values));
         Toggle(nameof(SettingsSnapshot.TextNavigationSelectEnabled), TextNavigationSelectEnabled);
-        Card(nameof(SettingsSnapshot.TextNavigationSelectEnabled), TextNavigationSelectEnabled,
-            "移动文本光标时扩展选区", "快捷键 Shift 方向键 选中文字", () => TextNavigationShortcutEnabled.IsOn,
-            "请先开启移动应用文本光标快捷键。");
         _settingsModules.ValidateEditors(_settingsEditors);
     }
 

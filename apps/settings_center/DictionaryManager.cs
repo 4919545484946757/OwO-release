@@ -189,10 +189,12 @@ internal sealed class DictionaryManager : UserControl
         _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries, _catalog.Builtins.Select(value => value.Id == dictionary.Id ? dictionary : value).ToArray());
     private async Task<ManagedDictionary> SaveDictionaryAsync(ManagedDictionary dictionary) {
         var previous = _catalog.Dictionaries.Single(value => value.Id == dictionary.Id);
-        var activation = await DictionaryEnableDialog.PrepareAsync(XamlRoot, dictionary, previous.Enabled, _catalog.PromptBeforeEnablingPending);
+        async Task PersistAsync(ManagedDictionary accepted, bool keepReminder) =>
+            _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries.Select(value => value.Id == accepted.Id ? accepted : value).ToArray(),
+                promptBeforeEnablingPending: keepReminder);
+        var (activation, persisted) = await DictionaryEnableDialog.PrepareAsync(XamlRoot, dictionary, previous.Enabled, _catalog.PromptBeforeEnablingPending, PersistAsync);
         if (activation.Dictionary is not { } accepted) { Notify("已取消启用，词库与提醒设置未修改。"); return previous; }
-        _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries.Select(value => value.Id == accepted.Id ? accepted : value).ToArray(),
-            promptBeforeEnablingPending: activation.PromptBeforeEnablingPending);
+        if (!persisted) await PersistAsync(accepted, activation.PromptBeforeEnablingPending);
         if (!previous.Enabled && accepted.Enabled) Notify($"字典已启用：{accepted.Entries.Count(DictionaryStore.Usable)} 条可用，{accepted.Entries.Count(word => !DictionaryStore.Usable(word))} 条待补编码。");
         return accepted;
     }
@@ -350,10 +352,12 @@ internal sealed class DictionaryManager : UserControl
         if (await new ContentDialog { XamlRoot = dialogRoot ?? XamlRoot, Title = "预览并导入字典", Content = new ScrollViewer { Content = fields, MaxHeight = 420 },
             PrimaryButtonText = "确认导入", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close }.ShowAsync() != ContentDialogResult.Primary) return;
         var dictionary = new ManagedDictionary(Guid.NewGuid().ToString("N"), title.Text.Trim(), data.Format, sourceName, "full_pinyin", enable.IsChecked == true, data.Entries);
-        var activation = await DictionaryEnableDialog.PrepareAsync(dialogRoot ?? XamlRoot, dictionary, false, _catalog.PromptBeforeEnablingPending);
+        async Task PersistAsync(ManagedDictionary accepted, bool keepReminder) =>
+            _catalog = await _store.SaveAsync(_catalog, [.. _catalog.Dictionaries, accepted], promptBeforeEnablingPending: keepReminder);
+        var (activation, persisted) = await DictionaryEnableDialog.PrepareAsync(dialogRoot ?? XamlRoot, dictionary, false, _catalog.PromptBeforeEnablingPending, PersistAsync);
         dictionary = activation.Dictionary ?? dictionary with { Enabled = false };
-        _catalog = await _store.SaveAsync(_catalog, [.. _catalog.Dictionaries, dictionary],
-            promptBeforeEnablingPending: activation.PromptBeforeEnablingPending); RenderCards();
+        if (!persisted) await PersistAsync(dictionary, activation.PromptBeforeEnablingPending);
+        RenderCards();
         Notify(dictionary.Enabled ? "字典已独立保存；启用词条会在后续输入时加载。" : "字典已独立保存，未启用。");
     }
 }

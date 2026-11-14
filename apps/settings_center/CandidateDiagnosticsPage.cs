@@ -11,7 +11,7 @@ internal sealed class CandidateDiagnosticsPage : UserControl {
     private readonly CandidateTimingStore _store = new();
     private readonly Action<string, InfoBarSeverity> _notify;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(2) };
-    private readonly ComboBox _duration = new() { Header = "采样时长", MinWidth = 120 };
+    private readonly ScrollNeutralComboBox _duration = new() { Header = "采样时长", MinWidth = 120 };
     private readonly Button _start = new() { Content = "开始计时" };
     private readonly Button _stop = new() { Content = "停止计时", IsEnabled = false };
     private readonly Button _export = new() { Content = "导出报告", IsEnabled = false };

@@ -9,12 +9,13 @@ internal sealed class ModelManagerPage : UserControl {
     private readonly Action<string, InfoBarSeverity> _notify;
     private TextAssistantSettings _value;
     private readonly StackPanel _profiles = new() { Spacing = 8 };
-    private readonly ToggleSwitch _enabled = new() { Header = "选区大模型功能（选中文字后按 v）" };
-    private readonly ToggleSwitch _context = new() { Header = "发送同一输入位置附近的局部上下文" };
+    private readonly TextBlock _profileCount = new() { Opacity = .75, TextWrapping = TextWrapping.Wrap };
+    private readonly ToggleSwitch _enabled = new() { Header = "选区大模型功能", MinWidth = 0 };
+    private readonly ToggleSwitch _context = new() { Header = "发送局部上下文", MinWidth = 0 };
     private readonly TextBox _preferred = new() { Header = "首选语言", MaxLength = 64 };
     private readonly TextBox _secondary = new() { Header = "次选语言", MaxLength = 64 };
-    private readonly ComboBox _polish = new() { Header = "语言润色级别", HorizontalAlignment = HorizontalAlignment.Stretch };
-    private readonly ComboBox _code = new() { Header = "代码纠错级别", HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly ScrollNeutralComboBox _polish = new() { Header = "语言润色级别", HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly ScrollNeutralComboBox _code = new() { Header = "代码纠错级别", HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly NumberBox _timeout = new() { Header = "请求超时（秒）", Minimum = 5, Maximum = 120, SmallChange = 5 };
     private readonly NumberBox _tokens = new() { Header = "最大输出 Token 数", Minimum = 128, Maximum = 16384, SmallChange = 128 };
     private bool _loading;
@@ -29,23 +30,25 @@ internal sealed class ModelManagerPage : UserControl {
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_code, "ModelCodeLevel");
         try { _value = _store.Load(); } catch (Exception error) { _value = new(); notify(error.Message, InfoBarSeverity.Error); }
         HorizontalContentAlignment = HorizontalAlignment.Stretch;
-        var body = new StackPanel { Spacing = 12, Margin = new Thickness(24, 0, 24, 24), MaxWidth = 960 };
+        var body = new StackPanel { Spacing = 16, Margin = new Thickness(16, 4, 16, 24), MaxWidth = 1040 };
         Content = new ScrollViewer { Content = body, HorizontalScrollMode = ScrollMode.Disabled,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalContentAlignment = HorizontalAlignment.Stretch };
-        body.Children.Add(Note("管理用户自己的模型 API，与本地 libime 排序独立。仅在选区存在时按小写 v 打开功能列表，数字 1–4 确认功能；结果直接替换原选区，Esc 取消。"));
-        body.Children.Add(_enabled);
-        body.Children.Add(_context);
-        body.Children.Add(Note("选区最多 8192 字符；局部上下文最多 2048 字符。密码、安全输入、无法确认安全的输入位置不采集。默认关闭，开启前需明确同意向指定服务发送文本。"));
+        var intro = Stack(7, Heading("在输入位置调用模型", 24),
+            Note("选中文字后按 v，再按 1–4 选择翻译、润色、代码纠错或内容生成。结果直接替换选区；Esc 取消。"));
+        body.Children.Add(Card(ResponsivePair(intro, _enabled, 540, fitTrailing: true), padding: 20));
         var add = new Button { Content = "添加模型 API", Style = (Style)Application.Current.Resources["AccentButtonStyle"] };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(add, "AddModelApi");
         add.Click += async (_, _) => await EditAsync(null);
-        body.Children.Add(add); body.Children.Add(_profiles);
-        body.Children.Add(_preferred); body.Children.Add(_secondary);
-        foreach (var item in new[] { "一档：仅完善字词、语法，不改原意", "二档：不改原意，适配环境和格式", "三档：优化语义、排版并按完成度扩写" }) _polish.Items.Add(item);
-        foreach (var item in new[] { "一档：修复语法、必要符号和变量并注释", "二档：进一步修复逻辑错误并注释", "三档：评估负面影响后优化算法并注释" }) _code.Items.Add(item);
-        body.Children.Add(_polish); body.Children.Add(_code);
-        body.Children.Add(_timeout); body.Children.Add(_tokens);
-        body.Children.Add(Note("代码只生成文本，不编译或执行。模型可能误判、产生不准确内容；请核查结果。API 密钥由 Windows 当前账户加密保存，不随配置导出或安装包分发。"));
+        body.Children.Add(Card(Stack(12, ResponsivePair(Stack(4, Heading("API 连接"), _profileCount), add, 380, fitTrailing: true), _profiles)));
+        foreach (var item in new[] { "一档 · 字词与语法", "二档 · 语法与格式", "三档 · 语义优化与扩写" }) _polish.Items.Add(item);
+        foreach (var item in new[] { "一档 · 语法修复与注释", "二档 · 逻辑修复与注释", "三档 · 算法优化与注释" }) _code.Items.Add(item);
+        body.Children.Add(Heading("功能偏好", 20));
+        body.Children.Add(ResponsivePair(
+            Section("翻译目标", "选区语言与首选语言不同则翻译为首选；相同则翻译为次选。", _preferred, _secondary),
+            Section("润色与代码纠错", "润色前两档保留原意；代码结果只生成文本，不会编译或执行。", _polish, _code), 640));
+        body.Children.Add(ResponsivePair(
+            Section("隐私与传输", "最多发送 8192 字符的选区；可另带同一输入位置附近最多 2048 字符的上下文。密码等安全输入不采集。", _context),
+            Section("请求预算", "请求独立于本地 libime 排序。API 密钥按当前 Windows 账户加密，不随配置导出。", _timeout, _tokens), 640));
         Apply(); RenderProfiles();
         _enabled.Toggled += async (_, _) => {
             if (_loading) return;
@@ -58,6 +61,39 @@ internal sealed class ModelManagerPage : UserControl {
         _timeout.ValueChanged += (_, _) => SaveOptions(); _tokens.ValueChanged += (_, _) => SaveOptions();
     }
     private static TextBlock Note(string text) => new() { Text = text, TextWrapping = TextWrapping.Wrap, Opacity = .75 };
+    private static TextBlock Heading(string text, double size = 17) => new() { Text = text, FontSize = size, TextWrapping = TextWrapping.Wrap };
+    private static StackPanel Stack(double spacing, params UIElement[] children) {
+        var panel = new StackPanel { Spacing = spacing };
+        foreach (var child in children) panel.Children.Add(child);
+        return panel;
+    }
+    private static Border Card(UIElement child, double padding = 16) => new() {
+        Child = child, Padding = new Thickness(padding), CornerRadius = new CornerRadius(10),
+        Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"], BorderThickness = new Thickness(1),
+        BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"]
+    };
+    private static Border Section(string title, string description, params UIElement[] fields) =>
+        Card(Stack(12, Stack(4, Heading(title), Note(description)), Stack(10, fields)));
+    private static Grid ResponsivePair(FrameworkElement first, FrameworkElement second, double breakpoint, bool fitTrailing = false) {
+        var grid = new Grid { RowSpacing = 10 };
+        grid.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new() { Width = new GridLength(0) });
+        grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        grid.Children.Add(first); grid.Children.Add(second); Grid.SetRow(second, 1);
+        if (fitTrailing) second.VerticalAlignment = VerticalAlignment.Center;
+        bool wide = false;
+        grid.SizeChanged += (_, args) => {
+            var next = args.NewSize.Width >= breakpoint;
+            if (wide == next) return;
+            wide = next;
+            grid.ColumnSpacing = wide ? 12 : 0;
+            grid.RowSpacing = wide ? 0 : 10;
+            grid.ColumnDefinitions[1].Width = !wide ? new GridLength(0) : fitTrailing ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
+            Grid.SetRow(second, wide ? 0 : 1); Grid.SetColumn(second, wide ? 1 : 0);
+        };
+        return grid;
+    }
     private async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog) {
         if (_dialogOpen) return ContentDialogResult.None;
         _dialogOpen = true;
@@ -97,20 +133,18 @@ internal sealed class ModelManagerPage : UserControl {
     }
     private void RenderProfiles() {
         _profiles.Children.Clear();
+        _profileCount.Text = $"{_value.Profiles.Count} 个连接 · {_value.Profiles.Count(profile => profile.Enabled)} 个启用";
         if (_value.Profiles.Count == 0) _profiles.Children.Add(Note("尚未添加模型。兼容 Chat Completions 的 HTTPS API，可填写 /v1 基础地址或完整 /chat/completions 地址。"));
         foreach (var profile in _value.Profiles) {
-            var panel = new StackPanel { Spacing = 8 };
-            panel.Children.Add(new TextBlock { Text = profile.Name + (profile.Id == _value.ActiveProfile ? " · 默认" : ""), FontSize = 17 });
-            panel.Children.Add(Note($"{profile.Model} · {ModelManagerStore.Endpoint(profile.Endpoint).Host}"));
-            var enabled = new ToggleSwitch { Header = "启用此模型配置", IsOn = profile.Enabled };
+            var details = Stack(4, Heading(profile.Name + (profile.Id == _value.ActiveProfile ? " · 默认" : "")),
+                Note($"{profile.Model} · {ModelManagerStore.Endpoint(profile.Endpoint).Host}"));
+            var enabled = new ToggleSwitch { Header = "启用此连接", IsOn = profile.Enabled, MinWidth = 0 };
             enabled.Toggled += (_, _) => {
                 var disablingActive = profile.Id == _value.ActiveProfile && !enabled.IsOn;
                 Save(_value with { Profiles = _value.Profiles.Select(p => p.Id == profile.Id ? p with { Enabled = enabled.IsOn } : p).ToList(),
                     Enabled = disablingActive ? false : _value.Enabled, PrivacyConsent = disablingActive ? false : _value.PrivacyConsent });
                 Apply(); RenderProfiles();
             };
-            panel.Children.Add(enabled);
-            var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             var use = new Button { Content = "设为默认", IsEnabled = profile.Enabled && profile.Id != _value.ActiveProfile };
             use.Click += (_, _) => { if (Save(_value with { ActiveProfile = profile.Id, Enabled = false, PrivacyConsent = false })) { Apply(); RenderProfiles(); } };
             var edit = new Button { Content = "编辑" }; edit.Click += async (_, _) => await EditAsync(profile);
@@ -133,11 +167,10 @@ internal sealed class ModelManagerPage : UserControl {
                 if (Save(_value with { Profiles = _value.Profiles.Where(p => p.Id != profile.Id).ToList(),
                     ActiveProfile = _value.ActiveProfile == profile.Id ? "" : _value.ActiveProfile, Enabled = false, PrivacyConsent = false })) { Apply(); RenderProfiles(); }
             };
-            actions.Children.Add(use); actions.Children.Add(edit); actions.Children.Add(test); actions.Children.Add(remove);
-            panel.Children.Add(actions);
-            _profiles.Children.Add(new Border { Child = panel, Padding = new Thickness(16), CornerRadius = new CornerRadius(8),
-                Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"], BorderThickness = new Thickness(1),
-                BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"] });
+            var primary = Stack(8, edit, test); primary.Orientation = Orientation.Horizontal;
+            var secondary = Stack(8, use, remove); secondary.Orientation = Orientation.Horizontal;
+            _profiles.Children.Add(Card(Stack(10, ResponsivePair(details, enabled, 430, fitTrailing: true),
+                ResponsivePair(primary, secondary, 430, fitTrailing: true)), 12));
         }
     }
     private async Task EditAsync(UserModelProfile? existing) {

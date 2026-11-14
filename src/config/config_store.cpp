@@ -219,7 +219,6 @@ void migrate_expanded_page_shortcuts(AppConfig& value) {
             contains(value.cursor_right_shortcut_enabled, value.cursor_right_shortcuts) ||
             contains(value.previous_page_shortcut_enabled, value.previous_page_shortcuts) ||
             contains(value.next_page_shortcut_enabled, value.next_page_shortcuts) ||
-            contains(value.text_navigation_shortcut_enabled, value.text_navigation_shortcuts) ||
             contains(value.punctuation_shortcut_enabled, value.punctuation_shortcuts);
     };
     if (used("Up")) value.expanded_previous_page_shortcut_enabled = false;
@@ -275,8 +274,7 @@ ConfigValidationResult validate_config(const AppConfig& value) {
         !valid_list(value.next_page_shortcut_enabled, value.next_page_shortcuts) ||
         !valid_list(value.expanded_previous_page_shortcut_enabled, value.expanded_previous_page_shortcuts) ||
         !valid_list(value.expanded_next_page_shortcut_enabled, value.expanded_next_page_shortcuts) ||
-        !valid_list(value.text_navigation_shortcut_enabled,
-                    value.text_navigation_shortcuts) ||
+        !valid_list(false, value.text_navigation_shortcuts) ||
         !valid_list(value.punctuation_shortcut_enabled, value.punctuation_shortcuts) ||
         !valid_list(value.separator_shortcut_enabled, value.separator_shortcuts))
         return {false, "shortcut list must contain canonical key or modifier combinations"};
@@ -305,9 +303,7 @@ ConfigValidationResult validate_config(const AppConfig& value) {
                            value.expanded_previous_page_shortcuts) ||
         !unique_if_enabled(value.expanded_next_page_shortcut_enabled,
                            value.expanded_next_page_shortcuts) ||
-        !unique_if_enabled(value.separator_shortcut_enabled, value.separator_shortcuts) ||
-        !unique_if_enabled(value.text_navigation_shortcut_enabled,
-                           value.text_navigation_shortcuts))
+        !unique_if_enabled(value.separator_shortcut_enabled, value.separator_shortcuts))
         return {false, "enabled shortcuts must be unique"};
     return {true, {}};
 }

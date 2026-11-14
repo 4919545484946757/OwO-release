@@ -24,13 +24,15 @@ internal sealed class DictionaryEncodingDialog
     private CancellationTokenSource? _operation;
     private string? _referencePath;
     private int _page;
-    private bool _closed;
+    private bool _closed, _saving;
+    private DictionaryEncodingResult? _savedResult;
     private sealed class Row(DictionaryEncodingSuggestion suggestion) {
         internal DictionaryEncodingSuggestion Suggestion = suggestion;
         internal string Code = suggestion.AutomaticCode ?? suggestion.Readings.FirstOrDefault()?.Code ?? "";
         internal bool Selected = suggestion.AutomaticCode is not null;
     }
-    private DictionaryEncodingDialog(XamlRoot root, IReadOnlyList<DictionaryWord> pending, int padding) {
+    private DictionaryEncodingDialog(XamlRoot root, IReadOnlyList<DictionaryWord> pending, int padding,
+        Func<IReadOnlyDictionary<string, string>, Task<DictionaryEncodingResult>> save) {
         _pending = pending;
         _limit.Value = pending.Count;
         _generate.Style = Application.Current.Resources["AccentButtonStyle"] as Style;
@@ -105,17 +107,41 @@ internal sealed class DictionaryEncodingDialog
         _cancel.Click += (_, _) => _operation?.Cancel();
         _manual.Toggled += (_, _) => { _page = 0; _preview.IsExpanded = _manual.IsOn; Render(); };
         _previous.Click += (_, _) => { _page--; Render(); }; _next.Click += (_, _) => { _page++; Render(); };
-        _dialog.PrimaryButtonClick += (_, args) => {
-            try { foreach (var row in _rows.Where(row => row.Selected)) DictionaryStore.ValidateWord(row.Suggestion.Word with { Input = DictionaryEncoding.Normalize(row.Code) }); }
-            catch (Exception error) { args.Cancel = true; Notice(error.Message); }
+        _dialog.PrimaryButtonClick += async (_, args) => {
+            if (_saving || _operation is not null) { args.Cancel = true; return; }
+            var deferral = args.GetDeferral();
+            _saving = true;
+            _dialog.IsPrimaryButtonEnabled = body.IsHitTestVisible = false;
+            _generate.IsEnabled = _pick.IsEnabled = _limit.IsEnabled = _manual.IsEnabled = _list.IsEnabled = false;
+            _previous.IsEnabled = _next.IsEnabled = _selectionCommands.IsEnabled = false;
+            _progress.Visibility = Visibility.Visible;
+            Notice("正在保存编码并准备词典运行时，请稍候。", InfoBarSeverity.Informational);
+            try {
+                var selected = _rows.Where(row => row.Selected)
+                    .ToDictionary(row => row.Suggestion.Word.Id, row => row.Code, StringComparer.Ordinal);
+                _savedResult = await save(selected);
+            } catch (Exception error) {
+                args.Cancel = true;
+                Notice($"编码未保存：{error.Message} 已保留本次选择，可修改后重试。");
+            } finally {
+                _saving = false;
+                _progress.Visibility = Visibility.Collapsed;
+                body.IsHitTestVisible = _generate.IsEnabled = _pick.IsEnabled = _limit.IsEnabled = _manual.IsEnabled = _list.IsEnabled = true;
+                _selectionCommands.IsEnabled = _rows.Count > 0;
+                Render();
+                deferral.Complete();
+            }
         };
-        _dialog.Closing += (_, _) => { _closed = true; _operation?.Cancel(); };
+        _dialog.Closing += (_, args) => {
+            if (_saving) { args.Cancel = true; return; }
+            _closed = true; _operation?.Cancel();
+        };
         _dialog.Closed += (_, _) => _closed = true;
         Render();
     }
     private void Notice(string message, InfoBarSeverity severity = InfoBarSeverity.Error) { _notice.Message = message; _notice.Severity = severity; _notice.IsOpen = true; }
     private async Task GenerateAsync() {
-        if (_operation is not null) return;
+        if (_operation is not null || _saving) return;
         if (!double.IsFinite(_limit.Value) || _limit.Value != Math.Truncate(_limit.Value) || _limit.Value is < 1 or > DictionaryStore.MaximumEntries) { Notice("请填写有效整数上限，最多 500000 条。"); return; }
         using var operation = new CancellationTokenSource(); _operation = operation;
         _selectionCommands.IsEnabled = false;
@@ -142,7 +168,7 @@ internal sealed class DictionaryEncodingDialog
     private void Select(Func<Row, bool> match) { if (_operation is not null) return; foreach (var row in _rows) row.Selected = match(row); Render(); }
     private void UpdateSummary() {
         _summary.Text = $"待补 {_pending.Count} 条 · 已分析 {_rows.Count} 条 · 自动可补 {_rows.Count(row => row.Suggestion.AutomaticCode is not null)} 条 · 默认跳过 {_rows.Count(row => row.Suggestion.AutomaticCode is null)} 条 · 将保存 {_rows.Count(row => row.Selected)} 条";
-        _dialog.IsPrimaryButtonEnabled = _operation is null && _rows.Any(row => row.Selected) && _rows.Where(row => row.Selected).All(row => !string.IsNullOrWhiteSpace(row.Code));
+        _dialog.IsPrimaryButtonEnabled = !_saving && _operation is null && _rows.Any(row => row.Selected) && _rows.Where(row => row.Selected).All(row => !string.IsNullOrWhiteSpace(row.Code));
     }
     private void Render() {
         var visible = _rows.Where(row => _manual.IsOn == (row.Suggestion.AutomaticCode is null)).ToArray();
@@ -172,18 +198,18 @@ internal sealed class DictionaryEncodingDialog
         UpdateSummary();
     }
     internal static async Task<DictionaryEncodingResult?> SupplementAsync(XamlRoot root, ManagedDictionary dictionary,
-        IReadOnlyList<DictionaryWord>? pending = null, bool autoStart = false) {
+        IReadOnlyList<DictionaryWord>? pending = null, bool autoStart = false,
+        Func<DictionaryEncodingResult, Task>? persist = null) {
         pending ??= dictionary.Entries.Where(word => !DictionaryStore.Usable(word)).ToArray();
         if (pending.Count == 0) throw new InvalidOperationException("没有待补编码词条；已有编码不会被覆盖。");
         var prepared = pending.Select(word => DictionaryEncoding.PrepareWord(dictionary, word)).ToArray();
         var padding = pending.Zip(prepared).Count(pair => pair.First.Text != pair.Second.Text);
-        if (await ShowAsync(root, prepared, padding, autoStart) is not { } selected) return null;
-        return DictionaryEncoding.Apply(dictionary, selected);
-    }
-    internal static async Task<IReadOnlyDictionary<string, string>?> ShowAsync(XamlRoot root, IReadOnlyList<DictionaryWord> pending, int padding = 0, bool autoStart = false) {
-        var view = new DictionaryEncodingDialog(root, pending, padding);
+        var view = new DictionaryEncodingDialog(root, prepared, padding, async selected => {
+            var result = await Task.Run(() => DictionaryEncoding.Apply(dictionary, selected));
+            if (persist is not null) await persist(result);
+            return result;
+        });
         if (autoStart) view._dialog.Opened += async (_, _) => await view.GenerateAsync();
-        if (await view._dialog.ShowAsync() != ContentDialogResult.Primary) return null;
-        return view._rows.Where(row => row.Selected).ToDictionary(row => row.Suggestion.Word.Id, row => row.Code, StringComparer.Ordinal);
+        return await view._dialog.ShowAsync() == ContentDialogResult.Primary ? view._savedResult : null;
     }
 }

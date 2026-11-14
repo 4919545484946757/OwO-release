@@ -266,7 +266,7 @@ public sealed partial class MainPage
         var pages = new Dictionary<string, StackPanel>(StringComparer.Ordinal);
         ComboBox? pageSelector = null;
         if (_pluginSettings!.Pages.Count != 0) {
-            pageSelector = new ComboBox {
+            pageSelector = new ScrollNeutralComboBox {
                 Header = "配置页", ItemsSource = _pluginSettings.Pages,
                 DisplayMemberPath = nameof(PluginSettingPage.Title),
                 HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch,
@@ -327,7 +327,7 @@ public sealed partial class MainPage
         var value = _pluginSettings!.Values[field.Key];
         Microsoft.UI.Xaml.FrameworkElement control;
         if (field.Options.Count != 0) {
-            var combo = new ComboBox { ItemsSource = field.Options,
+            var combo = new ScrollNeutralComboBox { ItemsSource = field.Options,
                 DisplayMemberPath = nameof(PluginSettingOption.Label) };
             combo.SelectedItem = field.Options.FirstOrDefault(option =>
                 option.Value.GetRawText() == value.GetRawText()) ?? field.Options[0];

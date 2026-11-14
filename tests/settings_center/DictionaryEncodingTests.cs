@@ -67,6 +67,12 @@ Check(suggestions[1].WholeWord && suggestions[1].Readings.Count == 2, "Polyphoni
 Check(!suggestions[2].WholeWord && suggestions[2].Readings.Single().Code == "ce'shi'ci'ku", "Dictionary phrase composition");
 Check(suggestions[3].Readings.Count == 0 && suggestions[4].Readings.Count == 0, "Unknown and Latin remain manual");
 Check(suggestions[0].AutomaticCode == "ce'shi" && suggestions[1].AutomaticCode is null && suggestions[2].AutomaticCode == "ce'shi'ci'ku", "Automatic unique words and phrases; ambiguous words skipped");
+var longWord = Word(new string('装', 44));
+var longCode = string.Join("'", Enumerable.Repeat("zhuang", 44));
+var bounded = DictionaryEncoding.Suggest([longWord, exact], new Dictionary<string, IReadOnlyList<DictionaryReading>> {
+    [longWord.Text] = [new(longCode, 100)], [exact.Text] = [new("ce'shi", 10)] });
+Check(bounded[0].AutomaticCode is null && bounded[0].Readings.Count == 0 && bounded[1].AutomaticCode == "ce'shi",
+    "A whole-word code exceeding the runtime cap is never auto-selected and does not block other words");
 var confident = DictionaryEncoding.Suggest([Word("重庆食品")], new Dictionary<string, IReadOnlyList<DictionaryReading>> {
     ["重庆"] = [new("chong'qing", 1)], ["食品"] = [new("shi'pin", 1)], ["重"] = [new("zhong", uint.MaxValue), new("chong", 1)], ["庆"] = [new("qing", 100000)] });
 Check(confident[0].AutomaticCode == "chong'qing'shi'pin" && confident[0].Readings[0].Code == confident[0].AutomaticCode, "Unique phrase evidence resolves character polyphony, not frequency");
@@ -148,5 +154,17 @@ if (args.Length == 3 && args[0] == "--live-shell") {
     var batch = Enumerable.Range(0, 1001).Select(_ => Word("测试方法")).ToArray();
     var batched = await new DictionaryEncodingClient().SuggestAsync(batch, Path.GetFullPath(args[2]), CancellationToken.None, installed: []);
     Check(batched.Count == 1001 && batched.All(item => item.AutomaticCode == "ce'shi'fang'fa"), "Entire dictionary automatically split across batch limit");
+    var fixture = Path.Combine(Path.GetTempPath(), "owo-encoding-publish-" + Guid.NewGuid().ToString("N"));
+    var store = new DictionaryStore(fixture);
+    var pendingWord = Word("测试方法");
+    var newDictionary = dictionary with { Enabled = true, Entries = [pendingWord] };
+    var initial = await store.SaveAsync(await store.LoadAsync(), [newDictionary]);
+    var encoding = DictionaryEncoding.Apply(newDictionary, new Dictionary<string, string> { [pendingWord.Id] = "ce'shi'fang'fa" });
+    var saved = await store.SaveAsync(initial, [encoding.Dictionary]);
+    var reopened = await new DictionaryStore(fixture).LoadAsync();
+    var snapshot = await File.ReadAllTextAsync(Path.Combine(fixture, "current"));
+    Check(reopened.Revision == saved.Revision && reopened.Dictionaries.Single().Entries.Single().Input == "ce'shi'fang'fa" &&
+        File.Exists(Path.Combine(fixture, "snapshots", snapshot, "runtime-v1", "phonetic.owolx")),
+        "Successful supplementation survives reopening and compiles the active snapshot before publication");
 }
 Console.WriteLine($"PASS: {checks} dictionary encoding checks; no personal dictionary writes.");

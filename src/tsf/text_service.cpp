@@ -1295,8 +1295,6 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
     if (chinese_mode_ && shortcut_config_.input_scheme == "full_pinyin" &&
         !input_buffer_.empty() && shortcut_config_.separator_shortcut_enabled &&
         shortcut_matches(shortcut_config_.separator_shortcuts, key)) return true;
-    if (has_composition() && shortcut_config_.text_navigation_shortcut_enabled &&
-        shortcut_matches(shortcut_config_.text_navigation_shortcuts, key)) return true;
     if (has_composition() && shortcut_config_.cursor_left_shortcut_enabled &&
         shortcut_matches(shortcut_config_.cursor_left_shortcuts, key)) return true;
     if (has_composition() && shortcut_config_.cursor_right_shortcut_enabled &&
@@ -1437,7 +1435,6 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
             candidate_failure_detail_.clear();
             candidate_page_ = 0;
             has_more_candidates_ = false;
-            candidates_expanded_ = false;
             ++context_generation_;
             queue_candidate_request();
         }
@@ -1478,11 +1475,6 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         if (context != nullptr) return staged_candidates_.empty()
             ? commit_raw_input(context) : commit_pending_composition(context);
         clear_composition();
-    } else if (has_composition() &&
-               shortcut_config_.text_navigation_shortcut_enabled &&
-               shortcut_matches(shortcut_config_.text_navigation_shortcuts, key)) {
-        return move_document_caret(
-            context, key, shortcut_config_.text_navigation_select_enabled);
     } else if (has_composition() && shortcut_config_.cursor_left_shortcut_enabled &&
                shortcut_matches(shortcut_config_.cursor_left_shortcuts, key)) {
         move_pinyin_cursor(-1);
@@ -1515,7 +1507,6 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         insert_composition_character(L'\'', true);
         candidate_page_ = 0;
         has_more_candidates_ = false;
-        candidates_expanded_ = false;
         ++context_generation_;
         queue_candidate_request();
     } else if (key >= 'A' && key <= 'Z') {
@@ -1544,9 +1535,9 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         // Keep the last confirmed segmentation visible until the new parse and
         // candidates arrive together. Editing that snapshot in place prevents
         // the preview from briefly falling back to completely unsegmented input.
+        // Expansion belongs to the composition, not to any one request.
         candidate_page_ = 0;
         has_more_candidates_ = false;
-        candidates_expanded_ = false;
         ++context_generation_;
         queue_candidate_request();
     } else if (key == VK_OEM_7 && apostrophe_is_separator() && !key_down(VK_SHIFT) && !input_buffer_.empty() &&
@@ -1562,7 +1553,6 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         insert_composition_character(L'\'', true);
         candidate_page_ = 0;
         has_more_candidates_ = false;
-        candidates_expanded_ = false;
         ++context_generation_;
         queue_candidate_request();
     } else if (symbol_composition_enabled() && has_composition() && !command_modifier_down() &&
@@ -1573,7 +1563,6 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         for (const auto c : *symbol) insert_composition_character(c);
         candidate_page_ = 0;
         has_more_candidates_ = false;
-        candidates_expanded_ = false;
         ++context_generation_;
         queue_candidate_request();
     } else if (chinese_punctuation_enabled_ && !command_modifier_down() &&
@@ -1651,7 +1640,6 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
                 input_buffer_.size());
             candidate_page_ = 0;
             has_more_candidates_ = false;
-            candidates_expanded_ = false;
             ++context_generation_;
             queue_candidate_request();
             return S_OK;
@@ -1663,7 +1651,6 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         for (auto& offset : manual_breaks_) if (offset > erased) --offset;
         candidate_page_ = 0;
         has_more_candidates_ = false;
-        candidates_expanded_ = false;
         ++context_generation_;
         if (was_agent_mode && (input_buffer_.empty() || input_buffer_.front() != L'v'))
             cancel_agent_session();
@@ -6002,7 +5989,7 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
         candidate_page_ = 0;
         has_more_candidates_ = false;
         candidate_request_pending_ = false;
-        candidates_expanded_ = false;
+        if (input_buffer_.empty()) candidates_expanded_ = false;
         hovered_target_.reset();
         pressed_target_.reset();
         update_candidate_anchor(context);
@@ -6054,7 +6041,6 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
             candidate_page_ = 0;
             has_more_candidates_ = false;
             candidate_request_pending_ = false;
-            candidates_expanded_ = false;
             hovered_target_.reset();
             pressed_target_.reset();
             update_candidate_anchor(context);
@@ -6125,7 +6111,7 @@ HRESULT TextService::stage_agent_candidate(ITfContext* context,
     candidate_page_ = 0;
     has_more_candidates_ = false;
     candidate_request_pending_ = false;
-    candidates_expanded_ = false;
+    if (input_buffer_.size() == 1) candidates_expanded_ = false;
     hovered_target_.reset();
     pressed_target_.reset();
     if (context != nullptr) update_candidate_anchor(context);

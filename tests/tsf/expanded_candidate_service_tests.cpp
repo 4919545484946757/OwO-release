@@ -203,6 +203,28 @@ struct ExpandedCandidateTestAccess {
             service->expanded_pages_.selected != 0) return 62;
         service->clear_composition();
         if (service->candidates_expanded_ || service->expanded_pages_.selected || service->expanded_pages_.first_visible) return 13;
+        service->shortcut_config_.text_navigation_shortcut_enabled = true; // old on-disk config
+        service->shortcut_config_.text_navigation_shortcuts = {"Shift+Left"};
+        service->shortcut_config_.pinyin_symbol_compatibility_enabled = true;
+        service->input_buffer_ = L"nihao";
+        service->input_cursor_ = 5;
+        modifiers[VK_SHIFT] = 0x80;
+        if (!SetKeyboardState(modifiers) || service->should_eat_key(VK_LEFT)) return 81;
+        modifiers[VK_SHIFT] = 0;
+        if (!SetKeyboardState(modifiers)) return 82;
+        respond(7);
+        service->invoke_hit_target({TextService::HitKind::toggle_expanded, 0});
+        respond(21);
+        service->invoke_hit_target({TextService::HitKind::candidate_page, 1});
+        for (const auto key : {WPARAM('M'), WPARAM(VK_OEM_7), WPARAM(VK_BACK), WPARAM(VK_NUMPAD1)}) {
+            if (!press(key) || !service->candidates_expanded_ || !service->candidate_request_pending_ ||
+                !service->pending_request_ || !service->pending_request_->expanded) return 83;
+            respond(21);
+            if (!service->candidates_expanded_ || service->expanded_pages_.selected != 1 ||
+                service->candidate_shortcut_index(0) != 7) return 84;
+        }
+        if (service->input_buffer_ != L"nihaom1" || !press(VK_ESCAPE) || service->candidates_expanded_) return 85;
+        service->shortcut_config_.pinyin_symbol_compatibility_enabled = false;
         service->input_buffer_=L"retired-document";
         const auto prior_generation=service->context_generation_;
         service->OnUninitDocumentMgr(nullptr);

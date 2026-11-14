@@ -160,7 +160,7 @@ internal sealed class UserLexiconEditor : UserControl
         IReadOnlyList<LexiconWord> words = imported.Entries.GroupBy(word => (UserLexiconClient.CanonicalInput(word.Input), word.Text))
             .Select(group => new LexiconWord(group.First().Input, group.Key.Text, group.Max(word => word.Count))).ToArray();
         if (words.Count > 5000) throw new InvalidDataException("用户学习库单次最多导入 5000 条；大文件请导入为独立字典。" );
-        var mode = new ComboBox { Header = "导入方式", SelectedIndex = 0, HorizontalAlignment = HorizontalAlignment.Stretch };
+        var mode = new ScrollNeutralComboBox { Header = "导入方式", SelectedIndex = 0, HorizontalAlignment = HorizontalAlignment.Stretch };
         mode.Items.Add("合并：保留现有词条，同编码同词语以导入权重更新");
         mode.Items.Add("替换：清空现有词库和学习数据，再导入");
         if (await Dialog("选择导入方式", mode, "校验并预览").ShowAsync() != ContentDialogResult.Primary) return;

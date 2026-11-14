@@ -148,7 +148,7 @@ public sealed partial class MainPage
         var defaults = SchemePresentation.Read(profile.PresentationDefaultsPath);
         if (defaults is null) return;
         var value = SchemePresentation.Read(profile.PresentationPath) ?? defaults;
-        var preview = new ComboBox { Header = "编码预览显示位置", ItemsSource = new[] { "候选栏", "输入位置" },
+        var preview = new ScrollNeutralComboBox { Header = "编码预览显示位置", ItemsSource = new[] { "候选栏", "输入位置" },
             SelectedIndex = value.Preview == "input" ? 1 : 0 };
         var page = new NumberBox { Header = "每页候选数", Minimum = 1, Maximum = 9, Value = value.PageSize, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline };
         var wrap = new NumberBox { Header = "长候选换行长度", Minimum = 4, Maximum = 64, Value = value.WrapLength, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline };
@@ -188,7 +188,7 @@ public sealed partial class MainPage
             group.Children.Add(SchemeNote(field.Title));
             if (field.Description.Length != 0) group.Children.Add(SchemeNote(field.Description));
             if (field.Options.Count != 0) {
-                var options = new ComboBox { ItemsSource = field.Options, DisplayMemberPath = nameof(PluginSettingOption.Label),
+                var options = new ScrollNeutralComboBox { ItemsSource = field.Options, DisplayMemberPath = nameof(PluginSettingOption.Label),
                     SelectedItem = field.Options.FirstOrDefault(item => item.Value.GetRawText() == value.GetRawText()) ?? field.Options[0] };
                 var previous = options.SelectedItem;
                 options.SelectionChanged += (_, _) => { if (!Equals(previous, options.SelectedItem)) { previous = options.SelectedItem; Edited(key); } };

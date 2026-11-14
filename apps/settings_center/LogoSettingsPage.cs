@@ -6,7 +6,7 @@ namespace OwO_Settings;
 
 public sealed partial class MainPage
 {
-    private readonly ComboBox _logoThemeSelector = new() {
+    private readonly ScrollNeutralComboBox _logoThemeSelector = new() {
         ItemsSource = new[] { "跟随系统", "浅色", "深色" },
         MinWidth = 160, VerticalAlignment = VerticalAlignment.Center,
     };

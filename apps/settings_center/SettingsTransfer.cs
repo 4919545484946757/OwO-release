@@ -67,7 +67,6 @@ internal static class SettingsTransfer
             if (value.PreviousPageShortcutEnabled) occupied.AddRange(value.PreviousPageShortcuts);
             if (value.NextPageShortcutEnabled) occupied.AddRange(value.NextPageShortcuts);
             if (value.PunctuationShortcutEnabled) occupied.AddRange(value.PunctuationShortcuts);
-            if (value.TextNavigationShortcutEnabled) occupied.AddRange(value.TextNavigationShortcuts);
             if (value.ExpandedPreviousPageShortcutEnabled) occupied.AddRange(value.ExpandedPreviousPageShortcuts);
             if (value.ExpandedNextPageShortcutEnabled) occupied.AddRange(value.ExpandedNextPageShortcuts);
             if (occupied.Contains("Quote"))
@@ -101,7 +100,6 @@ internal static class SettingsTransfer
         if (migrated.CursorRightShortcutEnabled) used.AddRange(migrated.CursorRightShortcuts);
         if (migrated.PreviousPageShortcutEnabled) used.AddRange(previous);
         if (migrated.NextPageShortcutEnabled) used.AddRange(next);
-        if (migrated.TextNavigationShortcutEnabled) used.AddRange(migrated.TextNavigationShortcuts);
         if (migrated.PunctuationShortcutEnabled) used.AddRange(migrated.PunctuationShortcuts);
         return migrated with {
             ExpandedPreviousPageShortcutEnabled = migrated.ExpandedPreviousPageShortcutEnabled && !used.Contains("Up"),

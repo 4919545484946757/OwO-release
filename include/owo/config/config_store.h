@@ -69,7 +69,7 @@ struct AppConfig {
     std::vector<std::string> expanded_previous_page_shortcuts{"Up"};
     bool expanded_next_page_shortcut_enabled{true};
     std::vector<std::string> expanded_next_page_shortcuts{"Down"};
-    bool text_navigation_shortcut_enabled{true};
+    bool text_navigation_shortcut_enabled{false};
     std::vector<std::string> text_navigation_shortcuts{
         "Shift+Left", "Shift+Right", "Shift+Up", "Shift+Down"};
     bool text_navigation_select_enabled{false};

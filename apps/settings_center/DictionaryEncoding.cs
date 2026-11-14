@@ -81,8 +81,13 @@ internal static class DictionaryEncoding
         foreach (var word in words) {
             token.ThrowIfCancellationRequested();
             if (source.TryGetValue(word.Text, out var whole) && whole.Count > 0) {
-                result.Add(new(word, whole.OrderByDescending(value => value.Frequency).ThenBy(value => value.Code, StringComparer.Ordinal).ToArray(), true,
-                    whole.Count == 1 && !whole[0].Uncertain ? whole[0].Code : null)); continue;
+                // Upstream whole-word readings can exceed the runtime input
+                // limit. Keep them pending instead of selecting an unsavable
+                // row that prevents every other entry in the batch from saving.
+                var usable = whole.Where(value => value.Code.Length <= 256)
+                    .OrderByDescending(value => value.Frequency).ThenBy(value => value.Code, StringComparer.Ordinal).ToArray();
+                result.Add(new(word, usable, true,
+                    whole.Count == 1 && usable.Length == 1 && !usable[0].Uncertain ? usable[0].Code : null)); continue;
             }
             var characters = Characters(word.Text);
             if (!Chinese(word.Text) || characters.Length > 64) { result.Add(new(word, [], false)); continue; }
