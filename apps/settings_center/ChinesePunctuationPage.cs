@@ -55,10 +55,12 @@ public sealed partial class MainPage
             SettingsSection(title, null, keys.Select(key => _punctuationCards[key]).ToArray(), id, compact: true);
         ChinesePunctuationFields.Content = SettingsStack(8,
             SettingsSection("转换规则", "开启某个符号后按右侧示例转换；关闭单项则保留英文格式。", [_punctuationSummary]),
-            Group("语句标点", "PunctuationSentenceLayout", ",.?!;:\\"),
-            Group("引号与书名号", "PunctuationQuotationLayout", "'\"<>"),
-            Group("括号与连接符", "PunctuationBracketLayout", "()[]{}-_|"),
-            Group("其他符号", "PunctuationSymbolsLayout", "+=`~$^"));
+            SettingsColumns(
+                SettingsStack(8, Group("语句标点", "PunctuationSentenceLayout", ",.?!;:\\"),
+                    Group("其他符号", "PunctuationSymbolsLayout", "+=`~$^")),
+                SettingsStack(8, Group("引号与书名号", "PunctuationQuotationLayout", "'\"<>"),
+                    Group("括号与连接符", "PunctuationBracketLayout", "()[]{}-_|")),
+                minimumWidth: 570, gap: 8));
         UpdatePunctuationNotice();
     }
 

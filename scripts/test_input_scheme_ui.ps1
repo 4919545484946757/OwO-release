@@ -138,6 +138,7 @@ try {
         Start-Sleep -Milliseconds 550
         $candidateName = -join (0x5019,0x9009,0x4e0e,0x8f93,0x5165 | ForEach-Object { [char]$_ })
         $learningName = -join (0x5b66,0x4e60,0x4e0e,0x6392,0x5e8f | ForEach-Object { [char]$_ })
+        $shortcutName = -join (0x5feb,0x6377,0x952e | ForEach-Object { [char]$_ })
         Select-Nav $window 'CandidateNavigationItem' $candidateName
         Start-Sleep -Milliseconds 250
         Assert-Columns $window 'CandidateOrderLayout' 'CandidateCommitLayout' $true
@@ -149,6 +150,9 @@ try {
         Assert-Columns $window 'LearningFrequencyLayout' 'LearningCompletionLayout' $false
         $resize.Resize(1080 * $scale, 760 * $scale)
         Start-Sleep -Milliseconds 300
+        Select-Nav $window 'ShortcutNavigationItem' $shortcutName
+        Start-Sleep -Milliseconds 250
+        Assert-Columns $window 'CompositionShortcutLayout' 'PagingShortcutLayout' $true
         Select-Nav $window 'CandidateNavigationItem' $candidateName
         $punctuation = Wait-Id $window 'ChinesePunctuationSettingsButton'
         $punctuationSwitch = Wait-Id $window 'ChinesePunctuationMasterToggle'
@@ -161,7 +165,8 @@ try {
         foreach ($group in @('PunctuationSentenceLayout','PunctuationQuotationLayout','PunctuationBracketLayout','PunctuationSymbolsLayout')) {
             $null = Wait-Id $window $group
         }
-        Write-Output 'PASS: candidate and learning sections reflow between two columns and one; punctuation groups are reachable.'
+        Assert-Columns $window 'PunctuationSentenceLayout' 'PunctuationQuotationLayout' $true
+        Write-Output 'PASS: candidate and learning reflow, compact shortcut and punctuation columns, and punctuation master toggle.'
     }
     (Wait-Id $window 'UserLexiconNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     $null = Wait-Id $window 'DictionarySearch'

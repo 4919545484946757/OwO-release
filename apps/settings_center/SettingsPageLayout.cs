@@ -51,11 +51,14 @@ public sealed partial class MainPage
             ExpandedPreviousPageShortcutCard, ExpandedNextPageShortcutCard }) ShortcutContent.Children.Remove(element);
         ShortcutContent.Children.Insert(0, SettingsSection("全局快捷键", "对所有输入方案生效。", [LanguageShortcutCard], "GlobalShortcutLayout"));
         ShortcutContent.Children.Insert(1, SchemeShortcutHost);
-        _nativeShortcutLayout = SettingsStack(8, NativeShortcutHint,
-            SettingsSection("输入与模式", null, [CorrectionShortcutCard, PunctuationShortcutCard, RawInputShortcutCard, SeparatorShortcutCard], "CompositionShortcutLayout", compact: true),
-            SettingsSection("预编辑光标", null, [CursorLeftShortcutCard, CursorRightShortcutCard], "CursorShortcutLayout", compact: true),
-            SettingsSection("候选翻页", null, [PreviousPageShortcutCard, NextPageShortcutCard], "PagingShortcutLayout", compact: true),
-            SettingsSection("展开并选择候选页", null, [ExpandedPreviousPageShortcutCard, ExpandedNextPageShortcutCard], "ExpandedPagingShortcutLayout", compact: true));
+        _nativeShortcutLayout = SettingsStack(8, NativeShortcutHint, SettingsColumns(
+            SettingsStack(8,
+                SettingsSection("输入与模式", null, [CorrectionShortcutCard, PunctuationShortcutCard, RawInputShortcutCard, SeparatorShortcutCard], "CompositionShortcutLayout", compact: true),
+                SettingsSection("预编辑光标", null, [CursorLeftShortcutCard, CursorRightShortcutCard], "CursorShortcutLayout", compact: true)),
+            SettingsStack(8,
+                SettingsSection("候选翻页", null, [PreviousPageShortcutCard, NextPageShortcutCard], "PagingShortcutLayout", compact: true),
+                SettingsSection("展开并选择候选页", null, [ExpandedPreviousPageShortcutCard, ExpandedNextPageShortcutCard], "ExpandedPagingShortcutLayout", compact: true)),
+            minimumWidth: 620, gap: 8));
         ShortcutContent.Children.Insert(2, _nativeShortcutLayout);
 
         GeneralPreferencesContent.Children.Clear();
@@ -101,9 +104,9 @@ public sealed partial class MainPage
 
     // CSS-grid-like breakpoints depend on the actual content width, not the
     // outer window: navigation width and display scaling are already accounted for.
-    private static Grid SettingsColumns(FrameworkElement left, FrameworkElement right, double minimumWidth = 690)
+    private static Grid SettingsColumns(FrameworkElement left, FrameworkElement right, double minimumWidth = 690, double gap = 12)
     {
-        var grid = new Grid { RowSpacing = 12 };
+        var grid = new Grid { RowSpacing = gap };
         grid.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new() { Width = new GridLength(0) });
         grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
@@ -117,8 +120,8 @@ public sealed partial class MainPage
             if (next == wide) return;
             wide = next;
             grid.ColumnDefinitions[1].Width = wide ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-            grid.ColumnSpacing = wide ? 12 : 0;
-            grid.RowSpacing = wide ? 0 : 12;
+            grid.ColumnSpacing = wide ? gap : 0;
+            grid.RowSpacing = wide ? 0 : gap;
             Grid.SetColumn(right, wide ? 1 : 0);
             Grid.SetRow(right, wide ? 0 : 1);
         };

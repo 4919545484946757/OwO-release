@@ -22,15 +22,28 @@ public sealed partial class MainPage
 
     private void RenderInstalledPlugins()
     {
-        if (PluginVersions is null || PluginStateFilter is null || PluginSearch is null || PluginHistory is null) return;
+        if (PluginEnabledVersions is null || PluginDisabledVersions is null || PluginStateFilter is null || PluginSearch is null || PluginHistory is null) return;
         var filter = (PluginStateFilter.SelectedItem as ComboBoxItem)?.Tag as string ?? "all";
         var visible = PluginManagerCatalog.Filter(_installedPlugins, PluginSearch.Text, filter, PluginHistory.IsChecked == true);
         if (!_visiblePlugins.Select(p => (p.Id, p.Version, p.Name, p.Description, p.Detail, p.PermissionsAuthorized))
             .SequenceEqual(visible.Select(p => (p.Id, p.Version, p.Name, p.Description, p.Detail, p.PermissionsAuthorized)))) {
-            _visiblePlugins = visible; PluginVersions.ItemsSource = visible;
+            _visiblePlugins = visible;
+            UpdatePluginGroup(PluginEnabledGroup, PluginEnabledHeading, PluginEnabledVersions, visible.Where(p => p.Active).ToArray(), "已启用");
+            UpdatePluginGroup(PluginDisabledGroup, PluginDisabledHeading, PluginDisabledVersions, visible.Where(p => !p.Active).ToArray(), "未启用");
         }
         NoPlugins.Visibility = visible.Count == 0 ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         PluginSummary.Text = $"{_installedPlugins.Select(p => p.Id).Distinct().Count()} 个插件 · {_installedPlugins.Count(p => p.Active)} 个已启用 · {_installedPlugins.Count} 个本机版本";
+    }
+    private static void UpdatePluginGroup(StackPanel group, TextBlock heading, ItemsControl list,
+        PluginVersionSnapshot[] items, string title)
+    {
+        // Updating one group must not recreate the other group's card buttons.
+        static (string, string, string, string, string, bool) Key(PluginVersionSnapshot p) =>
+            (p.Id, p.Version, p.Title, p.Description, p.Detail, p.PermissionsAuthorized);
+        if (list.ItemsSource is not PluginVersionSnapshot[] prior || !prior.Select(Key).SequenceEqual(items.Select(Key)))
+            list.ItemsSource = items;
+        heading.Text = $"{title} · {items.Length}";
+        group.Visibility = items.Length == 0 ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
     }
     private void PluginTabs_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
     {

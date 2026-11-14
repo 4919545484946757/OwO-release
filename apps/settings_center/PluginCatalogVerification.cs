@@ -43,11 +43,23 @@ public sealed partial class MainPage
         ShowPage("plugins");
         await Task.Delay(180);
         UpdateLayout();
-        var cards = VisualDescendants(PluginVersions).OfType<Button>()
+        var cards = VisualDescendants(PluginVersionGroups).OfType<Button>()
             .Where(button => AutomationProperties.GetAutomationId(button) == "InstalledPluginCard").ToArray();
         Check(cards.Length == 2 && cards.All(button => button.ActualWidth > 200), "each version has a full-width accessible card button");
         var oldCard = cards.Single(button => (button.Tag as PluginVersionSnapshot)?.Version == old.Version);
         var latestCard = cards.Single(button => (button.Tag as PluginVersionSnapshot)?.Version == latest.Version);
+        Check(PluginEnabledHeading.Text == "已启用 · 1" && PluginDisabledHeading.Text == "未启用 · 1" &&
+            VisualDescendants(PluginEnabledVersions).Contains(latestCard) && VisualDescendants(PluginDisabledVersions).Contains(oldCard),
+            "active and inactive versions appear in separate counted sections");
+        Border Layer(Button card, string name) => ((Grid)VisualTreeHelper.GetParent(card)).Children.OfType<Border>().Single(border => border.Name == name);
+        Check(Layer(latestCard, "PluginActivityFill").Opacity == 1 && Layer(oldCard, "PluginActivityFill").Opacity == 0 &&
+            Layer(latestCard, "PluginAuthorizationFill").Opacity == 1 && Layer(latestCard, "PluginPendingFill").Opacity == 0 &&
+            Layer(oldCard, "PluginAuthorizationFill").Opacity == 0 && Layer(oldCard, "PluginPendingFill").Opacity == 1,
+            "card background independently reflects activation and authorization");
+        Check(cards.All(card => VisualDescendants(card).OfType<Border>().Any(logo => logo.Name == "PluginLogoSlot" && logo.ActualWidth == 44)) &&
+            cards.All(card => VisualDescendants(card).OfType<TextBlock>().Any(text => text.Name == "PluginCardDescription" &&
+                text.ActualWidth <= 480 && text.TextWrapping == TextWrapping.Wrap && text.MaxLines == 0)),
+            "logo slot and full wrapped summary use bounded space");
         var oldTexts = VisualDescendants(oldCard).OfType<TextBlock>().Select(text => text.Text).ToArray();
         var latestTexts = VisualDescendants(latestCard).OfType<TextBlock>().Select(text => text.Text).ToArray();
         Check(oldTexts.Contains("未启用") && oldTexts.Contains("未授权") && latestTexts.Contains("已启用") && latestTexts.Contains("已授权"),
@@ -71,6 +83,8 @@ public sealed partial class MainPage
         await Task.Delay(100); // WinUI dispatches TextChanged after the Text assignment.
         Check(_visiblePlugins.Count == 0 && _pluginPages.Count == 2,
             $"local search does not discard global navigation (cards={_visiblePlugins.Count}, navigation={_pluginPages.Count})");
+        Check(PluginEnabledGroup.Visibility == Visibility.Collapsed && PluginDisabledGroup.Visibility == Visibility.Collapsed && NoPlugins.Visibility == Visibility.Visible,
+            "search hides empty groups and keeps the shared empty state");
         PluginSearch.Text = "";
         await Task.Delay(100);
         SelectPluginNavigation($"plugin:{old.Id}:{old.Version}");
