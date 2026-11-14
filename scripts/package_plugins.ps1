@@ -59,7 +59,6 @@ foreach ($directory in Get-ChildItem -LiteralPath $plugins -Directory | Sort-Obj
             throw "Build owo_${provider}_package for the requested configuration before packaging."
         }
     }
-    if (-not (Test-Path -LiteralPath (Join-Path $packageSource $manifest.entry) -PathType Leaf)) { throw "Plugin entry is missing: $($manifest.id)" }
     if ($manifest.id -eq 'org.owo.agent-ipc') {
         $agentBinary = Join-Path $build 'owo_agent_ipc_plugin.exe'
         if (-not (Test-Path -LiteralPath $agentBinary -PathType Leaf)) {
@@ -81,6 +80,7 @@ foreach ($directory in Get-ChildItem -LiteralPath $plugins -Directory | Sort-Obj
     }
     $licensed = $null
     try {
+        if (-not (Test-Path -LiteralPath (Join-Path $packageSource $manifest.entry) -PathType Leaf)) { throw "Plugin entry is missing: $($manifest.id)" }
         if ($plugins.Equals((Join-Path $root 'plugins'), [StringComparison]::OrdinalIgnoreCase)) {
             $licensed = Join-Path $output ('.license-' + [Guid]::NewGuid().ToString('N'))
             Copy-Item -LiteralPath $packageSource -Destination $licensed -Recurse
