@@ -13,7 +13,15 @@ int main(int argc,char** argv) {try{
  r.request_id++;r.session_id="another";CHECK(provider.handle(r,{}).status==owo::engine::InputMethodStatus::error);
  r.action=owo::engine::InputMethodAction::compose;r.selected_candidate_id.clear();r.input="khlg";r.caret_byte=4;CHECK(provider.handle(r,{}).candidates[0].text=="中国");
  r.request_id++;r.input="a";r.caret_byte=1;out=provider.handle(r,{});CHECK(out.candidates.size()==7);CHECK(out.has_more);auto first=out.candidates[0].id;
+ const auto first_page=out.candidates;
  r.request_id++;r.page=1;out=provider.handle(r,{});CHECK(!out.candidates.empty());CHECK(out.candidates[0].id!=first);
+ const auto second_page=out.candidates;
+ r.request_id++;r.page=0;r.page_size=14;out=provider.handle(r,{});CHECK(out.candidates.size()==14);
+ for (std::size_t i=0;i<7;++i) {
+  CHECK(out.candidates[i].id==first_page[i].id);
+  CHECK(out.candidates[i+7].id==second_page[i].id);
+ }
+ r.page_size=7;
  r.request_id++;r.page=0;CHECK(provider.handle(r,{}).candidates[0].id==first);
  r.request_id++;r.input.clear();r.caret_byte=0;CHECK(provider.handle(r,{}).candidates.empty());
  r.request_id++;r.input="z";r.caret_byte=1;CHECK(provider.handle(r,{}).status==owo::engine::InputMethodStatus::error);
@@ -22,10 +30,18 @@ int main(int argc,char** argv) {try{
  const auto fixture=std::filesystem::temp_directory_path()/("owo-wubi-scheme-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
  const auto scheme=fixture/"input-schemes"/"wubi86";std::filesystem::create_directories(scheme);
  {std::ofstream user(scheme/"user-lexicon.tsv",std::ios::binary);user<<"OWO-WUBI86\t1\nversion\tfixture\nsource\tfixture\n...\nqxyy\t专用词条\t900\tphrase\n";}
- {std::ofstream settings(fixture/"settings.json",std::ios::binary);settings<<"{\"show_prefix_candidates\": false}";}
- owo::wubi86::Provider scoped(argv[1],{},scheme);
+ {std::ofstream settings(fixture/"settings.json",std::ios::binary);settings<<"{\"show_prefix_candidates\": false, \"learn_selected_words\":false}";}
+ const auto learning=fixture/"learning.tsv";
+ owo::wubi86::Provider scoped(argv[1],learning,scheme);
  r.input="qxyy";r.caret_byte=4;r.request_id++;auto custom=scoped.handle(r,{});
  CHECK(!custom.candidates.empty()&&custom.candidates[0].text=="专用词条");
+ r.action=owo::engine::InputMethodAction::select;r.selected_candidate_id=custom.candidates[0].id;r.request_id++;
+ const auto prepared=scoped.handle(r,{});CHECK(!prepared.commit_id.empty());
+ r.action=owo::engine::InputMethodAction::committed;r.selected_candidate_id=prepared.commit_id;r.request_id++;
+ CHECK(scoped.handle(r,{}).status==owo::engine::InputMethodStatus::success);
+ r.request_id++;CHECK(scoped.handle(r,{}).status==owo::engine::InputMethodStatus::success);
+ CHECK(!std::filesystem::exists(learning));
+ r.action=owo::engine::InputMethodAction::compose;r.selected_candidate_id.clear();
  r.input="qxy";r.caret_byte=3;r.request_id++;auto no_prefix=scoped.handle(r,{});
  CHECK(std::none_of(no_prefix.candidates.begin(),no_prefix.candidates.end(),[](const auto& value){return value.text=="专用词条";}));
  auto host=provider.handle(r,{});

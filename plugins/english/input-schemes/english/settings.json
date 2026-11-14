@@ -2,7 +2,7 @@
   "version": 1,
   "scheme": "english",
   "candidateFields": ["show_completions", "show_spelling_suggestions"],
-  "learningFields": ["learn_selected_words"],
+  "learningFields": ["learn_selected_words", "learning_sensitivity"],
   "lexiconExtension": ".tsv",
   "learnedLexiconFile": "learned.tsv",
   "lexiconHelp": "默认使用随包 wordfreq 英文词频。自定义 TSV：每行一个英文单词，或“单词 + Tab + 权重（1–1000）”；学习记录独立保存。在线字典仅提供词表，不提供频率或词形规则。",

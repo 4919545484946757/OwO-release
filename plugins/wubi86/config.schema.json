@@ -1,1 +1,7 @@
-{"type":"object","properties":{"show_prefix_candidates":{"type":"boolean","title":"显示前缀候选","description":"编码未输完时也显示可补全的五笔词条。","default":true}}}
+{
+  "type": "object",
+  "properties": {
+    "show_prefix_candidates": {"type":"boolean","title":"显示前缀候选","description":"编码未输完时也显示可补全的五笔词条。","default":true},
+    "learn_selected_words": {"type":"boolean","title":"学习已选五笔词条","description":"只学习成功上屏的五笔候选。关闭不删除已有记录，并停止应用其权重。","default":true}
+  }
+}

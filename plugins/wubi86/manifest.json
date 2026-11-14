@@ -1,5 +1,5 @@
 {
- "id":"owo.plugin.wubi86", "name":"OwO 五笔86", "version":"1.1.1",
+ "id":"owo.plugin.wubi86", "name":"OwO 五笔86", "version":"1.1.2",
  "api_version":1, "runtime":"process", "entry":"bin/owo_wubi86_plugin.exe",
  "permissions":["input.scheme"], "network":false, "config_schema":"config.schema.json"
 }

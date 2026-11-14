@@ -16,22 +16,8 @@ Provider::Provider(const std::filesystem::path& path,const std::filesystem::path
                    const std::filesystem::path& scheme_data) : learning_(learning) {
  auto loaded=dictionary_.load_file(path);if(!loaded.ok)throw std::runtime_error(loaded.error);
  if(scheme_data.empty())return;
- {
-  std::ifstream settings(scheme_data.parent_path().parent_path()/L"settings.json",std::ios::binary);
-  char buffer[4097]{};settings.read(buffer,sizeof(buffer));
-  if(!settings.bad()&&settings.gcount()<sizeof(buffer)) {
-   const std::string_view document(buffer,static_cast<std::size_t>(settings.gcount()));
-   constexpr std::string_view name="\"show_prefix_candidates\"";
-   if(const auto field=document.find(name);field!=document.npos) {
-    auto tail=document.substr(field+name.size());
-    auto first=tail.find_first_not_of(" \r\n\t");
-    if(first!=tail.npos&&tail[first]==':') {
-     tail.remove_prefix(first+1);first=tail.find_first_not_of(" \r\n\t");
-     if(first!=tail.npos&&tail.substr(first).starts_with("false"))show_prefix_candidates_=false;
-    }
-   }
-  }
- }
+ options_file_=scheme_data.parent_path().parent_path()/L"settings.json";
+ refresh_options();
  std::uintmax_t bytes=0;
  const auto add=[&](const std::filesystem::path& file) {
   const auto attributes=GetFileAttributesW(file.c_str());
@@ -50,25 +36,58 @@ Provider::Provider(const std::filesystem::path& path,const std::filesystem::path
   if(it->path().extension()==L".tsv")files.push_back(it->path());
  std::sort(files.begin(),files.end());for(const auto& file:files)add(file);
 }
+void Provider::refresh_options() {
+ const auto now=std::chrono::steady_clock::now();
+ if(options_file_.empty()||now<next_options_read_)return;
+ next_options_read_=now+std::chrono::milliseconds(750);
+ const auto flags=GetFileAttributesW(options_file_.c_str());
+ char buffer[4097]{};
+ std::size_t size{};
+ if(flags!=INVALID_FILE_ATTRIBUTES&&!(flags&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT))) {
+  std::ifstream settings(options_file_,std::ios::binary);settings.read(buffer,sizeof(buffer));
+  if(!settings.bad()&&settings.gcount()<sizeof(buffer))size=static_cast<std::size_t>(settings.gcount());
+ }
+ const std::string_view document(buffer,size);
+ const auto enabled=[&](std::string_view key) {
+  const auto field=document.find(key);
+  if(field==document.npos)return true;
+  auto value=document.substr(field+key.size());
+  auto first=value.find_first_not_of(" \r\n\t");
+  if(first==value.npos||value[first]!=':')return true;
+  value.remove_prefix(first+1);
+  first=value.find_first_not_of(" \r\n\t");
+  return first==value.npos||!value.substr(first).starts_with("false");
+ };
+ const bool prefix=enabled("\"show_prefix_candidates\""), learn=enabled("\"learn_selected_words\"");
+ if(prefix!=show_prefix_candidates_||learn!=learn_selected_words_)cached_code_.clear();
+ show_prefix_candidates_=prefix;learn_selected_words_=learn;
+}
 engine::InputMethodResponse Provider::handle(const engine::InputMethodRequest& r,std::stop_token stop) {
  std::lock_guard lock(mutex_);
  engine::InputMethodResponse out;out.request_id=r.request_id;out.session_id=r.session_id;
  out.scheme_id=r.scheme_id;out.page=r.page;out.preview=r.input;
  auto error=[&](std::string message) {issued_.clear();out.candidates.clear();out.has_more=false;out.status=engine::InputMethodStatus::error;out.diagnostic=std::move(message);return out;};
- if(!engine::validate_input_method_request(descriptor(),r).ok)return error("Invalid Wubi request");
+ static const auto spec=descriptor();
+ if(!engine::validate_input_method_request(spec,r).ok)return error("Invalid Wubi request");
  if(stop.stop_requested()) {out.status=engine::InputMethodStatus::cancelled;return out;}
  if(r.action==engine::InputMethodAction::committed) {
+  refresh_options();
   std::string raw_binding=r.session_id;raw_binding.push_back('\0');raw_binding+=r.input;raw_binding.push_back('\0');raw_binding+=std::to_string(r.page);
   std::string binding;constexpr char hex[]="0123456789abcdef";for(unsigned char c:raw_binding){binding+=hex[c>>4];binding+=hex[c&15];}
   if(learning_.contains(r.selected_candidate_id)){if(!learning_.matches(r.selected_candidate_id,binding))return error("Commit binding mismatch");return out;}
+  if(acknowledged_ && acknowledged_->token==r.selected_candidate_id &&
+     acknowledged_->session==r.session_id && acknowledged_->input==r.input && acknowledged_->page==r.page)return out;
   if(!prepared_||prepared_->token!=r.selected_candidate_id||prepared_->session!=r.session_id||prepared_->input!=r.input||prepared_->page!=r.page)return error("Unknown commit transaction");
-  if(!learning_.commit(prepared_->token,prepared_->code,prepared_->text,binding))return error("Learning persistence unavailable");
-  prepared_.reset();sequence_=r.request_id;return out;
+  if(learn_selected_words_) {
+   if(!learning_.commit(prepared_->token,prepared_->code,prepared_->text,binding))return error("Learning persistence unavailable");
+   cached_code_.clear();
+  }
+  acknowledged_=std::move(prepared_);prepared_.reset();sequence_=r.request_id;return out;
  }
  if(session_==r.session_id && r.request_id<=sequence_)return error("Stale Wubi request");
  prepared_.reset();
  if(r.action==engine::InputMethodAction::select) {
-  if(session_!=r.session_id||input_!=r.input||page_!=r.page)return error("Stale selection");
+  if(session_!=r.session_id||input_!=r.input||page_!=r.page||page_size_!=r.page_size)return error("Stale selection");
   auto found=std::find_if(issued_.begin(),issued_.end(),[&](const auto& c){return c.id==r.selected_candidate_id;});
   if(found==issued_.end())return error("Unknown candidate");
   BYTE nonce[16];if(BCryptGenRandom(nullptr,nonce,sizeof nonce,BCRYPT_USE_SYSTEM_PREFERRED_RNG)!=0)return error("Commit identity unavailable");
@@ -76,32 +95,45 @@ engine::InputMethodResponse Provider::handle(const engine::InputMethodRequest& r
   prepared_=Commit{token,r.session_id,r.input,found->annotation,found->text,r.page};
   out.commit_id=token;out.candidates.push_back(*found);issued_.clear();sequence_=r.request_id;return out;
  }
- session_=r.session_id;input_=r.input;page_=r.page;sequence_=r.request_id;issued_.clear();
+ if(session_!=r.session_id||input_!=r.input)refresh_options();
+ session_=r.session_id;input_=r.input;page_=r.page;page_size_=r.page_size;sequence_=r.request_id;issued_.clear();
  if(r.action==engine::InputMethodAction::cancel) {out.status=engine::InputMethodStatus::cancelled;return out;}
  if(r.input.empty())return out;
- auto matches=dictionary_.trie().prefix(r.input);
+ if (cached_code_ != r.input) {
+ const auto lookup = [&](const auto& dictionary) {
+  return show_prefix_candidates_ && r.input.size() < spec.max_input_bytes
+      ? dictionary.trie().prefix(r.input) : dictionary.trie().exact(r.input);
+ };
+ auto matches=lookup(dictionary_);
  if(!custom_dictionaries_.empty()) {
   std::vector<Entry> merged;
   std::set<std::pair<std::string,std::string>> seen;
   const auto append=[&](std::vector<Entry> rows) {for(auto& entry:rows)if(seen.emplace(entry.code,entry.text).second)merged.push_back(std::move(entry));};
-  for(const auto& dictionary:custom_dictionaries_)append(dictionary.trie().prefix(r.input));
+  for(const auto& dictionary:custom_dictionaries_)append(lookup(dictionary));
   append(std::move(matches));matches=std::move(merged);
  }
- if(!show_prefix_candidates_)std::erase_if(matches,[&](const auto& entry){return entry.code!=r.input;});
  // Read each learned frequency once, rather than allocating map keys in every sort comparison.
  std::vector<std::size_t> ranked(matches.size());std::iota(ranked.begin(),ranked.end(),0);
  std::vector<std::uint32_t> learned;learned.reserve(matches.size());bool any_learned=false;
- for(const auto& entry:matches){const auto n=learning_.frequency(entry.code,entry.text);learned.push_back(n);any_learned|=n!=0;}
+ if(learn_selected_words_)for(const auto& entry:matches){
+  if (stop.stop_requested()) {out.status=engine::InputMethodStatus::cancelled;return out;}
+  const auto n=learning_.frequency(entry.code,entry.text);learned.push_back(n);any_learned|=n!=0;
+ }
  if(any_learned)std::stable_sort(ranked.begin(),ranked.end(),[&](auto a,auto b){
   if((matches[a].code==r.input)!=(matches[b].code==r.input))return matches[a].code==r.input;
   return learned[a]>learned[b];
  });
  else std::stable_partition(ranked.begin(),ranked.end(),[&](auto i){return matches[i].code==r.input;});
+ if (stop.stop_requested()) {out.status=engine::InputMethodStatus::cancelled;return out;}
+ cached_matches_.clear();cached_matches_.reserve(matches.size());
+ for(auto index:ranked)cached_matches_.push_back(std::move(matches[index]));
+ cached_code_=r.input;
+ }
  const auto begin=r.page*r.page_size;
- for(std::size_t i=begin;i<matches.size();++i) {
+ for(std::size_t i=begin;i<cached_matches_.size();++i) {
   if(stop.stop_requested()) {out.candidates.clear();out.status=engine::InputMethodStatus::cancelled;return out;}
   if(out.candidates.size()==r.page_size) {out.has_more=true;break;}
-  const auto& entry=matches[ranked[i]];std::string id=entry.code+":";
+  const auto& entry=cached_matches_[i];std::string id=entry.code+":";
   constexpr char hex[]="0123456789abcdef";
   for(unsigned char c:entry.text){id+=hex[c>>4];id+=hex[c&15];}
   if(id.size()>128)return error("Candidate identity exceeds protocol limit");

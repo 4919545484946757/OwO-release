@@ -100,7 +100,11 @@ public sealed partial class MainPage
             var editor = new SchemeEditor(view, panel);
             if (_currentPage == "shortcuts") BuildSchemeShortcuts(editor, profile, plugin);
             else if (_currentPage == "user-lexicon") BuildSchemeDictionaries(panel, profile, plugin);
-            else BuildSchemeFields(editor, _currentPage == "candidates" ? profile.Document.CandidateFields : profile.Document.LearningFields, plugin);
+            else {
+                if (_currentPage == "candidates") BuildSchemePresentation(editor, profile, plugin);
+                BuildSchemeFields(editor, _currentPage == "candidates" ? profile.Document.CandidateFields : profile.Document.LearningFields, plugin);
+                if (editor.Save is not null) AddSchemeSave(editor);
+            }
             _schemeEditors.Add(key, editor);
             return view;
         } catch (Exception error) { return SchemeNote($"方案设置无法加载：{error.Message}", _currentPage != "shortcuts"); }
@@ -140,8 +144,38 @@ public sealed partial class MainPage
         } catch (Exception error) { ShowStatus($"方案设置未保存：{error.Message}", InfoBarSeverity.Error); return false; }
         finally { editor.Saving = false; }
     }
+    private void BuildSchemePresentation(SchemeEditor editor, SchemePackageProfile profile, PluginVersionSnapshot plugin) {
+        var defaults = SchemePresentation.Read(profile.PresentationDefaultsPath);
+        if (defaults is null) return;
+        var value = SchemePresentation.Read(profile.PresentationPath) ?? defaults;
+        var preview = new ComboBox { Header = "编码预览显示位置", ItemsSource = new[] { "候选栏", "输入位置" },
+            SelectedIndex = value.Preview == "input" ? 1 : 0 };
+        var page = new NumberBox { Header = "每页候选数", Minimum = 1, Maximum = 9, Value = value.PageSize, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline };
+        var wrap = new NumberBox { Header = "长候选换行长度", Minimum = 4, Maximum = 64, Value = value.WrapLength, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline };
+        AutomationProperties.SetAutomationId(preview, "SchemePresentationPreview");
+        AutomationProperties.SetAutomationId(page, "SchemePresentationPageSize");
+        AutomationProperties.SetAutomationId(wrap, "SchemePresentationWrapLength");
+        var dirty = false;
+        void Changed() { dirty = true; WatchSchemeEditor(editor); }
+        preview.SelectionChanged += (_, _) => Changed();
+        page.ValueChanged += (_, _) => Changed();
+        wrap.ValueChanged += (_, _) => Changed();
+        var panel = new StackPanel { Spacing = 8 };
+        panel.Children.Add(preview); panel.Children.Add(page); panel.Children.Add(wrap);
+        panel.Children.Add(SchemeNote("仅作用于当前方案，下次开始输入时生效。目标应用不支持输入位置预览时，会回退到候选栏。"));
+        editor.Panel.Children.Add(new Border { Style = (Style)Resources["SettingsCardStyle"], Child = panel });
+        editor.Save = () => {
+            if (!dirty) return Task.CompletedTask;
+            if (!PluginVersionIsCurrent(plugin.Id, plugin.Version)) throw new IOException("方案所属插件版本已变更。");
+            var size = checked((int)SettingsModules.UnsignedNumber(page.Value, 1, 9, "每页候选数"));
+            var length = checked((int)SettingsModules.UnsignedNumber(wrap.Value, 4, 64, "长候选换行长度"));
+            SchemePackageProfile.WriteFile(profile.PresentationPath, new SchemePresentation(preview.SelectedIndex == 1 ? "input" : "candidate", size, length).Encode());
+            dirty = false;
+            return Task.CompletedTask;
+        };
+    }
     private void BuildSchemeFields(SchemeEditor editor, IReadOnlyList<string> keys, PluginVersionSnapshot plugin) {
-        if (keys.Count == 0) { editor.Panel.Children.Add(SchemeNote("方案包未声明本页配置项。")); return; }
+        if (keys.Count == 0) { if (editor.Save is null) editor.Panel.Children.Add(SchemeNote("方案包未声明本页配置项。")); return; }
         SchemePackageProfile.CheckPath(Path.Combine(_pluginClient.StorePath, "versions", plugin.Id, plugin.Version, "manifest.json"));
         var model = PluginSettingsModel.Load(_pluginClient.StorePath, plugin);
         var reads = new Dictionary<string, Func<object?>>(StringComparer.Ordinal);
@@ -184,13 +218,15 @@ public sealed partial class MainPage
             }
             editor.Panel.Children.Add(new Border { Style = (Style)Resources["SettingsCardStyle"], Child = group });
         }
-        editor.Save = () => {
+        var savePresentation = editor.Save;
+        editor.Save = async () => {
+            if (savePresentation is not null) await savePresentation();
+            if (changes.Count == 0) return;
             if (!PluginVersionIsCurrent(plugin.Id, plugin.Version)) throw new IOException("方案所属插件版本已变更。");
             SchemePackageProfile.CheckPath(model.ConfigPath);
             model.SavePatch(changes.ToDictionary(key => key, key => reads[key]()));
-            changes.Clear(); return Task.CompletedTask;
+            changes.Clear();
         };
-        AddSchemeSave(editor);
     }
 
     private void BuildSchemeShortcuts(SchemeEditor editor, SchemePackageProfile profile, PluginVersionSnapshot plugin) {

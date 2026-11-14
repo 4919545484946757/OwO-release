@@ -190,16 +190,19 @@ bool learn(const Path& path, std::string_view token, const std::string& value) {
     DeleteFileW(temp.c_str());
     return false;
 }
-bool enabled(std::string_view json, std::string_view field) {
+std::string_view config_value(std::string_view json, std::string_view field) {
     const auto at = json.find(field);
-    if (at == json.npos) return true;
+    if (at == json.npos) return {};
     auto tail = json.substr(at + field.size());
     const auto colon = tail.find_first_not_of(" \t\r\n");
-    if (colon == tail.npos || tail[colon] != ':') return true;
+    if (colon == tail.npos || tail[colon] != ':') return {};
     tail.remove_prefix(colon + 1);
     const auto first = tail.find_first_not_of(" \t\r\n");
-    return first == tail.npos || !tail.substr(first).starts_with("false");
+    if (first == tail.npos) return {};
+    tail.remove_prefix(first);
+    return tail.substr(0, tail.find_first_of(",}\t\r\n "));
 }
+bool enabled(std::string_view json, std::string_view field) { return config_value(json, field) != "false"; }
 
 struct Stamp {
     std::uintmax_t size{};
@@ -241,12 +244,41 @@ struct Provider::State {
             return token == r.selected_candidate_id && session == r.session_id && input == r.input && page == r.page;
         }
     };
-    explicit State(const Path& source, Path directory) : base(read_wordfreq(source)), root(std::move(directory)) {}
+    explicit State(const Path& source, Path directory) : base(read_wordfreq(source)), root(std::move(directory)) {
+        // Precompute the base-only top slice for the hot first/two-letter
+        // queries. User/downloaded/learned words are merged independently.
+        const auto compare = [&](std::size_t a, std::size_t b) {
+            const int left = base[a].second - static_cast<int>(base[a].first.size());
+            const int right = base[b].second - static_cast<int>(base[b].first.size());
+            if (left != right) return left > right;
+            if (base[a].first.size() != base[b].first.size()) return base[a].first.size() < base[b].first.size();
+            return base[a].first < base[b].first;
+        };
+        for (std::size_t i = 0; i < base.size(); ++i) {
+            const std::string_view key = base[i].first;
+            if (const auto slot = short_prefix(key.substr(0, 1)); slot < short_top.size()) short_top[slot].push_back(i);
+            if (key.size() >= 2)
+                if (const auto slot = short_prefix(key.substr(0, 2)); slot < short_top.size()) short_top[slot].push_back(i);
+        }
+        for (auto& bucket : short_top) {
+            const auto keep = std::min(bucket.size(), max_matches);
+            std::partial_sort(bucket.begin(), bucket.begin() + keep, bucket.end(), compare);
+            bucket.resize(keep);
+        }
+    }
+    static std::size_t short_prefix(std::string_view key) {
+        constexpr std::size_t count = 26;
+        if (key.size() == 1 && letter(key[0])) return key[0] - 'a';
+        if (key.size() == 2 && letter(key[0]) && letter(key[1])) return count + (key[0] - 'a') * count + key[1] - 'a';
+        return count + count * count;
+    }
     const WordList base;
+    std::array<std::vector<std::size_t>, 26 + 26 * 26> short_top;
     const Path root;
     std::array<Stamp, 5> stamps{};
     Counts custom, learned;
     bool completions{true}, spelling{true}, learning{true};
+    int sensitivity{7};
     std::mutex mutex;
     std::string session, input, cached_input;
     std::size_t page{}, page_size{};
@@ -267,6 +299,8 @@ struct Provider::State {
             completions = enabled(json, "\"show_completions\"");
             spelling = enabled(json, "\"show_spelling_suggestions\"");
             learning = enabled(json, "\"learn_selected_words\"");
+            int strength{};
+            sensitivity = integer(config_value(json, "\"learning_sensitivity\""), strength) && strength >= 1 && strength <= 10 ? strength : 7;
         }
         if (next[1] != stamps[1] || next[2] != stamps[2] || next[3] != stamps[3]) {
             custom.clear();
@@ -294,7 +328,8 @@ struct Provider::State {
         const auto it = rows.find(key); return it == rows.end() ? 0 : it->second;
     }
     int score(std::string_view key, int frequency, int extra, int selections) const {
-        return std::max({frequency, extra, selections ? 300 : 0}) + (learning ? std::min(selections, 30) * 14 : 0)
+        if (!learning) selections = 0;
+        return std::max({frequency, extra, selections ? 300 : 0}) + std::min(selections, 30) * (2 * sensitivity)
             - static_cast<int>(key.size());
     }
     std::vector<engine::InputMethodCandidate> candidates(std::string_view typed, std::stop_token stop) const {
@@ -317,18 +352,27 @@ struct Provider::State {
                     else if (row.better_than(best.top())) { best.pop(); best.push(std::move(row)); }
                 }
             };
-            for (auto it = std::ranges::lower_bound(base, key, {}, &WordList::value_type::first);
+            const auto slot = short_prefix(key);
+            if (slot < short_top.size()) {
+                for (auto index : short_top[slot]) {
+                    if (stop.stop_requested()) return {};
+                    const auto& [value, frequency] = base[index];
+                    if (!custom.contains(value) && !(learning && learned.contains(value))) push(value, frequency, 0, 0);
+                }
+            } else for (auto it = std::ranges::lower_bound(base, key, {}, &WordList::value_type::first);
                  it != base.end() && it->first.starts_with(key); ++it) {
                 if (stop.stop_requested()) return {};
                 push(it->first, it->second, find(custom, it->first), find(learned, it->first));
             }
             for (auto it = custom.lower_bound(key); it != custom.end() && it->first.starts_with(key); ++it) {
                 if (stop.stop_requested()) return {};
-                if (!base_score(it->first)) push(it->first, 0, it->second, find(learned, it->first));
+                const auto frequency = base_score(it->first);
+                if (slot < short_top.size() || !frequency) push(it->first, frequency, it->second, find(learned, it->first));
             }
             if (learning) for (auto it = learned.lower_bound(key); it != learned.end() && it->first.starts_with(key); ++it) {
                 if (stop.stop_requested()) return {};
-                if (!base_score(it->first) && !custom.contains(it->first)) push(it->first, 0, 0, it->second);
+                const auto frequency = base_score(it->first);
+                if ((slot < short_top.size() || !frequency) && !custom.contains(it->first)) push(it->first, frequency, 0, it->second);
             }
             while (!best.empty()) { prefixes.push_back(best.top()); best.pop(); }
             std::ranges::reverse(prefixes);
@@ -352,8 +396,11 @@ struct Provider::State {
         Counts alternatives;
         const auto consider = [&](const std::string& edit) {
             if (edit.starts_with(key) && completions) return; // already in prefix candidates
-            if (edit != key && exact(edit)) alternatives.try_emplace(edit,
-                score(edit, base_score(edit), find(custom, edit), find(learned, edit)));
+            if (edit == key) return;
+            const auto frequency = base_score(edit), extra = find(custom, edit);
+            const auto selected = learning ? find(learned, edit) : 0;
+            if (frequency >= common || extra || selected)
+                alternatives.try_emplace(edit, score(edit, frequency, extra, selected));
         };
         const std::string_view letters(alphabet);
         for (std::size_t i = 0; i <= key.size(); ++i) {

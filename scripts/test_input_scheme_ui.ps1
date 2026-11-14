@@ -113,6 +113,14 @@ try {
         (Wait-Id $window 'CandidateNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
         $null = Wait-Id $window 'SchemeField:show_completions'
         $null = Wait-Id $window 'SchemeField:show_spelling_suggestions'
+        if ($preview.version -eq '1.0.2') {
+            $placement = Wait-Id $window 'SchemePresentationPreview'
+            $parked = @($placement.GetCurrentPattern([Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection())
+            $inlineName = -join (0x8f93,0x5165,0x4f4d,0x7f6e | ForEach-Object { [char]$_ })
+            if ($parked.Count -ne 1 -or $parked[0].Current.Name -ne $inlineName) { throw 'English inline preedit is not the default.' }
+            $null = Wait-Id $window 'SchemePresentationPageSize'
+            $null = Wait-Id $window 'SchemePresentationWrapLength'
+        }
         (Wait-Id $window 'IntelligenceNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
         $null = Wait-Id $window 'SchemeField:learn_selected_words'
         (Wait-Id $window 'UserLexiconNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()

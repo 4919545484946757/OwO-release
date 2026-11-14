@@ -2,6 +2,7 @@
 #include "owo/engine/input_method_provider.h"
 #include "owo/wubi86/wubi86_dictionary.h"
 #include <mutex>
+#include <chrono>
 #include "learning.h"
 #include <optional>
 namespace owo::wubi86 {
@@ -15,13 +16,20 @@ private:
  Wubi86Dictionary dictionary_;
  std::vector<Wubi86Dictionary> custom_dictionaries_;
  bool show_prefix_candidates_{true};
+ bool learn_selected_words_{true};
+ void refresh_options();
+ std::filesystem::path options_file_;
+ std::chrono::steady_clock::time_point next_options_read_{};
  Learning learning_;
  struct Commit {std::string token,session,input,code,text;std::size_t page;};
- std::optional<Commit> prepared_;
+ std::optional<Commit> prepared_, acknowledged_;
  std::mutex mutex_;
  std::string session_,input_;
  std::size_t page_{};
+ std::size_t page_size_{};
  std::uint64_t sequence_{};
  std::vector<engine::InputMethodCandidate> issued_;
+ std::string cached_code_;
+ std::vector<Entry> cached_matches_;
 };
 }

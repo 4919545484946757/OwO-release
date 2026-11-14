@@ -72,6 +72,19 @@ public:
     void set_notification(HWND window, UINT message) { notify_ = window; message_ = message; }
     void set_termination_commit(std::optional<std::wstring> text) { termination_commit_ = std::move(text); }
     bool active() const { return composition_ && !failed_; }
+    bool owns_range(ITfContext* context) const { return composition_ && context_.Get() == context; }
+    bool allows_selection(ITfContext* context, TfEditCookie cookie) const {
+        if (!owns_range(context)) return false;
+        Ptr<ITfRange> range;
+        TF_SELECTION selection{}; ULONG fetched{};
+        if (FAILED(composition_->GetRange(&range)) || !unchanged(range.Get(), cookie, applied_)) return false;
+        const auto status = context->GetSelection(cookie, TF_DEFAULT_SELECTION, 1, &selection, &fetched);
+        Ptr<ITfRange> caret; caret.Attach(selection.range);
+        LONG left{}, right{}; BOOL empty{};
+        return SUCCEEDED(status) && fetched == 1 && caret && SUCCEEDED(caret->IsEmpty(cookie, &empty)) && empty &&
+            SUCCEEDED(caret->CompareStart(cookie, range.Get(), TF_ANCHOR_START, &left)) && left >= 0 &&
+            SUCCEEDED(caret->CompareEnd(cookie, range.Get(), TF_ANCHOR_END, &right)) && right <= 0;
+    }
     bool caret_offset(ITfContext* context, TfClientId client, std::size_t& offset) {
         if (!composition_ || context_.Get() != context) return false;
         bool inside = true;
@@ -125,6 +138,8 @@ public:
                 if (FAILED(result) || !composition_) return fail(FAILED(result) ? result : E_FAIL);
             }
             result = composition_->GetRange(&range);
+            if (SUCCEEDED(result) && !applied_.empty() && !unchanged(range.Get(), cookie, applied_))
+                return fail(E_ABORT);
             if (SUCCEEDED(result)) result = range->SetText(cookie, 0, requested_.data(), static_cast<LONG>(requested_.size()));
             if (FAILED(result)) return fail(result);
             applied_ = requested_;

@@ -1,5 +1,6 @@
 #include "owo/tsf/input_scheme_picker.h"
 #include "owo/plugin/input_scheme_icon.h"
+#include "owo/config/scheme_presentation.h"
 
 #include <iostream>
 #include <string>
@@ -7,6 +8,11 @@
 #define CHECK(value) do { if (!(value)) { std::cerr << #value << '\n'; return 1; } } while (false)
 
 int main() {
+    const std::string_view preset = "OWO_SCHEME_PRESENTATION_V1\r\npreview=input\r\npage_size=7\r\nwrap_length=24\r\n";
+    const auto presentation = owo::config::parse_scheme_presentation(preset);
+    CHECK(presentation && presentation->inline_preview && presentation->page_size == 7 && presentation->wrap_length == 24);
+    CHECK(!owo::config::parse_scheme_presentation("OWO_SCHEME_PRESENTATION_V1\npreview=input\npage_size=10\nwrap_length=24\n"));
+    CHECK(!owo::config::parse_scheme_presentation(std::string(preset) + "preview=candidate\n"));
     owo::tsf::InputSchemePicker picker;
     CHECK(!picker.tap(0, {}) && !picker.showing());
     CHECK(picker.tap(1, 0) && picker.selection() == 0);

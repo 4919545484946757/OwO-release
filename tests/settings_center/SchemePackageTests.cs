@@ -18,6 +18,16 @@ try {
     Check(Load() is null);
     Write(document);
     var profile = Load()!;
+    Check(SchemePresentation.Read(profile.PresentationDefaultsPath) is null);
+    var defaults = new SchemePresentation("input", 7, 24);
+    SchemePackageProfile.WriteFile(profile.PresentationDefaultsPath, defaults.Encode());
+    Check(SchemePresentation.Read(profile.PresentationDefaultsPath) == defaults);
+    var custom = new SchemePresentation("candidate", 9, 48);
+    SchemePackageProfile.WriteFile(profile.PresentationPath, custom.Encode());
+    Check(SchemePresentation.Read(profile.PresentationPath) == custom &&
+        SchemePresentation.Read(profile.PresentationDefaultsPath) == defaults);
+    SchemePackageProfile.WriteFile(profile.PresentationPath, (custom with { PageSize = 10 }).Encode());
+    Check(SchemePresentation.Read(profile.PresentationPath) is null);
     Check(profile.Document.CandidateFields.Single() == "show_prefix" && profile.Document.LearningFields.Single() == "learn");
     Check(profile.UserLexiconPath == Path.Combine(root, "data", "org.test", "input-schemes", "table", "user-lexicon.tsv"));
     Check(profile.DownloadPath(source) != profile.UserLexiconPath && Load("plugin:org.test/other") is null);

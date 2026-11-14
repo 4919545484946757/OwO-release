@@ -1,6 +1,7 @@
 #include "test_text_store.h"
 #include "owo/tsf/scheme_commit.h"
 #include "owo/tsf/input_method_context.h"
+#include "../../src/tsf/inline_preedit.h"
 #include <iostream>
 
 namespace {
@@ -10,6 +11,7 @@ public:
     ITfRange* refreshed{};
     bool current{true}, pending{true};
     unsigned confirmations{}, calls{};
+    owo::tsf::InlinePreedit* inline_preview{};
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID id, void** out) override {
         if (!out) return E_POINTER; *out = nullptr;
         if (id != IID_IUnknown && id != IID_ITfEditSession) return E_NOINTERFACE;
@@ -22,7 +24,10 @@ public:
         const owo::tsf::InputMethodWriteFacts facts{1,1,2000,2000,1000,true,pending,current,true,
             owo::tsf::InputMethodContextSafety::allowed};
         if (!owo::tsf::input_method_write_allowed(facts)) return E_ABORT;
-        auto hr = owo::tsf::commit_scheme_selection(context, cookie, L"\x4e2d\x6587", &refreshed);
+        if (inline_preview && !inline_preview->allows_selection(context, cookie)) return E_ABORT;
+        auto* range = inline_preview ? inline_preview->prepare_commit(context) : nullptr;
+        auto hr = owo::tsf::commit_scheme_selection(context, cookie, L"\x4e2d\x6587", &refreshed, range);
+        if (inline_preview) inline_preview->finish_commit(SUCCEEDED(hr));
         pending = false;
         // Observation of successful writes; no engine learning is simulated here.
         if (SUCCEEDED(hr)) ++confirmations;
@@ -80,12 +85,25 @@ int main() {
             check(run() == E_ABORT && store->writes == 3 && edit->confirmations == 2,
                   "caret failure cannot cause duplicate insertion");
             check(store->locks > 0 && edit->calls == 6, "Windows edit session and store lock callbacks executed");
+            store->fail_selection = false;
+            auto* preview = new owo::tsf::InlinePreedit;
+            const auto committed_prefix = store->text;
+            preview->update(context, client, L"pre", 2);
+            check(preview->active(), "application accepted inline preedit");
+            edit->inline_preview = preview; edit->pending = true;
+            check(SUCCEEDED(run()) && !preview->active() &&
+                store->text.size() == committed_prefix.size() + 2 && store->text.find(L"pre") == std::wstring::npos,
+                "commit replaces the entire inline preview without appending duplicate text");
             check(store->compositions_started > 0 && store->compositions_ended > 0,
-                  "production commit notifies real TSF composition owner");
-            store->fail_selection = false; store->reject_composition = true; edit->pending = true;
-            const auto before_reject = store->writes;
-            check(FAILED(run()) && store->writes == before_reject && edit->confirmations == 2,
-                  "host rejected composition never writes or confirms");
+                "actual TSF composition was ended");
+            edit->inline_preview = nullptr;
+            store->reject_composition = true;
+            const auto preserved = store->text;
+            preview->update(context, client, L"would overwrite", 0);
+            check(!preview->active() && store->text == preserved,
+                "when a host rejects inline preview, no text is inserted");
+            preview->cancel();
+            preview->Release();
             edit->Release();
         } else ++failures;
     } else ++failures;

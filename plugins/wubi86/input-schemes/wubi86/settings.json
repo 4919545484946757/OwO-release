@@ -2,7 +2,8 @@
   "version": 1,
   "scheme": "wubi86",
   "candidateFields": ["show_prefix_candidates"],
-  "learningFields": [],
+  "learningFields": ["learn_selected_words"],
   "lexiconExtension": ".tsv",
+  "lexiconHelp": "使用 OWO-WUBI86 v1 编码词库格式（UTF-8 TSV）。导入词条与内置五笔字表合并，不修改拼音词库。",
   "sources": []
 }

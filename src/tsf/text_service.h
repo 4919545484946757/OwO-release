@@ -1,6 +1,7 @@
 #pragma once
 
 #include "owo/config/config_store.h"
+#include "owo/config/scheme_presentation.h"
 #include "owo/agent/agent_protocol.h"
 #include "owo/plugin/candidate_theme.h"
 #include "owo/plugin/unicode_palette.h"
@@ -245,6 +246,7 @@ private:
     [[nodiscard]] std::string next_input_scheme(std::string_view current, bool composition_only = false) const;
     void activate_input_scheme(std::string target);
     void apply_plugin_scheme_shortcuts(bool force);
+    bool scheme_selection_allowed(ITfContext*, TfEditCookie) const;
     void initialize_language_bar();
     void uninitialize_language_bar() noexcept;
     void update_language_bar() noexcept;
@@ -493,6 +495,8 @@ private:
     ULONGLONG next_scheme_shortcut_read_{};
     bool scheme_shortcuts_scoped_{};
     bool scheme_word_typing_{};
+    std::optional<config::SchemePresentation> scheme_presentation_;
+    bool scheme_inline_sync_queued_{};
     std::string scheme_plugin_label_;
     std::optional<plugin::InputSchemeIcon> scheme_plugin_icon_;
     ULONGLONG scheme_word_idle_deadline_{};

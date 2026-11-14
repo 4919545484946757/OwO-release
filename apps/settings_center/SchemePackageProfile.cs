@@ -8,6 +8,35 @@ namespace OwO_Settings;
 internal sealed record SchemeDictionarySource(string Id, string Title, string License, string Url, int Bytes, string Sha256);
 internal sealed record SchemePackageDocument(int Version, string Scheme, string[] CandidateFields, string[] LearningFields,
     string? LexiconExtension, SchemeDictionarySource[] Sources, string? LearnedLexiconFile = null, string? LexiconHelp = null);
+internal sealed record SchemePresentation(string Preview, int PageSize, int WrapLength)
+{
+    internal const string Header = "OWO_SCHEME_PRESENTATION_V1";
+    internal static SchemePresentation? Read(string path) {
+        SchemePackageProfile.CheckPath(path);
+        if (!File.Exists(path)) return null;
+        using var file = File.OpenRead(path);
+        if (file.Length is <= 0 or > 4096) return null;
+        var bytes = new byte[(int)file.Length];
+        file.ReadExactly(bytes);
+        if (bytes.Any(b => b > 127)) return null;
+        var lines = System.Text.Encoding.ASCII.GetString(bytes).Replace("\r\n", "\n").Split('\n');
+        if (lines.Length == 5 && lines[^1] == "") lines = lines[..^1];
+        if (lines.Length != 4 || lines[0] != Header) return null;
+        var fields = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var line in lines.Skip(1)) {
+            var fieldsInLine = line.Split('=', 2);
+            if (fieldsInLine.Length != 2 || !fields.TryAdd(fieldsInLine[0], fieldsInLine[1])) return null;
+        }
+        static bool ReadInt(string? value, int low, int high, out int number) =>
+            int.TryParse(value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out number) &&
+            number >= low && number <= high;
+        var preview = fields.GetValueOrDefault("preview");
+        return preview is ("input" or "candidate") && ReadInt(fields.GetValueOrDefault("page_size"), 1, 9, out var pageSize) &&
+            ReadInt(fields.GetValueOrDefault("wrap_length"), 4, 64, out var wrap) ? new(preview, pageSize, wrap) : null;
+    }
+    internal byte[] Encode() => System.Text.Encoding.ASCII.GetBytes(
+        FormattableString.Invariant($"{Header}\npreview={Preview}\npage_size={PageSize}\nwrap_length={WrapLength}\n"));
+}
 
 // Declarative package assets only. No plugin XAML/code is loaded into Settings.
 internal sealed class SchemePackageProfile
@@ -25,6 +54,8 @@ internal sealed class SchemePackageProfile
     internal string DefaultsPath { get; }
     internal bool HasShortcuts => File.Exists(DefaultsPath);
     internal string ShortcutPath => Path.Combine(DataDirectory, "shortcuts.conf");
+    internal string PresentationDefaultsPath => Path.Combine(Path.GetDirectoryName(DefaultsPath)!, "presentation.conf");
+    internal string PresentationPath => Path.Combine(DataDirectory, "presentation.conf");
     internal string UserLexiconPath => Path.Combine(DataDirectory, "user-lexicon" + Document.LexiconExtension);
     internal string? LearnedLexiconPath => Document.LearnedLexiconFile is { } file ? Path.Combine(DataDirectory, file) : null;
     private SchemePackageProfile(SchemePackageDocument document, string data, string defaults) {

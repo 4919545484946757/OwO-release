@@ -3357,6 +3357,8 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
         SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(service));
     }
     if (message == kInlinePreeditChanged && service != nullptr) {
+        if (wparam) service->scheme_inline_sync_queued_ = false;
+        if (wparam && service->plugin_input_committing_) return 0;
         if (service->inline_preedit_ && service->inline_preedit_->take_termination()) service->clear_composition();
         else service->update_candidate_window();
         return 0;
@@ -5320,8 +5322,19 @@ bool TextService::candidate_preview_visible() const noexcept {
 
 void TextService::sync_inline_preedit() {
     if (selection_assistant_.active()) { if (inline_preedit_) inline_preedit_->cancel(); return; }
-    if (shortcut_config_.pinyin_preview_location != "input" || !chinese_mode_ ||
-        shortcut_config_.input_scheme != "full_pinyin" || is_agent_mode() || !has_composition() || !foreground_focus_) {
+    const bool plugin = plugin_scheme_selected();
+    const bool use_inline = plugin ? (scheme_presentation_ && scheme_presentation_->inline_preview)
+        : shortcut_config_.input_scheme == "full_pinyin" && shortcut_config_.pinyin_preview_location == "input";
+    // Do not reenter a TSF write while applying a plugin result under a read
+    // lock or while the commit edit is replacing the composition.
+    if (plugin_input_committing_ && plugin) return;
+    if (plugin && plugin_read_context_) {
+        if (message_window_ && !scheme_inline_sync_queued_)
+            scheme_inline_sync_queued_ = PostMessageW(message_window_, kInlinePreeditChanged, 1, 0) != FALSE;
+        return;
+    }
+    if (!use_inline || !chinese_mode_ || (plugin && !plugin_input_context_) ||
+        is_agent_mode() || !has_composition() || !foreground_focus_) {
         if (inline_preedit_) inline_preedit_->cancel();
         return;
     }
@@ -5331,13 +5344,18 @@ void TextService::sync_inline_preedit() {
         document->GetTop(&context); document->Release();
     }
     if (!context) return;
+    if (plugin && !same_context(context, plugin_input_context_)) {
+        context->Release();
+        return;
+    }
     if (!inline_preedit_) inline_preedit_.Attach(new (std::nothrow) InlinePreedit());
     if (inline_preedit_) {
         inline_preedit_->set_notification(message_window_, kInlinePreeditChanged);
-        inline_preedit_->set_termination_commit(shortcut_config_.focus_loss_commit_enabled
+        inline_preedit_->set_termination_commit(!plugin && shortcut_config_.focus_loss_commit_enabled
             ? std::optional<std::wstring>(staged_text() + input_buffer_) : std::nullopt);
         std::size_t cursor = 0;
-        if (staged_cursor_ < staged_candidates_.size()) {
+        if (plugin) cursor = input_cursor_;
+        else if (staged_cursor_ < staged_candidates_.size()) {
             for (std::size_t i = 0; i < staged_cursor_; ++i) cursor += staged_candidates_[i].text.size();
         } else cursor = staged_text().size() + preview_index_for_input_cursor(
             input_buffer_, segmented_input_.empty() ? input_buffer_ : segmented_input_, input_cursor_);
@@ -6537,6 +6555,7 @@ void TextService::apply_plugin_scheme_shortcuts(bool force) {
     scheme_shortcuts_scoped_ = false;
     if (!plugin_scheme_selected()) {
         scheme_word_typing_ = false;
+        scheme_presentation_.reset();
         scheme_plugin_label_.clear();
         scheme_plugin_icon_.reset();
         return;
@@ -6547,6 +6566,8 @@ void TextService::apply_plugin_scheme_shortcuts(bool force) {
         scheme_shortcut_identity_ = id;
         next_scheme_shortcut_read_ = now + 1000;
         scheme_word_typing_ = false;
+        const auto previous_presentation = scheme_presentation_;
+        scheme_presentation_.reset();
         scheme_plugin_label_.clear();
         const auto old_icon = std::exchange(scheme_plugin_icon_, {});
         scheme_shortcut_defaults_.clear(); scheme_shortcut_overrides_.clear();
@@ -6570,6 +6591,12 @@ void TextService::apply_plugin_scheme_shortcuts(bool force) {
             if (active.ok) {
                     scheme_plugin_label_ = active.manifest.name;
                     const auto scheme_assets = active.installed_path / L"input-schemes" / local;
+                    scheme_presentation_ = config::parse_scheme_presentation(read(scheme_assets / L"presentation.conf"));
+                    if (scheme_presentation_) {
+                        const auto custom = config::parse_scheme_presentation(
+                            read(root / L"data" / owner / L"input-schemes" / local / L"presentation.conf"));
+                        if (custom) scheme_presentation_ = custom;
+                    }
                     scheme_shortcut_defaults_ = read(scheme_assets / L"shortcuts.conf");
                     scheme_plugin_icon_ = plugin::read_input_scheme_icon(active.installed_path, local);
                     const auto typing = read(scheme_assets / L"typing.conf");
@@ -6579,6 +6606,14 @@ void TextService::apply_plugin_scheme_shortcuts(bool force) {
             }
         }
         if (old_icon != scheme_plugin_icon_) update_language_bar();
+        if (!force && has_composition() && previous_presentation != scheme_presentation_) {
+            scheme_presentation_ = previous_presentation; // apply settings at the next token boundary
+            next_scheme_shortcut_read_ = 0;
+        }
+    }
+    if (scheme_presentation_) {
+        shortcut_config_.candidate_page_size = scheme_presentation_->page_size;
+        shortcut_config_.candidate_wrap_length = scheme_presentation_->wrap_length;
     }
     if (const auto defaults = config::parse_scheme_shortcuts(scheme_shortcut_defaults_)) {
         const auto overrides = config::parse_scheme_shortcuts(scheme_shortcut_overrides_);
@@ -6714,6 +6749,12 @@ bool TextService::plugin_context_is_current(ITfContext* context) const {
     return same;
 }
 
+bool TextService::scheme_selection_allowed(ITfContext* context, TfEditCookie cookie) const {
+    if (plugin_scheme_selected() && inline_preedit_ && inline_preedit_->owns_range(context))
+        return inline_preedit_->allows_selection(context, cookie);
+    return scheme_selection_matches(context, cookie, plugin_input_selection_);
+}
+
 bool TextService::plugin_context_allowed(ITfContext* context,bool* pending) {
     if(pending)*pending=false;
     if (!plugin_context_is_current(context)) { activation_trace("CONTEXT_NOT_CURRENT", E_ACCESSDENIED, context); return false; }
@@ -6721,12 +6762,12 @@ bool TextService::plugin_context_allowed(ITfContext* context,bool* pending) {
         const auto resolution=resolve_input_context(context,plugin_read_cookie_);
         if(pending)*pending=resolution.pending_verification;
         return resolution.safety==InputMethodContextSafety::allowed &&
-            scheme_selection_matches(context,plugin_read_cookie_,plugin_input_selection_);
+            scheme_selection_allowed(context,plugin_read_cookie_);
     }
     InputMethodContextSafety safety = InputMethodContextSafety::unknown;
     auto* edit = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
         safety = inspect_input_method_context(context, cookie);
-        if (!scheme_selection_matches(context, cookie, plugin_input_selection_)) safety = InputMethodContextSafety::unknown;
+        if (!scheme_selection_allowed(context, cookie)) safety = InputMethodContextSafety::unknown;
         return S_OK;
     });
     if (!edit) return false;
@@ -7096,7 +7137,7 @@ void TextService::poll_plugin_input_locked() {
         if(plugin_replay_context_)finish_plugin_input_on_ui();
         if (plugin_input_committing_) return;
         if(plugin_input_document_.composition().input().empty()&&!candidate_request_pending_){
-            clear_composition(scheme_word_typing_ && plugin_input_descriptor_.has_value() && plugin_input_selection_);return;
+            clear_composition((scheme_word_typing_ || scheme_presentation_) && plugin_input_descriptor_.has_value() && plugin_input_selection_);return;
         }
         if(!candidate_request_pending_)queue_plugin_compose();return;
     }
@@ -7186,7 +7227,8 @@ void TextService::commit_plugin_text(std::wstring text, bool selected, std::stri
     if (!plugin_input_document_.generation()) (void)plugin_input_document_.enter(++context_generation_);
     const auto generation = plugin_input_document_.generation();
     auto* context = plugin_input_context_;
-    const bool keep_word_session = scheme_word_typing_ && plugin_input_descriptor_ && plugin_input_client_ && next_scheme.empty();
+    const bool keep_word_session = (scheme_word_typing_ || scheme_presentation_) &&
+        plugin_input_descriptor_ && plugin_input_client_ && next_scheme.empty();
     if (!selected) {
         plugin_input_future_ = {};
         plugin_pending_selection_.reset();
@@ -7204,11 +7246,14 @@ void TextService::commit_plugin_text(std::wstring text, bool selected, std::stri
             const bool current = plugin_context_is_current(context);
             const bool valid = input_method_write_allowed({generation, plugin_input_document_.generation(),
                 deadline, plugin_commit_deadline_, GetTickCount64(), plugin_scheme_selected(),
-                plugin_input_committing_, current, current && scheme_selection_matches(context, cookie, plugin_input_selection_),
+                plugin_input_committing_, current, current && scheme_selection_allowed(context, cookie),
                 current ? inspect_input_method_context(context, cookie) : InputMethodContextSafety::unknown});
             HRESULT written = E_ABORT;
             if (valid) {
-                written=commit_scheme_selection(context,cookie,text,&plugin_input_selection_);
+                const bool inline_commit = inline_preedit_ && inline_preedit_->owns_range(context);
+                auto* preview = inline_commit ? inline_preedit_->prepare_commit(context) : nullptr;
+                written=commit_scheme_selection(context,cookie,text,&plugin_input_selection_,preview);
+                if (inline_commit) inline_preedit_->finish_commit(SUCCEEDED(written));
             }
             if (plugin_input_document_.generation() != generation || plugin_commit_deadline_ != deadline) return written;
             auto* replay_selection = plugin_input_selection_;
@@ -7227,7 +7272,7 @@ void TextService::commit_plugin_text(std::wstring text, bool selected, std::stri
                     clear_composition(keep_word_session && plugin_input_selection_);
                 else {
                     candidate_page_ = 0; sync_plugin_display();
-                    plugin_input_needs_compose_ = !scheme_word_typing_ || !plugin_input_document_.composition().input().empty();
+                    plugin_input_needs_compose_ = !keep_word_session || !plugin_input_document_.composition().input().empty();
                 }
             } else {
                 candidate_request_failed_ = true; candidate_failure_detail_ = L"上屏失败；编码已保留";
