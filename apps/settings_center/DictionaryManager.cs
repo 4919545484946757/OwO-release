@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Windows.Storage.Pickers;
 
 namespace OwO_Settings;
@@ -11,10 +12,11 @@ internal sealed class DictionaryManager : UserControl
     private DictionaryCatalog _catalog = new(1, 0, []);
     private readonly ContentControl _page = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
     private readonly TextBox _search = new() { PlaceholderText = "搜索字典名称、格式或来源" };
+    private readonly TextBlock _catalogSummary = new() { Opacity = .72, TextWrapping = TextWrapping.Wrap };
     private readonly Grid _cards = new() { ColumnSpacing = 12, RowSpacing = 12 };
     private readonly Action<string, InfoBarSeverity> _reportStatus;
     private readonly Button _import = new() { Content = "导入字典" }, _refresh = new() { Content = "刷新" };
-    private readonly Button _restore = new() { Content = "恢复内置词库", Visibility = Visibility.Collapsed };
+    private readonly Button _restore = new() { Content = "恢复内置词库", Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly Button _options = new() { Content = "词库选项" };
     private readonly Grid _catalogPage = new() { Margin = new Thickness(16, 0, 16, 16), RowSpacing = 12 };
     private readonly Grid _overview = new() { RowSpacing = 12 };
@@ -46,10 +48,22 @@ internal sealed class DictionaryManager : UserControl
         var toolbar = new Grid { ColumnSpacing = 8, RowSpacing = 8 };
         toolbar.RowDefinitions.Add(new() { Height = GridLength.Auto }); toolbar.RowDefinitions.Add(new() { Height = GridLength.Auto });
         toolbar.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
-        toolbar.ColumnDefinitions.Add(new() { Width = GridLength.Auto }); toolbar.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
-        toolbar.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
-        toolbar.Children.Add(_search); Grid.SetColumnSpan(_search, 4);
-        Grid.SetRow(_import, 1); _import.HorizontalAlignment = HorizontalAlignment.Left; toolbar.Children.Add(_import);
+        toolbar.ColumnDefinitions.Add(new() { Width = new GridLength(0) });
+        _search.VerticalAlignment = VerticalAlignment.Center;
+        toolbar.Children.Add(_search);
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        _import.Style = (Style)Application.Current.Resources["AccentButtonStyle"];
+        actions.Children.Add(_import); actions.Children.Add(_options); actions.Children.Add(_refresh);
+        Grid.SetRow(actions, 1); toolbar.Children.Add(actions);
+        var wide = false;
+        toolbar.SizeChanged += (_, args) => {
+            var next = args.NewSize.Width >= 560;
+            if (wide == next) return;
+            wide = next;
+            toolbar.ColumnDefinitions[1].Width = wide ? GridLength.Auto : new GridLength(0);
+            toolbar.RowSpacing = wide ? 0 : 8;
+            Grid.SetRow(actions, wide ? 0 : 1); Grid.SetColumn(actions, wide ? 1 : 0);
+        };
         _discoveryHost.Content = new DictionaryDiscoveryView(async (name, prepared) => {
                 await RunAsync(async () => {
                     _catalog = await _store.LoadAsync();
@@ -60,11 +74,18 @@ internal sealed class DictionaryManager : UserControl
                 });
                 ShowInstalled();
             }, _reportStatus, beginDownload);
-        Grid.SetRow(_refresh, 1); Grid.SetColumn(_refresh, 2); toolbar.Children.Add(_refresh);
-        Grid.SetRow(_options, 1); Grid.SetColumn(_options, 1); toolbar.Children.Add(_options);
         AutomationProperties.SetAutomationId(_options, "DictionaryOptions");
-        Grid.SetRow(_restore, 1); Grid.SetColumn(_restore, 3); toolbar.Children.Add(_restore);
-        _catalogPage.Children.Add(toolbar);
+        var header = new StackPanel { Spacing = 8 };
+        var inventory = new TextBlock { Text = "本机字典", FontSize = 18 };
+        AutomationProperties.SetHeadingLevel(inventory, AutomationHeadingLevel.Level2);
+        AutomationProperties.SetAutomationId(_catalogSummary, "DictionaryCatalogSummary");
+        header.Children.Add(inventory); header.Children.Add(_catalogSummary);
+        header.Children.Add(toolbar); header.Children.Add(_restore);
+        _catalogPage.Children.Add(new Border {
+            Child = header, CornerRadius = new CornerRadius(8), Padding = new Thickness(14), BorderThickness = new Thickness(1),
+            Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
+            BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"]
+        });
         var scroll = new ScrollViewer { Content = _cards, HorizontalScrollMode = ScrollMode.Disabled,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalContentAlignment = HorizontalAlignment.Stretch };
         scroll.LayoutUpdated += (_, _) => {
@@ -122,6 +143,9 @@ internal sealed class DictionaryManager : UserControl
     }
     private void RenderCards() {
         _desiredCards.Clear();
+        var known = _catalog.Dictionaries.Count + _catalog.Builtins.Count(value => !value.Deleted);
+        var enabledCount = _catalog.Dictionaries.Count(value => value.Enabled) + _catalog.Builtins.Count(value => !value.Deleted && value.Enabled);
+        _catalogSummary.Text = $"{known} 本字典 · {enabledCount} 本已启用";
         var prompt = new ToggleMenuFlyoutItem { Text = "启用未补码字典时询问", IsChecked = _catalog.PromptBeforeEnablingPending };
         AutomationProperties.SetAutomationId(prompt, "DictionaryEnablePromptPreference");
         prompt.Click += async (_, _) => {

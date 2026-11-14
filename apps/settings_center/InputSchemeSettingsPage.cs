@@ -138,7 +138,7 @@ public sealed partial class MainPage
                 actions.Children.Add(move);
             }
             Grid.SetColumn(actions, 2); row.Children.Add(actions);
-            InputSchemeRows.Children.Add(new Border { Style = (Style)Resources["SettingsCardStyle"], Child = row });
+            InputSchemeRows.Children.Add(new Border { Style = (Style)Resources["SettingsGroupedRowStyle"], Child = row });
         }
     }
 

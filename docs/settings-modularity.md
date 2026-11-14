@@ -51,6 +51,8 @@
 3. 只有确认实际输入链路支持后，才在宿主方案能力描述中启用该功能；不要让插件配置或自然语言直接控制能力位。
 4. 为新字段补充模块/方案矩阵测试、导入导出往返，以及真实控件禁用/切换测试。
 
+全拼布局在 `SettingsPageLayout` 中按功能归组。为既有控件调整位置时，保留原控件和搜索目标，把控件移动到对应区块；不要为两种窗口宽度分别创建一套编辑器。分栏依据内容区宽度（扣除导航栏和页边距）重排，缩窄时按阅读顺序纵向堆叠。全局快捷键独立于宿主方案区块，切换到插件方案时不会隐藏。
+
 这是内部适配接口，不是新的插件 SDK、权限清单或跨进程能力协商协议；对外方案协议仍见[插件输入方案](plugins/input-schemes.md)。
 
 ## 定向验证
@@ -61,6 +63,7 @@ dotnet run --project tests/settings_center/configuration_transfer_tests.csproj -
 dotnet build apps/settings_center/OwO.Settings.csproj -c Release -r win-x64 --no-restore -p:Platform=x64 -p:NuGetAudit=false
 .\scripts\test_settings_modules_ui.ps1 -PublishDirectory .\build\settings-publish\win-x64
 .\scripts\test_settings_modules_ui.ps1 -PublishDirectory .\build\settings-publish\win-x64 -FreshAutoSaveDefaults
+.\scripts\test_input_scheme_ui.ps1 -PublishDirectory .\build\settings-publish\win-x64 -VerifyResponsiveLayout
 ```
 
 UI 检查只启动自己创建的测试进程，用随机 `build/settings-modules-ui-*` 配置及空插件目录；测试全拼、精确编码、未安装的插件方案引用（保守能力，不安装或授权插件）、同窗口方案切换、实际控件禁用、按页重置和自动保存。关闭/超时只结束自己启动的窗口，保留夹具供检查；不重启 Core、不操作日常词库或用户打开的设置窗口。

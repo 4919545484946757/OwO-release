@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$PublishDirectory = '', [string]$EnglishPackage = '', [switch]$RequirePackageIcon)
+param([string]$PublishDirectory = '', [string]$EnglishPackage = '', [switch]$RequirePackageIcon, [switch]$VerifyResponsiveLayout)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 Add-Type -AssemblyName UIAutomationClient
@@ -67,6 +67,36 @@ function Check-NoScopeLabel($window) {
     $label = Find-Id $window 'SettingsPageSchemeLabel'
     if ($null -ne $label -and -not $label.Current.IsOffscreen) { throw 'Configuration label leaked onto an unrelated page.' }
 }
+function Assert-Columns($window, [string]$firstId, [string]$secondId, [bool]$wide) {
+    $first = (Wait-Id $window $firstId).Current.BoundingRectangle
+    $second = (Wait-Id $window $secondId).Current.BoundingRectangle
+    if ($first.Height -le 0 -or $second.Height -le 0) { throw "Missing section geometry: $firstId, $secondId" }
+    if ($wide -and ($second.Left -le $first.Left + 50 -or [Math]::Abs($first.Top - $second.Top) -gt 3)) {
+        throw "Expected two columns for $firstId and $secondId; got $first / $second."
+    }
+    if (!$wide -and ([Math]::Abs($first.Left - $second.Left) -gt 3 -or $second.Top -le $first.Bottom)) {
+        throw "Expected a stacked layout for $firstId and $secondId; got $first / $second."
+    }
+}
+function Select-Nav($window, [string]$id, [string]$name) {
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $element = Find-Id $window $id
+        if ($null -eq $element) {
+            $label = [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty, $name)
+            $element = $window.FindAll([Windows.Automation.TreeScope]::Descendants, $label) | Where-Object {
+                $pattern = $null
+                $_.TryGetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern, [ref]$pattern)
+            } | Select-Object -First 1
+        }
+        if ($null -ne $element -and $element.Current.IsEnabled) {
+            $element.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+            return
+        }
+        Start-Sleep -Milliseconds 100
+    } until ([DateTime]::UtcNow -ge $deadline)
+    throw "Missing navigation item: $id"
+}
 function Wait-Config([string]$line) {
     $deadline = [DateTime]::UtcNow.AddSeconds(8)
     do {
@@ -100,6 +130,33 @@ try {
     $fullName = -join (0x5168,0x62fc | ForEach-Object { [char]$_ })
     $englishName = -join (0x7eaf,0x51c0,0x952e,0x76d8 | ForEach-Object { [char]$_ })
     Check-NoScopeLabel $window
+    if ($VerifyResponsiveLayout) {
+        Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class OwOTestDpi { [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd); }'
+        $scale = [OwOTestDpi]::GetDpiForWindow($process.MainWindowHandle) / 96.0
+        $resize = $window.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern)
+        $resize.Resize(1320 * $scale, 850 * $scale)
+        Start-Sleep -Milliseconds 550
+        $candidateName = -join (0x5019,0x9009,0x4e0e,0x8f93,0x5165 | ForEach-Object { [char]$_ })
+        $learningName = -join (0x5b66,0x4e60,0x4e0e,0x6392,0x5e8f | ForEach-Object { [char]$_ })
+        Select-Nav $window 'CandidateNavigationItem' $candidateName
+        Start-Sleep -Milliseconds 250
+        Assert-Columns $window 'CandidateOrderLayout' 'CandidateCommitLayout' $true
+        Select-Nav $window 'IntelligenceNavigationItem' $learningName
+        Start-Sleep -Milliseconds 200
+        Assert-Columns $window 'LearningFrequencyLayout' 'LearningCompletionLayout' $true
+        $resize.Resize(560 * $scale, 850 * $scale)
+        Start-Sleep -Milliseconds 550
+        Assert-Columns $window 'LearningFrequencyLayout' 'LearningCompletionLayout' $false
+        $resize.Resize(1080 * $scale, 760 * $scale)
+        Start-Sleep -Milliseconds 300
+        Select-Nav $window 'CandidateNavigationItem' $candidateName
+        $punctuation = Wait-Id $window 'ChinesePunctuationSettingsButton'
+        $punctuation.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+        foreach ($group in @('PunctuationSentenceLayout','PunctuationQuotationLayout','PunctuationBracketLayout','PunctuationSymbolsLayout')) {
+            $null = Wait-Id $window $group
+        }
+        Write-Output 'PASS: candidate and learning sections reflow between two columns and one; punctuation groups are reachable.'
+    }
     (Wait-Id $window 'UserLexiconNavigationItem').GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     $null = Wait-Id $window 'DictionarySearch'
     Check-ScopeLabel $window $fullName

@@ -12,6 +12,7 @@ public sealed partial class MainPage
     private const string PunctuationSources = ",.<>?;:[]{}\\|-_+=`~'\"()!$^";
     private readonly Dictionary<char, ToggleSwitch> _punctuationSwitches = [];
     private readonly Dictionary<char, Border> _punctuationCards = [];
+    private readonly TextBlock _punctuationSummary = new() { TextWrapping = TextWrapping.Wrap };
     private static readonly (char Source, string Name, string Output)[] PunctuationOptions = [
         (',', "逗号", "，"), ('.', "句号", "。"),
         ('<', "左书名号", "《"), ('>', "右书名号", "》"),
@@ -30,29 +31,44 @@ public sealed partial class MainPage
     private void InitializePunctuationSettings()
     {
         foreach (var option in PunctuationOptions) {
-            var grid = new Grid { ColumnSpacing = 16 };
+            var grid = new Grid { ColumnSpacing = 10 };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var label = new StackPanel { Spacing = 3 };
             label.Children.Add(new TextBlock {
                 Text = option.Name, Style = (Style)Resources["SettingTitleStyle"]
             });
-            label.Children.Add(new TextBlock {
-                Text = $"{option.Source} → {option.Output}；关闭后保留英文格式。",
-                Style = (Style)Resources["SettingDescriptionStyle"]
-            });
+            var format = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            format.Children.Add(FormatBadge(option.Source.ToString()));
+            format.Children.Add(new TextBlock { Text = "→", VerticalAlignment = VerticalAlignment.Center, Opacity = .7 });
+            format.Children.Add(FormatBadge(option.Output));
+            label.Children.Add(format);
             var toggle = new ToggleSwitch { IsOn = true, OnContent = "开", OffContent = "关" };
             AutomationProperties.SetName(toggle, $"{option.Name}使用中文格式");
             Grid.SetColumn(toggle, 1);
             grid.Children.Add(label);
             grid.Children.Add(toggle);
-            var card = new Border { Style = (Style)Resources["SettingsCardStyle"], Child = grid };
-            ChinesePunctuationFields.Children.Add(card);
+            var card = new Border { Child = grid };
             _punctuationSwitches.Add(option.Source, toggle);
             _punctuationCards.Add(option.Source, card);
         }
+        FrameworkElement Group(string title, string id, string keys) =>
+            SettingsSection(title, null, keys.Select(key => _punctuationCards[key]).ToArray(), id);
+        ChinesePunctuationFields.Content = SettingsStack(12,
+            SettingsSection("转换规则", "开启某个符号后按右侧示例转换；关闭单项则保留英文格式。", [_punctuationSummary]),
+            SettingsColumns(Group("语句标点", "PunctuationSentenceLayout", ",.?!;:\\"),
+                Group("引号与书名号", "PunctuationQuotationLayout", "'\"<>"), 610),
+            SettingsColumns(Group("括号与连接符", "PunctuationBracketLayout", "()[]{}-_|"),
+                Group("其他符号", "PunctuationSymbolsLayout", "+=`~$^"), 610));
         UpdatePunctuationNotice();
     }
+
+    private Border FormatBadge(string text) => new() {
+        Child = new TextBlock { Text = text, FontSize = 15, HorizontalAlignment = HorizontalAlignment.Center },
+        Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
+        BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"], BorderThickness = new Thickness(1),
+        MinWidth = 28, Padding = new Thickness(5, 1, 5, 1), CornerRadius = new CornerRadius(4)
+    };
 
     private uint PunctuationMask() => _punctuationSwitches.Aggregate(0u,
         (mask, entry) => entry.Value.IsOn ? mask | (1u << PunctuationSources.IndexOf(entry.Key)) : mask);
@@ -66,14 +82,14 @@ public sealed partial class MainPage
     private void UpdatePunctuationNotice()
     {
         if (_currentPage != "punctuation" || ChinesePunctuation is null) return;
-        if (!CurrentScheme.Supports(SettingsCapability.ChinesePunctuation)) {
-            ShowStatus("当前方案不使用宿主中文标点转换。以下偏好保持不变；方案自有标点请在对应插件中配置。", InfoBarSeverity.Informational);
+        if (!ConfigurationScheme.Supports(SettingsCapability.ChinesePunctuation)) {
+            _punctuationSummary.Text = "所选方案不使用宿主中文标点转换。原有偏好保持不变；方案自有标点请在对应插件中配置。";
             return;
         }
         var saveHint = AutoSaveSettings?.IsOn == true ? "修改后会自动保存。" : "修改后点击保存。";
-        ShowStatus(ChinesePunctuation.IsOn
+        _punctuationSummary.Text = ChinesePunctuation.IsOn
             ? $"总开关已开启：中文模式使用下方已开启的中文标点。{saveHint}英文模式不受影响。"
-            : "总开关已关闭：目前保留英文标点。下方偏好仍会保存，重新打开总开关后生效。", InfoBarSeverity.Informational);
+            : "总开关已关闭：目前保留英文标点。下方偏好仍会保存，重新打开总开关后生效。";
     }
 
     private void ChinesePunctuation_Toggled(object sender, RoutedEventArgs e) => UpdatePunctuationNotice();

@@ -64,13 +64,11 @@ public sealed partial class MainPage
     }
 
     private void UpdateSchemeScopePage() {
-        if (SchemeScopeHost is null || SchemeShortcutHost is null) return;
+        if (SchemeScopeHost is null || SchemeShortcutHost is null || _nativeShortcutLayout is null) return;
         var scoped = IsSchemeScopedPage && (_currentPage == "user-lexicon" ? !UsesHostDictionary : !IsHostConfigurationScope);
         SchemeScopeHost.Visibility = scoped && _currentPage != "shortcuts" ? Visibility.Visible : Visibility.Collapsed;
         SchemeShortcutHost.Visibility = scoped && _currentPage == "shortcuts" ? Visibility.Visible : Visibility.Collapsed;
-        NativeShortcutHint.Visibility = scoped ? Visibility.Collapsed : Visibility.Visible;
-        foreach (var item in _settingsCards.Where(card => _settingsModules.PageFor(card.Key) == "shortcuts" && !ReferenceEquals(card.Card, LanguageShortcutCard)))
-            item.Card.Visibility = scoped ? Visibility.Collapsed : Visibility.Visible;
+        _nativeShortcutLayout.Visibility = scoped ? Visibility.Collapsed : Visibility.Visible;
         if (!scoped) return;
         if (_currentPage is "candidates" or "intelligence") GeneralSettingsPage.Visibility = Visibility.Collapsed;
         if (_currentPage == "user-lexicon") {

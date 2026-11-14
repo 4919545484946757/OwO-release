@@ -122,6 +122,7 @@ public sealed partial class MainPage : Page
             }, ShowStatus, _windowDownloads.Start);
         InitializeAutoSave();
         InitializeLogoSettings();
+        InitializePageLayouts();
         InitializeSearchIndex();
         RefreshConfigurationSchemes();
         ShowPage("schemes");
@@ -260,17 +261,9 @@ public sealed partial class MainPage : Page
             ChinesePunctuationPage.ChangeView(null, 0, null, true);
             UpdatePunctuationNotice();
         }
-        SetVisibility(page == "schemes", InputSchemeSectionTitle, InputSchemeCard);
-        SetVisibility(page == "candidates", CandidateSectionTitle, PinyinPreviewLocationCard,
-                      CandidatePageSizeCard, CandidateWrapLengthCard,
-                      CandidatePartitionCard, CandidateSingleCharacterFirstCard, CandidateImmediateCommitCard,
-                      FocusLossCommitCard, ChinesePunctuationCard, PinyinSymbolCompatibilityCard,
-                      AltCodeSectionTitle, AltCodePreviewCard,
-                      AltCodePreviewPageSizeCard, AltCodePreviewWheelCard);
-        SetVisibility(page == "intelligence", LearningSectionTitle,
-                      UserLearningCard, LearningSensitivityCard,
-                      UserCompletionCard, UserCompletionRangeCard,
-                      ModelRankingCard, ModelTimeoutCard);
+        SetVisibility(page == "schemes", InputSchemeCard);
+        SetVisibility(page == "candidates", _candidateSettingsLayout);
+        SetVisibility(page == "intelligence", _learningSettingsLayout);
         if (generalPage) GeneralSettingsPage.ChangeView(null, 0, null, true);
         UpdateManualSettingsActions();
         (CurrentPageTitle.Text, CurrentPageDescription.Text) = page switch {

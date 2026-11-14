@@ -32,7 +32,6 @@ public sealed partial class MainPage
         _logoThemeCard = new Border { Style = (Style)Resources["SettingsCardStyle"], Child = content };
         AutomationProperties.SetAutomationId(_logoThemeSelector, "LogoTheme");
         AutomationProperties.SetName(_logoThemeSelector, "Logo 外观");
-        ((StackPanel)GeneralPreferencesPage.Content).Children.Insert(1, _logoThemeCard);
         RefreshLogoPreference();
         _logoThemeSelector.SelectionChanged += (_, _) => {
             if (_loadingLogoPreference) return;
