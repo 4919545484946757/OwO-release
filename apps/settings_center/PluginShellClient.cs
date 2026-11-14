@@ -25,6 +25,7 @@ internal sealed record PluginVersionSnapshot(
     public string ActivityLabel => Active ? "已启用" : "未启用";
     public string ActivityGlyph => Active ? "\uE73E" : "\uE91F";
     public double ActivityEmphasis => Active ? 1 : 0;
+    public double InactiveEmphasis => Active ? 0 : 1;
     public string AuthorizationLabel => Permissions.Count == 0 ? "无需授权" : PermissionsAuthorized ? "已授权" : "未授权";
     public string AuthorizationGlyph => Permissions.Count == 0 ? "\uE946" : PermissionsAuthorized ? "\uE72E" : "\uE7BA";
     public bool AuthorizationPending => Permissions.Count != 0 && !PermissionsAuthorized;

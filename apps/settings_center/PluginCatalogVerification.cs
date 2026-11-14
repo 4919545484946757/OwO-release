@@ -52,10 +52,9 @@ public sealed partial class MainPage
             VisualDescendants(PluginEnabledVersions).Contains(latestCard) && VisualDescendants(PluginDisabledVersions).Contains(oldCard),
             "active and inactive versions appear in separate counted sections");
         Border Layer(Button card, string name) => ((Grid)VisualTreeHelper.GetParent(card)).Children.OfType<Border>().Single(border => border.Name == name);
-        Check(Layer(latestCard, "PluginActivityFill").Opacity == 1 && Layer(oldCard, "PluginActivityFill").Opacity == 0 &&
-            Layer(latestCard, "PluginAuthorizationFill").Opacity == 1 && Layer(latestCard, "PluginPendingFill").Opacity == 0 &&
-            Layer(oldCard, "PluginAuthorizationFill").Opacity == 0 && Layer(oldCard, "PluginPendingFill").Opacity == 1,
-            "card background independently reflects activation and authorization");
+        Check(Equals(Layer(latestCard, "PluginDefaultSurface").Background, Layer(oldCard, "PluginDefaultSurface").Background) &&
+            Layer(latestCard, "PluginDisabledSurface").Opacity == 0 && Layer(oldCard, "PluginDisabledSurface").Opacity == 1,
+            "card background uses the standard surface and only adds a fill when inactive");
         Check(cards.All(card => VisualDescendants(card).OfType<Border>().Any(logo => logo.Name == "PluginLogoSlot" && logo.ActualWidth == 44)) &&
             cards.All(card => VisualDescendants(card).OfType<TextBlock>().Any(text => text.Name == "PluginCardDescription" &&
                 text.ActualWidth <= 480 && text.TextWrapping == TextWrapping.Wrap && text.MaxLines == 0)),

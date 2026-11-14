@@ -7,30 +7,21 @@
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#EDEDED"/>
                     <SvgImageSource x:Key="PluginPuzzleImageSource" UriSource="ms-appx:///Assets/Decor/PluginPuzzle.svg"/>
                     <x:Double x:Key="PluginPuzzleOpacity">0.01</x:Double>
-                    <SolidColorBrush x:Key="PluginEnabledFill" Color="#DDECF4"/>
                     <SolidColorBrush x:Key="PluginDisabledFill" Color="#E8E9EC"/>
-                    <SolidColorBrush x:Key="PluginAuthorizedTint" Color="#2453A173"/>
-                    <SolidColorBrush x:Key="PluginPendingTint" Color="#49DFAD50"/>
                     <SolidColorBrush x:Key="PluginCardHoverTint" Color="#0D000000"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#232639"/>
                     <SvgImageSource x:Key="PluginPuzzleImageSource" UriSource="ms-appx:///Assets/Decor/PluginPuzzle.Dark.svg"/>
                     <x:Double x:Key="PluginPuzzleOpacity">0.01</x:Double>
-                    <SolidColorBrush x:Key="PluginEnabledFill" Color="#283D51"/>
                     <SolidColorBrush x:Key="PluginDisabledFill" Color="#30323F"/>
-                    <SolidColorBrush x:Key="PluginAuthorizedTint" Color="#35469D69"/>
-                    <SolidColorBrush x:Key="PluginPendingTint" Color="#42BB862D"/>
                     <SolidColorBrush x:Key="PluginCardHoverTint" Color="#13FFFFFF"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}"/>
                     <SvgImageSource x:Key="PluginPuzzleImageSource" UriSource="ms-appx:///Assets/Decor/PluginPuzzle.svg"/>
                     <x:Double x:Key="PluginPuzzleOpacity">0</x:Double>
-                    <SolidColorBrush x:Key="PluginEnabledFill" Color="{ThemeResource SystemColorWindowColor}"/>
                     <SolidColorBrush x:Key="PluginDisabledFill" Color="{ThemeResource SystemColorWindowColor}"/>
-                    <SolidColorBrush x:Key="PluginAuthorizedTint" Color="Transparent"/>
-                    <SolidColorBrush x:Key="PluginPendingTint" Color="Transparent"/>
                     <SolidColorBrush x:Key="PluginCardHoverTint" Color="Transparent"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
@@ -723,10 +714,10 @@
                                         <StackPanel.Resources>
                                             <DataTemplate x:Key="InstalledPluginTemplate">
                                                 <Grid Margin="0,0,0,8">
-                                                    <Border Background="{ThemeResource PluginDisabledFill}" CornerRadius="8" IsHitTestVisible="False"/>
-                                                    <Border x:Name="PluginActivityFill" Background="{ThemeResource PluginEnabledFill}" CornerRadius="8" Opacity="{Binding ActivityEmphasis}" IsHitTestVisible="False"/>
-                                                    <Border x:Name="PluginAuthorizationFill" Background="{ThemeResource PluginAuthorizedTint}" CornerRadius="8" Opacity="{Binding AuthorizedEmphasis}" IsHitTestVisible="False"/>
-                                                    <Border x:Name="PluginPendingFill" Background="{ThemeResource PluginPendingTint}" CornerRadius="8" Opacity="{Binding PendingEmphasis}" IsHitTestVisible="False"/>
+                                                    <Border Background="{ThemeResource SettingsContentBackgroundBrush}" CornerRadius="8" IsHitTestVisible="False"/>
+                                                    <Border x:Name="PluginDefaultSurface" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                                            BorderThickness="1" CornerRadius="8" IsHitTestVisible="False"/>
+                                                    <Border x:Name="PluginDisabledSurface" Background="{ThemeResource PluginDisabledFill}" CornerRadius="8" Opacity="{Binding InactiveEmphasis}" IsHitTestVisible="False"/>
                                                     <Button Style="{StaticResource PluginCatalogCardButtonStyle}" Tag="{Binding}" Click="PluginVersionSettings_Click" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                                             HorizontalContentAlignment="Stretch" Padding="16,12,16,50" CornerRadius="8"
                                                             AutomationProperties.AutomationId="InstalledPluginCard" AutomationProperties.Name="{Binding SettingsLabel}">
