@@ -8,7 +8,10 @@
 
 int main() {
     owo::tsf::InputSchemePicker picker;
-    CHECK(!picker.tap(1, 0) && !picker.showing());
+    CHECK(!picker.tap(0, {}) && !picker.showing());
+    CHECK(picker.tap(1, 0) && picker.selection() == 0);
+    CHECK(!picker.tap(1, 0) && picker.selection() == 0);
+    picker.reset();
     CHECK(picker.tap(3, 1) && picker.selection() == 2);
     CHECK(!picker.tap(3, 1) && picker.selection() == 2);
     picker.release_space();

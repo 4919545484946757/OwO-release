@@ -10,7 +10,7 @@ namespace owo::tsf {
 class InputSchemePicker {
 public:
     bool tap(std::size_t count, std::optional<std::size_t> active) noexcept {
-        if (latched_ || count < 2) return false;
+        if (latched_ || count == 0) return false;
         latched_ = true;
         if (!selected_) selected_ = active ? (*active + 1) % count : 0;
         else selected_ = (*selected_ + 1) % count;

@@ -73,6 +73,15 @@ $text = New-Object Windows.Forms.TextBox
 $text.Text = 'OwO probe'
 $text.Dock = 'Top'
 $form.Controls.Add($text)
+# Verify delivery, not the EDIT control's optional Ctrl+A select-all behavior.
+$script:sawControlA = $false
+$form.KeyPreview = $true
+$form.add_KeyDown({
+    param($sender, $eventArgs)
+    if ($eventArgs.Control -and $eventArgs.KeyCode -eq [Windows.Forms.Keys]::A) {
+        $script:sawControlA = $true
+    }
+})
 $ctrlDown = $false
 $spaceDown = $false
 try {
@@ -99,7 +108,7 @@ try {
     Check-Visible $true 'reopen'
     Key 0x41; Key 0x41 $true
     Check-Visible $false 'Ctrl+A'
-    if ($text.SelectionLength -ne $text.TextLength) { throw 'Picker swallowed Ctrl+A.' }
+    if (!$script:sawControlA) { throw 'The focused window did not receive Ctrl+A.' }
     $spaceDown = $true; Key 0x20
     Key 0x20 $true; $spaceDown = $false
     Check-Visible $true 'reopen for Escape'

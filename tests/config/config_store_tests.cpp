@@ -337,6 +337,13 @@ int main(const int argc, char** argv) {
     v20.erase(v20.find(picker_field), picker_field.size());
     const auto restored_v20 = owo::config::parse_config(v20);
     if (!restored_v20.ok || restored_v20.value != rotation) return 99;
+    const auto no_plugins = [](const std::string& id) { return !owo::config::is_plugin_input_scheme(id); };
+    const std::vector<std::string> with_gaps{"!english", "exact_code", plugin_scheme.input_scheme, "full_pinyin"};
+    if (owo::config::enabled_input_schemes(with_gaps, no_plugins) != std::vector<std::string>{"exact_code", "full_pinyin"} ||
+        owo::config::next_enabled_input_scheme(with_gaps, "exact_code", no_plugins) != "full_pinyin" ||
+        owo::config::next_enabled_input_scheme(with_gaps, "full_pinyin", no_plugins) != "exact_code" ||
+        owo::config::next_enabled_input_scheme(with_gaps, plugin_scheme.input_scheme, no_plugins) != "exact_code" ||
+        owo::config::legacy_input_scheme_order("english") != std::vector<std::string>{"english"}) return 100;
     const auto scheme_defaults = owo::config::parse_scheme_shortcuts("OWO_SCHEME_SHORTCUTS_V1\nraw=Enter\nnext_page=];PageDown\n");
     const auto scheme_override = owo::config::parse_scheme_shortcuts("OWO_SCHEME_SHORTCUTS_V1\nraw=Ctrl+R\n");
     auto live = rotation; live.input_scheme = plugin_scheme.input_scheme;

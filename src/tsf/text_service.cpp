@@ -91,6 +91,8 @@ constexpr wchar_t kSchemePickerClass[] = L"OwO.SchemePickerWindow";
 constexpr wchar_t kCandidateThemeChangedMessageName[] = L"OwO.CandidateTheme.Refresh.v1";
 constexpr UINT kCandidateReady = WM_APP + 1;
 constexpr UINT kLanguageShortcutPressed = WM_APP + 2;
+constexpr WPARAM kSchemePickerGesture = 1;
+constexpr WPARAM kSchemeEarlyGesture = 2;
 constexpr UINT kAltCodeDigitPressed = WM_APP + 3;
 constexpr UINT kAltCodeFinished = WM_APP + 4;
 constexpr UINT kAgentReady = WM_APP + 5;
@@ -1059,6 +1061,7 @@ HRESULT TextService::ActivateEx(ITfThreadMgr* thread_manager,
     keyboard_hook_ = SetWindowsHookExW(WH_KEYBOARD, keyboard_hook_proc, nullptr,
                                        GetCurrentThreadId());
     activation_trace("SCHEME_KEYBOARD_HOOK", keyboard_hook_ ? S_OK : HRESULT_FROM_WIN32(GetLastError()));
+    sync_scheme_keyboard_hook();
     worker_ = std::jthread([this](const std::stop_token token) { worker_loop(token); });
     try {context_verifier_=std::make_unique<compatibility::UiaTextVerifier>();}
     catch(...){Deactivate();return E_OUTOFMEMORY;}
@@ -1090,6 +1093,7 @@ HRESULT TextService::Deactivate() { activation_trace("Deactivate");
         feedback_requests_.clear();
     }
     clear_composition();
+    stop_scheme_keyboard_hook();
     if (keyboard_hook_ != nullptr) {
         UnhookWindowsHookEx(keyboard_hook_);
         keyboard_hook_ = nullptr;
@@ -1129,6 +1133,7 @@ HRESULT TextService::OnSetFocus(const BOOL foreground) {
     foreground_focus_ = foreground != FALSE;
     if(context_verifier_)context_verifier_->invalidate();
     if (!foreground_focus_) {
+        stop_scheme_keyboard_hook();
         language_space_key_suppressed_ = false;
         scheme_picker_escape_suppressed_ = false;
         scheme_picker_.reset();
@@ -1140,6 +1145,7 @@ HRESULT TextService::OnSetFocus(const BOOL foreground) {
         recent_agent_context_.clear();
         agent_context_id_.clear();
     } else {
+        sync_scheme_keyboard_hook();
         prefetch_context_metadata();
         if (!had_focus) rotate_agent_context();
         if (has_composition()) update_candidate_window();
@@ -1152,6 +1158,7 @@ HRESULT TextService::OnInitDocumentMgr(ITfDocumentMgr*) {
 }
 
 HRESULT TextService::OnUninitDocumentMgr(ITfDocumentMgr*) {
+    cancel_scheme_picker();
     reset_learning_chain();
     // Retire experimental results even if a host omits a separate focus-loss callback.
     clear_composition();
@@ -1161,6 +1168,7 @@ HRESULT TextService::OnUninitDocumentMgr(ITfDocumentMgr*) {
 HRESULT TextService::OnSetFocus(ITfDocumentMgr* document_manager,
                                 ITfDocumentMgr* previous_document_manager) {
     if (document_manager != previous_document_manager) {
+        cancel_scheme_picker();
         const bool agent_mode = is_agent_mode();
         if (agent_mode) cancel_agent_session();
         refresh_shortcut_config();
@@ -1182,12 +1190,14 @@ HRESULT TextService::OnSetFocus(ITfDocumentMgr* document_manager,
         rotate_agent_context();
     }
     foreground_focus_ = document_manager != nullptr;
+    sync_scheme_keyboard_hook();
     if(context_verifier_)context_verifier_->invalidate();
     if(foreground_focus_)prefetch_context_metadata();
     return S_OK;
 }
 
 HRESULT TextService::OnPushContext(ITfContext*) {
+    cancel_scheme_picker();
     if (is_agent_mode()) cancel_agent_session();
     clear_composition();
     recent_language_context_.clear();
@@ -1197,6 +1207,7 @@ HRESULT TextService::OnPushContext(ITfContext*) {
 }
 
 HRESULT TextService::OnPopContext(ITfContext* context) {
+    cancel_scheme_picker();
     const bool agent_mode = is_agent_mode();
     if (agent_mode) cancel_agent_session();
     refresh_shortcut_config();
@@ -1214,6 +1225,7 @@ HRESULT TextService::OnPopContext(ITfContext* context) {
 
 HRESULT TextService::OnSetThreadFocus() {
     foreground_focus_ = true;
+    sync_scheme_keyboard_hook();
     prefetch_context_metadata();
     if (agent_context_id_.empty()) rotate_agent_context();
     if (has_composition()) update_candidate_window();
@@ -1221,6 +1233,8 @@ HRESULT TextService::OnSetThreadFocus() {
 }
 
 HRESULT TextService::OnKillThreadFocus() {
+    stop_scheme_keyboard_hook();
+    cancel_scheme_picker();
     if(context_verifier_)context_verifier_->invalidate();
     if (is_agent_mode()) cancel_agent_session();
     else commit_pending_on_focus_loss();
@@ -1237,6 +1251,9 @@ HRESULT TextService::OnChange(REFGUID guid) {
     if (!IsEqualGUID(guid, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE)) return S_OK;
     const auto mode = system_language_mode();
     if (!mode.has_value()) return S_OK;
+    // A legacy IME toggle may arrive while the keyboard gesture is already
+    // owned by the picker. Do not run a second, out-of-order mode switch.
+    if (scheme_picker_.showing() || scheme_physical_space_captured_) return S_OK;
     system_keyboard_closed_ = !*mode;
     if (*mode == chinese_mode_) return S_OK;
 
@@ -1320,6 +1337,7 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
 HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) { activation_trace("OnTestKeyDown", S_OK, context);
     if (eaten == nullptr) return E_POINTER;
     refresh_shortcut_config();
+    if (!scheme_keyboard_hook_ && (is_control_key(key) || key == VK_SPACE)) sync_scheme_keyboard_hook();
     if (key == VK_SPACE) activation_trace("SCHEME_SPACE_TSF_TEST", scheme_picker_shortcut(key) ? S_OK : S_FALSE, context);
     if (key == VK_SPACE && (key_down(VK_LWIN) || key_down(VK_RWIN))) {
         cancel_scheme_picker(); *eaten = FALSE; return S_OK;
@@ -1343,6 +1361,7 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
     diagnostic_input_started_us_ = diagnostics::CandidateTiming::instance().active()
         ? diagnostics::timing_now_us() : 0;
     refresh_shortcut_config();
+    if (!scheme_keyboard_hook_ && (is_control_key(key) || key == VK_SPACE)) sync_scheme_keyboard_hook();
     if (key == VK_SPACE && (key_down(VK_LWIN) || key_down(VK_RWIN))) {
         cancel_scheme_picker(); *eaten = FALSE; return S_OK;
     }
@@ -3373,7 +3392,15 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
         return 0;
     }
     if (message == kLanguageShortcutPressed && service != nullptr) {
-        if (wparam) (void)service->tap_scheme_picker(nullptr, reinterpret_cast<HWND>(lparam));
+        const auto foreground = reinterpret_cast<HWND>(lparam);
+        if (!service->has_scheme_keyboard_focus(foreground)) return 0;
+        if (wparam & kSchemeEarlyGesture) {
+            activation_trace("SCHEME_EARLY_SPACE");
+            service->refresh_shortcut_config();
+            if (!service->ctrl_space_switch_enabled()) return 0;
+            wparam = service->scheme_picker_binding_enabled() ? kSchemePickerGesture : 0;
+        }
+        if (wparam & kSchemePickerGesture) (void)service->tap_scheme_picker(nullptr, foreground);
         else (void)service->toggle_language_mode_from_window();
         return 0;
     }
@@ -3415,7 +3442,7 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
         }
         if (message == WM_DPICHANGED || message == WM_DISPLAYCHANGE || message == WM_SETTINGCHANGE) {
             if (message == WM_DISPLAYCHANGE) service->scheme_indicator_updated_ = 0;
-            if (service->scheme_picker_.showing()) service->position_scheme_picker();
+            if (service->scheme_picker_.showing()) (void)service->position_scheme_picker();
             return 0;
         }
         if (message == WM_CANCELMODE) { service->cancel_scheme_picker(); return 0; }
@@ -3668,6 +3695,70 @@ LRESULT CALLBACK TextService::keyboard_hook_proc(const int code, const WPARAM ke
     }
     return CallNextHookEx(service == nullptr ? nullptr : service->keyboard_hook_,
                           code, key, flags);
+}
+
+bool TextService::has_scheme_keyboard_focus(HWND foreground) const noexcept {
+    if (!foreground_focus_ || !foreground || foreground != GetForegroundWindow()) return false;
+    DWORD pid{};
+    const DWORD thread = GetWindowThreadProcessId(foreground, &pid);
+    if (pid != GetCurrentProcessId()) return false;
+    if (thread == GetCurrentThreadId()) return true;
+    GUITHREADINFO gui{sizeof gui};
+    return GetGUIThreadInfo(thread, &gui) && gui.hwndFocus &&
+        GetWindowThreadProcessId(gui.hwndFocus, nullptr) == GetCurrentThreadId();
+}
+
+void TextService::sync_scheme_keyboard_hook() noexcept {
+    if (!message_window_ || !ctrl_space_switch_enabled() || !has_scheme_keyboard_focus(GetForegroundWindow())) {
+        stop_scheme_keyboard_hook();
+        return;
+    }
+    if (scheme_keyboard_hook_ || keyboard_hook_service != this) return;
+    const auto module = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(message_window_, GWLP_HINSTANCE));
+    scheme_keyboard_hook_ = SetWindowsHookExW(WH_KEYBOARD_LL, scheme_keyboard_proc, module, 0);
+    activation_trace("SCHEME_EARLY_HOOK", scheme_keyboard_hook_ ? S_OK : HRESULT_FROM_WIN32(GetLastError()));
+}
+
+void TextService::stop_scheme_keyboard_hook() noexcept {
+    if (auto hook = std::exchange(scheme_keyboard_hook_, nullptr)) UnhookWindowsHookEx(hook);
+    scheme_physical_space_captured_ = false;
+}
+
+LRESULT CALLBACK TextService::scheme_keyboard_proc(int code, WPARAM message, LPARAM data) {
+    auto* service = keyboard_hook_service;
+    if (code == HC_ACTION && service && service->scheme_keyboard_hook_ && service->message_window_) {
+        const auto& key = *reinterpret_cast<const KBDLLHOOKSTRUCT*>(data);
+        const bool released = message == WM_KEYUP || message == WM_SYSKEYUP;
+        const auto down = [](int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; };
+        const auto foreground = GetForegroundWindow();
+        // Keep the early path limited to the shortcut in the foreground OwO
+        // input thread. No text, logging, I/O or plugin handling in this hook.
+        if (key.vkCode == VK_SPACE && released && std::exchange(service->scheme_physical_space_captured_, false)) {
+            PostMessageW(service->message_window_, kSchemePickerRelease, VK_SPACE, 0);
+            return 1;
+        }
+        if (service->has_scheme_keyboard_focus(foreground)) {
+            if (key.vkCode == VK_SPACE && !released && service->scheme_physical_space_captured_) return 1;
+            if (key.vkCode == VK_SPACE && !released && service->ctrl_space_switch_enabled() &&
+                down(VK_CONTROL) && !down(VK_SHIFT) && !down(VK_MENU) && !down(VK_LWIN) && !down(VK_RWIN)) {
+                if (PostMessageW(service->message_window_, kLanguageShortcutPressed, kSchemeEarlyGesture,
+                    reinterpret_cast<LPARAM>(foreground))) {
+                    service->scheme_physical_space_captured_ = true;
+                    return 1;
+                }
+            } else if (released && is_control_key(key.vkCode) && service->scheme_picker_binding_enabled()) {
+                const int other = key.vkCode == VK_RCONTROL || (key.flags & LLKHF_EXTENDED) ? VK_LCONTROL : VK_RCONTROL;
+                if (!down(other)) PostMessageW(service->message_window_, kSchemePickerRelease, VK_CONTROL, 0);
+            } else if (key.vkCode == VK_ESCAPE && (service->scheme_picker_.showing() || service->scheme_picker_escape_suppressed_)) {
+                const bool captured = std::exchange(service->scheme_picker_escape_suppressed_, !released);
+                if (!released && !captured) PostMessageW(service->message_window_, kSchemePickerCancel, 0, 0);
+                if (!released || captured) return 1;
+            } else if (!released && key.vkCode != VK_SPACE && !is_control_key(key.vkCode) && service->scheme_picker_.showing()) {
+                PostMessageW(service->message_window_, kSchemePickerCancel, 0, 0);
+            }
+        }
+    }
+    return CallNextHookEx(nullptr, code, message, data);
 }
 
 void TextService::queue_candidate_request() {
@@ -3969,11 +4060,10 @@ void TextService::refresh_shortcut_config(const bool force) {
         shortcut_config_initialized_ = true;
         shortcut_config_ = shortcut_config_store_.snapshot();
         saved_input_scheme_ = shortcut_config_.input_scheme;
-        if (shortcut_config_.input_scheme_order.empty()) {
-            shortcut_config_.input_scheme_order = {shortcut_config_.input_scheme};
-            if (shortcut_config_.input_scheme != "english") shortcut_config_.input_scheme_order.push_back("english");
-        }
+        if (shortcut_config_.input_scheme_order.empty())
+            shortcut_config_.input_scheme_order = config::legacy_input_scheme_order(shortcut_config_.input_scheme);
         shortcut_config_.input_scheme = next_input_scheme({});
+        if (shortcut_config_.input_scheme != "english") last_composing_scheme_ = shortcut_config_.input_scheme;
         chinese_mode_ = shortcut_config_.input_scheme != "english";
         apply_plugin_scheme_shortcuts(true);
         chinese_punctuation_enabled_ = shortcut_config_.chinese_punctuation_enabled;
@@ -3986,10 +4076,7 @@ void TextService::refresh_shortcut_config(const bool force) {
         const auto configured_scheme = shortcut_config_.input_scheme;
         shortcut_config_ = shortcut_config_store_.snapshot();
         const bool legacy = shortcut_config_.input_scheme_order.empty();
-        if (legacy) {
-            shortcut_config_.input_scheme_order = {shortcut_config_.input_scheme};
-            if (shortcut_config_.input_scheme != "english") shortcut_config_.input_scheme_order.push_back("english");
-        }
+        if (legacy) shortcut_config_.input_scheme_order = config::legacy_input_scheme_order(shortcut_config_.input_scheme);
         const auto& order = shortcut_config_.input_scheme_order;
         const bool keep = (system_keyboard_closed_ && configured_scheme == "english") ||
             (std::ranges::find(order, configured_scheme) != order.end() &&
@@ -4006,6 +4093,7 @@ void TextService::refresh_shortcut_config(const bool force) {
         if (!shortcut_config_.alt_code_preview_enabled)
             finish_alt_code_preview();
         sync_preserved_language_key();
+        sync_scheme_keyboard_hook();
     }
 }
 
@@ -6140,17 +6228,21 @@ HRESULT TextService::toggle_language_mode(ITfContext* context) {
 }
 
 std::string TextService::next_input_scheme(std::string_view current, bool composition_only) const {
-    const auto& order = shortcut_config_.input_scheme_order;
-    if (order.empty()) return current == "full_pinyin" && !composition_only ? "english" : "full_pinyin";
+    const auto order = shortcut_config_.input_scheme_order.empty()
+        ? config::legacy_input_scheme_order(shortcut_config_.input_scheme) : shortcut_config_.input_scheme_order;
     return config::next_enabled_input_scheme(order, current, [composition_only](const std::string& id) {
         if (composition_only && id == "english") return false;
         return !config::is_plugin_input_scheme(id) || usable_scheme_plugin(id).ok;
     });
 }
 
-bool TextService::scheme_picker_binding_enabled() const {
-    return shortcut_config_.language_shortcut_enabled && shortcut_config_.input_scheme_picker_enabled &&
+bool TextService::ctrl_space_switch_enabled() const {
+    return shortcut_config_.language_shortcut_enabled &&
         std::ranges::find(shortcut_config_.language_shortcuts, "Ctrl+Space") != shortcut_config_.language_shortcuts.end();
+}
+
+bool TextService::scheme_picker_binding_enabled() const {
+    return shortcut_config_.input_scheme_picker_enabled && ctrl_space_switch_enabled();
 }
 
 bool TextService::scheme_picker_shortcut(WPARAM key) const {
@@ -6177,7 +6269,7 @@ HRESULT TextService::tap_scheme_picker(ITfContext* context, HWND observed_foregr
         if (foreground != scheme_picker_foreground_ ||
             (context && !same_context(context, scheme_picker_context_))) cancel_scheme_picker();
         else {
-            if (scheme_picker_.tap(scheme_picker_choices_.size(), {})) position_scheme_picker();
+            if (scheme_picker_.tap(scheme_picker_choices_.size(), {})) (void)position_scheme_picker();
             return S_OK;
         }
     }
@@ -6215,17 +6307,10 @@ HRESULT TextService::tap_scheme_picker(ITfContext* context, HWND observed_foregr
         scheme_picker_choices_.push_back(std::move(choice));
     };
     scheme_picker_choices_.clear();
-    if (shortcut_config_.input_scheme_order.empty()) { add("full_pinyin"); add("english"); }
-    else for (const auto& id : shortcut_config_.input_scheme_order)
-        if (!id.starts_with('!')) add(id);
-    if (scheme_picker_choices_.size() < 2) {
-        activation_trace("SCHEME_PICKER_SINGLE_SCHEME", S_FALSE);
-        const auto target = scheme_picker_choices_.empty() ? "english" : scheme_picker_choices_.front().id;
-        cancel_scheme_picker();
-        const auto result = switch_input_scheme(target, focused);
-        focused->Release();
-        return result;
-    }
+    const auto order = shortcut_config_.input_scheme_order.empty()
+        ? config::legacy_input_scheme_order(shortcut_config_.input_scheme) : shortcut_config_.input_scheme_order;
+    for (const auto& id : config::enabled_input_schemes(order, [](const auto&) { return true; })) add(id);
+    if (scheme_picker_choices_.empty()) add("english"); // same emergency passthrough as direct rotation
     if (!scheme_picker_.tap(scheme_picker_choices_.size(), selected)) {
         focused->Release();
         return S_OK;
@@ -6248,7 +6333,10 @@ HRESULT TextService::tap_scheme_picker(ITfContext* context, HWND observed_foregr
     }
     // Posted taps and releases are processed in order. The timer also observes
     // modifier release on hosts which only deliver the preserved key.
-    position_scheme_picker();
+    if (!position_scheme_picker()) {
+        activation_trace("SCHEME_PICKER_POSITION_FAILED", E_FAIL);
+        return finish_scheme_picker();
+    }
     activation_trace("SCHEME_PICKER_SHOWN");
     return S_OK;
 }
@@ -6264,7 +6352,10 @@ HRESULT TextService::finish_scheme_picker(std::optional<std::size_t> clicked) {
     cancel_scheme_picker();
     HRESULT result = S_OK;
     if (!target.empty() && (shortcut_config_.input_scheme_order.empty() ||
-        std::ranges::find(shortcut_config_.input_scheme_order, target) != shortcut_config_.input_scheme_order.end()) &&
+        std::ranges::find(shortcut_config_.input_scheme_order, target) != shortcut_config_.input_scheme_order.end() ||
+        (target == "english" && config::enabled_input_schemes(shortcut_config_.input_scheme_order, [](const std::string& id) {
+            return !config::is_plugin_input_scheme(id) || usable_scheme_plugin(id).ok;
+        }).empty())) &&
         (!config::is_plugin_input_scheme(target) || usable_scheme_plugin(target).ok)) {
         // Recheck the original focus and composition safety immediately before writing.
         if (plugin_context_is_current(context) && (!has_composition() || plugin_context_allowed(context))) {
@@ -6282,7 +6373,8 @@ void TextService::cancel_scheme_picker() noexcept {
     scheme_picker_.close();
     scheme_picker_choices_.clear();
     if (!shown) return;
-    if (!(GetAsyncKeyState(VK_SPACE) & 0x8000)) scheme_picker_.release_space();
+    if (!scheme_physical_space_captured_ && !language_space_key_suppressed_ &&
+        !(GetAsyncKeyState(VK_SPACE) & 0x8000)) scheme_picker_.release_space();
     scheme_picker_foreground_ = nullptr;
     release_interface(scheme_picker_context_);
     if (message_window_) KillTimer(message_window_, kSchemePickerTimer);
@@ -6301,15 +6393,16 @@ void TextService::poll_scheme_picker() {
             cancel_scheme_picker(); return;
         }
     }
-    if (!(GetAsyncKeyState(VK_SPACE) & 0x8000)) scheme_picker_.release_space();
-    if (!(GetAsyncKeyState(VK_CONTROL) & 0x8000)) (void)finish_scheme_picker();
+    if (!scheme_physical_space_captured_ && !language_space_key_suppressed_ &&
+        !(GetAsyncKeyState(VK_SPACE) & 0x8000)) scheme_picker_.release_space();
+    if (!(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !key_down(VK_CONTROL)) (void)finish_scheme_picker();
 }
 
-void TextService::position_scheme_picker() {
-    if (!scheme_picker_window_ || !scheme_picker_.selection()) return;
+bool TextService::position_scheme_picker() {
+    if (!scheme_picker_window_ || !scheme_picker_.selection()) return false;
     const auto monitor = MonitorFromWindow(scheme_picker_foreground_, MONITOR_DEFAULTTONEAREST);
     MONITORINFO screen{sizeof(screen)};
-    if (!GetMonitorInfoW(monitor, &screen)) return;
+    if (!GetMonitorInfoW(monitor, &screen)) return false;
     scheme_picker_dpi_ = GetDpiForWindow(scheme_picker_foreground_);
     if (!scheme_picker_dpi_) scheme_picker_dpi_ = 96;
     const auto dip = [&](int px) { return MulDiv(px, static_cast<int>(scheme_picker_dpi_), 96); };
@@ -6349,8 +6442,12 @@ void TextService::position_scheme_picker() {
     }
     x = std::clamp(x, static_cast<int>(work.left), std::max(static_cast<int>(work.left), static_cast<int>(work.right) - width));
     y = std::clamp(y, static_cast<int>(work.top), std::max(static_cast<int>(work.top), static_cast<int>(work.bottom) - height));
-    SetWindowPos(scheme_picker_window_, HWND_TOPMOST, x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    if (!SetWindowPos(scheme_picker_window_, HWND_TOPMOST, x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW))
+        return false;
     InvalidateRect(scheme_picker_window_, nullptr, FALSE);
+    // Paint before queued modifier release can close a quick tap's popup.
+    UpdateWindow(scheme_picker_window_);
+    return IsWindowVisible(scheme_picker_window_) != FALSE;
 }
 
 void TextService::draw_scheme_picker(HDC target) const {
@@ -6429,6 +6526,7 @@ void TextService::activate_input_scheme(std::string target) {
         shortcut_config_.input_scheme_order = std::move(order);
     }
     shortcut_config_.input_scheme = std::move(target);
+    if (shortcut_config_.input_scheme != "english") last_composing_scheme_ = shortcut_config_.input_scheme;
     chinese_mode_ = shortcut_config_.input_scheme != "english";
     apply_plugin_scheme_shortcuts(true);
     if (shortcut_config_.input_scheme != "full_pinyin") correction_enabled_ = true;
@@ -6507,6 +6605,14 @@ HRESULT TextService::toggle_language_mode_from_window() {
 }
 
 HRESULT TextService::apply_language_mode(const bool chinese, ITfContext* context) {
+    if (chinese) {
+        // Windows' open/close compatibility compartment is not the scheme
+        // selector. Reopening restores the last still-enabled composing scheme.
+        const auto& order = shortcut_config_.input_scheme_order;
+        if (!last_composing_scheme_.empty() && std::ranges::find(order, last_composing_scheme_) != order.end() &&
+            (!config::is_plugin_input_scheme(last_composing_scheme_) || usable_scheme_plugin(last_composing_scheme_).ok))
+            return switch_input_scheme(last_composing_scheme_, context);
+    }
     return switch_input_scheme(chinese ? next_input_scheme({}, true) : "english", context);
 }
 
@@ -7188,7 +7294,9 @@ void TextService::finish_plugin_input_on_ui() {
             }
             SetKeyboardState(current); plugin_deferred_keys_.clear();
             if (tail.empty()) {
-                if (target != "english" && std::ranges::find(shortcut_config_.input_scheme_order, target) == shortcut_config_.input_scheme_order.end())
+                if (!(target == "english" && system_keyboard_closed_) &&
+                    (std::ranges::find(shortcut_config_.input_scheme_order, target) == shortcut_config_.input_scheme_order.end() ||
+                     (config::is_plugin_input_scheme(target) && !usable_scheme_plugin(target).ok)))
                     target = next_input_scheme(shortcut_config_.input_scheme);
                 activate_input_scheme(std::move(target));
             }

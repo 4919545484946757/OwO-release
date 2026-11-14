@@ -180,6 +180,10 @@ private:
     virtual ~TextService();
     static LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
     static LRESULT CALLBACK keyboard_hook_proc(int code, WPARAM key, LPARAM flags);
+    static LRESULT CALLBACK scheme_keyboard_proc(int code, WPARAM message, LPARAM data);
+    void sync_scheme_keyboard_hook() noexcept;
+    void stop_scheme_keyboard_hook() noexcept;
+    [[nodiscard]] bool has_scheme_keyboard_focus(HWND foreground) const noexcept;
     HRESULT initialize_windows();
     void destroy_windows() noexcept;
     HRESULT initialize_rendering();
@@ -301,11 +305,12 @@ private:
     HRESULT toggle_language_mode_from_window();
     bool scheme_picker_binding_enabled() const;
     bool scheme_picker_shortcut(WPARAM key) const;
+    [[nodiscard]] bool ctrl_space_switch_enabled() const;
     HRESULT tap_scheme_picker(ITfContext*, HWND foreground = nullptr);
     HRESULT finish_scheme_picker(std::optional<std::size_t> clicked = {});
     void cancel_scheme_picker() noexcept;
     void poll_scheme_picker();
-    void position_scheme_picker();
+    bool position_scheme_picker();
     void draw_scheme_picker(HDC) const;
     void remember_scheme_indicator(const RECT*);
     HWND scheme_picker_window_{}, scheme_picker_foreground_{};
@@ -385,6 +390,8 @@ private:
     bool candidate_present_geometry_valid_{};
     bool candidate_present_expanded_{};
     HHOOK keyboard_hook_{nullptr};
+    HHOOK scheme_keyboard_hook_{};
+    bool scheme_physical_space_captured_{};
     bool language_space_key_suppressed_{false};
     std::uint16_t alt_code_numpad_down_mask_{0};
     LanguageBarItem* language_bar_item_{nullptr};
@@ -490,6 +497,7 @@ private:
     std::optional<plugin::InputSchemeIcon> scheme_plugin_icon_;
     ULONGLONG scheme_word_idle_deadline_{};
     std::string saved_input_scheme_;
+    std::string last_composing_scheme_;
     config::AppConfig shortcut_config_;
     ULONGLONG next_shortcut_config_refresh_{0};
     bool shortcut_config_initialized_{false};
