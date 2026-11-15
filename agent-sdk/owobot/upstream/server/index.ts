@@ -1,3 +1,4 @@
+// Modified by the OwO project for the OwOBot desktop integration.
 // Import first: it reads a Cloud home's secrets off the launcher's pipe before any module can start a process.
 import { BOOT_CLOUD_SECRETS } from "./cloud-secrets-boot.ts";
 import { startFailureText } from "./start-failure-text.ts";
@@ -655,6 +656,10 @@ import { createConnectorCards } from "./host/connector-cards.ts";
 import { createLoginMailCodes } from "./host/login-mail-codes.ts";
 import { onThreadSeen, personAsks as personAskAt, sawThread } from "./thread-presence.ts"; import { createWarmSummaryHost, HARNESS_IDLE_FRACTION } from "./host/warm-summary-host.ts";
 
+const OWOBOT_MANAGED = process.env.OWOBOT_MANAGED === "1";
+if (OWOBOT_MANAGED && !process.env.OMB_DATA_DIR) {
+  throw new Error("OwOBot requires a dedicated data directory");
+}
 const PORT = Number(process.env.OMB_PORT || process.env.OGB_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.OMB_WEBHOOK_PORT || PORT + 1);
 const WEBHOOK_PUBLIC_URL = process.env.OMB_WEBHOOK_PUBLIC_URL || undefined;
@@ -765,9 +770,12 @@ const DESKTOP_MANAGED = process.env.OMB_DESKTOP_PARENT === "1";
 const SHARED_WORKSPACE_FULL_ACCESS = sharedWorkspaceFullAccessConfigured();
 const sharedWorkspaceFullAccessEnabled = () => SHARED_WORKSPACE_FULL_ACCESS && Boolean(workspaceAccess) && entitled("admin");
 const HOSTED_FULL_ACCESS_REFUSAL = "On a shared company workspace Full access comes only from the operator's dedicated policy";
-if (HOSTED_WORKSPACE) setDefaultApprovalMode("ask");
+if (HOSTED_WORKSPACE || OWOBOT_MANAGED) setDefaultApprovalMode("ask");
 // On a shared workspace loopback is a service, not the owner: every bot's shell is a loopback caller too.
 const LOOPBACK = resolveLoopbackTrust({ desktopManaged: DESKTOP_MANAGED, hostedWorkspace: HOSTED_WORKSPACE, cloudHome: Boolean(CLOUD_HOME), fromSource: import.meta.url.endsWith(".ts") });
+if (OWOBOT_MANAGED && (DESKTOP_MANAGED || LOOPBACK.trust !== "service" || LOOPBACK.localBrowsers)) {
+  throw new Error("OwOBot requires service trust and authenticated clients");
+}
 // The CLI's per-launch secret comes on stdin, never an env var: every engine this server starts inherits its environment.
 let cliOwnerToken: string | undefined;
 if (process.env.OMB_CLI_OWNER_STDIN === "1" && LOOPBACK.trust === "service" && process.stdin) {
@@ -12645,7 +12653,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       companionMutationToken,
       features: { sharedComputers: lendingEnabled() },
       loopbackTrust: LOOPBACK.trust,
-      cliOwnerToken, trustLocalBrowser: LOOPBACK.localBrowsers, ...(CLOUD_TEAM ? { restricted: moveInRefusal } : {}), scopeRefusal: (m, p) => liveScopeRefusal(cfg, m, p),
+      cliOwnerToken, owobotManaged: OWOBOT_MANAGED, trustLocalBrowser: LOOPBACK.localBrowsers, ...(CLOUD_TEAM ? { restricted: moveInRefusal } : {}), scopeRefusal: (m, p) => liveScopeRefusal(cfg, m, p),
     });
     // The session term slides on use, so re-issue the cookie on every cookie request; handlers that clear it later overwrite this header.
     if (gate.auth?.kind === "session" && gate.auth.via === "cookie") {
@@ -15310,7 +15318,7 @@ if (CLOUD_HOME) registerCloudPower(cloudPower = createCloudPower({ dataDir: DATA
   maintenance: () => workspaceMaintenance.active || providerFleetReloading || providerAuthSessions.active || browserEngineInstall !== null } }));
 
 let pausedSent = starterAwake.paused().join(); store.onChange((change) => { if (change.type !== "bot" && change.type !== "bot.deleted") return; const paused = starterAwake.paused().join(); if (paused !== pausedSent) { pausedSent = paused; broadcast({ kind: "config", ...configStatus() }); } });
-server.listen(PORT, listenHost(server), async () => {
+server.listen(PORT, OWOBOT_MANAGED ? "127.0.0.1" : listenHost(server), async () => {
   companyRuntimeReady(); cloudHealth?.speed.ready(); void tailnetShare.start(process.env);
   console.log(`openmausbot server on http://127.0.0.1:${PORT}`);
   personWaits.boot(); browserSweep.start(); startCloudTeamPolicy({ cloudHome: CLOUD_HOME, dataDir: DATA_DIR, managed: managedPolicy, sessions }); startCloudTeamRoster({ cloudHome: CLOUD_HOME, sessions }); moveFreeze.hold(() => appTriggers.start(), () => void appTriggers.stop()); startCloudHomeConnectedApps({ cloudHome: CLOUD_HOME !== null, dataDir: DATA_DIR, cloudGrant: CLOUD_ENV.OMB_CLOUD_CONNECTED_APPS_GRANT, ownKey: () => composio.connectionMode(cfg) === "self-hosted", apply: (access) => { composio.setManagedBrokerAccess(access); broadcast({ kind: "config", ...configStatus() }); } });

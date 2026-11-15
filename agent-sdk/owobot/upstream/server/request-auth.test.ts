@@ -1,3 +1,4 @@
+// Modified by the OwO project for the OwOBot desktop integration.
 import type { IncomingMessage } from "node:http";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -748,6 +749,27 @@ describe("loopback trust: owner on one person's machine, service on a shared wor
       expect(denied.status).toBe(403);
       expect(denied.error).toMatch(/shared server.*sign in/);
     }
+  });
+
+  it("limits OwOBot loopback to readiness, bootstrap and capability routes", () => {
+    const secret = "c".repeat(43);
+    const as = (method: string, path: string, headers: Record<string, string> = {}) =>
+      resolveRequestAuth(request({ ...local, ...headers }, method), {
+        sessions, cookieName, streamPath: "/api/events", url: new URL(path, "http://x"),
+        loopbackTrust: "service", cliOwnerToken: secret, owobotManaged: true,
+      });
+    for (const [method, path] of [
+      ["GET", "/api/bots"], ["GET", "/api/threads/one/messages"],
+      ["GET", "/api/attachments/file.txt"], ["POST", "/api/bots/one/messages/guarded"],
+      ["POST", "/api/auth/pairing"],
+    ]) {
+      expect(as(method, path).status).toBe(403);
+      expect(as(method, path).auth).toBeNull();
+    }
+    expect(as("GET", "/api/health").auth?.kind).toBe("loopback");
+    expect(as("POST", "/api/auth/pairing", { "x-openmausbot-cli-owner": secret }).auth?.scopes).toContain("admin");
+    const session = sessions.issue({ label: "OwO", scopes: ["client"] });
+    expect(as("GET", "/api/bots", { authorization: `Bearer ${session.token}` }).auth?.kind).toBe("session");
   });
 
   it("lets a local check count the engines that can start a bot, as update.sh does, but no caller through a proxy", () => {

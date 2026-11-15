@@ -1,3 +1,4 @@
+// Modified by the OwO project for the OwOBot desktop integration.
 // Loopback requests (Host and Origin both loopback) or paired sessions (bearer, cookie, stream ticket); a session swaps the loopback rule for same-origin (CSRF) and a scope check.
 // Browsers never get loopback trust: a page a bot opens is a browser on this machine too.
 import { TEAM_LEFT_REFUSAL } from "../shared/cloud-hints.ts";
@@ -582,6 +583,7 @@ export interface ResolveOptions {
   loopbackTrust?: LoopbackTrust;
   /** Under `service`: a per-launch secret from `openmausbot serve` over stdin (never env, which other children read); it opens only pairing codes. */
   cliOwnerToken?: string;
+  owobotManaged?: boolean;
   /** resolveLoopbackTrust's `localBrowsers`: a development server lets this machine's browsers use loopback trust. */
   trustLocalBrowser?: boolean;
   /** Why a session made for one task may not make this request (a Team Cloud's sign-in that moves one bot in), else null. */
@@ -702,7 +704,11 @@ export function resolveRequestAuth(req: IncomingMessage, options: ResolveOptions
         return { auth: { kind: "loopback", scopes: LOOPBACK_SCOPES }, status: 401, error: "" };
       }
       // On a shared server "local" includes every bot's shell: default deny outside SERVICE_ALLOW.
-      if (!serviceAllowed(method, path)) {
+      const allowed = options.owobotManaged
+        ? path.startsWith("/api/internal/") ||
+          (method.toUpperCase() === "GET" && /^\/api\/(?:health|edition|brand|auth\/session)$/.test(path))
+        : serviceAllowed(method, path);
+      if (!allowed) {
         return deny(403, "forbidden: on this shared server a local request without a session may only use the service routes; sign in to change settings, people or access");
       }
       return { auth: { kind: "loopback", scopes: SERVICE_SCOPES, trust: "service" }, status: 401, error: "" };
