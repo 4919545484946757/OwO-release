@@ -95,7 +95,7 @@ window.OwoPanels.about = (function () {
         return '<div class="owo-about-doc"><div><strong>' + escapeHtml(row[0]) + '</strong><p class="sub">' + escapeHtml(row[2]) + '</p></div>' +
           (row[1] === 'schemas' ? '<button type="button" id="owo-about-schemas">读取契约</button>' : '<a href="' + escapeHtml(base + '/' + row[1]) + '" target="_blank" rel="noopener">打开 ↗</a>') + '</div>';
       }).join('') + '<div id="owo-about-schema-result" role="status" aria-live="polite"></div>' +
-      '<section class="owo-insight-section"><h3>许可与致谢</h3><p>GPL-3.0-only（Agent SDK workspace 的 Cargo.toml）</p><p>OwOBot 基于 OpenMausBot v0.1.158（Apache-2.0）。 <a href="/owobot/licenses/OpenMausBot-LICENSE.txt" target="_blank" rel="noopener">许可证</a> · <a href="/owobot/licenses/OpenMausBot-NOTICE.txt" target="_blank" rel="noopener">署名与致谢</a></p><p class="sub">主要依赖；完整清单见 Cargo.lock。</p><ul class="owo-about-credits">' +
+      '<section class="owo-insight-section"><h3>许可与致谢</h3><p>GPL-3.0-only（Agent SDK）。 <a href="/owobot/licenses/OwO-LICENSE.txt" target="_blank" rel="noopener">OwO 许可证</a></p><p>OwOBot 基于 OpenMausBot v0.1.158（Apache-2.0）。 <a href="/owobot/licenses/OpenMausBot-LICENSE.txt" target="_blank" rel="noopener">许可证</a> · <a href="/owobot/licenses/OpenMausBot-NOTICE.txt" target="_blank" rel="noopener">署名与致谢</a></p><p class="sub">主要依赖；完整清单见 Cargo.lock。</p><ul class="owo-about-credits">' +
       THIRD_PARTY.map(function (v) { return '<li>' + escapeHtml(v) + '</li>'; }).join('') + '</ul></section></section>' +
       '<section role="tabpanel" id="about-pane-diagnostics" aria-labelledby="about-tab-diagnostics" hidden><h3>诊断</h3>' +
       '<p class="sub">配置和状态不代表已完成推理验证；请结合实际任务判断能力是否可用。</p>' +

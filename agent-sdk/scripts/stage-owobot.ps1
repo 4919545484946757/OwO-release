@@ -102,6 +102,7 @@ $package = @{ type = 'module'; version = $manifest.version } | ConvertTo-Json
 $licenses = Join-Path $staged 'dist\licenses'
 New-Item -ItemType Directory -Path $licenses -Force | Out-Null
 Copy-Item -LiteralPath $nodeLicense -Destination $licenses
+Copy-Item -LiteralPath (Join-Path $sdkRoot '..\LICENSE') -Destination (Join-Path $licenses 'OwO-LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $upstream 'LICENSE') -Destination (Join-Path $licenses 'OpenMausBot-LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $upstream 'NOTICE') -Destination (Join-Path $licenses 'OpenMausBot-NOTICE.txt')
 $thirdParty = Join-Path $upstream 'third_party'
