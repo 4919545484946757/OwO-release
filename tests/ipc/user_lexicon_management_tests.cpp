@@ -107,6 +107,8 @@ int main() {
         {{{"ni", "hao"}, "你好", 50000}, {{"ni", "hao"}, "你号", 1}, {{"ni"}, "你", 1000}}).success) return 18;
     owo::engine::BinaryLexicon lexicon;
     if (!lexicon.load(base_path).success) return 18;
+    if (!SetEnvironmentVariableW(L"OWO_DICTIONARY_STORE_PATH", (root / "dictionaries").c_str()))
+        return 18;
     store.record("nihao", "你号", 4);
     std::thread core(
         [&] { static_cast<void>(owo::ipc::run_core_server(pipe.c_str(), lexicon, &store)); });
@@ -126,7 +128,7 @@ int main() {
     // Publish independent source switches while reusing exactly the same
     // candidate cache key. Each snapshot must invalidate old source results.
     int snapshot = 0;
-    const auto publish_sources = [&](bool base, bool user, bool imported = false) {
+    const auto publish_sources = [&](bool base, bool user, bool imported, std::string_view expected) {
         const auto id = std::string(31, '0') + char('1' + snapshot++);
         const auto directory = root / "dictionaries" / "snapshots" / id;
         std::filesystem::create_directories(directory);
@@ -134,18 +136,28 @@ int main() {
           if (imported) file << "nihao\t导入字典\t30\n"; }
         { std::ofstream file(directory / "sources.tsv", std::ios::binary); file << "OWO_DICTIONARY_SOURCES_V1\nbase\t" << base << "\nuser\t" << user << '\n'; }
         { std::ofstream file(root / "dictionaries" / "current"); file << id; }
-        std::this_thread::sleep_for(std::chrono::milliseconds(270));
-        return send(owo::protocol::MessageType::candidate_request, "nihao");
+        // Core discovers and loads snapshots asynchronously. Keep this snapshot
+        // selected until Core has actually published it, rather than assuming
+        // the next candidate request must already see it after one poll interval.
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+        do {
+            const auto response = send(owo::protocol::MessageType::candidate_request, "nihao");
+            if (response.validation &&
+                response.message.type == owo::protocol::MessageType::candidate_response &&
+                (expected.empty() ? response.message.candidates.empty() : response.message.text == expected))
+                return true;
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        } while (std::chrono::steady_clock::now() < deadline);
+        std::cerr << "Dictionary snapshot did not produce the expected candidates: " << id << '\n';
+        return false;
     };
-    const auto learned_only = publish_sources(false, true);
-    const auto none = publish_sources(false, false);
-    const auto imported_only = publish_sources(false, false, true);
-    const auto base_only = publish_sources(true, false);
-    const auto restored = publish_sources(true, true);
-    const bool sources_ok = learned_only.validation && learned_only.message.text == "你号" &&
-        none.validation && none.message.candidates.empty() && imported_only.validation &&
-        imported_only.message.text == "导入字典" && base_only.validation && base_only.message.text == "你好" &&
-        restored.validation && restored.message.text == "你号" && store.contextual_count("nihao", "你号") == 4;
+    // Start with a distinguishable transition (base-only and learned-only would
+    // not both change the first candidate relative to the default state).
+    const bool sources_ok = publish_sources(true, false, false, "你好") &&
+        publish_sources(false, true, false, "你号") &&
+        publish_sources(false, false, false, {}) &&
+        publish_sources(false, false, true, "导入字典") &&
+        publish_sources(true, true, false, "你号") && store.contextual_count("nihao", "你号") == 4;
     HANDLE process_token{}, low_token{};
     bool low_denied = false;
     if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE, &process_token) &&

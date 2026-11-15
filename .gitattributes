@@ -1,5 +1,7 @@
 tests/data/*.tsv text eol=lf
 tests/data/*.manifest text eol=lf
+tests/data/ranker_dataset_fixture.jsonl text eol=lf
+tests/data/rime_*_fixture.dict.yaml text eol=lf
 tests/data/model_vocab_fixture.txt text eol=lf
 tests/data/model_fixture.onnx binary
 
