@@ -2183,7 +2183,7 @@ SIZE TextService::desired_candidate_window_size() const {
     if (candidates_.empty()) {
         const auto status = is_agent_mode() && !agent_response_visible_ && input_buffer_.size() <= 1
             ? (staged_candidates_.empty()
-                ? std::wstring_view(L"Agent 模式：继续输入请求")
+                ? std::wstring_view(L"v 模式：继续输入agent请求")
                 : std::wstring_view(L"完整选词后自动发送；Enter/空格直接发送"))
             : is_agent_mode() && agent_response_visible_
             ? (!agent_executing_command_.empty()
@@ -3239,7 +3239,7 @@ bool TextService::render_candidate_window() {
     if (candidates_.empty()) {
         const auto status = is_agent_mode() && !agent_response_visible_ && input_buffer_.size() <= 1
             ? (staged_candidates_.empty()
-                ? std::wstring_view(L"Agent 模式：继续输入请求")
+                ? std::wstring_view(L"v 模式：继续输入agent请求")
                 : std::wstring_view(L"完整选词后自动发送；Enter/空格直接发送"))
             : is_agent_mode() && agent_response_visible_
             ? (!agent_executing_command_.empty()

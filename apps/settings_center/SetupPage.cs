@@ -240,11 +240,11 @@ public sealed partial class SetupPage : Page
         LogoAppearance.BindImage(logo, rounded: false);
         introduction.Children.Add(logo);
         introduction.Children.Add(new TextBlock {
-            Text = "让每一次表达，更贴近你的习惯。", FontSize = 24,
+            Text = "模块化智能输入法", FontSize = 24,
             TextWrapping = TextWrapping.Wrap
         });
         introduction.Children.Add(new TextBlock {
-            Text = "从拼音输入到个性化候选，OwO 将本地词库、用户学习和可选智能排序融入日常输入。你也可以通过插件定制外观与功能。",
+            Text = "个性化候选、本地词库、用户学习和智能工具融入日常输入。",
             TextWrapping = TextWrapping.Wrap, Opacity = 0.78, MaxWidth = 760
         });
         introduction.Children.Add(new TextBlock {
@@ -254,10 +254,10 @@ public sealed partial class SetupPage : Page
         var features = ResponsiveColumns(
             FeatureCard("\uE8D2", "流畅表达", "拼音候选、快捷选词与用户词库，适配日常输入。"),
             FeatureCard("\uE753", "本地优先", "基础输入无需联网，词库与学习数据保存在本机。"),
-            FeatureCard("\uE713", "按需扩展", "在设置中心调整输入偏好、管理主题和功能插件。"));
+            FeatureCard("\uE713", "按需扩展", "在设置中心调整输入方案、词库管理和功能插件。"));
         body.Children.Add(features);
         body.Children.Add(new TextBlock {
-            Text = "接下来：选择安装位置与快捷方式，再查看安装进度。安装完成后，按 Win＋Space 切换到 OwO。",
+            Text = "接下来：选择安装位置与快捷方式",
             TextWrapping = TextWrapping.Wrap, Opacity = 0.7, Margin = new Thickness(0, 4, 0, 0)
         });
         SetPage(body);
