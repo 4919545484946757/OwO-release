@@ -1,0 +1,17 @@
+:80 {
+	map {host} {upstream_scheme} {
+		{$OMB_HTTPS_HOST:https-disabled.invalid} {$OMB_UPSTREAM_SCHEME:http}
+		default http
+	}
+	encode zstd gzip
+	handle /hooks/* {
+		reverse_proxy unix//run/openmausbot/hooks.sock
+	}
+	handle {
+		reverse_proxy unix//run/openmausbot/http.sock {
+			header_up X-Forwarded-Proto {upstream_scheme}
+			header_up -Accept-Encoding
+			flush_interval -1
+		}
+	}
+}
