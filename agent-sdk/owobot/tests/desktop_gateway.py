@@ -15,7 +15,7 @@ import shutil
 import socket
 import subprocess
 import tempfile
-from threading import Thread
+from threading import Event, Thread
 from urllib.request import Request
 from uuid import uuid4
 
@@ -119,12 +119,18 @@ class SelectedModel:
     child_result = "已暂存报名统计和脱敏明细，等待评审。"
     review_assignment = "请独立核对暂存版的报名人数、分组和手机号脱敏。"
     review_result = "暂存版评审通过，统计和脱敏明细均已核对。"
+    stop_scenario = "Test cancellation of the delegated work."
+    stop_assignment = "Wait on the cancellation-test provider."
+    stopped_reply = "UNEXPECTED_LATE_WORKER_REPLY"
     summary = "报名交付已完成评审，请查看预览并批准应用。"
 
     def __init__(self, port):
         self.calls = []
         self.issued_assignment = False
         self.issued_review = False
+        self.issued_stop_assignment = False
+        self.worker_waiting = Event()
+        self.release_worker = Event()
         endpoint = f"http://127.0.0.1:{port}/v1"
         reference = "1" * 32
         name = "OWO_CUSTOM_MODEL_SECRET_" + reference
@@ -166,6 +172,13 @@ class SelectedModel:
 
     def response(self, messages, tools):
         text = json.dumps(messages, ensure_ascii=False)
+        if "owobot_delegate" in tools and self.stop_scenario in text and not self.issued_stop_assignment:
+            self.issued_stop_assignment = True
+            return self.tool_response("stop-worker", "owobot_delegate", {"recipient": "worker", "task": self.stop_assignment})
+        if "owobot_stage_delivery" in tools and self.stop_assignment in text:
+            self.worker_waiting.set()
+            self.release_worker.wait(timeout=45)
+            return self.text_response(self.stopped_reply)
         if "owobot_delegate" in tools and self.scenario in text and not self.issued_assignment:
             self.issued_assignment = True
             return self.tool_response("delegate", "owobot_delegate", {"recipient": "worker", "task": self.assignment})
@@ -249,7 +262,11 @@ def selected_provider():
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Content-Length", str(len(wire)))
             self.end_headers()
-            self.wfile.write(wire)
+            try:
+                self.wfile.write(wire)
+            except ConnectionError:
+                if not provider.release_worker.is_set():
+                    raise
 
         def log_message(self, *_):
             pass
@@ -313,6 +330,37 @@ def verify_reopened_delivery(agent, workspace, env, root, data, selection, group
         expect(port, "/server/shutdown", (200, 202), headers=auth, body={"confirm": True})
         assert daemon.wait(timeout=18) == 0
     print("PASS reopening OwO recovered the same task, previews, review and applied decision", flush=True)
+
+
+def verify_worker_cancellation(daemon, port, origin, auth, cookie, route, provider):
+    headers = {**cookie, "Origin": origin}
+    task = expect(port, route + "/tasks", 201, headers=headers, body={})["task"]
+    thread = task["threadId"]
+    delivery_route = f"/owobot/api/delivery/{thread}"
+    expect(port, route + "/messages", (200, 202), headers=headers, body={
+        "text": provider.stop_scenario, "threadId": thread, "sendId": str(uuid4()),
+    })
+    try:
+        assert provider.worker_waiting.wait(timeout=25), "delegated worker did not reach its model"
+        record = expect(port, delivery_route, 200, headers=cookie)
+        worker = next(turn for turn in record["turns"] if turn["role"] == "worker" and turn["assignmentId"])
+        events_route = f"/session/{worker['sessionId']}/turn/events?turn_id={worker['turnId']}"
+        assert expect(port, events_route, 200, headers=auth)["state"] == "active"
+        expect(port, route + "/interrupt", 200, headers=headers, body={"threadId": thread})
+
+        def worker_stopped():
+            event_page = expect(port, events_route, 200, headers=auth)
+            group = expect(port, "/owobot/api/bots?messages=20", 200, headers=cookie)["groups"][0]
+            if event_page["active"] or group.get("working"):
+                return None
+            assert event_page["state"] in ("failed", "interrupted"), event_page
+            assert all(provider.stopped_reply not in (row.get("text") or "") for row in group["messages"])
+            return event_page
+
+        until(daemon, "Interrupt did not stop the active delegated worker", worker_stopped)
+    finally:
+        provider.release_worker.set()
+    print("PASS stopping the room cancelled the live delegated worker before its model replied", flush=True)
 
 
 def verify_second_project(daemon, port, origin, auth, cookie, selection, group_id, original_route, root, electron):
@@ -457,6 +505,8 @@ def run(agent, home, root, desktop, electron, provider, delivery_electron=None):
             decisions = expect(port, "/audit?event=owobot_delivery_decision", 200, headers=auth)
             assert len(decisions) == 1 and decisions[0]["session_id"] == approved["taskId"], decisions
             print("PASS one delegated signup delivery passed review, human apply, 12-person and masking checks, and replay deduplication", flush=True)
+            assert browser_session(origin, auth, selection)[0] == group_id
+            verify_worker_cancellation(daemon, port, origin, auth, cookie, thread_route, provider)
 
         sidecars = [sidecar]
         if provider and delivery_electron:

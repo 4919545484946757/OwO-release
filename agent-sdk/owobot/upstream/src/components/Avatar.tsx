@@ -1,3 +1,4 @@
+// Modified by OwO contributors to use the desktop workbench role badges.
 import {
   forwardRef,
   memo,
@@ -9,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { cn } from "@/lib/cn";
+import { isOwOPage } from "../owobot/surface";
 import { CHROME_EYES, CHROME_GRADIENT, MAUS_COLORS, type MausColor, type MausMotion, type MausState } from "@/lib/mascot";
 import { CursorAvatar, type CursorAvatarHandle } from "./CursorAvatar";
 import { avatarCropRadius, botAvatarProfile, clampAvatarFocus, clampAvatarZoom, mascotFaceInk, type BotAvatarCrop, type MascotFaceColor } from "../../shared/bot-avatar";
@@ -251,6 +253,13 @@ export function BotAvatar({ bot, size = 44, label, readable = false, ...mascotPr
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => setImageFailed(false), [profile.avatarUrl]);
+
+  if (isOwOPage()) {
+    return <span className="owobot-role-avatar" role="img" aria-label={label ?? bot.name}
+      style={{ width: size, height: size, fontSize: Math.max(9, size * 0.52) }}>
+      {bot.name?.trim().charAt(0) || "O"}
+    </span>;
+  }
 
   const outcome = resolveBotAvatarOutcome({
     avatarCrop: profile.avatarCrop,

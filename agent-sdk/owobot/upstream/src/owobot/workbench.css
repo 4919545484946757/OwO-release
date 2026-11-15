@@ -6,6 +6,18 @@
   background: var(--color-app);
 }
 
+.owobot-role-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 32%;
+  background: var(--color-inset);
+  color: var(--color-ink);
+  border: 1px solid var(--color-hairline);
+  font-weight: 650;
+  line-height: 1;
+}
+
 .owobot-task-list {
   padding: 1rem .75rem;
   overflow: auto;
