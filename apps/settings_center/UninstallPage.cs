@@ -51,7 +51,8 @@ internal sealed class UninstallPage : Page
     {
         _example = preview is not null;
         _close = close;
-        _target = _example ? @"C:\示例\OwO\InputMethod\0.3.1" : root ?? throw new ArgumentNullException(nameof(root));
+        var version = typeof(UninstallPage).Assembly.GetName().Version!.ToString(3);
+        _target = _example ? $@"C:\示例\OwO\InputMethod\{version}" : root ?? throw new ArgumentNullException(nameof(root));
         _data = _example ? @"C:\Users\示例\AppData\Local\OwO\InputMethod" : UninstallOperation.UserDataDirectory;
         _execute = _example ? SimulateAsync :
             (remove, progress) => UninstallOperation.RunAsync(_target, work!, remove, progress);

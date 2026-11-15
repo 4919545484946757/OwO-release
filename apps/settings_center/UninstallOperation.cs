@@ -57,7 +57,7 @@ internal static partial class UninstallOperation
         var current = key?.GetValue("InstallLocation") as string;
         if (string.IsNullOrWhiteSpace(current))
             current = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Programs", "OwO", "InputMethod", "0.3.1");
+                "Programs", "OwO", "InputMethod", typeof(UninstallOperation).Assembly.GetName().Version!.ToString(3));
         static string Full(string value) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(value));
         if (!Full(installRoot).Equals(Full(current), StringComparison.OrdinalIgnoreCase) ||
             !Full(Path.GetDirectoryName(workspace) ?? "").Equals(Full(Path.GetTempPath()), StringComparison.OrdinalIgnoreCase) ||
