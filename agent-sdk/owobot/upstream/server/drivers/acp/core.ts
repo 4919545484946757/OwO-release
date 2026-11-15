@@ -1,3 +1,4 @@
+// Modified by the OwO project for the OwOBot desktop integration.
 import { type ServerText } from "../../../shared/server-text.ts";
 // The shared ACP (JSON-RPC 2.0 over stdio) driver; per-CLI quirks live in an AcpSupport.
 // ACP has no turn/completed: the session/prompt result (stopReason + usage) is the completion.
@@ -1421,9 +1422,14 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             if (!support.promptUnreachedModel) acknowledge();
             const promptIdleMs = promptIdleTimeoutMs();
             const quiet = startQuietWatch(threadId, session, current);
+            const owingTurn = support.driverKind === "customAcp" && process.env.OWOBOT_WORKER_PROOF
+              ? turn.integrations?.agents?.env?.OMB_COMMS_TOKEN : undefined;
             const result = await request(
               "session/prompt",
-              { sessionId, prompt: [{ type: "text", text }, ...imageBlocks] },
+              {
+                sessionId, prompt: [{ type: "text", text }, ...imageBlocks],
+                ...(owingTurn ? { _meta: { owobotTurn: owingTurn } } : {}),
+              },
               undefined,
               undefined,
               promptIdleMs,

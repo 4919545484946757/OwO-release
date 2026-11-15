@@ -1846,7 +1846,7 @@ function agentsIntegration(
     voiceNotes: tts.voiceReady(cfg, speaking?.voice) && speaking?.voiceNotes !== false, x: Boolean(researchCredential(cfg.treg?.key)), research: researchAvailability.available(), imageGeneration: imageGenerationReady(cfg), meetings: boat.boatConfigured(cfg), appHosting: hostingCredential() !== null };
   return { ...agentsProxyLaunch(), env: agentsServerEnv({ threadId, bot: bot ?? { id: botId }, room: Boolean(store.groupByThread(threadId)), teamComputer: Boolean(bot && inheritedTeamComputer(bot)), botDriven: automated || botDrivenConversation(store.taskByThread(botId, threadId)), host },
     { generation, depth, skillAuthoring, roomHandoffId, ...(hostFiles && !CLOUD_HOME && !HOSTED_WORKSPACE ? { deliversSavedFiles: true } : {}) },
-    (turn) => mintInternalCapability({ botId, threadId, kind: "agents", createdBots: 0, openedThreads: 0, ...turn }), `http://127.0.0.1:${PORT}`) };
+    (turn) => mintInternalCapability({ botId, threadId, kind: "agents", createdBots: 0, openedThreads: 0, ...turn }, { perTurn: OWOBOT_MANAGED }), `http://127.0.0.1:${PORT}`) };
 }
 
 
@@ -13148,6 +13148,16 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         const why = (CLOUD_TEAM ? managedPolicy.computerRefusal("thisComputer") : null) ?? (CLOUD_HOME && !principal ? cloudLendingRefusalForBot(internalCapability) : null);
         if (why) return json(res, 403, { error: why });
         return json(res, 200, { result: lentScreenResult(parsed.data, await sharedComputers.request(parsed.data, principal, () => botLending() && internalCapabilityIsActive(internalCapability), store.bot(internalCapability.botId))) });
+      }
+      if (method === "GET" && path === "/api/internal/owobot-scope" && OWOBOT_MANAGED) {
+        const room = store.groupByThread(internalCapability.threadId);
+        if (!room || room.dm || !room.memberIds.includes(internalSender.id)) {
+          return json(res, 403, { error: "the collaboration turn is outside its project room" });
+        }
+        return json(res, 200, {
+          groupId: room.id, botId: internalSender.id, threadId: internalCapability.threadId,
+          depth: internalCapability.depth,
+        });
       }
       if (method === "GET" && path === "/api/internal/agents") {
         const sender = internalSender;

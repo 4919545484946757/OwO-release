@@ -18,6 +18,71 @@ use tokio::sync::Mutex;
 
 const COOKIE: &str = "owo_collaboration";
 const WORKER_PROOF: &str = "x-owo-owobot-worker";
+const TURN_PROOF: &str = "x-owo-owobot-turn";
+
+#[derive(Clone, Copy)]
+pub(crate) enum WorkerRole {
+    Lead,
+    Worker,
+    Reviewer,
+}
+
+impl WorkerRole {
+    pub(super) const ALL: [Self; 3] = [Self::Lead, Self::Worker, Self::Reviewer];
+
+    pub(super) fn name(self) -> &'static str {
+        match self {
+            Self::Lead => "组长",
+            Self::Worker => "执行员",
+            Self::Reviewer => "评审员",
+        }
+    }
+
+    pub(crate) fn instructions(self) -> &'static str {
+        match self {
+            Self::Lead => "理解任务，查阅当前项目信息，汇总成员汇报。",
+            Self::Worker => "查阅当前项目材料，提供执行结果与交付建议。",
+            Self::Reviewer => "独立核对任务要求、项目材料和执行结果，记录评审意见。",
+        }
+    }
+
+    pub(crate) fn readers(self) -> &'static [&'static str] {
+        match self {
+            Self::Lead => &["read_file", "list_dir", "search_files"],
+            Self::Worker => &[
+                "read_file",
+                "list_dir",
+                "search_files",
+                "grep",
+                "find_symbol",
+            ],
+            Self::Reviewer => &[
+                "read_file",
+                "list_dir",
+                "search_files",
+                "grep",
+                "git_status",
+                "git_diff",
+                "git_log",
+                "find_symbol",
+            ],
+        }
+    }
+}
+
+pub(crate) struct WorkerTurn {
+    pub(crate) role: WorkerRole,
+    pub(crate) model: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CollaborationTurn {
+    bot_id: String,
+    group_id: String,
+    thread_id: String,
+    depth: u32,
+}
 
 #[derive(Clone, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -121,17 +186,26 @@ impl Collaboration {
         }
     }
 
-    pub(crate) async fn apply_worker_model(
+    pub(crate) async fn bind_worker_turn(
         &self,
         headers: &HeaderMap,
         workspace: &FsPath,
         request: &mut TurnRequest,
-    ) -> Result<Option<String>, (StatusCode, String)> {
-        let Some(proof) = headers.get(WORKER_PROOF) else {
-            return Ok(None);
-        };
+    ) -> Result<Option<WorkerTurn>, (StatusCode, String)> {
         let denied = || (StatusCode::FORBIDDEN, "owobot/worker_scope".to_string());
+        let Some(proof) = headers.get(WORKER_PROOF) else {
+            return if headers.contains_key(TURN_PROOF) {
+                Err(denied())
+            } else {
+                Ok(None)
+            };
+        };
         let proof = proof.to_str().map_err(|_| denied())?;
+        let turn = headers
+            .get(TURN_PROOF)
+            .and_then(|value| value.to_str().ok())
+            .filter(|token| token.len() == 48 && token.bytes().all(|byte| byte.is_ascii_hexdigit()))
+            .ok_or_else(denied)?;
         let mut live = self.live.lock().await;
         let active = live.as_mut().ok_or_else(denied)?;
         if !active.worker_proof.verify(proof) || !active.is_alive() {
@@ -142,11 +216,35 @@ impl Collaboration {
         {
             return Err(denied());
         }
-        if request.read_only != Some(true) || request.model_connection.is_some() {
+        if request.read_only != Some(true)
+            || request.model_connection.is_some()
+            || !request.attachments.is_empty()
+            || !request.content_parts.is_empty()
+        {
             return Err(denied());
         }
+
+        let scope: CollaborationTurn = self
+            .client
+            .get(format!("{}/api/internal/owobot-scope", active.base_url))
+            .bearer_auth(turn)
+            .timeout(Duration::from_secs(3))
+            .send()
+            .await
+            .and_then(reqwest::Response::error_for_status)
+            .map_err(|_| denied())?
+            .json()
+            .await
+            .map_err(|_| denied())?;
+        if scope.group_id != active.group || scope.depth > 3 || scope.thread_id.is_empty() {
+            return Err(denied());
+        }
+        let role = active.role_for(&scope.bot_id).ok_or_else(denied)?;
         request.model_connection = active.model.connection.clone();
-        Ok(active.model.model.clone())
+        Ok(Some(WorkerTurn {
+            role,
+            model: active.model.model.clone(),
+        }))
     }
 
     fn accepts(&self, headers: &HeaderMap) -> bool {

@@ -122,22 +122,30 @@ pub(crate) async fn turn(
     // §13 批次六：遥测功能计数（默认关时零开销早退；仅数字，无内容）。
     crate::observability_api::record_telemetry_counter("turn", 1);
     let session = crate::session_api::load_session(&state, &id)?;
-    let worker_model = state
+    let worker = state
         .owobot
-        .apply_worker_model(&headers, &session.workspace, &mut request)
+        .bind_worker_turn(&headers, &session.workspace, &mut request)
         .await?;
     let turn_model = request
         .model_connection
         .as_ref()
         .map(|connection| connection.model.clone())
-        .or(worker_model);
+        .or_else(|| worker.as_ref().and_then(|worker| worker.model.clone()));
     let turn_provider = request
         .model_connection
         .as_ref()
         .map(owo_agent_core::gateway::custom_model_provider)
         .transpose()
         .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
-    let mut effective_prompt = request.prompt.clone();
+    let mut effective_prompt = match &worker {
+        Some(worker) => format!(
+            "OwOBot 角色：{}。{}\n\n{}",
+            worker.role.name(),
+            worker.role.instructions(),
+            request.prompt
+        ),
+        None => request.prompt.clone(),
+    };
     if request
         .attachments
         .len()
@@ -399,14 +407,23 @@ pub(crate) async fn turn(
         abort: Arc::clone(&abort_flag),
     };
 
-    let agent = match turn_provider {
-        Some(provider) => Arc::new(
+    let agent = match (worker, turn_provider) {
+        (Some(worker), provider) => Arc::new(
+            state
+                .agent
+                .with_project_readers(
+                    provider.unwrap_or_else(|| state.agent.provider()),
+                    worker.role.readers(),
+                )
+                .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error))?,
+        ),
+        (None, Some(provider)) => Arc::new(
             state
                 .agent
                 .with_turn_provider(provider)
                 .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error))?,
         ),
-        None => Arc::clone(&state.agent),
+        (None, None) => Arc::clone(&state.agent),
     };
     let store = Arc::clone(&state.store);
     let sessions = Arc::clone(&state.sessions);

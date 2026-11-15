@@ -44,11 +44,18 @@ impl AgentClient {
         prompt: &str,
         turn_id: &str,
         worker_proof: &str,
+        collaboration_turn: &str,
     ) -> Result<TurnStream> {
         let id = owo_agent_protocol::canonical_turn_id(turn_id)
             .ok_or_else(|| crate::ClientError::Protocol("turn/invalid_id".into()))?;
-        self.open_turn_request(session_id, prompt, true, Some(id), Some(worker_proof))
-            .await
+        self.open_turn_request(
+            session_id,
+            prompt,
+            true,
+            Some(id),
+            Some((worker_proof, collaboration_turn)),
+        )
+        .await
     }
 
     async fn open_turn_request(
@@ -57,7 +64,7 @@ impl AgentClient {
         prompt: &str,
         read_only: bool,
         turn_id: Option<String>,
-        worker_proof: Option<&str>,
+        worker_proof: Option<(&str, &str)>,
     ) -> Result<TurnStream> {
         if read_only || turn_id.is_some() {
             let capabilities: Value = self.get_json("/capabilities").await?;
@@ -73,12 +80,12 @@ impl AgentClient {
             }
             if worker_proof.is_some()
                 && capabilities
-                    .pointer("/constraints/owobot_scoped_model")
+                    .pointer("/constraints/owobot_project_roles")
                     .and_then(Value::as_bool)
                     != Some(true)
             {
                 return Err(crate::ClientError::Protocol(
-                    "owobot/scoped_model_unsupported: no turn was submitted".into(),
+                    "owobot/project_roles_unsupported: no turn was submitted".into(),
                 ));
             }
             if turn_id.is_some()
@@ -102,8 +109,10 @@ impl AgentClient {
             turn_id,
         };
         let mut outbound = self.post_stream(&format!("/session/{session_id}/turn"), &request);
-        if let Some(proof) = worker_proof {
-            outbound = outbound.header("x-owo-owobot-worker", proof);
+        if let Some((proof, collaboration_turn)) = worker_proof {
+            outbound = outbound
+                .header("x-owo-owobot-worker", proof)
+                .header("x-owo-owobot-turn", collaboration_turn);
         }
         let response = self.send_stream(outbound).await?;
         let received = response

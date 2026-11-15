@@ -498,6 +498,55 @@ impl Agent {
         })
     }
 
+    /// Use only the named, host-verified readers for a project collaboration turn.
+    /// Preserve the host's live policy and audit, and never run project hooks for a worker.
+    pub fn with_project_readers(
+        &self,
+        provider: Arc<dyn ModelProvider>,
+        names: &[&str],
+    ) -> Result<Self, String> {
+        let mut agent = self.with_turn_provider(provider)?;
+        let mut registry = ToolRegistry::empty();
+        {
+            let host_registry = self
+                .registry
+                .read()
+                .map_err(|_| "tool registry unavailable")?;
+            for name in names {
+                if let Some(tool) = host_registry.get(name) {
+                    if tool.spec().effect.as_ref().is_some_and(|effect| {
+                        effect.class == crate::EffectClass::Read && effect.host_verified_readonly
+                    }) {
+                        registry.register_arc(tool);
+                    }
+                }
+            }
+        }
+        agent.registry = Arc::new(RwLock::new(registry));
+        agent.tool_host =
+            ToolHostService::new(Arc::clone(&agent.registry), Arc::clone(&agent.audit));
+        agent.policy = agent.policy.read_only_scope();
+        agent.hooks = RwLock::new(crate::hooks::HookManager::default());
+        agent.skills = SkillRegistry::default();
+        let cap = |current: usize, limit| {
+            if current == 0 {
+                limit
+            } else {
+                current.min(limit)
+            }
+        };
+        agent.config.max_turns = cap(agent.config.max_turns, 8);
+        agent.config.max_tool_calls_per_turn = cap(agent.config.max_tool_calls_per_turn, 12);
+        let limit = std::time::Duration::from_secs(120);
+        agent.config.turn_deadline = Some(
+            agent
+                .config
+                .turn_deadline
+                .map_or(limit, |configured| configured.min(limit)),
+        );
+        Ok(agent)
+    }
+
     /// Bind only a trusted Daemon data root. Tool policy, publisher and audit stay intact.
     pub fn with_media_connections_root(mut self, root: PathBuf) -> Self {
         if let Ok(mut registry) = self.registry.write() {

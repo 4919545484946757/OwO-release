@@ -10848,9 +10848,18 @@
           {
             "name": "x-owo-owobot-worker",
             "in": "header",
-            "description": "Local managed ACP worker capability. Limits use to read-only turns in the Daemon's OwOBot project.",
+            "description": "Local managed ACP worker capability. Must accompany the active room turn capability for project-scoped read-only work.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "x-owo-owobot-turn",
+            "in": "header",
+            "description": "Per-turn room capability from the same locally managed collaboration service.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{48}$"
             }
           }
         ],

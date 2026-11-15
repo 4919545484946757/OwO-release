@@ -135,10 +135,21 @@ pub(crate) async fn run(args: AcpArgs) -> Result<(), Box<dyn std::error::Error>>
                         Some("session/prompt") => {
                             match prompt_params(params, &sessions) {
                                 Ok((session_id, prompt)) => {
+                                    let managed = if let Some(proof) = &worker_proof {
+                                        let token = params.pointer("/_meta/owobotTurn").and_then(Value::as_str)
+                                            .filter(|token| token.len() == 48 && token.bytes().all(|byte| byte.is_ascii_hexdigit()));
+                                        let Some(token) = token else {
+                                            send(&mut output, error(id, -32602, "OwOBot turn capability is missing")).await?;
+                                            continue;
+                                        };
+                                        Some((Arc::clone(proof), token.to_owned()))
+                                    } else {
+                                        None
+                                    };
                                     let turn_id = Uuid::new_v4().to_string();
                                     let worker = tokio::spawn(run_turn(
                                         client.clone(), turn_tx.clone(), session_id.clone(),
-                                        turn_id.clone(), prompt, worker_proof.clone(),
+                                        turn_id.clone(), prompt, managed,
                                     ));
                                     active = Some(ActiveTurn {
                                         request_id: id, session_id, turn_id, cancelled: false, worker,
@@ -258,7 +269,7 @@ async fn run_turn(
     session_id: String,
     turn_id: String,
     prompt: String,
-    worker_proof: Option<Arc<str>>,
+    managed: Option<(Arc<str>, String)>,
 ) -> Result<(), &'static str> {
     let result = stream_turn(
         &client,
@@ -266,7 +277,9 @@ async fn run_turn(
         &session_id,
         &turn_id,
         &prompt,
-        worker_proof.as_deref(),
+        managed
+            .as_ref()
+            .map(|(worker, turn)| (worker.as_ref(), turn.as_str())),
     )
     .await;
     if result.is_err() {
@@ -282,12 +295,12 @@ async fn stream_turn(
     session_id: &str,
     turn_id: &str,
     prompt: &str,
-    worker_proof: Option<&str>,
+    managed: Option<(&str, &str)>,
 ) -> Result<(), &'static str> {
-    let events = match worker_proof {
-        Some(proof) => {
+    let events = match managed {
+        Some((proof, collaboration_turn)) => {
             client
-                .open_owobot_turn(session_id, prompt, turn_id, proof)
+                .open_owobot_turn(session_id, prompt, turn_id, proof, collaboration_turn)
                 .await
         }
         None => {

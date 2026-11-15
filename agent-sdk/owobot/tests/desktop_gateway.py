@@ -97,7 +97,12 @@ class SelectedModel:
             "model": self.name, "base_url": endpoint, "api_format": "openai",
         })}
 
-    def check(self, daemon, data, thread, port, cookie):
+    def check(self, daemon, data, thread, port, cookie, call_offset, role):
+        expected_readers = {
+            "lead": {"read_file", "list_dir", "search_files"},
+            "worker": {"read_file", "list_dir", "search_files", "grep", "find_symbol"},
+            "reviewer": {"read_file", "list_dir", "search_files", "grep", "git_status", "git_diff", "git_log", "find_symbol"},
+        }[role]
         def terminal():
             for path in (data / "owobot").glob(f"*/events/{thread}.ndjson"):
                 for line in path.read_text(encoding="utf-8").splitlines():
@@ -107,17 +112,18 @@ class SelectedModel:
             return None
 
         completed = until(daemon, "OwOBot's selected-model turn did not complete", terminal)
-        assert completed.get("ok") is True, (completed, len(self.calls))
-        assert self.calls and all(call["model"] == self.name and call["credential_bound"]
-                                  for call in self.calls), self.calls
+        assert completed.get("ok") is True, (completed, self.calls)
+        calls = self.calls[call_offset:]
+        assert calls and all(call["model"] == self.name and call["credential_bound"] for call in calls), calls
+        assert all(set(call["tools"]) == expected_readers for call in calls), calls
         answer = until(daemon, "Selected-model text did not reach the conversation", lambda:
                        next((group for group in expect(port, "/owobot/api/bots?messages=20", 200, headers=cookie)["groups"]
-                             if any(self.text in (msg.get("text") or "") for msg in group["messages"])), None))
+                             if group["threadId"] == thread and any(self.text in (msg.get("text") or "") for msg in group["messages"])), None))
         assert self.text in json.dumps(answer)
         for path in (data / "owobot").glob("*/config.json"):
             saved = path.read_text(encoding="utf-8")
             assert self.credential not in saved and "OWO_CUSTOM_MODEL_SECRET" not in saved
-        print("PASS desktop-selected model and bound credential were used by OwO for the real ACP turn", flush=True)
+        print(f"PASS the {role} role used the selected model and only its project readers", flush=True)
 
 
 @contextmanager
@@ -126,7 +132,10 @@ def selected_provider():
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             bound = self.headers.get("Authorization") == f"Bearer {provider.credential}"
-            provider.calls.append({"model": body["model"], "credential_bound": bound})
+            provider.calls.append({
+                "model": body["model"], "credential_bound": bound,
+                "tools": [tool["function"]["name"] for tool in body.get("tools", [])],
+            })
             if self.path != "/v1/chat/completions" or not bound or body["model"] != provider.name:
                 self.send_error(400)
                 return
@@ -162,7 +171,7 @@ def selected_provider():
 def check_wrong_worker(port, auth, session, provider):
     count = len(provider.calls)
     expect(port, f"/session/{session}/turn", 403, headers={
-        **auth, "x-owo-owobot-worker": "0" * 64,
+        **auth, "x-owo-owobot-worker": "0" * 64, "x-owo-owobot-turn": "0" * 48,
     }, body={"prompt": "This must not reach the model.", "read_only": True})
     assert len(provider.calls) == count
     print("PASS forged ACP worker capability was rejected before reaching the model", flush=True)
@@ -223,8 +232,18 @@ def run(agent, home, root, desktop, electron, provider):
         assert len(sessions) == 1 and Path(sessions[0]["workspace"]).samefile(workspace)
         print("PASS user message reached OwO ACP in its project directory", flush=True)
         if provider:
-            provider.check(daemon, data, group["threadId"], port, cookie)
+            provider.check(daemon, data, group["threadId"], port, cookie, 0, "lead")
             check_wrong_worker(port, auth, sessions[0]["id"], provider)
+            outbound = {**cookie, "Origin": origin}
+            thread_route = f"/owobot/api/groups/{group_id}"
+            for index, (role, mention) in enumerate((("worker", "\u6267\u884c\u5458"), ("reviewer", "\u8bc4\u5ba1\u5458")), start=1):
+                task = expect(port, thread_route + "/tasks", (200, 201), headers=outbound, body={})["group"]
+                offset = len(provider.calls)
+                expect(port, thread_route + "/messages", (200, 202), headers=outbound, body={
+                    "text": f"@{mention} Inspect the project material.",
+                    "mentions": [group["memberIds"][index]], "threadId": task["threadId"], "sendId": str(uuid4()),
+                })
+                provider.check(daemon, data, task["threadId"], port, cookie, offset, role)
 
         expect(port, "/server/shutdown", (200, 202), headers=auth, body={"confirm": True})
         assert daemon.wait(timeout=18) == 0

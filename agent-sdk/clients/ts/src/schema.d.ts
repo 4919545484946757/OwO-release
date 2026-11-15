@@ -12528,8 +12528,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Local managed ACP worker capability. Limits use to read-only turns in the Daemon's OwOBot project. */
+                /** @description Local managed ACP worker capability. Must accompany the active room turn capability for project-scoped read-only work. */
                 "x-owo-owobot-worker"?: string;
+                /** @description Per-turn room capability from the same locally managed collaboration service. */
+                "x-owo-owobot-turn"?: string;
             };
             path: {
                 id: string;

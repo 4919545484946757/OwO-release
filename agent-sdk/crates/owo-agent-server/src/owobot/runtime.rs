@@ -1,4 +1,4 @@
-use super::{GatewayError, GatewayResult, ModelSelection};
+use super::{GatewayError, GatewayResult, ModelSelection, WorkerRole};
 use crate::auth_token::AuthToken;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use reqwest::Client;
@@ -22,6 +22,7 @@ pub(super) struct Running {
     pub(super) base_url: String,
     pub(super) session: String,
     pub(super) group: String,
+    members: [String; 3],
     pub(super) workspace: PathBuf,
     pub(super) worker_proof: AuthToken,
     pub(super) model: ModelSelection,
@@ -32,6 +33,13 @@ pub(super) struct Running {
 impl Running {
     pub(super) fn is_alive(&mut self) -> bool {
         matches!(self.child.try_wait(), Ok(None))
+    }
+
+    pub(super) fn role_for(&self, id: &str) -> Option<WorkerRole> {
+        self.members
+            .iter()
+            .position(|member| member == id)
+            .map(|index| WorkerRole::ALL[index])
     }
 
     pub(super) async fn stop(mut self) {
@@ -73,6 +81,8 @@ struct Group {
     id: String,
     name: String,
     cwd: Option<String>,
+    #[serde(rename = "memberIds")]
+    members: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -194,11 +204,12 @@ async fn launch(
             .json(&json!({"code": opened.code, "label": "OwO Daemon"})),
     )
     .await?;
-    let group = prepare_group(client, &base_url, &session.token, workspace_text).await?;
+    let (group, members) = prepare_group(client, &base_url, &session.token, workspace_text).await?;
     Ok(Running {
         base_url,
         session: session.token,
         group,
+        members,
         workspace,
         worker_proof,
         model: ModelSelection::default(),
@@ -259,32 +270,30 @@ async fn prepare_group(
     base_url: &str,
     session: &str,
     workspace: &str,
-) -> GatewayResult<String> {
+) -> GatewayResult<(String, [String; 3])> {
     let snapshot: Snapshot = answer(
         client
             .get(format!("{base_url}/api/bots"))
             .bearer_auth(session),
     )
     .await?;
-    if let Some(group) = snapshot
+    let group = snapshot
         .groups
         .iter()
-        .find(|group| group.name == GROUP_NAME)
-    {
-        if group.cwd.as_deref() != Some(workspace) {
-            pin_group_folder(client, base_url, session, &group.id, workspace).await?;
-        }
-        return Ok(group.id.clone());
-    }
-    let mut members = Vec::new();
-    for (name, role) in [
-        ("组长", "理解需求、协调组员并汇总。"),
-        ("执行员", "在项目允许的范围内查阅材料，准备交付建议。"),
-        ("评审员", "独立核对需求、材料与结果，提出评审意见。"),
-    ] {
-        if let Some(bot) = snapshot.bots.iter().find(|bot| bot.name == name) {
+        .find(|group| group.name == GROUP_NAME);
+    let mut members = Vec::with_capacity(3);
+    for role in WorkerRole::ALL {
+        let name = role.name();
+        let mut existing = snapshot.bots.iter().filter(|bot| bot.name == name);
+        if let Some(bot) = existing.next() {
+            if existing.next().is_some() {
+                return Err(GatewayError::Unavailable("OwOBot 项目角色重复"));
+            }
             members.push(bot.id.clone());
             continue;
+        }
+        if group.is_some() {
+            return Err(GatewayError::Unavailable("OwOBot 项目缺少角色"));
         }
         let created: CreatedBot = answer(
             client
@@ -292,7 +301,7 @@ async fn prepare_group(
                 .bearer_auth(session)
                 .json(&json!({
                     "name": name,
-                    "soul": role,
+                    "soul": role.instructions(),
                     "cwd": workspace,
                     "computer": "none",
                     "approvalMode":"ask",
@@ -302,6 +311,18 @@ async fn prepare_group(
         )
         .await?;
         members.push(created.bot.id);
+    }
+    let members: [String; 3] = members.try_into().expect("exactly three roles");
+    if let Some(group) = group {
+        if group.members.len() != members.len()
+            || !members.iter().all(|id| group.members.contains(id))
+        {
+            return Err(GatewayError::Unavailable("OwOBot 项目成员与角色不匹配"));
+        }
+        if group.cwd.as_deref() != Some(workspace) {
+            pin_group_folder(client, base_url, session, &group.id, workspace).await?;
+        }
+        return Ok((group.id.clone(), members));
     }
     let group: CreatedGroup = answer(
         client
@@ -315,7 +336,7 @@ async fn prepare_group(
     )
     .await?;
     pin_group_folder(client, base_url, session, &group.group.id, workspace).await?;
-    Ok(group.group.id)
+    Ok((group.group.id, members))
 }
 
 async fn pin_group_folder(
