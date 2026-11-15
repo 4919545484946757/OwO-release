@@ -13,7 +13,9 @@ foreach ($scenario in @('valid', 'tamper', 'extra', 'changed-manifest', 'travers
             'settings/OwO.Settings.pri', 'settings/App.xbf', 'settings/MainWindow.xbf',
             'settings/MainPage.xbf', 'settings/Assets/AppIcon.ico',
             'settings/Assets/SetupProgressBanner.png', 'scripts/Install-OwO.ps1',
-            'scripts/Install-Prerequisites.ps1', 'bin/OwO.TSF.dll', 'bin/x86/OwO.TSF.dll')) {
+            'scripts/Install-Prerequisites.ps1', 'scripts/Uninstall-OwO.ps1',
+            'scripts/Open-Uninstall-OwO.ps1', 'scripts/Uninstall-Common.ps1',
+            'bin/OwO.TSF.dll', 'bin/x86/OwO.TSF.dll')) {
         $path = Join-Path $stage $file
         [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path))
         [IO.File]::WriteAllText($path, 'fixture - never execute', $utf8)

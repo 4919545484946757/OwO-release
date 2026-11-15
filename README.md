@@ -33,7 +33,9 @@ OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入
 - 重启服务：`Start-OwO.cmd`
 - 卸载：开始菜单卸载项，或 `Uninstall-OwO.cmd`
 
-用户配置、词频和日志位于 `%LOCALAPPDATA%\OwO\InputMethod`，卸载默认保留这些数据。
+用户配置、词频和日志位于 `%LOCALAPPDATA%\OwO\InputMethod`。卸载助手默认勾选「保留我的用户数据」；取消勾选并再次确认才会删除该目录。卸载进度和错误可在「卸载详情」中查看。
+
+开发环境可运行 `open-owo-uninstaller.cmd` 打开模拟卸载界面，或运行 `scripts\test_uninstall_ui.ps1` 验证流程。两者都不会卸载本机输入法。
 
 ## 默认按键
 

@@ -1,189 +1,204 @@
 [CmdletBinding()]
-param([switch]$RemoveUserData)
+param(
+    [switch]$RemoveUserData,
+    [switch]$Quiet,
+    [switch]$Worker,
+    [string]$InstallRoot,
+    [string]$ExpectedUserSid,
+    [string]$ProgressPath
+)
 
 $ErrorActionPreference = 'Stop'
+if (-not $Worker) {
+    # Preserve existing command-line semantics: an explicit deletion switch is
+    # consent for the noninteractive path. The normal entry opens the wizard.
+    & (Join-Path $PSScriptRoot 'Open-Uninstall-OwO.ps1') -Quiet:($Quiet -or $RemoveUserData) -RemoveUserData:$RemoveUserData
+    exit $LASTEXITCODE
+}
+
+. (Join-Path $PSScriptRoot 'Uninstall-Common.ps1')
 . (Join-Path $PSScriptRoot 'Install-Prerequisites.ps1')
-$nativeSystem = Get-OwONativeSystemDirectory
-$nativePowerShell = Join-Path $nativeSystem 'WindowsPowerShell\v1.0\powershell.exe'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+# An alternate administrator must not inspect/delete their own HKCU or files
+# in place of the account that initiated the uninstall.
+if (-not $ExpectedUserSid -or $identity.User.Value -ne $ExpectedUserSid) {
+    throw 'Uninstall must be elevated by the same Windows account. No data was changed.'
+}
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    $arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "' + $PSCommandPath + '"'
-    if ($RemoveUserData) { $arguments += ' -RemoveUserData' }
+    throw 'OwO TSF unregistration requires administrator approval.'
+}
+$statusPath = [IO.Path]::GetFullPath($ProgressPath)
+$workspace = Assert-OwOUninstallWorkspace ([IO.Path]::GetDirectoryName($statusPath))
+if (-not [IO.Path]::GetDirectoryName($statusPath).Equals($workspace, [StringComparison]::OrdinalIgnoreCase) -or
+    [IO.Path]::GetFileName($statusPath) -notmatch '^progress-[a-f0-9]{32}\.jsonl$') {
+    throw 'Invalid uninstall progress destination.'
+}
+Assert-OwOPlainPath $statusPath
+Set-Location -LiteralPath $workspace
+
+function Write-OwOUninstallStatus([int]$Percent, [string]$Stage, [string]$Detail = '') {
+    if ($Detail.Length -gt 3000) { $Detail = $Detail.Substring(0, 3000) }
+    $line = @{ percent = $Percent; stage = $Stage; detail = $Detail } | ConvertTo-Json -Compress
+    [IO.File]::AppendAllText($statusPath, $line + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+}
+
+$jobLock = [Threading.Mutex]::new($false, "Local\OwO.Uninstall.$ExpectedUserSid")
+$lockHeld = $false
+try {
+    try { $lockHeld = $jobLock.WaitOne(0) }
+    catch [Threading.AbandonedMutexException] { $lockHeld = $true }
+    if (-not $lockHeld) { throw 'An OwO uninstall is already running.' }
+    Write-OwOUninstallStatus 6 'prepare'
+    $target = Get-OwOUninstallTarget $InstallRoot
+    $root = $target.Root
+    $data = Get-OwOUninstallUserData
+    if ($RemoveUserData) { Assert-OwOPlainTree $data }
+    $nativeSystem = Get-OwONativeSystemDirectory
+
+    Write-OwOUninstallStatus 18 'stop'
+    $installedProcesses = @(Get-CimInstance Win32_Process | Where-Object {
+        $_.ProcessId -ne $PID -and $_.ExecutablePath -and
+        $_.ExecutablePath.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase)
+    })
+    foreach ($process in $installedProcesses) {
+        # Scope to the selected deployed version. A development Core or another
+        # copy with the same filename must not be stopped.
+        $live = Get-Process -Id $process.ProcessId -ErrorAction SilentlyContinue
+        if ($live -and $live.Path -and $live.Path.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase)) {
+            Stop-Process -InputObject $live -Force
+        }
+    }
+
+    Write-OwOUninstallStatus 36 'unregister'
+    if (-not $target.Pending) {
+        $profileCheck = Join-Path $root 'bin\owo_tsf_profile_check.exe'
+        if (Test-Path -LiteralPath $profileCheck -PathType Leaf) {
+            Assert-OwOPlainPath $profileCheck
+            & $profileCheck --disable | Out-Null
+            if ($LASTEXITCODE -notin @(0, 4)) { throw "OwO profile disable failed: $LASTEXITCODE" }
+        }
+        foreach ($entry in @(
+            @{ Dll = 'bin\OwO.TSF.dll'; System = $nativeSystem },
+            @{ Dll = 'bin\x86\OwO.TSF.dll'; System = (Join-Path $env:SystemRoot 'SysWOW64') }
+        )) {
+            $dll = Join-Path $root $entry.Dll
+            if (-not (Test-Path -LiteralPath $dll -PathType Leaf)) { continue }
+            Assert-OwOPlainPath $dll
+            $unregister = Start-Process -FilePath (Join-Path $entry.System 'regsvr32.exe') `
+                -ArgumentList @('/u', '/s', ('"{0}"' -f $dll)) -WindowStyle Hidden -Wait -PassThru
+            if ($unregister.ExitCode -ne 0) { throw "TSF unregistration failed ($($entry.Dll)): $($unregister.ExitCode)" }
+        }
+    }
+    $owoTip = '0804:{6D31C9B1-8978-4F49-89B4-66EB1E741591}{5D9F39C3-BDB4-453C-A7BA-B9EF82487629}'
+    $languages = Get-WinUserLanguageList
+    $changed = $false
+    foreach ($language in $languages) {
+        if ($language.InputMethodTips -contains $owoTip) {
+            [void]$language.InputMethodTips.Remove($owoTip)
+            $changed = $true
+        }
+    }
+    if ($changed) { Set-WinUserLanguageList $languages -Force -WarningAction SilentlyContinue }
+    if (-not $target.Pending) {
+        $resume = [Guid]::NewGuid().ToString('N')
+        $resumeFile = Join-Path $root '.owo-removal-pending'
+        Assert-OwOPlainPath $resumeFile
+        [IO.File]::WriteAllText($resumeFile, $resume)
+        if (-not (Test-Path -LiteralPath $script:OwOUninstallKey)) {
+            [void](New-Item -Path $script:OwOUninstallKey -Force)
+        }
+        Set-ItemProperty -LiteralPath $script:OwOUninstallKey -Name InstallLocation -Value $root
+        Set-ItemProperty -LiteralPath $script:OwOUninstallKey -Name OwORemovalPending -Value $resume
+    }
+
+    Write-OwOUninstallStatus 54 'shortcuts'
+    Remove-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' `
+        -Name 'OwO Input Method' -ErrorAction SilentlyContinue
+    $startMenu = Join-Path ([Environment]::GetFolderPath('Programs')) 'OwO Input Method'
     try {
-        $elevated = Start-Process -FilePath $nativePowerShell -Verb RunAs `
-            -ArgumentList $arguments -Wait -PassThru
+        Assert-OwOPlainPath $startMenu
+        foreach ($shortcut in @('OwO Input Method Settings.lnk', 'Uninstall OwO Input Method.lnk')) {
+            $link = Join-Path $startMenu $shortcut
+            if (Test-Path -LiteralPath $link -PathType Leaf) {
+                Assert-OwOPlainPath $link
+                Remove-Item -LiteralPath $link -Force
+            }
+        }
+        if ((Test-Path -LiteralPath $startMenu -PathType Container) -and
+            @(Get-ChildItem -LiteralPath $startMenu -Force).Count -eq 0) {
+            [IO.Directory]::Delete($startMenu, $false)
+        }
     } catch {
-        throw 'OwO TSF unregistration requires administrator approval. UAC was cancelled or unavailable.'
+        Write-OwOUninstallStatus 55 'shortcuts' $_.Exception.Message
     }
-    exit $elevated.ExitCode
-}
-
-$version = '0.3.1'
-$defaultProgramRoot = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Programs\OwO\InputMethod'))
-$scriptPackageRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$installedVersionRoot = [IO.Path]::GetFullPath((Join-Path $defaultProgramRoot $version))
-$uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\OwO Input Method'
-$registeredInstallRoot = $null
-$registeredInstall = Get-ItemProperty -LiteralPath $uninstallKey `
-    -Name InstallLocation -ErrorAction SilentlyContinue
-if ($null -ne $registeredInstall) {
-    $registeredInstallRoot = $registeredInstall.InstallLocation
-}
-$installRoot = if (-not [string]::IsNullOrWhiteSpace($registeredInstallRoot)) {
-    # ZIP-root uninstallers follow the currently registered side-by-side
-    # instance, including a user-selected install location.
-    [IO.Path]::GetFullPath($registeredInstallRoot)
-} elseif ((Test-Path -LiteralPath (Join-Path $scriptPackageRoot 'bin\OwO.TSF.dll') -PathType Leaf) -and
-          (Test-Path -LiteralPath (Join-Path $scriptPackageRoot 'scripts\Uninstall-OwO.ps1') -PathType Leaf)) {
-    $scriptPackageRoot
-} else {
-    # The ZIP-root Uninstall-OwO.cmd invokes this copy of the script. Resolve
-    # the actual per-user installation instead of trying to delete the ZIP.
-    $installedVersionRoot
-}
-$programRoot = [IO.Path]::GetFullPath((Split-Path -Parent $installRoot))
-$volumeRoot = [IO.Path]::GetPathRoot($installRoot)
-if ([string]::Equals($installRoot.TrimEnd([IO.Path]::DirectorySeparatorChar),
-        $volumeRoot.TrimEnd([IO.Path]::DirectorySeparatorChar),
-        [StringComparison]::OrdinalIgnoreCase)) {
-    throw 'Refusing to uninstall a filesystem root.'
-}
-if (-not (Test-Path -LiteralPath $installRoot -PathType Container)) {
-    throw "OwO Input Method $version is not installed: $installRoot"
-}
-foreach ($marker in @('bin\OwO.TSF.dll', 'scripts\Uninstall-OwO.ps1', 'settings\OwO.Settings.exe')) {
-    if (-not (Test-Path -LiteralPath (Join-Path $installRoot $marker) -PathType Leaf)) {
-        throw "Refusing to uninstall a directory without the expected OwO files: $installRoot"
-    }
-}
-
-$modelPointer = Join-Path $installRoot 'model\active-model-path.txt'
-$cachedModel = $null
-if (Test-Path -LiteralPath $modelPointer -PathType Leaf) {
-    $cachedModel = (Get-Content -Raw -LiteralPath $modelPointer).Trim()
-}
-
-foreach ($process in Get-CimInstance Win32_Process | Where-Object {
-    $_.Name -in @('owo_core_service.exe', 'owo_model_host.exe') -or
-    (-not [string]::IsNullOrWhiteSpace($_.ExecutablePath) -and
-     [IO.Path]::GetFullPath($_.ExecutablePath).StartsWith(
-         $installRoot + [IO.Path]::DirectorySeparatorChar,
-         [StringComparison]::OrdinalIgnoreCase))
-}) {
-    Stop-Process -Id $process.ProcessId -Force
-}
-
-$profileCheck = Join-Path $installRoot 'bin\owo_tsf_profile_check.exe'
-$tsf = Join-Path $installRoot 'bin\OwO.TSF.dll'
-$x86Tsf = Join-Path $installRoot 'bin\x86\OwO.TSF.dll'
-if (Test-Path -LiteralPath $profileCheck) {
-    & $profileCheck --disable | Out-Null
-    if ($LASTEXITCODE -notin @(0, 4)) {
-        throw "OwO profile disable failed: $LASTEXITCODE"
-    }
-}
-if (Test-Path -LiteralPath $tsf) {
-    $unregister = Start-Process -FilePath (Join-Path $nativeSystem 'regsvr32.exe') `
-        -ArgumentList @('/u', '/s', ('"{0}"' -f $tsf)) `
-        -WindowStyle Hidden -Wait -PassThru
-    if ($unregister.ExitCode -ne 0) {
-        throw "TSF unregistration failed: $($unregister.ExitCode)"
-    }
-}
-if (Test-Path -LiteralPath $x86Tsf) {
-    $x86Unregister = Start-Process `
-        -FilePath "$env:SystemRoot\SysWOW64\regsvr32.exe" `
-        -ArgumentList @('/u', '/s', ('"{0}"' -f $x86Tsf)) `
-        -WindowStyle Hidden -Wait -PassThru
-    if ($x86Unregister.ExitCode -ne 0) {
-        throw "x86 TSF unregistration failed: $($x86Unregister.ExitCode)"
-    }
-}
-
-$owoTip = '0804:{6D31C9B1-8978-4F49-89B4-66EB1E741591}{5D9F39C3-BDB4-453C-A7BA-B9EF82487629}'
-$languages = Get-WinUserLanguageList
-$changed = $false
-foreach ($language in $languages) {
-    if ($language.InputMethodTips -contains $owoTip) {
-        [void]$language.InputMethodTips.Remove($owoTip)
-        $changed = $true
-    }
-}
-if ($changed) {
-    Set-WinUserLanguageList $languages -Force -WarningAction SilentlyContinue
-}
-
-Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' `
-    -Name 'OwO Input Method' -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $uninstallKey `
-    -Recurse -Force -ErrorAction SilentlyContinue
-$startMenu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\OwO Input Method'
-if (Test-Path -LiteralPath $startMenu) { Remove-Item -LiteralPath $startMenu -Recurse -Force }
-$desktop = [Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory)
-if (-not [string]::IsNullOrWhiteSpace($desktop)) {
-    Remove-Item -LiteralPath (Join-Path $desktop 'OwO Input Method Settings.lnk') `
-        -Force -ErrorAction SilentlyContinue
-}
-if ($RemoveUserData) {
-    $userData = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'OwO\InputMethod'))
-    if ($userData.EndsWith('OwO\InputMethod', [StringComparison]::OrdinalIgnoreCase) -and
-        (Test-Path -LiteralPath $userData)) {
-        Remove-Item -LiteralPath $userData -Recurse -Force
-    }
-}
-
-if (-not [string]::IsNullOrWhiteSpace($cachedModel)) {
-    $modelCacheRoot = [IO.Path]::GetFullPath(
-        (Join-Path $env:ProgramData 'OwO\InputMethod\models'))
-    $cachedModel = [IO.Path]::GetFullPath($cachedModel)
-    $cacheDirectory = [IO.Path]::GetFullPath((Split-Path -Parent $cachedModel))
-    $cacheUsedByAnotherInstall = $false
-    # Installed instances are direct siblings. Avoid a recursive scan because
-    # a custom location may make the selected parent a large application or
-    # even a drive-root directory.
-    $otherPointers = foreach ($sibling in Get-ChildItem -LiteralPath $programRoot `
-            -Directory -ErrorAction SilentlyContinue) {
-        $pointer = Join-Path $sibling.FullName 'model\active-model-path.txt'
-        if (Test-Path -LiteralPath $pointer -PathType Leaf) { Get-Item -LiteralPath $pointer }
-    }
-    foreach ($otherPointer in $otherPointers) {
-        if ($otherPointer.FullName.Equals($modelPointer, [StringComparison]::OrdinalIgnoreCase)) {
-            continue
-        }
-        $otherCachedModel = Get-Content -Raw -LiteralPath $otherPointer.FullName `
-            -ErrorAction SilentlyContinue
-        if (-not [string]::IsNullOrWhiteSpace($otherCachedModel) -and
-            [IO.Path]::GetFullPath($otherCachedModel.Trim()).Equals(
-                $cachedModel, [StringComparison]::OrdinalIgnoreCase)) {
-            $cacheUsedByAnotherInstall = $true
-            break
+    $desktop = [Environment]::GetFolderPath('DesktopDirectory')
+    if ($desktop) {
+        $link = Join-Path $desktop 'OwO Input Method Settings.lnk'
+        if (Test-Path -LiteralPath $link -PathType Leaf) {
+            try {
+                Assert-OwOPlainPath $link
+                Remove-Item -LiteralPath $link -Force
+            } catch {
+                Write-OwOUninstallStatus 56 'shortcuts' $_.Exception.Message
+            }
         }
     }
-    if ($cachedModel.StartsWith(
-            $modelCacheRoot + [IO.Path]::DirectorySeparatorChar,
-            [StringComparison]::OrdinalIgnoreCase) -and
-        [IO.Path]::GetFileName($cachedModel) -eq 'zh_CN.lm' -and
-        -not $cacheUsedByAnotherInstall -and
-        (Test-Path -LiteralPath $cacheDirectory -PathType Container)) {
-        Remove-Item -LiteralPath $cacheDirectory -Recurse -Force -ErrorAction SilentlyContinue
+
+    if ($RemoveUserData) {
+        Write-OwOUninstallStatus 67 'remove-data'
+        Remove-OwOOwnedTree $data $data
+        Write-OwOUninstallStatus 73 'data-removed'
+    } else {
+        Write-OwOUninstallStatus 67 'keep-data'
     }
-}
 
-$cleanupSource = Join-Path $PSScriptRoot 'Finish-Uninstall-OwO.ps1'
-if (-not (Test-Path -LiteralPath $cleanupSource -PathType Leaf)) {
-    throw "Uninstall cleanup helper is missing: $cleanupSource"
+    Write-OwOUninstallStatus 79 'program-files'
+    $emptyDirectoryRetained = $false
+    if (Test-Path -LiteralPath $root -PathType Container) {
+        # Keep entry points intact while in-use binaries are being retried.
+        $ordered = @(Get-ChildItem -LiteralPath $root -Force | Sort-Object {
+            if ($_.Name -eq '.owo-removal-pending') { 3 }
+            elseif ($_.Name -eq 'scripts') { 2 }
+            elseif ($_.Name -eq 'settings') { 1 }
+            else { 0 }
+        })
+        $removedEntries = 0
+        foreach ($child in $ordered) {
+            for ($attempt = 0; $attempt -lt 10; ++$attempt) {
+                try { Remove-OwOOwnedTree $child.FullName $root; break }
+                catch [IO.IOException] {
+                    if ($attempt -eq 9) { throw }
+                    Start-Sleep -Milliseconds 200
+                } catch [System.Management.Automation.ProviderInvocationException] {
+                    if ($attempt -eq 9) { throw }
+                    Start-Sleep -Milliseconds 200
+                }
+            }
+            ++$removedEntries
+            $percent = 79 + [int][Math]::Floor(17 * $removedEntries / $ordered.Count)
+            Write-OwOUninstallStatus $percent 'program-files' $child.Name
+        }
+        try { [IO.Directory]::Delete($root, $false) }
+        catch {
+            if (@(Get-ChildItem -LiteralPath $root -Force).Count -ne 0) { throw }
+            $emptyDirectoryRetained = $true
+        }
+    }
+    if (-not $emptyDirectoryRetained -and (Test-Path -LiteralPath $root)) {
+        throw "Program directory still exists: $root"
+    }
+    if (Test-Path -LiteralPath $script:OwOUninstallKey) {
+        Remove-Item -LiteralPath $script:OwOUninstallKey -Force
+    }
+    $detail = if ($emptyDirectoryRetained) { 'empty-directory-retained' } else { '' }
+    Write-OwOUninstallStatus 100 'complete' $detail
+    exit 0
+} catch {
+    Write-OwOUninstallStatus 0 'failed' $_.Exception.Message
+    Write-Error -Message $_.Exception.Message -ErrorAction Continue
+    exit 1
+} finally {
+    if ($lockHeld) { $jobLock.ReleaseMutex() }
+    $jobLock.Dispose()
 }
-$cleanupRoot = Join-Path ([IO.Path]::GetTempPath()) ("OwO-Uninstall-" + [Guid]::NewGuid().ToString('N'))
-[void](New-Item -ItemType Directory -Path $cleanupRoot)
-$cleanupScript = Join-Path $cleanupRoot 'Finish-Uninstall-OwO.ps1'
-Copy-Item -LiteralPath $cleanupSource -Destination $cleanupScript -Force
-$cleanupArguments = '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass' +
-    ' -File "' + $cleanupScript + '"' +
-    ' -InstallRoot "' + $installRoot + '"' +
-    ' -ProgramRoot "' + $programRoot + '"' +
-    ' -ParentProcessId ' + $PID
-Start-Process -FilePath 'powershell.exe' -ArgumentList $cleanupArguments `
-    -WindowStyle Hidden | Out-Null
-
-Write-Output "OwO Input Method $version has been unregistered. Program files will now be removed."

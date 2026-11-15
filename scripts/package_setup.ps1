@@ -24,7 +24,8 @@ foreach ($name in @('settings\OwO.Settings.exe', 'settings\OwO.Settings.dll',
         'settings\OwO.Settings.pri', 'settings\App.xbf', 'settings\MainWindow.xbf',
         'settings\MainPage.xbf', 'settings\Assets\AppIcon.ico',
         'settings\Assets\SetupProgressBanner.png', 'scripts\Install-OwO.ps1',
-        'scripts\Install-Prerequisites.ps1', 'bin\OwO.TSF.dll', 'bin\x86\OwO.TSF.dll')) {
+        'scripts\Install-Prerequisites.ps1', 'scripts\Uninstall-OwO.ps1',
+        'scripts\Open-Uninstall-OwO.ps1', 'scripts\Uninstall-Common.ps1', 'bin\OwO.TSF.dll', 'bin\x86\OwO.TSF.dll')) {
     if (-not (Test-Path -LiteralPath (Join-Path $stage $name) -PathType Leaf)) { throw "Release stage is missing: $name" }
 }
 if ((Get-Item -LiteralPath $stage).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Linked setup staging root is not allowed.' }

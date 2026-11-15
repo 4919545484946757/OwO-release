@@ -301,7 +301,7 @@ Set-ItemProperty -Path $uninstallKey -Name InstallLocation -Value $installRoot
 Set-ItemProperty -Path $uninstallKey -Name DisplayIcon `
     -Value (Join-Path $installRoot 'settings\Assets\AppIcon.ico')
 Set-ItemProperty -Path $uninstallKey -Name UninstallString -Value $uninstallCommand
-Set-ItemProperty -Path $uninstallKey -Name QuietUninstallString -Value $uninstallCommand
+Set-ItemProperty -Path $uninstallKey -Name QuietUninstallString -Value ($uninstallCommand + ' -Quiet')
 New-ItemProperty -Path $uninstallKey -Name NoModify -PropertyType DWord -Value 1 `
     -Force | Out-Null
 New-ItemProperty -Path $uninstallKey -Name NoRepair -PropertyType DWord -Value 1 `
@@ -330,7 +330,7 @@ try {
     $uninstallShortcut.TargetPath = 'powershell.exe'
     $uninstallShortcut.Arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "' +
                                    $uninstallScript + '"'
-    $uninstallShortcut.WorkingDirectory = $installRoot
+    $uninstallShortcut.WorkingDirectory = [IO.Path]::GetTempPath()
     $uninstallShortcut.Save()
     if ($CreateSettingsDesktopShortcut) {
         $desktop = [Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory)

@@ -22,6 +22,7 @@ namespace OwO_Settings;
 public partial class App : Application
 {
     private Window? _window;
+    private bool _uninstallMode;
     internal static string? InstallPackageRoot { get; private set; }
     internal static string? InstallPreviewStage { get; private set; }
     internal static InstallerPayload? BundledInstaller => null;
@@ -35,7 +36,7 @@ public partial class App : Application
     /// </summary>
     public App()
     {
-        UnhandledException += (_, args) => WriteStartupFailure(args.Exception);
+        UnhandledException += (_, args) => { if (!_uninstallMode) WriteStartupFailure(args.Exception); };
         InitializeComponent();
     }
 
@@ -73,6 +74,47 @@ public partial class App : Application
         if (arguments.Contains("--text-assistant-host")) {
             try { await TextAssistantHost.RunAsync(arguments); } catch { /* Never log selections or credentials. */ }
             Exit();
+            return;
+        }
+        string? ValueOf(string option) {
+            var index = Array.IndexOf(arguments, option);
+            return index >= 0 && index + 1 < arguments.Length ? arguments[index + 1] : null;
+        }
+        if (arguments.Contains("--uninstall-root") || arguments.Contains("--uninstall-preview") ||
+            arguments.Contains("--verify-uninstall-ui")) {
+            _uninstallMode = true;
+            var verify = arguments.Contains("--verify-uninstall-ui");
+            var preview = verify ? "options" : arguments.Contains("--uninstall-preview") ?
+                ValueOf("--uninstall-preview") ?? "options" : null;
+            var window = new Window { Title = preview is null ? "卸载 OwO 输入法" : "卸载 OwO 输入法 · 预览" };
+            _window = window;
+            window.AppWindow.Resize(new Windows.Graphics.SizeInt32(920, 620));
+            var report = ValueOf("--uninstall-test-report");
+            try {
+                var page = new UninstallPage(ValueOf("--uninstall-root"), ValueOf("--uninstall-workspace"), preview, window.Close);
+                window.Content = page;
+                window.AppWindow.Closing += (_, closing) => { if (page.Busy) closing.Cancel = true; };
+                window.Activate();
+                if (verify) {
+                    try {
+                        await page.VerifyAsync(width => window.AppWindow.Resize(new Windows.Graphics.SizeInt32(width, 620)));
+                        if (report is not null) File.WriteAllLines(report, page.VerificationReport);
+                    } catch (Exception error) {
+                        Environment.ExitCode = 1;
+                        if (report is not null) File.WriteAllText(report, error.ToString());
+                    } finally { window.Close(); }
+                }
+            } catch (Exception error) {
+                Environment.ExitCode = 1;
+                if (verify) {
+                    if (report is not null) File.WriteAllText(report, error.ToString());
+                    Exit();
+                } else {
+                    window.Content = new TextBlock { Text = $"无法启动卸载助手：{error.Message}",
+                        TextWrapping = TextWrapping.Wrap, Margin = new Thickness(24) };
+                    window.Activate();
+                }
+            }
             return;
         }
         var installIndex = Array.FindIndex(arguments, value =>

@@ -112,6 +112,7 @@ foreach ($name in @('Install-OwO.cmd', 'Uninstall-OwO.cmd', 'Start-OwO.cmd',
     Copy-Item -LiteralPath (Join-Path $packaging $name) -Destination $stage -Force
 }
 foreach ($name in @('Install-OwO.ps1', 'Install-Prerequisites.ps1', 'Uninstall-OwO.ps1', 'Finish-Uninstall-OwO.ps1',
+                    'Open-Uninstall-OwO.ps1', 'Uninstall-Common.ps1',
                     'Start-OwO.ps1')) {
     Copy-Item -LiteralPath (Join-Path $packaging $name) -Destination (Join-Path $stage 'scripts') -Force
 }

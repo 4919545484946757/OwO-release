@@ -127,6 +127,7 @@ internal sealed class InstallerPayload
         }
         foreach (var required in new[] { "bin/OwO.TSF.dll", "bin/x86/OwO.TSF.dll", "bin/owo_core_service.exe",
             "scripts/Install-OwO.ps1", "scripts/Install-Prerequisites.ps1", "scripts/Uninstall-OwO.ps1",
+            "scripts/Open-Uninstall-OwO.ps1", "scripts/Uninstall-Common.ps1",
             "settings/OwO.Settings.exe", "data/owo-cn.owolx", "model/zh_CN.lm" })
             if (!verified.Contains(ResolvePath(PackageRoot, required)))
                 throw new InvalidDataException("安装文件缺失：" + required);
