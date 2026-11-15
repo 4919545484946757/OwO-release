@@ -750,6 +750,7 @@ async function startCore({ reason = "auto", userInitiated = false } = {}) {
   const extraEnv = { OWO_DESKTOP_INSTANCE_ID: instanceId };
   if (app.isPackaged) {
     extraEnv.OWO_WEB_UI_DIR = path.join(process.resourcesPath, "web");
+    extraEnv.OWOBOT_HOME = path.join(process.resourcesPath, "owobot");
   }
 
   const proc = spawn(exe, ["serve", "--port", "0", "--workspace", workspace], {

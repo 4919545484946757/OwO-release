@@ -22,6 +22,8 @@ files:
 asar: true
 
 extraResources:
+  - from: binaries/owobot
+    to: owobot
   - from: binaries/owo-intent-gateway.exe
     to: owo-intent-gateway.exe
   - from: binaries/ime-gateway-build.json

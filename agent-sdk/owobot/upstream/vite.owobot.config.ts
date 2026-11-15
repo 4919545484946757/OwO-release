@@ -15,6 +15,7 @@ export default defineConfig({
   resolve: { alias: { "@": path("./src/") } },
   define: { __APP_VERSION__: JSON.stringify(version) },
   build: {
+    license: { fileName: "licenses/frontend-dependencies.txt" },
     outDir: path("./dist-owobot/"),
     emptyOutDir: true,
   },

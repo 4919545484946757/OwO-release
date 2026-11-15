@@ -40,3 +40,14 @@ The test exercises the OwO Daemon's managed child process, project-scoped browse
 A development shell can use `OWOBOT_HOME` pointing at a staged runtime with `node.exe`, `dist/index.html`, and `dist-server/index.js`. The smoke test can also use a staged runtime via `--runtime`.
 
 The current ACP path supports text in read-only OwO turns. Project-scoped model delegation, approval and delivery are subsequent integration steps.
+
+## Stage the Windows runtime
+
+The Electron distribution stages the OwOBot runtime with the desktop resources. For a development run, stage the same runtime from the repository root.
+
+```powershell
+& .\agent-sdk\scripts\stage-owobot.ps1
+$env:OWOBOT_HOME = (Resolve-Path .\agent-sdk\desktop\electron\binaries\owobot).Path
+```
+
+The staging script checks the official Windows x64 Node archive against its pinned SHA-256, builds with the pinned pnpm and lockfile, and publishes a build manifest and the applicable upstream notices. To reuse a local copy of the checked archive and pnpm CLI, set OWOBOT_NODE_ARCHIVE and OWOBOT_PNPM_CLI.

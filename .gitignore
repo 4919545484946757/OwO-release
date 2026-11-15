@@ -62,6 +62,7 @@ tmp_path_keys.txt
 # ==== 本机产物与归档二进制（2026-09-22 收口；均为可再生，不入库） ====
 # Electron 壳的依赖与本机运行数据（273 MB，npm install 可再生）
 /agent-sdk/desktop/electron/node_modules/
+/agent-sdk/desktop/electron/binaries/owobot/
 /agent-sdk/desktop/electron/.owo/
 # 根目录本地日志与构建残留
 /log/

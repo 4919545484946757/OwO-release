@@ -9,6 +9,7 @@
     "start:dev": "electron . --dev",
     "test": "node --test \"tests/*.test.mjs\"",
     "predist": "powershell -NoProfile -ExecutionPolicy Bypass -File ..\\..\\scripts\\stage-electron.ps1",
+    "predist:dir": "powershell -NoProfile -ExecutionPolicy Bypass -File ..\\..\\scripts\\stage-owobot.ps1",
     "dist": "electron-builder --win --config electron-builder.yml",
     "dist:dir": "electron-builder --win --dir --config electron-builder.yml"
   },
