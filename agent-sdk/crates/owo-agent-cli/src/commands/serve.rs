@@ -164,6 +164,7 @@ pub(crate) async fn run_serve(args: ServeArgs) -> Result<(), Box<dyn std::error:
         if remaining > 0 {
             tracing::warn!("仍有 {remaining} 个在途回合超时未完成，强制执行退出");
         }
+        shutdown_state.stop_owobot().await;
         owo_agent_server::flush_audit(&shutdown_state);
         if let Some(path) = owo_agent_server::persist_usage_snapshot(&shutdown_root) {
             tracing::info!("用量快照已落盘：{}", path.display());
@@ -253,6 +254,7 @@ pub(crate) async fn run_serve(args: ServeArgs) -> Result<(), Box<dyn std::error:
         Arc::clone(&state.plugin_state),
     );
     let result = axum::serve(listener, app).await;
+    state.stop_owobot().await;
     // 服务退出时取消尚未完成的 MCP 握手，再终止已连接的 stdio 子进程。
     if let Some(task) = mcp_initialization {
         task.abort();

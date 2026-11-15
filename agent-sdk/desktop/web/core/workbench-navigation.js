@@ -6,6 +6,7 @@
       ["evidence", "产物与证据", "打开产物、查看版本与验证来源"],
       ["project-history", "任务记录", "查看运行历史、交付物与下一步"],
       ["project-launcher", "新建任务", "定义目标、范围并预览执行方式"],
+      ["owobot", "OwOBot", "项目群聊、任务与成员接力"],
       ["workswarm", "团队协作", "跟踪角色、执行进度与交付结果"],
       ["action-center", "待我处理", "处理人工结果、评审与失败步骤"],
       ["goal", "目标与计划", "维护目标和执行计划"],
@@ -37,7 +38,7 @@
   ];
   const entries = groups.flatMap(group => group.items.map(([id, title, description]) =>
     ({ id, title, description, group: group.label })));
-  const primaryIds = ["home", "project-launcher", "project-history", "workswarm", "evidence", "action-center"];
+  const primaryIds = ["home", "project-launcher", "project-history", "owobot", "workswarm", "evidence", "action-center"];
   function sections(available) {
     const allowed = entry => !available || available.includes(entry.id);
     const primary = primaryIds.map(id => entries.find(entry => entry.id === id)).filter(entry => entry && allowed(entry));

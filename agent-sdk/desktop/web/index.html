@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="workbench-pages.css?v=20261101-3">
   <link rel="stylesheet" href="workflow-canvas.css?v=20261101-3">
   <link rel="stylesheet" href="team-workbench.css?v=20261101-3">
+  <link rel="stylesheet" href="owobot.css">
   <link rel="stylesheet" href="shell-compat.css?v=20261101-13">
   <link rel="stylesheet" href="task-details.css?v=20261101-restore">
 </head>
@@ -96,6 +97,7 @@
       <nav class="workbench-shortcuts" aria-label="主要工作入口">
         <button type="button" id="sidebarHome" title="首页" aria-label="首页"><svg class="nav-icon" viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.2 7.2 5.8-4.8 5.8 4.8"/><path d="M3.7 6.4v6.3c0 .7.5 1.2 1.2 1.2h6.2c.7 0 1.2-.5 1.2-1.2V6.4"/><path d="M6.4 13.9V9.8h3.2v4.1"/></svg><span>首页</span></button>
         <button type="button" data-workbench-panel="home" aria-label="工作台"><svg class="nav-icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round" aria-hidden="true"><rect x="2.3" y="2.3" width="4.7" height="5.6" rx="1.3"/><rect x="9" y="2.3" width="4.7" height="3.4" rx="1.3"/><rect x="9" y="7.8" width="4.7" height="5.9" rx="1.3"/><rect x="2.3" y="10" width="4.7" height="3.7" rx="1.3"/></svg><span>工作台</span></button>
+        <button type="button" data-workbench-panel="owobot" aria-label="OwOBot"><svg class="nav-icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="3.8" r="1.8"/><circle cx="3.6" cy="11.6" r="1.8"/><circle cx="12.4" cy="11.6" r="1.8"/><path d="M7 5.4 4.6 9.9M9 5.4l2.4 4.5M5.5 11.6h5"/></svg><span>OwOBot</span></button>
         <button type="button" data-workbench-panel="workswarm" aria-label="团队协作"><svg class="nav-icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="3.8" r="1.8"/><circle cx="3.6" cy="11.6" r="1.8"/><circle cx="12.4" cy="11.6" r="1.8"/><path d="M7 5.4 4.6 9.9M9 5.4l2.4 4.5M5.5 11.6h5"/></svg><span>团队协作</span></button>
         <span class="rail-divider" aria-hidden="true"></span>
         <button type="button" data-workbench-panel="automations" aria-label="定时任务"><svg class="nav-icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.6 8a5.4 5.4 0 1 0 1.6-3.8"/><path d="M2.4 2.6v2.6H5"/><path d="M8 5.2V8l2 1.3"/></svg><span>定时任务</span></button>
@@ -1149,6 +1151,7 @@
   <script src="core/provider-call-inspector.js"></script>
   <script src="core/dependency-inputs.js"></script>
   <script src="core/dependency-inspector.js"></script>
+  <script src="panels/owobot.panel.js"></script>
   <script src="panels/workswarm.panel.js"></script>
   <script src="core/recovery.js"></script>
   <script src="core/workbench-refresh.js"></script>

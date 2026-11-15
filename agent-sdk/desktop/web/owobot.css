@@ -1,0 +1,22 @@
+#panelRoot.owobot-panel-root {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 !important;
+}
+
+.owobot-panel-frame {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+}
+
+.owobot-panel-status {
+  margin: 1rem;
+  color: var(--text-2);
+}
+
+.owobot-panel-root > button { align-self: start; margin-inline: 1rem; }

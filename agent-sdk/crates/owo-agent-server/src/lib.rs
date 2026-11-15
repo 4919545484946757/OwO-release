@@ -65,6 +65,7 @@ mod notes_api;
 mod observability_api;
 mod openapi;
 mod ops_api;
+mod owobot;
 mod perception_api;
 mod plugin_api;
 mod plugin_market_api;
@@ -199,6 +200,7 @@ pub struct AppState {
         Arc<tokio::sync::Mutex<HashMap<String, tokio::sync::watch::Sender<bool>>>>,
     /// 本地 API bearer token（X03：启动生成/复用 + 用户级 ACL 文件）。
     pub auth_token: Arc<auth_token::AuthToken>,
+    pub(crate) owobot: owobot::Collaboration,
     /// 全局/每会话/敏感端点 双令牌桶限流（X03）。
     pub rate_limiter: Arc<rate_limit::RateLimiter>,
     /// R8 服务端韧性：全局并发 turn 上限 + 优雅关闭信号（CLI serve 接线退出）。
@@ -232,6 +234,10 @@ pub struct AppState {
 }
 
 impl AppState {
+    pub async fn stop_owobot(&self) {
+        self.owobot.shutdown().await;
+    }
+
     /// §5.4 授权记忆匹配用的工作区标识（与 Policy::workspace_id 一致）。
     pub fn workspace_id(&self) -> String {
         self.workspace
@@ -457,6 +463,7 @@ impl AppState {
             data_root,
             elements,
             auth_token,
+            owobot: owobot::Collaboration::new(),
             rate_limiter,
             shutdown_gate,
             // V1 四期（第三路）：评审闭环复用 WorkSwarm 的 space.db（独立连接 + busy_timeout）。

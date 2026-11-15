@@ -1,4 +1,6 @@
+// Modified by the OwO project for the OwOBot desktop integration.
 // EventSource hides SSE comment keepalives, so liveness comes from the server's visible `ping` frame.
+import { collaborationPath, isOwOPage } from "../owobot/surface";
 import type { ServerFrame } from "../../shared/wire";
 import { cloudAsleep, markCloudAsleep, onCloudPower, sleepingFrame } from "./cloud-power";
 import { recordBotTextMessage, recordRuntimeEvent } from "./voice-latency-probe";
@@ -63,9 +65,9 @@ export interface LiveEventsHandlers {
 export function liveEventsUrl(options?: { since?: string | null; screens?: boolean }): string {
   const params = new URLSearchParams();
   if (options?.since) params.set("since", options.since);
-  if (options?.screens === false) params.set("screens", "off");
+  if (isOwOPage() || options?.screens === false) params.set("screens", "off");
   params.set("window", "1");
-  return `${LIVE_EVENTS_PATH}?${params}`;
+  return `${collaborationPath(LIVE_EVENTS_PATH)}?${params}`;
 }
 
 export interface LiveFrameListener {

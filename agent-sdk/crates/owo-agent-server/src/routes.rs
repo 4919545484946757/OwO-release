@@ -28,8 +28,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         event_stream::hub().publish_alert(data, trace_id);
     }));
     // 公开面：健康检查 / OpenAPI / token 引导（发布桌面模式下 token handler 额外验证配对证明）。
+    let collaboration_gateway = get(owobot::proxy).post(owobot::proxy);
     let public = Router::new()
         .route("/health", get(health))
+        .route("/owobot/api/{*path}", collaboration_gateway)
         .route("/openapi.json", get(openapi::openapi_spec))
         .route("/auth/token", get(auth_token::auth_token_bootstrap))
         .with_state(state.clone());
@@ -42,6 +44,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     // 否则会被那个按行扫描的提取器当成一条真实路由，实测让契约测试报出假漏登记。）
     let session_detail = get(session_api::get_session).delete(session_api::delete_session);
     let protected = Router::new()
+        .route("/owobot/open", post(owobot::open))
         .route("/expression", post(expression_api::expression))
         .route("/input/preflight", post(turn_api::input_preflight))
         .route("/audit", get(audit_api::audit_list))
@@ -435,6 +438,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     // R8/R9：trace_id 贯穿置于最外层（public + protected + fallback 全覆盖）。
     public
         .merge(protected)
+        .nest_service("/owobot", ServeDir::new(state.owobot.web_dir()))
         // 桌宠 UI（overlay 壳加载）：`OWO_PET_UI_DIR` 指向桌面端仓库的
         // `apps/overlay/ui/pet`（index.html/JS/CSS 与 assets/skins 皮肤资产），
         // 未设置或目录无效时回落 `desktop/web/pet`。磁盘直读 + 全局 no-store

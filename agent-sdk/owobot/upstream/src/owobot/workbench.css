@@ -1,0 +1,75 @@
+.owobot-workbench {
+  display: grid;
+  grid-template-columns: clamp(10rem, 22%, 15rem) minmax(0, 1fr);
+  height: 100dvh;
+  color: var(--color-ink);
+  background: var(--color-app);
+}
+
+.owobot-task-list {
+  padding: 1rem .75rem;
+  overflow: auto;
+  background: var(--color-panel);
+  border-inline-end: 1px solid var(--color-hairline);
+}
+
+.owobot-task-list button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  width: 100%;
+  padding: .55rem .65rem;
+  border-radius: .55rem;
+  text-align: start;
+  font-size: .875rem;
+  cursor: pointer;
+}
+
+.owobot-task-list .owobot-new-task {
+  margin-bottom: .75rem;
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-weight: 550;
+}
+
+.owobot-task-list li button:hover,
+.owobot-task-list [aria-current="page"] {
+  background: var(--color-inset);
+}
+
+.owobot-task-list li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.owobot-task-list small, .owobot-room-header span, .owobot-connection {
+  flex-shrink: 0;
+  color: var(--color-ink-secondary);
+  font-size: .75rem;
+}
+
+.owobot-transcript {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.owobot-transcript > main { min-height: 0; }
+.owobot-connection { padding: .6rem 1rem; }
+
+.owobot-room-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .35rem 1rem;
+  padding: .85rem 1.25rem;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+@media (max-width: 560px) {
+  .owobot-workbench { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .owobot-task-list { max-height: 7rem; border-inline-end: 0; border-bottom: 1px solid var(--color-hairline); }
+}

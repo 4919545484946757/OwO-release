@@ -9494,7 +9494,7 @@ ROUTES.push(createLimitResetRoutes({ clock: limitClock, routines: routines!, req
 
 let webhookIngress: WebhookIngress | null = null;
 let webhookIngressError: string | null = null;
-try {
+if (!OWOBOT_MANAGED) try {
   webhookIngress = await listenWebhookIngress(webhooks, {
     port: WEBHOOK_PORT, socketPath: process.env.OMB_WEBHOOK_SOCKET?.trim() || undefined, publicBaseUrl: WEBHOOK_PUBLIC_URL,
     claimRequest: () => { cloudPower?.arrived("/hooks", {}); moveFreeze.assertTurns(); return workspaceMaintenance.request(); }, door: botApi.door,
@@ -15319,8 +15319,14 @@ if (CLOUD_HOME) registerCloudPower(cloudPower = createCloudPower({ dataDir: DATA
 
 let pausedSent = starterAwake.paused().join(); store.onChange((change) => { if (change.type !== "bot" && change.type !== "bot.deleted") return; const paused = starterAwake.paused().join(); if (paused !== pausedSent) { pausedSent = paused; broadcast({ kind: "config", ...configStatus() }); } });
 server.listen(PORT, OWOBOT_MANAGED ? "127.0.0.1" : listenHost(server), async () => {
-  companyRuntimeReady(); cloudHealth?.speed.ready(); void tailnetShare.start(process.env);
-  console.log(`openmausbot server on http://127.0.0.1:${PORT}`);
+  companyRuntimeReady(); cloudHealth?.speed.ready();
+  if (OWOBOT_MANAGED) {
+    const bound = server.address();
+    if (bound && typeof bound === "object") console.log(JSON.stringify({ event: "owobot_ready", port: bound.port }));
+  } else {
+    void tailnetShare.start(process.env);
+    console.log(`openmausbot server on http://127.0.0.1:${PORT}`);
+  }
   personWaits.boot(); browserSweep.start(); startCloudTeamPolicy({ cloudHome: CLOUD_HOME, dataDir: DATA_DIR, managed: managedPolicy, sessions }); startCloudTeamRoster({ cloudHome: CLOUD_HOME, sessions }); moveFreeze.hold(() => appTriggers.start(), () => void appTriggers.stop()); startCloudHomeConnectedApps({ cloudHome: CLOUD_HOME !== null, dataDir: DATA_DIR, cloudGrant: CLOUD_ENV.OMB_CLOUD_CONNECTED_APPS_GRANT, ownKey: () => composio.connectionMode(cfg) === "self-hosted", apply: (access) => { composio.setManagedBrokerAccess(access); broadcast({ kind: "config", ...configStatus() }); } });
   void afterFirstEngineRead().then(() => { if (builtInBrowserEnabled(cfg)) chromeLauncher.start(); });
   followupsReady = true; engineUpdates.start();
@@ -15450,6 +15456,8 @@ const gracefulShutdown = createGracefulShutdown({
     });
   },
 });
+
+if (OWOBOT_MANAGED) process.stdin.once("end", gracefulShutdown);
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, gracefulShutdown);

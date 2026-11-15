@@ -1,3 +1,4 @@
+// Modified by the OwO project for the OwOBot desktop integration.
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { formattedReplyWidth, isFormattedReply, splitReplyBlocks } from "@/lib/formatted-reply";
 import { activeLocale, intlLocale, t } from "@/lib/i18n";
@@ -80,6 +81,7 @@ import { useComposerDockPad } from "@/lib/composer-dock";
 import { GlassBar, GlassScrollFrame } from "./GlassScrollFrame";
 import { awaitedMemberId, showWorkingDots } from "@/lib/turn-tail";
 import { turnNowPhrases } from "@/lib/live-activity"; import { useTurnLive } from "@/state/turn-status"; import { isLiveReply, StreamingReplyContext, streamedReply, useLiveTranscript } from "@/state/live-reply";
+import { isOwOPage } from "../owobot/surface";
 import { splitTranscriptAttachments } from "@/lib/composer-attachments";
 import { useTranscriptViewport } from "@/hooks/use-transcript-viewport";
 import { useUnreadDivider } from "@/hooks/use-unread-divider";
@@ -882,6 +884,7 @@ function RoomSetup({ group, members }: { group: Group; members: Bot[] }) {
 }
 export function GroupView({ group, inForkPanel = false }: { group: Group; inForkPanel?: boolean }) {
   const { state, dispatch } = useStore();
+  const managed = isOwOPage();
   const remoteClient = window.ogb?.remoteClient?.active === true;
   const composerDockRef = useRef<HTMLDivElement>(null);
   const composerDock = useComposerDockPad(composerDockRef);
@@ -995,14 +998,17 @@ export function GroupView({ group, inForkPanel = false }: { group: Group; inFork
 
   return (
     <main className="relative flex h-full min-w-0 flex-1 flex-col bg-app">
-      <GroupCallOverlay group={group} members={members} />
+      {!managed && <GroupCallOverlay group={group} members={members} />}
       {membersOpen && !remoteClient && !group.dm && (
         <ManageMembersPanel group={group} onClose={closeMembers} triggerRef={membersTriggerRef} />
       )}
       <GlassScrollFrame className="flex-1 [--glass-tint:var(--color-app)]">
       {/* z-[25]: above the room set-up card (z-20), below the GroupCallOverlay (z-30). */}
       <GlassBar edge="top" fade={!advancedMode && !remoteClient} className="z-[25]">
-      <RoomHeader
+      {managed ? <header className="owobot-room-header">
+        <strong>{group.name}</strong>
+        <span>{members.map((member) => member.name).join(" \u00b7 ")}</span>
+      </header> : <RoomHeader
         group={group}
         members={members}
         simple={simpleHeader}
@@ -1013,12 +1019,12 @@ export function GroupView({ group, inForkPanel = false }: { group: Group; inFork
         onToggleFolder={() => setFolderOpen((open) => !open)}
         onOpenMembers={() => setMembersOpen(true)}
         membersTriggerRef={membersTriggerRef}
-      />
+      />}
 
       {findOpen && <ChatFindBar threadId={group.threadId} inForkPanel={inForkPanel} onClose={() => setFindOpen(false)} />}
       <ChatErrorBanner message={state.error} onDismiss={() => dispatch({ type: "error", message: null })} />
       <ChatNotice notice={state.notice} />
-      {!setupPending && <RoomContextWarnings group={group} members={members} />}{!setupPending && !remoteClient && <RoomChiefAbsent group={group} />}
+      {!setupPending && <RoomContextWarnings group={group} members={members} />}{!managed && !setupPending && !remoteClient && <RoomChiefAbsent group={group} />}
 
       {!setupPending && !group.dm && !remoteClient && state.config && group.defaultResponder.kind === "auto" && !jevRoomRoutingOn(state.config) && (
         <div className="w-full px-5">
@@ -1037,7 +1043,7 @@ export function GroupView({ group, inForkPanel = false }: { group: Group; inFork
 
       {!setupPending && !group.dm && <RoomHoldsBanner group={group} members={members} />}
 
-      {!setupPending && !simpleHeader && <RoomBulletin group={group} remoteClient={remoteClient} />}
+      {!managed && !setupPending && !simpleHeader && <RoomBulletin group={group} remoteClient={remoteClient} />}
 
       {!setupPending && folderOpen && !group.dm && (
         <div className="w-full px-5">
@@ -1098,6 +1104,7 @@ export function GroupView({ group, inForkPanel = false }: { group: Group; inFork
         >
           {group.messages.length === 0 && (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 py-24 text-center">
+              {managed ? <img src="/assets/owo-logo-64.png" alt="" width={44} height={44} /> :
               <div className="flex -space-x-2">
                 {members.slice(0, 3).map((b) => (
                   <BotAvatar
@@ -1110,8 +1117,8 @@ export function GroupView({ group, inForkPanel = false }: { group: Group; inFork
                     animated={false}
                   />
                 ))}
-              </div>
-              <div className="text-[17px] font-semibold text-ink">{group.name}</div>
+              </div>}
+              {!managed && <div className="text-[17px] font-semibold text-ink">{group.name}</div>}
               <div className="max-w-[380px] text-[14px] text-ink-secondary">
                 {groupResponseHint(group, members, { jevOn: jevRoomRoutingOn(state.config) })}
               </div>

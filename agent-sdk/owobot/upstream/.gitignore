@@ -7,6 +7,8 @@ dist-native
 # which package:prepare runs before electron-builder stages it
 dist-companion
 dist-server
+# OwO workbench build output.
+dist-owobot
 *.local
 .DS_Store
 *.tsbuildinfo

@@ -4,6 +4,41 @@
  */
 
 export interface paths {
+    "/owobot/api/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Forward an allowed OwOBot conversation request */
+        get: operations["getOwobotCollaboration"];
+        put?: never;
+        /** Forward an allowed OwOBot conversation request */
+        post: operations["postOwobotCollaboration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/owobot/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open the OwOBot workbench for the Daemon workspace */
+        post: operations["openOwobot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/activity": {
         parameters: {
             query?: never;
@@ -5940,6 +5975,135 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getOwobotCollaboration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Relative path within the installed collaboration API. */
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Collaboration response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "text/event-stream": string;
+                };
+            };
+            /** @description OwOBot browser capability required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Cross-origin request or operation outside the collaboration gateway */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OwOBot runtime is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    postOwobotCollaboration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Relative path within the installed collaboration API. */
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Collaboration response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description OwOBot browser capability required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Cross-origin request or operation outside the collaboration gateway */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OwOBot runtime is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    openOwobot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Local workbench is ready */
+            200: {
+                headers: {
+                    /** @description HttpOnly browser capability scoped to the OwOBot gateway. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        url: "/owobot/";
+                        groupId: string;
+                    };
+                };
+            };
+            /** @description OwO bearer authorization required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OwOBot runtime is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     activityList: {
         parameters: {
             query?: never;

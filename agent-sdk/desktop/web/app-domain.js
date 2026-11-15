@@ -3309,6 +3309,7 @@ const PANEL_ORDER = [
   "action-center",
   "project-history",
   "project-launcher",
+  "owobot",
   "workswarm",
   "about",
 ];
@@ -3441,7 +3442,7 @@ function mountPanel(id, writeHash = true) {
   document.body.classList.add("panel-open");
   const description = window.OwoWorkbenchNavigation.find(id);
   const newTaskButton = $("workbenchPanelNewTask");
-  if (newTaskButton) newTaskButton.hidden = id === "project-launcher";
+  if (newTaskButton) newTaskButton.hidden = id === "project-launcher" || id === "owobot";
   if ($("workbenchPanelTitle")) $("workbenchPanelTitle").textContent = description?.title || panel.title || id;
   if ($("workbenchPanelDescription")) $("workbenchPanelDescription").textContent = description?.description || "";
   // 每次替换根节点前都释放上一个实例，即使用户再次点开同一面板。
@@ -3474,6 +3475,7 @@ function mountPanel(id, writeHash = true) {
     else button.removeAttribute("aria-current");
   }
   const root = previousRoot.cloneNode(false);
+  root.classList.toggle("owobot-panel-root", id === "owobot");
   previousRoot.replaceWith(root);
   const showMountError = (error) => {
     if (currentPanel !== id || $("panelRoot") !== root) return;
@@ -3499,7 +3501,7 @@ function mountPanel(id, writeHash = true) {
   };
   try {
     window.OwoPanelRuntime.mount(panel, root, panelHelpers(), showMountError);
-    layoutPanel(root);
+    if (id !== "owobot") layoutPanel(root);
     stopPanelAccessibility = window.OwoAccessibility?.watch(root);
     const heading = root.querySelector("h2");
     if (heading && description && heading.textContent.trim() === description.title) heading.hidden = true;

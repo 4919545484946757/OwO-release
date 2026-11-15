@@ -84,7 +84,7 @@ fn registered_routes() -> Vec<String> {
                 if let Some(quote) = rest.find('"') {
                     let after = &rest[quote + 1..];
                     if let Some(end) = after.find('"') {
-                        routes.push(after[..end].to_string());
+                        routes.push(after[..end].replace("{*", "{"));
                     }
                 }
             }
@@ -114,7 +114,7 @@ fn all_source_routes() -> Vec<String> {
                     if let Some(quote) = rest.find('"') {
                         let after = &rest[quote + 1..];
                         if let Some(end) = after.find('"') {
-                            let route = after[..end].to_string();
+                            let route = after[..end].replace("{*", "{");
                             if !routes.contains(&route) {
                                 routes.push(route);
                             }
@@ -509,6 +509,7 @@ fn sample_body(path: &str) -> Option<&'static str> {
 /// 占位路径参数（资源不存在时应返回 400/422/500，而不是 404——404 意味着路由缺失）。
 fn sample_path(path: &str, session_id: &str) -> String {
     path.replace("{id}", session_id)
+        .replace("{path}", "bots")
         .replace("{request_id}", "no-such-request")
         .replace("{name}", "no-such-name")
         .replace("{index}", "0")
@@ -6517,4 +6518,28 @@ async fn signed_expression_origin_is_bound_fresh_and_at_most_once() {
     );
     assert_eq!(calls.load(Ordering::SeqCst), 3);
     assert!(state.sessions.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn owobot_gateway_requires_its_own_browser_capability() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+    let response = app
+        .clone()
+        .oneshot(anonymous_request("POST", "/owobot/open", Some("{}")))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 401);
+    for (method, path) in [
+        ("GET", "/owobot/api/bots"),
+        ("GET", "/owobot/api/events"),
+        ("POST", "/owobot/api/groups/test/messages"),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(request(&state, method, path, None))
+            .await
+            .unwrap();
+        assert_eq!(response.status().as_u16(), 401, "{method} {path}");
+    }
 }

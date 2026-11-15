@@ -3132,6 +3132,11 @@
       }
     },
     "securitySchemes": {
+      "owobotCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "owo_collaboration"
+      },
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer"
@@ -3144,6 +3149,141 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/owobot/api/{path}": {
+      "get": {
+        "operationId": "getOwobotCollaboration",
+        "summary": "Forward an allowed OwOBot conversation request",
+        "security": [
+          {
+            "owobotCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "description": "Relative path within the installed collaboration API.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Collaboration response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "OwOBot browser capability required"
+          },
+          "403": {
+            "description": "Cross-origin request or operation outside the collaboration gateway"
+          },
+          "503": {
+            "description": "OwOBot runtime is unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "postOwobotCollaboration",
+        "summary": "Forward an allowed OwOBot conversation request",
+        "security": [
+          {
+            "owobotCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "description": "Relative path within the installed collaboration API.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Collaboration response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "OwOBot browser capability required"
+          },
+          "403": {
+            "description": "Cross-origin request or operation outside the collaboration gateway"
+          },
+          "503": {
+            "description": "OwOBot runtime is unavailable"
+          }
+        }
+      }
+    },
+    "/owobot/open": {
+      "post": {
+        "operationId": "openOwobot",
+        "summary": "Open the OwOBot workbench for the Daemon workspace",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Local workbench is ready",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "HttpOnly browser capability scoped to the OwOBot gateway."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "url",
+                    "groupId"
+                  ],
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "const": "/owobot/"
+                    },
+                    "groupId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "OwO bearer authorization required"
+          },
+          "503": {
+            "description": "OwOBot runtime is unavailable"
+          }
+        }
+      }
+    },
     "/activity": {
       "get": {
         "operationId": "activityList",

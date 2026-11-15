@@ -1,3 +1,4 @@
+// Modified by the OwO project for the OwOBot desktop integration.
 import { cloudAsleep, onCloudPower } from "../lib/cloud-power";
 import { api, ApiError, retryRequest, snapshotArrays } from "./api";
 import { loadOlderPage, MESSAGE_PAGE_SIZE, reduceOlderMessages } from "./message-history";
@@ -55,6 +56,7 @@ import type { ComputerStart } from "@/lib/computer-start";
 import { parseComputerHelp } from "@/lib/computer-control";
 import { answerResponse, dismissResponse } from "@/lib/card-answer";
 import { forgetLiveTurns, noteRuntimeTurn, sendStop } from "@/lib/stop-turn";
+import { isOwOPage } from "../owobot/surface";
 import { readLastConversation, rememberConversation } from "@/lib/last-conversation";
 import { readLastBotSection, rememberBotSection } from "@/lib/last-bot-section";
 import { showNotification } from "@/lib/notify";
@@ -2883,7 +2885,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       return current;
     };
-    const peripheralParts: PeripheralPart[] = [
+    const managed = isOwOPage();
+    const peripheralParts = ([
       {
         key: "instances",
         request: async () => {
@@ -2920,7 +2923,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             rawDispatch({ type: "webhooksHydrated", webhooks, attempts: attempts ?? [], ingress });
         },
       } satisfies PeripheralPart]),
-    ];
+    ] satisfies PeripheralPart[]).filter((part) => !managed || part.key === "instances");
     const partByKey = new Map(peripheralParts.map((part) => [part.key, part]));
     const schedulePeripheralRetry = (part: PeripheralPart, error?: Error) => {
       if (!alive) return;
@@ -2973,7 +2976,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const taskIdsAtStart = new Set([...stateRef.current.bots, ...stateRef.current.groups].flatMap(owner => owner.tasks?.map(task => task.threadId) ?? []));
       const since = stateRef.current.liveCallVersion;
       const seq = nextLiveCallLookup();
-      void unlessRefused<unknown>("/api/live/call", () => api<unknown>("/api/live/call"), null)
+      if (!managed) void unlessRefused<unknown>("/api/live/call", () => api<unknown>("/api/live/call"), null)
         .then((body) => {
           const answer = liveCallFromFrame(body);
           if (alive && answer) flushSync(() => rawDispatch({ type: "liveCallLookup", call: answer.call, since, seq }));
