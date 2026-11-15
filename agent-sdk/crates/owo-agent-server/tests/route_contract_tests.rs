@@ -6530,6 +6530,12 @@ async fn owobot_gateway_requires_its_own_browser_capability() {
         .await
         .unwrap();
     assert_eq!(response.status().as_u16(), 401);
+    let rejected = app.clone().oneshot(request(
+        &state, "POST", "/owobot/open", Some(
+            r#"{"model":"private-model","connection":{"model":"private-model","base_url":"http://127.0.0.1:1/v1","api_key":"forbidden"}}"#,
+        ),
+    )).await.unwrap();
+    assert_eq!(rejected.status().as_u16(), 400);
     for (method, path) in [
         ("GET", "/owobot/api/bots"),
         ("GET", "/owobot/api/events"),

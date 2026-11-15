@@ -9,7 +9,12 @@
     host.replaceChildren(status);
 
     try {
-      const opened = await helpers.post("/owobot/open", {});
+      const model = helpers.selectedModel();
+      const connection = helpers.selectedModelConnection();
+      if (connection?.api_key) {
+        throw new Error("请在 OwO 桌面端重新保存模型凭据，再打开 OwOBot。");
+      }
+      const opened = await helpers.post("/owobot/open", { model, connection });
       if (!host.isConnected) return;
       if (opened?.url !== "/owobot/" || typeof opened.groupId !== "string" || !opened.groupId) {
         throw new Error("Invalid OwOBot workbench response");

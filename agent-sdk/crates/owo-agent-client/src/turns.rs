@@ -19,7 +19,7 @@ impl AgentClient {
         prompt: &str,
         read_only: bool,
     ) -> Result<TurnStream> {
-        self.open_turn_request(session_id, prompt, read_only, None)
+        self.open_turn_request(session_id, prompt, read_only, None, None)
             .await
     }
 
@@ -33,7 +33,21 @@ impl AgentClient {
     ) -> Result<TurnStream> {
         let id = owo_agent_protocol::canonical_turn_id(turn_id)
             .ok_or_else(|| crate::ClientError::Protocol("turn/invalid_id".into()))?;
-        self.open_turn_request(session_id, prompt, read_only, Some(id))
+        self.open_turn_request(session_id, prompt, read_only, Some(id), None)
+            .await
+    }
+
+    /// Submit a read-only OwOBot turn. The owning Daemon resolves the model selection.
+    pub async fn open_owobot_turn(
+        &self,
+        session_id: &str,
+        prompt: &str,
+        turn_id: &str,
+        worker_proof: &str,
+    ) -> Result<TurnStream> {
+        let id = owo_agent_protocol::canonical_turn_id(turn_id)
+            .ok_or_else(|| crate::ClientError::Protocol("turn/invalid_id".into()))?;
+        self.open_turn_request(session_id, prompt, true, Some(id), Some(worker_proof))
             .await
     }
 
@@ -43,6 +57,7 @@ impl AgentClient {
         prompt: &str,
         read_only: bool,
         turn_id: Option<String>,
+        worker_proof: Option<&str>,
     ) -> Result<TurnStream> {
         if read_only || turn_id.is_some() {
             let capabilities: Value = self.get_json("/capabilities").await?;
@@ -54,6 +69,16 @@ impl AgentClient {
             {
                 return Err(crate::ClientError::Protocol(
                     "permission/read_only_unsupported: no turn was submitted".into(),
+                ));
+            }
+            if worker_proof.is_some()
+                && capabilities
+                    .pointer("/constraints/owobot_scoped_model")
+                    .and_then(Value::as_bool)
+                    != Some(true)
+            {
+                return Err(crate::ClientError::Protocol(
+                    "owobot/scoped_model_unsupported: no turn was submitted".into(),
                 ));
             }
             if turn_id.is_some()
@@ -76,9 +101,11 @@ impl AgentClient {
             read_only: read_only.then_some(true),
             turn_id,
         };
-        let response = self
-            .send_stream(self.post_stream(&format!("/session/{session_id}/turn"), &request))
-            .await?;
+        let mut outbound = self.post_stream(&format!("/session/{session_id}/turn"), &request);
+        if let Some(proof) = worker_proof {
+            outbound = outbound.header("x-owo-owobot-worker", proof);
+        }
+        let response = self.send_stream(outbound).await?;
         let received = response
             .headers()
             .get("x-owo-turn-id")

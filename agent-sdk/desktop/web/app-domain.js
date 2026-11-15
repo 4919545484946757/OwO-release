@@ -3338,15 +3338,18 @@ const WORKBENCH_HUB_PANELS = new Set([
 ]);
 
 function panelHelpers() {
+  const selectedModelConnection = () => ModelRouting.buildCustomModelConnection(getComposerModel(), loadCustomModels(), customModelKeys());
   return {
     baseUrl: API_BASE,
     snapshot: () => ({ sessionId: state.sessionId, workspace: state.sessionId && state.sessionWorkspace ? state.sessionWorkspace : $("workspace")?.value || "", settings: state.settings || {}, sessions: state.sessionIndex || [], sessionsKnown: state.sessionsKnown === true, taskFacts: taskNavigationFacts() }),
     openPanel: openPanelById,
     // 面板里发起模型请求（如 AI 生成工作流）时要带上当前选择的模型连接：桌面端把
     // 密钥放在核心进程环境里，核心默认 provider 在只配了桌面自定义模型时是未配置的。
+    selectedModel: getComposerModel,
+    selectedModelConnection,
     modelConnection: () => {
       try {
-        return ModelRouting.buildCustomModelConnection(getComposerModel(), loadCustomModels(), customModelKeys());
+        return selectedModelConnection();
       } catch (_) {
         return null;
       }

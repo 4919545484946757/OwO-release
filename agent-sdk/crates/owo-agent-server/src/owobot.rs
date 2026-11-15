@@ -8,13 +8,63 @@ use axum::extract::{Path, Request, State};
 use axum::http::{header, HeaderMap, HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
+use owo_agent_protocol::{CustomModelConnection, TurnRequest};
+use serde::Deserialize;
 use serde_json::json;
-use std::path::PathBuf;
+use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
 const COOKIE: &str = "owo_collaboration";
+const WORKER_PROOF: &str = "x-owo-owobot-worker";
+
+#[derive(Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ModelSelection {
+    model: Option<String>,
+    connection: Option<CustomModelConnection>,
+}
+
+impl ModelSelection {
+    fn validate(mut self) -> GatewayResult<Self> {
+        self.model = self.model.take().and_then(|model| {
+            let model = model.trim();
+            (!model.is_empty() && model != "default").then(|| model.to_owned())
+        });
+        if self
+            .model
+            .as_ref()
+            .is_some_and(|model| model.len() > 256 || model.chars().any(char::is_control))
+        {
+            return Err(GatewayError::Refused(
+                StatusCode::BAD_REQUEST,
+                "OwOBot 模型名称无效",
+            ));
+        }
+        if let Some(connection) = &self.connection {
+            if connection.api_key.is_some() {
+                return Err(GatewayError::Refused(
+                    StatusCode::BAD_REQUEST,
+                    "OwOBot 模型连接需使用桌面端凭据引用",
+                ));
+            }
+            if self.model.as_deref() != Some(connection.model.trim()) {
+                return Err(GatewayError::Refused(
+                    StatusCode::BAD_REQUEST,
+                    "OwOBot 模型与连接不匹配",
+                ));
+            }
+            owo_agent_core::gateway::custom_model_provider(connection).map_err(|_| {
+                GatewayError::Refused(
+                    StatusCode::BAD_REQUEST,
+                    "OwOBot 模型连接不可用，请检查桌面端模型设置",
+                )
+            })?;
+        }
+        Ok(self)
+    }
+}
 
 type GatewayResult<T> = Result<T, GatewayError>;
 
@@ -71,6 +121,34 @@ impl Collaboration {
         }
     }
 
+    pub(crate) async fn apply_worker_model(
+        &self,
+        headers: &HeaderMap,
+        workspace: &FsPath,
+        request: &mut TurnRequest,
+    ) -> Result<Option<String>, (StatusCode, String)> {
+        let Some(proof) = headers.get(WORKER_PROOF) else {
+            return Ok(None);
+        };
+        let denied = || (StatusCode::FORBIDDEN, "owobot/worker_scope".to_string());
+        let proof = proof.to_str().map_err(|_| denied())?;
+        let mut live = self.live.lock().await;
+        let active = live.as_mut().ok_or_else(denied)?;
+        if !active.worker_proof.verify(proof) || !active.is_alive() {
+            return Err(denied());
+        }
+        if workspace != active.workspace
+            && workspace.canonicalize().ok().as_ref() != Some(&active.workspace)
+        {
+            return Err(denied());
+        }
+        if request.read_only != Some(true) || request.model_connection.is_some() {
+            return Err(denied());
+        }
+        request.model_connection = active.model.connection.clone();
+        Ok(active.model.model.clone())
+    }
+
     fn accepts(&self, headers: &HeaderMap) -> bool {
         headers
             .get_all(header::COOKIE)
@@ -82,13 +160,17 @@ impl Collaboration {
     }
 }
 
-pub(crate) async fn open(State(state): State<Arc<AppState>>) -> Response {
-    open_desktop(&state)
+pub(crate) async fn open(
+    State(state): State<Arc<AppState>>,
+    model: Option<Json<ModelSelection>>,
+) -> Response {
+    open_desktop(&state, model.map(|Json(model)| model).unwrap_or_default())
         .await
         .unwrap_or_else(IntoResponse::into_response)
 }
 
-async fn open_desktop(state: &AppState) -> GatewayResult<Response> {
+async fn open_desktop(state: &AppState, model: ModelSelection) -> GatewayResult<Response> {
+    let model = model.validate()?;
     let collaboration = &state.owobot;
     let home = collaboration
         .home
@@ -115,7 +197,9 @@ async fn open_desktop(state: &AppState) -> GatewayResult<Response> {
             .await?,
         );
     }
-    let group = &live.as_ref().expect("sidecar started").group;
+    let active = live.as_mut().expect("sidecar started");
+    active.model = model;
+    let group = &active.group;
     let cookie = format!(
         "{COOKIE}={}; Path=/owobot/api/; HttpOnly; SameSite=Strict",
         collaboration.browser_session.token(),

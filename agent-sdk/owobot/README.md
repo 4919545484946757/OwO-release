@@ -41,6 +41,12 @@ A development shell can use `OWOBOT_HOME` pointing at a staged runtime with `nod
 
 The current ACP path supports text in read-only OwO turns. Project-scoped model delegation, approval and delivery are subsequent integration steps.
 
+## Verify the selected desktop model
+
+The loopback fixture exercises the full group message, ACP, OwO Daemon and streaming model path. It asserts that the selected model and its bound credential reach the endpoint and that a forged worker capability cannot launch a turn. It uses a synthetic key and a local HTTP endpoint.
+
+    python agent-sdk/owobot/tests/desktop_gateway.py --runtime agent-sdk/desktop/electron/binaries/owobot --agent agent-sdk/target/debug/owo-agent.exe --verify-model
+
 ## Stage the Windows runtime
 
 The Electron distribution stages the OwOBot runtime with the desktop resources. For a development run, stage the same runtime from the repository root.

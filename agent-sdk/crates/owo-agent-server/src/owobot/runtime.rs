@@ -1,4 +1,5 @@
-use super::{GatewayError, GatewayResult};
+use super::{GatewayError, GatewayResult, ModelSelection};
+use crate::auth_token::AuthToken;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
@@ -21,6 +22,9 @@ pub(super) struct Running {
     pub(super) base_url: String,
     pub(super) session: String,
     pub(super) group: String,
+    pub(super) workspace: PathBuf,
+    pub(super) worker_proof: AuthToken,
+    pub(super) model: ModelSelection,
     child: Child,
     stdin: ChildStdin,
 }
@@ -123,6 +127,7 @@ async fn launch(
     seed[..16].copy_from_slice(Uuid::new_v4().as_bytes());
     seed[16..].copy_from_slice(Uuid::new_v4().as_bytes());
     let secret = URL_SAFE_NO_PAD.encode(seed);
+    let worker_proof = AuthToken::generate();
     let mut command = Command::new(home.join("node.exe"));
     command
         .arg(home.join("dist-server").join("index.js"))
@@ -130,6 +135,7 @@ async fn launch(
         .env_clear()
         .envs(process_environment())
         .env("OWOBOT_MANAGED", "1")
+        .env("OWOBOT_WORKER_PROOF", worker_proof.token())
         .env("OMB_LOOPBACK_TRUST", "service")
         .env("OMB_CLI_OWNER_STDIN", "1")
         .env("OMB_DISABLE_ANNOUNCEMENTS", "1")
@@ -193,6 +199,9 @@ async fn launch(
         base_url,
         session: session.token,
         group,
+        workspace,
+        worker_proof,
+        model: ModelSelection::default(),
         child,
         stdin,
     })
@@ -230,7 +239,7 @@ async fn write_config(state_home: &Path, data_root: &Path, workspace: &Path) -> 
     let agent = std::env::current_exe().map_err(storage_error)?;
     let data_root: PathBuf = data_root.canonicalize().map_err(storage_error)?;
     let cli = format!(
-        "\"{}\" acp --workspace \"{}\" --data-dir \"{}\"",
+        "\"{}\" acp --owobot-worker --workspace \"{}\" --data-dir \"{}\"",
         utf8_path(&agent)?,
         utf8_path(workspace)?,
         utf8_path(&data_root)?,

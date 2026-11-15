@@ -6071,7 +6071,16 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Desktop-selected model, or the Daemon default. */
+                    model?: string | null;
+                    /** @description Desktop model connection. Credentials must use the bound environment reference; plaintext keys are refused. */
+                    connection?: components["schemas"]["CustomModelConnection"] | null;
+                };
+            };
+        };
         responses: {
             /** @description Local workbench is ready */
             200: {
@@ -6087,6 +6096,13 @@ export interface operations {
                         groupId: string;
                     };
                 };
+            };
+            /** @description Invalid or unavailable model selection, or plaintext model credential */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description OwO bearer authorization required */
             401: {
@@ -12511,7 +12527,10 @@ export interface operations {
     agentTurn: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Local managed ACP worker capability. Limits use to read-only turns in the Daemon's OwOBot project. */
+                "x-owo-owobot-worker"?: string;
+            };
             path: {
                 id: string;
             };
@@ -12528,6 +12547,13 @@ export interface operations {
                 headers: {
                     /** @description Stable turn identifier used with the durable replay endpoint */
                     "x-owo-turn-id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The managed worker capability or requested scope is invalid */
+            403: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content?: never;

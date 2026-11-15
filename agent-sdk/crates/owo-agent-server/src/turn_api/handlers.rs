@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use axum::extract::{Path as AxumPath, Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::sse::Sse;
 use axum::response::IntoResponse;
 use axum::Json;
@@ -116,11 +116,21 @@ impl Drop for TurnLifecycleGuard {
 pub(crate) async fn turn(
     State(state): State<Arc<AppState>>,
     AxumPath(id): AxumPath<String>,
-    Json(request): Json<TurnRequest>,
+    headers: HeaderMap,
+    Json(mut request): Json<TurnRequest>,
 ) -> Result<axum::response::Response, (StatusCode, String)> {
     // §13 批次六：遥测功能计数（默认关时零开销早退；仅数字，无内容）。
     crate::observability_api::record_telemetry_counter("turn", 1);
     let session = crate::session_api::load_session(&state, &id)?;
+    let worker_model = state
+        .owobot
+        .apply_worker_model(&headers, &session.workspace, &mut request)
+        .await?;
+    let turn_model = request
+        .model_connection
+        .as_ref()
+        .map(|connection| connection.model.clone())
+        .or(worker_model);
     let turn_provider = request
         .model_connection
         .as_ref()
@@ -316,11 +326,7 @@ pub(crate) async fn turn(
     let admission_provider = turn_provider
         .clone()
         .unwrap_or_else(|| state.agent.provider());
-    let admission_model = request
-        .model_connection
-        .as_ref()
-        .map(|c| c.model.as_str())
-        .or(session.model_override.as_deref());
+    let admission_model = turn_model.as_deref().or(session.model_override.as_deref());
     admission_provider
         .validate_image_input(admission_model, has_images)
         .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
@@ -422,8 +428,8 @@ pub(crate) async fn turn(
         let mut current = session;
         let original_model = current.model.clone();
         let original_override = current.model_override.clone();
-        if let Some(connection) = &request.model_connection {
-            current.set_model_override(Some(connection.model.clone()));
+        if turn_model.is_some() {
+            current.set_model_override(turn_model);
         }
         let stream_abort = Arc::clone(&abort_flag);
         let mut tool_starts: std::collections::HashMap<String, std::time::Instant> =

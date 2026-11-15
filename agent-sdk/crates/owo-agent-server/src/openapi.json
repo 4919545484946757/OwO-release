@@ -3275,11 +3275,55 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid or unavailable model selection, or plaintext model credential"
+          },
           "401": {
             "description": "OwO bearer authorization required"
           },
           "503": {
             "description": "OwOBot runtime is unavailable"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "model": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Desktop-selected model, or the Daemon default."
+                  },
+                  "connection": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/CustomModelConnection"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Desktop model connection. Credentials must use the bound environment reference; plaintext keys are refused.",
+                    "not": {
+                      "required": [
+                        "api_key"
+                      ],
+                      "properties": {
+                        "api_key": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -10800,6 +10844,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "x-owo-owobot-worker",
+            "in": "header",
+            "description": "Local managed ACP worker capability. Limits use to read-only turns in the Daemon's OwOBot project.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -10822,6 +10874,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "The managed worker capability or requested scope is invalid"
           }
         }
       }

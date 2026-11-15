@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::io::{BufRead, Read};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tokio::io::{AsyncWriteExt, Stdout};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
@@ -24,6 +25,8 @@ pub(crate) struct AcpArgs {
     /// Data directory of the owning OwO Daemon.
     #[arg(long)]
     data_dir: PathBuf,
+    #[arg(long, hide = true)]
+    owobot_worker: bool,
 }
 
 struct ActiveTurn {
@@ -40,6 +43,15 @@ enum Output {
 }
 
 pub(crate) async fn run(args: AcpArgs) -> Result<(), Box<dyn std::error::Error>> {
+    let worker_proof: Option<Arc<str>> = if args.owobot_worker {
+        let proof = std::env::var("OWOBOT_WORKER_PROOF")?;
+        if proof.len() != 64 || !proof.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err("OwOBot worker capability is invalid".into());
+        }
+        Some(proof.into())
+    } else {
+        None
+    };
     let workspace = args.workspace.canonicalize()?;
     if !workspace.is_dir() || workspace.to_str().is_none() {
         return Err("ACP requires a UTF-8 workspace directory".into());
@@ -126,7 +138,7 @@ pub(crate) async fn run(args: AcpArgs) -> Result<(), Box<dyn std::error::Error>>
                                     let turn_id = Uuid::new_v4().to_string();
                                     let worker = tokio::spawn(run_turn(
                                         client.clone(), turn_tx.clone(), session_id.clone(),
-                                        turn_id.clone(), prompt,
+                                        turn_id.clone(), prompt, worker_proof.clone(),
                                     ));
                                     active = Some(ActiveTurn {
                                         request_id: id, session_id, turn_id, cancelled: false, worker,
@@ -246,8 +258,17 @@ async fn run_turn(
     session_id: String,
     turn_id: String,
     prompt: String,
+    worker_proof: Option<Arc<str>>,
 ) -> Result<(), &'static str> {
-    let result = stream_turn(&client, &sender, &session_id, &turn_id, &prompt).await;
+    let result = stream_turn(
+        &client,
+        &sender,
+        &session_id,
+        &turn_id,
+        &prompt,
+        worker_proof.as_deref(),
+    )
+    .await;
     if result.is_err() {
         let _ = client.cancel_turn_id(&session_id, &turn_id).await;
     }
@@ -261,11 +282,21 @@ async fn stream_turn(
     session_id: &str,
     turn_id: &str,
     prompt: &str,
+    worker_proof: Option<&str>,
 ) -> Result<(), &'static str> {
-    let mut events = client
-        .open_turn_with_id(session_id, prompt, true, turn_id)
-        .await
-        .map_err(|_| "OwO could not start the read-only turn")?;
+    let events = match worker_proof {
+        Some(proof) => {
+            client
+                .open_owobot_turn(session_id, prompt, turn_id, proof)
+                .await
+        }
+        None => {
+            client
+                .open_turn_with_id(session_id, prompt, true, turn_id)
+                .await
+        }
+    };
+    let mut events = events.map_err(|_| "OwO could not start the read-only turn")?;
     let mut streamed = false;
     let mut final_message = false;
     let mut completed = false;
