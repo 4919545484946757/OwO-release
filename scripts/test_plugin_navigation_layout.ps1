@@ -37,6 +37,10 @@ try {
     $results = Get-Content -LiteralPath $report -Raw -Encoding UTF8 | ConvertFrom-Json
     if (@($results).Count -ne 18) { throw 'Incomplete navigation layout report.' }
     Write-Output "PASS: $($results.Count) row snapshots across window sizes, themes, folding and native-presenter reparenting. System display settings untouched. Report: $report"
+    $scrollReport = Join-Path $fixture 'plugin-navigation-scroll-report.json'
+    $scrollResults = Get-Content -LiteralPath $scrollReport -Raw -Encoding UTF8 | ConvertFrom-Json
+    if (@($scrollResults).Count -ne 4) { throw 'Incomplete plugin navigation scroll report.' }
+    Write-Output "PASS: hover popup wheel forwarding, anchor tracking, viewport clipping and closing offscreen. Report: $scrollReport"
 } finally {
     if (-not $process.HasExited) { $process.CloseMainWindow() | Out-Null; if (-not $process.WaitForExit(5000)) { $process.Kill() } }
 }

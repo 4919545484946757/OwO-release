@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
@@ -72,6 +73,64 @@ public sealed partial class MainPage
         }
         var report = Path.Combine(Path.GetDirectoryName(_client.ConfigPath)!, "plugin-navigation-report.json");
         await File.WriteAllTextAsync(report, JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = true }));
+        await VerifyPluginNavigationScrollAsync(items[0]);
+    }
+
+    private async Task VerifyPluginNavigationScrollAsync(NavigationViewItem existingItem)
+    {
+        var (scroll, viewport) = PluginNavigationLift.FindScrollViewport(existingItem, SettingsNavigation);
+        if (scroll is null || viewport is null) throw new InvalidOperationException("No plugin pane scroll viewport.");
+        var group = _pluginPagesGroup!;
+        var item = new NavigationViewItem { Content = new string('W', 80), Icon = new FontIcon { Glyph = "\uE74C" } };
+        var layout = new PluginNavigationLayout(item);
+        var lift = new PluginNavigationLift(item, SettingsNavigation, layout.Refresh);
+        group.MenuItems.Insert(0, item);
+        for (var index = 0; index < 18; ++index)
+            group.MenuItems.Add(new NavigationViewItem { Content = $"Scroll fixture {index}" });
+        ((App)Application.Current).MainWindow.AppWindow.Resize(new SizeInt32(1000, 640));
+        await WaitForAsync(() => scroll.ScrollableHeight > 300 && item.IsLoaded, "scrollable plugin pane");
+        var viewportY = item.TransformToVisual(viewport).TransformPoint(default).Y;
+        var target = Math.Clamp(scroll.VerticalOffset + viewportY - 72, 0, scroll.ScrollableHeight);
+        await ScrollToAsync(target);
+        lift.Show(monitorHover: false);
+        var popup = VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot).Single(p =>
+            p.Child is Border { Child: Border surface } && AutomationProperties.GetName(surface) == new string('W', 80));
+        var host = (Border)popup.Child;
+        var y = popup.VerticalOffset;
+        var original = scroll.VerticalOffset;
+        if (!lift.ScrollByWheelDelta(-15)) throw new InvalidOperationException("Expanded row did not forward wheel input.");
+        await WaitForAsync(() => scroll.VerticalOffset > original, "wheel scroll");
+        await WaitForAsync(() => popup.IsOpen && Math.Abs(popup.VerticalOffset - (y - (scroll.VerticalOffset - original))) < 1,
+            "expanded row tracking the wheel scroll");
+        if (!lift.ScrollByWheelDelta(15)) throw new InvalidOperationException("Expanded row did not forward reverse wheel input.");
+        await WaitForAsync(() => popup.IsOpen && Math.Abs(scroll.VerticalOffset - original) < 1 &&
+            Math.Abs(popup.VerticalOffset - y) < 1, "expanded row tracking the reverse wheel scroll");
+
+        var root = (FrameworkElement)XamlRoot.Content;
+        var top = viewport.TransformToVisual(root).TransformPoint(default).Y;
+        await ScrollToAsync(scroll.VerticalOffset + popup.VerticalOffset - top + 8);
+        await WaitForAsync(() => popup.IsOpen && host.Clip is RectangleGeometry clip && Math.Abs(clip.Rect.Y - 8) < 1,
+            "expanded row clipped by the viewport");
+        await ScrollToAsync(scroll.VerticalOffset + item.ActualHeight + 8);
+        await WaitForAsync(() => !popup.IsOpen && NavigationPart(item, "NavigationViewItemPresenter") is not null,
+            "paint and hit target removed after the row scrolls out");
+
+        var report = Path.Combine(Path.GetDirectoryName(_client.ConfigPath)!, "plugin-navigation-scroll-report.json");
+        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new[] { "wheel forwarding", "anchor tracking", "viewport clipping", "closes outside viewport" }));
+
+        async Task ScrollToAsync(double offset)
+        {
+            scroll.ChangeView(null, offset, null, disableAnimation: true);
+            await WaitForAsync(() => Math.Abs(scroll.VerticalOffset - offset) < 1, $"scroll offset {offset}");
+        }
+        static async Task WaitForAsync(Func<bool> ready, string description)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(3);
+            while (!ready()) {
+                if (DateTime.UtcNow >= deadline) throw new InvalidOperationException($"Timed out: {description}");
+                await Task.Delay(25);
+            }
+        }
     }
 
     private static FrameworkElement? NavigationPart(DependencyObject parent, string name)
