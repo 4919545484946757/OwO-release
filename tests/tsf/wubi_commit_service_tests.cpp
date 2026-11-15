@@ -157,7 +157,14 @@ struct WubiCommitTestAccess {
         service->queue_plugin_compose();
         check(poll_until([&]{ return !service->candidate_request_pending_; }) && !service->candidates_.empty(),
               "real failed write can recompose retained code");
-        store->defer_write_lock = true; service->select_plugin_candidate(0);
+        store->defer_write_lock = true;
+        service->shortcut_config_.candidate_selection_numpad = true;
+        SetKeyboardState(cleared);
+        BOOL keypad_eaten{};
+        check(SUCCEEDED(service->handle_plugin_key(context, VK_NUMPAD1, 0, &keypad_eaten)) && keypad_eaten,
+              "configured numpad selects a production Wubi candidate");
+        SetKeyboardState(previous);
+        service->shortcut_config_.candidate_selection_numpad = false;
         check(poll_until([&]{ return store->deferred_lock != 0; }), "retry selection schedules actual write");
         service->commit_plugin_text(L"duplicate",true);
         store->defer_write_lock = false; (void)store->grant_deferred_lock();

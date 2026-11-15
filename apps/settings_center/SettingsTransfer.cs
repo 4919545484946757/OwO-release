@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 
 namespace OwO_Settings;
 
-internal sealed record TransferUiPreferences(bool AutoSaveEnabled, string? LogoTheme = null);
+internal sealed record TransferUiPreferences(bool AutoSaveEnabled, string? LogoTheme = null, string? SettingsTheme = null);
 internal sealed record SettingsTransferDocument(int FormatVersion, string Kind,
     SettingsSnapshot Settings, TransferUiPreferences UiPreferences);
 
@@ -21,8 +21,8 @@ internal static class SettingsTransfer
         MaxDepth = 8
     };
 
-    internal static SettingsTransferDocument Create(SettingsSnapshot settings, bool autoSave, string? logoTheme = null) =>
-        new(2, "OwO.Settings", settings, new(autoSave, logoTheme));
+    internal static SettingsTransferDocument Create(SettingsSnapshot settings, bool autoSave, string? logoTheme = null, string? settingsTheme = null) =>
+        new(2, "OwO.Settings", settings, new(autoSave, logoTheme, settingsTheme));
 
     internal static async Task<SettingsTransferDocument> ReadAsync(string path)
     {
@@ -126,6 +126,8 @@ internal static class SettingsTransfer
             throw new InvalidDataException("不支持此配置文件格式或版本。");
         if (document.UiPreferences.LogoTheme is not null && !LogoAssets.IsValid(document.UiPreferences.LogoTheme))
             throw new InvalidDataException("导入文件的 Logo 外观选项无效。");
+        if (document.UiPreferences.SettingsTheme is not null && !LogoAssets.IsValid(document.UiPreferences.SettingsTheme))
+            throw new InvalidDataException("导入文件的设置中心主题选项无效。");
         var value = document.Settings;
         IReadOnlyList<string>[] groups = [value.CorrectionShortcuts, value.LanguageShortcuts,
             value.RawInputShortcuts, value.CursorLeftShortcuts, value.CursorRightShortcuts,
@@ -169,7 +171,8 @@ internal static class SettingsTransfer
             var existingPreferences = SettingsUiPreferences.Load(preferencesPath);
             (existingPreferences with {
                 AutoSaveEnabled = document.UiPreferences.AutoSaveEnabled,
-                LogoTheme = document.UiPreferences.LogoTheme ?? existingPreferences.LogoTheme
+                LogoTheme = document.UiPreferences.LogoTheme ?? existingPreferences.LogoTheme,
+                SettingsTheme = document.UiPreferences.SettingsTheme ?? existingPreferences.SettingsTheme
             }).Save(preferencesPath);
         }
         catch (Exception error) {

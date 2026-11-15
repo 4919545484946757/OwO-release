@@ -1,4 +1,6 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
+using Microsoft.UI.Xaml.Automation.Provider;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
@@ -11,20 +13,18 @@ namespace OwO_Settings;
 [Bindable]
 public sealed class SettingsSearchSuggestion
 {
-    internal SettingsSearchSuggestion(object value, SearchTerm term, string subtitle, Brush? foreground)
+    internal SettingsSearchSuggestion(object value, SearchTerm term, Brush? foreground)
     {
         Value = value;
         Title = term.Title;
         NamespacePrefix = SettingsSearchQuery.Namespace(term.Area);
-        Subtitle = subtitle;
         NamespaceForeground = foreground;
     }
     internal object Value { get; }
     public string Title { get; }
     public string NamespacePrefix { get; }
-    public string Subtitle { get; }
     public Brush? NamespaceForeground { get; }
-    public string SpokenLabel => $"{NamespacePrefix} · {Title} · {Subtitle}";
+    public string SpokenLabel => $"{NamespacePrefix} · {Title}";
 }
 
 public sealed partial class MainPage
@@ -111,8 +111,7 @@ public sealed partial class MainPage
         var highContrast = new AccessibilitySettings().HighContrast;
         SettingsSearchBox.ItemsSource = matches.Select(item => {
             var term = item.Term;
-            var subtitle = item.IsPage || item.Title == term.PageTitle ? item.Detail : term.PageTitle;
-            return new SettingsSearchSuggestion(item, term, subtitle, SearchNamespaceBrush(term.Area, dark, highContrast));
+            return new SettingsSearchSuggestion(item, term, SearchNamespaceBrush(term.Area, dark, highContrast));
         }).ToArray();
         SettingsSearchBox.IsSuggestionListOpen = matches.Count != 0;
     }
@@ -170,6 +169,10 @@ public sealed partial class MainPage
         Check(SettingsSearchBox.ItemsSource is SettingsSearchSuggestion[] { Length: > 0 } rows &&
               rows[0].NamespacePrefix == "page" && rows[0].NamespaceForeground is not null,
               "live suggestions expose a colored page badge");
+        Check(SettingsSearchBox.ItemTemplate.LoadContent() is Grid { Children.Count: 2 } row &&
+              row.Children[0] is Border badge && row.Children[1] is TextBlock { TextWrapping: TextWrapping.NoWrap } title &&
+              Grid.GetColumn(title) == 1 && Grid.GetRow(title) == Grid.GetRow(badge),
+              "search results show only a badge and a single-line title");
         SetSearchComposing(true);
         RefreshSearchSuggestions();
         Check(!SettingsSearchBox.IsSuggestionListOpen && SettingsSearchBox.Text == "词库管理器",
@@ -179,6 +182,29 @@ public sealed partial class MainPage
         Check(SettingsSearchBox.IsSuggestionListOpen, "suggestions resume after composition");
         await NavigateToSearchItemAsync(exact[0]);
         Check(_currentPage == "user-lexicon", "page result navigates");
+
+        var logo = _settingsThemeLogo ?? throw new InvalidOperationException("Logo button unavailable.");
+        var root = (FrameworkElement)XamlRoot.Content;
+        var next = logo.ActualTheme == ElementTheme.Dark ? ElementTheme.Light : ElementTheme.Dark;
+        var previousLogo = LogoAppearance.Mode;
+        var press = (IInvokeProvider)new ButtonAutomationPeer(logo).GetPattern(PatternInterface.Invoke);
+        press.Invoke();
+        await Task.Delay(180);
+        Check(logo.Visibility == Visibility.Visible && root.RequestedTheme == next && logo.ActualTheme == next &&
+              SettingsUiPreferences.Load(UiPreferencesPath).SettingsTheme == _settingsThemeMode && LogoAppearance.Mode == previousLogo,
+              "clickable Logo toggles and persists the window theme without changing the logo preference");
+        _settingsThemeSelector.SelectedIndex = 0;
+        Check(root.RequestedTheme == ElementTheme.Default && SettingsUiPreferences.Load(UiPreferencesPath).SettingsTheme == "system",
+              "general settings restore the system theme");
+
+        var digits = SettingsSearchQuery.Find(SettingsSearchItems(), "key:小键盘", item => item.Term);
+        Check(digits.FirstOrDefault()?.Target == CandidateNumberKeysCard, "candidate number area is searchable in shortcuts");
+        ShowPage("shortcuts");
+        await Task.Delay(140);
+        Check(CandidateNumberKeys.SelectedIndex == 0 && CandidateNumberKeys.IsEnabled, "candidate numbering defaults to the top row");
+        CandidateNumberKeys.SelectedIndex = 1;
+        await _client.SaveAsync(CaptureSettings());
+        Check((await _client.LoadAsync()).CandidateSelectionNumpad, "selecting numpad persists through the native configuration bridge");
         return checks;
     }
 }

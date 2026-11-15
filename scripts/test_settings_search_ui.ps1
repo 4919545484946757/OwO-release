@@ -33,7 +33,7 @@ try {
     }
     $checks = if (Test-Path -LiteralPath $report) { @(Get-Content -LiteralPath $report -Encoding UTF8) } else { @() }
     $checks | Write-Output
-    if ($process.ExitCode -ne 0 -or @($checks | Where-Object { $_ -like 'PASS *' }).Count -ne 9) {
+    if ($process.ExitCode -ne 0 -or @($checks | Where-Object { $_ -like 'PASS *' }).Count -ne 15) {
         throw "Settings search verification failed: $report"
     }
     Write-Output "PASS: isolated settings search. Report: $report"

@@ -38,6 +38,7 @@ internal static class SettingsModuleDefinitions
             F(nameof(SettingsSnapshot.ModelRankingEnabled), s => s.ModelRankingEnabled, (s, v) => s with { ModelRankingEnabled = v }, SettingsCapability.ModelRanking),
             F(nameof(SettingsSnapshot.ModelTimeoutMs), s => s.ModelTimeoutMs, (s, v) => s with { ModelTimeoutMs = v }, SettingsCapability.ModelRanking)]),
         new("shortcuts", "shortcuts", [
+            F(nameof(SettingsSnapshot.CandidateSelectionNumpad), s => s.CandidateSelectionNumpad, (s, v) => s with { CandidateSelectionNumpad = v }),
             F(nameof(SettingsSnapshot.SeparatorShortcutEnabled), s => s.SeparatorShortcutEnabled, (s, v) => s with { SeparatorShortcutEnabled = v }, SettingsCapability.PinyinSymbols),
             F(nameof(SettingsSnapshot.SeparatorShortcuts), s => s.SeparatorShortcuts, (s, v) => s with { SeparatorShortcuts = v }, SettingsCapability.PinyinSymbols),
             F(nameof(SettingsSnapshot.CorrectionShortcutEnabled), s => s.CorrectionShortcutEnabled, (s, v) => s with { CorrectionShortcutEnabled = v }, SettingsCapability.Correction),

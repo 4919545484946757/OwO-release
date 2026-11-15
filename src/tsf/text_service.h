@@ -273,6 +273,7 @@ private:
     [[nodiscard]] bool symbol_composition_enabled() const noexcept;
     [[nodiscard]] bool apostrophe_is_separator() const noexcept;
     [[nodiscard]] std::optional<std::wstring> composition_symbol_for_key(WPARAM key, bool advance = false);
+    [[nodiscard]] std::optional<std::size_t> candidate_number_slot(WPARAM key) const noexcept;
     HRESULT commit_pending_composition(ITfContext* context);
     void commit_pending_on_focus_loss();
     void move_candidate_page_from_shortcut(int direction);

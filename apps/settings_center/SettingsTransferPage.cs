@@ -25,7 +25,7 @@ public sealed partial class MainPage
         SetBusy(true);
         try {
             var snapshot = await _client.ValidateAsync(CaptureSettings());
-            var document = SettingsTransfer.Create(snapshot, AutoSaveSettings.IsOn, LogoAppearance.Mode);
+            var document = SettingsTransfer.Create(snapshot, AutoSaveSettings.IsOn, LogoAppearance.Mode, _settingsThemeMode);
             var picker = new FileSavePicker {
                 SuggestedFileName = "OwO-设置-" + DateTime.Now.ToString("yyyyMMdd")
             };

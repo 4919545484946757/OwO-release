@@ -101,6 +101,29 @@ struct ExpandedCandidateTestAccess {
                 service->input_buffer_ != std::wstring(L"ni") + digit + L"hao" ||
                 !service->pending_request_ || !service->pending_request_->symbol_composition) return 73;
         }
+        service->shortcut_config_.candidate_selection_numpad = true;
+        for (WPARAM key = '0'; key <= '9'; ++key) {
+            service->input_buffer_ = L"nihao";
+            service->input_cursor_ = 2;
+            if (!press(key) || service->input_buffer_ != std::wstring(L"ni") + static_cast<wchar_t>(key) + L"hao" ||
+                !service->pending_request_ || !service->pending_request_->symbol_composition) return 165;
+        }
+        service->clear_composition();
+        service->input_buffer_ = L"nihao";
+        respond(7);
+        if (!press(VK_NUMPAD2) || service->input_buffer_ != L"nihao" ||
+            service->candidate_number_slot(VK_NUMPAD2) != 1 || service->candidate_number_slot('2') ||
+            service->composition_symbol_for_key(VK_NUMPAD2) || service->candidate_number_slot(VK_NUMPAD0) ||
+            service->candidate_number_slot(VK_END)) return 166;
+        modifiers[VK_CONTROL] = 0x80;
+        if (!SetKeyboardState(modifiers) || service->should_eat_key(VK_NUMPAD2)) return 167;
+        modifiers[VK_CONTROL] = 0; modifiers[VK_MENU] = 0x80;
+        if (!SetKeyboardState(modifiers) || service->candidate_number_slot(VK_NUMPAD2)) return 168;
+        modifiers[VK_MENU] = 0;
+        if (!SetKeyboardState(modifiers)) return 169;
+        service->shortcut_config_.pinyin_symbol_compatibility_enabled = false;
+        if (service->should_eat_key('2') || !service->should_eat_key(VK_NUMPAD2)) return 170;
+        service->shortcut_config_.candidate_selection_numpad = false;
         service->clear_composition();
         service->input_buffer_ = L"nihao";
         service->shortcut_config_.pinyin_symbol_compatibility_enabled = false;
@@ -155,6 +178,10 @@ struct ExpandedCandidateTestAccess {
                       << " width=" << service->candidate_page_width() << " count=" << service->candidates_.size()
                       << " pending=" << service->candidate_request_pending_ << '\n'; return 3;
         }
+        service->shortcut_config_.candidate_selection_numpad = true;
+        if (service->should_eat_key('2') || !press(VK_NUMPAD2) ||
+            service->candidate_shortcut_index(service->candidate_number_slot(VK_NUMPAD2).value_or(99)) != 15) return 171;
+        service->shortcut_config_.candidate_selection_numpad = false;
         if (!press(VK_DOWN) || service->active_candidate_request_id_ != request ||
             service->candidate_shortcut_index(1) != 22) return 4;
         service->invoke_hit_target({TextService::HitKind::candidate_page, 5});

@@ -45,11 +45,11 @@ public sealed partial class MainPage
 
         // The global binding remains visible for plugin and pure keyboard
         // scopes. Everything else in the host groups is scoped by the scheme.
-        foreach (var element in new UIElement[] { NativeShortcutHint, LanguageShortcutCard, SchemeShortcutHost,
+        foreach (var element in new UIElement[] { NativeShortcutHint, LanguageShortcutCard, CandidateNumberKeysCard, SchemeShortcutHost,
             CorrectionShortcutCard, PunctuationShortcutCard, RawInputShortcutCard, SeparatorShortcutCard,
             CursorLeftShortcutCard, CursorRightShortcutCard, PreviousPageShortcutCard, NextPageShortcutCard,
             ExpandedPreviousPageShortcutCard, ExpandedNextPageShortcutCard }) ShortcutContent.Children.Remove(element);
-        ShortcutContent.Children.Insert(0, SettingsSection("全局快捷键", "对所有输入方案生效。", [LanguageShortcutCard], "GlobalShortcutLayout"));
+        ShortcutContent.Children.Insert(0, SettingsSection("全局快捷键", "对所有输入方案生效；纯净键盘不接管数字键。", [LanguageShortcutCard, CandidateNumberKeysCard], "GlobalShortcutLayout"));
         ShortcutContent.Children.Insert(1, SchemeShortcutHost);
         _nativeShortcutLayout = SettingsStack(8, NativeShortcutHint, SettingsColumns(
             SettingsStack(8,
@@ -63,7 +63,7 @@ public sealed partial class MainPage
 
         GeneralPreferencesContent.Children.Clear();
         GeneralPreferencesContent.Children.Add(SettingsColumns(
-            SettingsSection("使用偏好", null, [AutoSaveCard, _logoThemeCard!], "GeneralPreferenceLayout"),
+            SettingsSection("使用偏好", null, [AutoSaveCard, _settingsThemeCard!, _logoThemeCard!], "GeneralPreferenceLayout"),
             SettingsSection("备份与诊断", null, [ConfigurationTransferCard, DiagnosticsEntryCard], "GeneralMaintenanceLayout")));
         GeneralPreferencesContent.Children.Add(OnlineDistributionHost);
     }

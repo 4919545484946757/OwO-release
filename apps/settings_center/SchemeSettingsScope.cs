@@ -78,7 +78,7 @@ public sealed partial class MainPage
         var host = _currentPage == "shortcuts" ? SchemeShortcutHost : SchemeScopeHost;
         host.Content = BuildSchemeScopeContent();
         CurrentPageDescription.Text = _currentPage == "shortcuts"
-            ? "方案快捷键仅对所选方案生效；切换输入方案仍是全局快捷键。"
+            ? "方案快捷键仅对所选方案生效；切换输入方案和数字键选词区是全局设置。"
             : "此页只显示所选方案的配置，不会切换正在使用的输入方案。";
     }
 

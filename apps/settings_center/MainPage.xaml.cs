@@ -317,6 +317,7 @@ public sealed partial class MainPage : Page
             _baseSearchItems.Add(new SearchItem(title, detail, page, target));
         Add("自动保存设置", "通用 自动 保存 配置", "general", AutoSaveCard);
         Add("Logo 外观", "通用 图标 品牌 logo 深色 浅色 跟随系统", "general", _logoThemeCard!);
+        Add("设置中心主题", "通用 深色 浅色 深浅 模式 界面 颜色 跟随系统", "general", _settingsThemeCard!);
         Add("配置导入与导出", "通用 备份 恢复 迁移 JSON import export", "general", ConfigurationTransferCard);
         Add("更新与资源下载", "GitHub 版本 更新 下载 插件 词库 字典 模型 网络", "general", OnlineDistributionHost);
         foreach (var binding in _settingsCards)

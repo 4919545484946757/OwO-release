@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace OwO_Settings;
 
-internal sealed record SettingsUiPreferences(bool AutoSaveEnabled = true, string LogoTheme = "system")
+internal sealed record SettingsUiPreferences(bool AutoSaveEnabled = true, string LogoTheme = "system", string SettingsTheme = "system")
 {
     internal static string DefaultPath => Path.Combine(Path.GetDirectoryName(
         Environment.GetEnvironmentVariable("OWO_CONFIG_PATH") ?? Path.Combine(
@@ -15,12 +15,14 @@ internal sealed record SettingsUiPreferences(bool AutoSaveEnabled = true, string
             ?? throw new InvalidDataException("设置中心偏好文件无效。")
         : new();
         if (!LogoAssets.IsValid(value.LogoTheme)) throw new InvalidDataException("Logo 外观选项无效。");
+        if (!LogoAssets.IsValid(value.SettingsTheme)) throw new InvalidDataException("设置中心主题选项无效。");
         return value;
     }
 
     internal void Save(string path)
     {
         if (!LogoAssets.IsValid(LogoTheme)) throw new InvalidDataException("Logo 外观选项无效。");
+        if (!LogoAssets.IsValid(SettingsTheme)) throw new InvalidDataException("设置中心主题选项无效。");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try {

@@ -30,18 +30,20 @@ try {
     var originalPrefs = File.ReadAllBytes(prefs);
     var changed = defaults with { CandidatePageSize = defaults.CandidatePageSize == 9 ? 8u : 9u,
         CandidatePartitionEnabled = !defaults.CandidatePartitionEnabled,
+        CandidateSelectionNumpad = true,
         UserLearningSensitivity = 3, UserCompletionMaxSyllables = 2,
         LanguageShortcuts = ["Ctrl+Space", "Shift+A"] };
     var exported = Path.Combine(root, "设置.json");
-    await SettingsTransfer.WriteAsync(exported, SettingsTransfer.Create(changed, false, "light"));
+    await SettingsTransfer.WriteAsync(exported, SettingsTransfer.Create(changed, false, "light", "dark"));
     var roundtrip = await SettingsTransfer.ReadAsync(exported);
     var encoded = File.ReadAllText(exported);
     Check(roundtrip.Settings.CandidatePageSize == changed.CandidatePageSize &&
         !roundtrip.UiPreferences.AutoSaveEnabled &&
-        roundtrip.UiPreferences.LogoTheme == "light" &&
+        roundtrip.UiPreferences.LogoTheme == "light" && roundtrip.UiPreferences.SettingsTheme == "dark" &&
+        roundtrip.Settings.CandidateSelectionNumpad &&
         roundtrip.Settings.LanguageShortcuts.SequenceEqual(changed.LanguageShortcuts), "JSON roundtrip");
     Check(!encoded.Contains(root) && !encoded.Contains("user-frequency"), "No runtime paths or learning data");
-    await client.ValidateAsync(roundtrip.Settings);
+    Check((await client.ValidateAsync(roundtrip.Settings)).CandidateSelectionNumpad, "Candidate area native roundtrip");
     var oldTransfer = JsonNode.Parse(encoded)!.AsObject();
     foreach (var field in new[] { "pinyinSymbolCompatibilityEnabled", "separatorShortcutEnabled", "separatorShortcuts" })
         oldTransfer["settings"]!.AsObject().Remove(field);

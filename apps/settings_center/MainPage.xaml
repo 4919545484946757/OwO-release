@@ -78,15 +78,13 @@
                             HorizontalAlignment="Stretch" MaxWidth="720">
                 <AutoSuggestBox.ItemTemplate>
                     <DataTemplate>
-                        <Grid ColumnSpacing="9" MinHeight="38" AutomationProperties.Name="{Binding SpokenLabel}">
+                        <Grid ColumnSpacing="9" MinHeight="32" AutomationProperties.Name="{Binding SpokenLabel}">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <Border Style="{StaticResource PluginStateBadgeStyle}" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding NamespacePrefix}" Foreground="{Binding NamespaceForeground}" FontFamily="Consolas" FontSize="12"/>
                             </Border>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{Binding Subtitle}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
+                            <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center"
+                                       FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                         </Grid>
                     </DataTemplate>
                 </AutoSuggestBox.ItemTemplate>
@@ -511,6 +509,20 @@
                                                 AutomationProperties.AutomationId="InputSchemePickerEnabled"
                                                 OnContent="松开 Ctrl 确认切换" OffContent="按下时直接切换"/>
                                         </StackPanel>
+                                    </Border>
+                                    <Border x:Name="CandidateNumberKeysCard" Style="{StaticResource SettingsCardStyle}">
+                                        <Grid ColumnSpacing="10">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <StackPanel Spacing="3">
+                                                <TextBlock Text="数字键选词" Style="{StaticResource SettingTitleStyle}"/>
+                                                <TextBlock Text="用所选区域的 1–9 选择当前候选页。全拼开启符号兼容时，另一数字区的数字进入预编辑。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                            </StackPanel>
+                                            <local:ScrollNeutralComboBox x:Name="CandidateNumberKeys" Grid.Column="1" VerticalAlignment="Center"
+                                                AutomationProperties.AutomationId="CandidateNumberKeys" AutomationProperties.Name="数字键选词区域">
+                                                <ComboBoxItem Content="主键盘数字区"/>
+                                                <ComboBoxItem Content="数字小键盘区"/>
+                                            </local:ScrollNeutralComboBox>
+                                        </Grid>
                                     </Border>
                                     <ContentControl x:Name="SchemeShortcutHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch"/>
                                     <Border x:Name="RawInputShortcutCard" Style="{StaticResource SettingsCardStyle}">

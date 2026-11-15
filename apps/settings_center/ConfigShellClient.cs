@@ -32,6 +32,7 @@ internal sealed record SettingsSnapshot(string InputScheme,
                                         bool ExpandedNextPageShortcutEnabled, IReadOnlyList<string> ExpandedNextPageShortcuts)
 {
     public bool PinyinSymbolCompatibilityEnabled { get; init; } = true;
+    public bool CandidateSelectionNumpad { get; init; }
     public string InputSchemeOrder { get; init; } = "";
     public bool InputSchemePickerEnabled { get; init; } = true;
     public string PinyinPreviewLocation { get; init; } = "candidate";
@@ -130,6 +131,7 @@ internal sealed class ConfigShellClient
                    bool.Parse(values["expanded_next_page_shortcut_enabled"]),
                    SplitShortcuts(values["expanded_next_page_shortcut"])) {
             PinyinSymbolCompatibilityEnabled = bool.Parse(values["pinyin_symbol_compatibility_enabled"]),
+            CandidateSelectionNumpad = values.TryGetValue("candidate_selection_numpad", out var keypad) && bool.Parse(keypad),
             PinyinPreviewLocation = values.GetValueOrDefault("pinyin_preview_location", "candidate"),
             InputSchemeOrder = values.GetValueOrDefault("input_scheme_order", ""),
             InputSchemePickerEnabled = !values.TryGetValue("input_scheme_picker_enabled", out var picker) || bool.Parse(picker),
@@ -183,7 +185,8 @@ internal sealed class ConfigShellClient
                   value.PinyinSymbolCompatibilityEnabled.ToString().ToLowerInvariant(),
                   value.SeparatorShortcutEnabled.ToString().ToLowerInvariant(),
                   JoinShortcuts(value.SeparatorShortcuts), value.PinyinPreviewLocation, value.InputSchemeOrder,
-                  value.InputSchemePickerEnabled.ToString().ToLowerInvariant()], cancellationToken);
+                  value.InputSchemePickerEnabled.ToString().ToLowerInvariant(),
+                  value.CandidateSelectionNumpad.ToString().ToLowerInvariant()], cancellationToken);
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

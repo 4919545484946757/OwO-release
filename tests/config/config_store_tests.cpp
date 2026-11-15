@@ -29,6 +29,16 @@ int main(const int argc, char** argv) {
     legacy_preview.erase(preview_begin, legacy_preview.find('\n', preview_begin) - preview_begin + 1);
     const auto migrated_preview = owo::config::parse_config(legacy_preview);
     if (!migrated_preview.ok || migrated_preview.value.pinyin_preview_location != "candidate") return 72;
+    if (migrated_preview.value.candidate_selection_numpad) return 101;
+    auto keypad = preview;
+    keypad.candidate_selection_numpad = true;
+    const auto keypad_text = owo::config::serialize_config(keypad);
+    const auto keypad_roundtrip = owo::config::parse_config(keypad_text);
+    if (!keypad_text.starts_with("schema_version=22\n") || !keypad_roundtrip.ok || keypad_roundtrip.value != keypad) return 102;
+    auto invalid_keypad = keypad_text;
+    invalid_keypad.replace(invalid_keypad.find("candidate_selection_numpad=true"),
+        std::string_view("candidate_selection_numpad=true").size(), "candidate_selection_numpad=invalid");
+    if (owo::config::parse_config(invalid_keypad).ok) return 103;
     preview.pinyin_preview_location = "unknown";
     if (owo::config::validate_config(preview).ok) return 73;
     auto single_first = owo::config::AppConfig{};

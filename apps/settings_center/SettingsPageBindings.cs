@@ -88,6 +88,9 @@ public sealed partial class MainPage
         Shortcut(nameof(SettingsSnapshot.CorrectionShortcutEnabled), nameof(SettingsSnapshot.CorrectionShortcuts), CorrectionShortcutEnabled, "correction", CorrectionShortcutCard, "切换输入纠错", "快捷键 全拼 严格输入");
         Shortcut(nameof(SettingsSnapshot.LanguageShortcutEnabled), nameof(SettingsSnapshot.LanguageShortcuts), LanguageShortcutEnabled, "language", LanguageShortcutCard, "切换输入方案", "快捷键 语言 中英文 全拼 英文");
         Toggle(nameof(SettingsSnapshot.InputSchemePickerEnabled), InputSchemePickerEnabled);
+        _settingsEditors.Bind(nameof(SettingsSnapshot.CandidateSelectionNumpad), () => CandidateNumberKeys.SelectedIndex == 1,
+            enabled => CandidateNumberKeys.SelectedIndex = enabled ? 1 : 0, CandidateNumberKeys);
+        Card(nameof(SettingsSnapshot.CandidateSelectionNumpad), CandidateNumberKeysCard, "数字键选词", "快捷键 候选项 主键盘 小键盘 数字区 NumLock");
         Shortcut(nameof(SettingsSnapshot.RawInputShortcutEnabled), nameof(SettingsSnapshot.RawInputShortcuts), RawInputShortcutEnabled, "raw", RawInputShortcutCard, "输入编码原样上屏", "快捷键 Enter");
         Shortcut(nameof(SettingsSnapshot.SeparatorShortcutEnabled), nameof(SettingsSnapshot.SeparatorShortcuts), SeparatorShortcutEnabled, "separator", SeparatorShortcutCard, "拼音分割", "快捷键 撇号 单引号 分隔 拼音边界");
         Shortcut(nameof(SettingsSnapshot.CursorLeftShortcutEnabled), nameof(SettingsSnapshot.CursorLeftShortcuts), CursorLeftShortcutEnabled, "cursor-left", CursorLeftShortcutCard, "预编辑光标左移", "快捷键 编码 光标");
@@ -163,7 +166,8 @@ public sealed partial class MainPage
     }
 
     private IEnumerable<SearchItem> SettingsSearchItems() => _baseSearchItems.Concat(_pluginSearchItems)
-        .Where(item => IsHostConfigurationScope || item.Page is not ("candidates" or "intelligence" or "punctuation" or "shortcuts") || ReferenceEquals(item.Target, LanguageShortcutCard))
+        .Where(item => IsHostConfigurationScope || item.Page is not ("candidates" or "intelligence" or "punctuation" or "shortcuts") ||
+            ReferenceEquals(item.Target, LanguageShortcutCard) || ReferenceEquals(item.Target, CandidateNumberKeysCard))
         .Select(item => ConfigurationScheme.Supports(item.Capability) ? item
             : item with { Detail = item.Detail + " · 当前方案不支持，原配置保留" });
 }

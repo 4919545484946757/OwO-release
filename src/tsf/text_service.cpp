@@ -1349,9 +1349,8 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
     if (key == VK_SPACE)
         return is_agent_mode() || candidate_request_pending_ || !candidates_.empty() ||
                (!staged_candidates_.empty() && input_buffer_.empty());
-    return key >= '1' && key <= '9' &&
-           (candidate_request_pending_ ||
-            static_cast<std::size_t>(key - '1') < candidates_.size());
+    const auto slot = candidate_number_slot(key);
+    return slot && (candidate_request_pending_ || candidate_shortcut_index(*slot).has_value());
 }
 
 HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) { activation_trace("OnTestKeyDown", S_OK, context);
@@ -1712,12 +1711,9 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
                !staged_candidates_.empty()) {
         if (context != nullptr) return commit_pending_composition(context);
         clear_composition();
-    } else if (candidate_request_pending_) {
-        const std::size_t index = key == VK_SPACE ? 0 : static_cast<std::size_t>(key - '1');
-        defer_candidate_selection(index, context, true);
-    } else if (context != nullptr && !candidates_.empty()) {
-        const auto selected = candidate_shortcut_index(key == VK_SPACE ? 0 : static_cast<std::size_t>(key - '1'));
-        if (selected) {
+    } else if (const auto slot = key == VK_SPACE ? std::optional<std::size_t>{0} : candidate_number_slot(key); slot) {
+        if (candidate_request_pending_) defer_candidate_selection(*slot, context, true);
+        else if (const auto selected = candidate_shortcut_index(*slot); context && selected) {
             const auto index = *selected;
             if (is_agent_mode() && index < agent_commands_.size()) {
                 if (agent_commands_[index].high_risk) {
@@ -3824,13 +3820,25 @@ void TextService::consume_manual_breaks(const std::size_t count) {
     for (auto& offset : manual_breaks_) offset -= count;
 }
 
+std::optional<std::size_t> TextService::candidate_number_slot(const WPARAM key) const noexcept {
+    if (command_modifier_down() || key_down(VK_SHIFT)) return std::nullopt;
+    const WPARAM first = shortcut_config_.candidate_selection_numpad ? VK_NUMPAD1 : '1';
+    if (key >= first && key <= first + 8) return static_cast<std::size_t>(key - first);
+    return std::nullopt;
+}
+
 std::optional<std::wstring> TextService::composition_symbol_for_key(const WPARAM key, const bool advance) {
-    // Keep top-row digits as candidate shortcuts. Numpad digits delivered as
-    // VK_NUMPADn are literals in symbol-compatible composition; with NumLock
-    // off Windows delivers navigation keys instead. Alt-code input is handled
-    // earlier and command-modified keys never reach this composition branch.
-    if (key >= VK_NUMPAD0 && key <= VK_NUMPAD9)
-        return std::wstring(1, static_cast<wchar_t>(L'0' + key - VK_NUMPAD0));
+    // Plain 1–9 in the configured area select; digits from the other area
+    // (and 0, which has no candidate slot) enter the composition as literals.
+    // NumLock-off navigation and Alt-code input remain on their native paths.
+    if (!command_modifier_down() && !key_down(VK_SHIFT)) {
+        const bool numpad = key >= VK_NUMPAD0 && key <= VK_NUMPAD9;
+        if (numpad || (key >= '0' && key <= '9')) {
+            if (candidate_number_slot(key)) return std::nullopt;
+            const auto zero = numpad ? WPARAM{VK_NUMPAD0} : WPARAM{'0'};
+            return std::wstring(1, static_cast<wchar_t>(L'0' + key - zero));
+        }
+    }
     if (key == VK_OEM_7 && !key_down(VK_SHIFT) && apostrophe_is_separator()) return std::nullopt;
     if (chinese_punctuation_enabled_) {
         if (auto value = chinese_punctuation_for_key(key, advance)) return value;
@@ -7059,7 +7067,7 @@ bool TextService::plugin_should_eat_key(ITfContext* context, WPARAM key, LPARAM 
         if (shortcut_config_.next_page_shortcut_enabled && shortcut_matches(shortcut_config_.next_page_shortcuts, key)) return true;
         if (shortcut_config_.expanded_previous_page_shortcut_enabled && shortcut_matches(shortcut_config_.expanded_previous_page_shortcuts, key)) return true;
         if (shortcut_config_.expanded_next_page_shortcut_enabled && shortcut_matches(shortcut_config_.expanded_next_page_shortcuts, key)) return true;
-        if (key >= '1' && key <= '9' && !command_modifier_down() && !key_down(VK_SHIFT)) return true;
+        if (candidate_number_slot(key)) return true;
     }
     const auto text = scheme_key_text(key, flags);
     if (text.empty()) return false;
@@ -7150,12 +7158,11 @@ HRESULT TextService::handle_plugin_key(ITfContext* context, WPARAM key, LPARAM f
             expanded_pages_.selected * candidate_page_width()), true, 0);
         return S_OK;
     }
-    if (has_composition() && key >= '1' && key <= '9' && !key_down(VK_SHIFT) && !command_modifier_down()) {
-        const auto slot = static_cast<std::size_t>(key - '1');
-        const auto index = candidate_shortcut_index(slot);
-        if (index || (candidate_request_pending_ && slot < candidate_page_size_))
+    if (const auto slot = candidate_number_slot(key); has_composition() && slot) {
+        const auto index = candidate_shortcut_index(*slot);
+        if (index || (candidate_request_pending_ && *slot < candidate_page_size_))
             select_plugin_candidate(index.value_or(candidates_expanded_
-                ? expanded_pages_.selected * candidate_page_width() + slot : slot), true, slot);
+                ? expanded_pages_.selected * candidate_page_width() + *slot : *slot), true, *slot);
         return S_OK;
     }
     if (has_composition() && shortcut_config_.previous_page_shortcut_enabled && shortcut_matches(shortcut_config_.previous_page_shortcuts, key)) {
