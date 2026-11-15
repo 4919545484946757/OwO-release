@@ -98,6 +98,10 @@ constexpr UINT kAltCodeFinished = WM_APP + 4;
 constexpr UINT kAgentReady = WM_APP + 5;
 constexpr UINT_PTR kPluginInputTimer = 0x4f57;
 constexpr UINT_PTR kCandidateWindowOrderTimer = 0x4f58;
+constexpr UINT_PTR kCandidateUndoTimer = 0x4f59;
+constexpr UINT kCandidateUndoLifetimeMs = 10'000;
+constexpr UINT kCandidateUndoProbeMs = 20;
+constexpr UINT kCandidateUndoWaitMs = 400;
 constexpr UINT_PTR kSchemePickerTimer = 0x4f59;
 constexpr UINT kPluginCommitReady = WM_APP + 6;
 constexpr UINT kInlinePreeditChanged = WM_APP + 7;
@@ -576,9 +580,10 @@ class CommitEditSession final : public ITfEditSession {
 public:
     CommitEditSession(ITfContext* context, std::wstring text,
                       ITfRange* expected_end = nullptr, std::wstring_view expected_prefix = {},
-                      bool capture_end = false, ITfComposition* composition = nullptr)
+                      bool capture_end = false, ITfComposition* composition = nullptr,
+                      bool capture_undo = false)
         : context_(context), text_(std::move(text)), expected_end_(expected_end),
-          expected_prefix_(expected_prefix), capture_end_(capture_end) {
+          expected_prefix_(expected_prefix), capture_end_(capture_end), capture_undo_(capture_undo) {
         context_->AddRef();
         composition_ = composition;
         if (composition_) composition_->AddRef();
@@ -587,6 +592,7 @@ public:
 
     [[nodiscard]] bool learning_continues() const noexcept { return learning_continues_; }
     [[nodiscard]] ITfRange* take_end() noexcept { return std::exchange(committed_end_, nullptr); }
+    [[nodiscard]] std::optional<CandidateUndoEvidence> take_undo() noexcept { return std::move(undo_); }
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** object) override {
         if (object == nullptr) return E_POINTER;
@@ -607,7 +613,8 @@ public:
         return static_cast<ULONG>(remaining);
     }
     HRESULT STDMETHODCALLTYPE DoEditSession(TfEditCookie cookie) override {
-        if(!resolve_input_context(context_,cookie).ordinary_input)return E_ACCESSDENIED;
+        const auto resolution = resolve_input_context(context_,cookie);
+        if(!resolution.ordinary_input)return E_ACCESSDENIED;
         TF_SELECTION selection{};
         ULONG fetched = 0;
         HRESULT result = context_->GetSelection(cookie, TF_DEFAULT_SELECTION, 1,
@@ -623,6 +630,8 @@ public:
             result = composition_->GetRange(&selection.range);
             if (FAILED(result) || !selection.range) return FAILED(result) ? result : E_FAIL;
         }
+        if (capture_undo_) undo_ = CandidateUndoEvidence::capture(
+            selection.range, cookie, text_, resolution, composition_ != nullptr);
         result = selection.range->SetText(cookie, 0, text_.data(),
                                           static_cast<LONG>(text_.size()));
         const bool written = SUCCEEDED(result);
@@ -630,6 +639,10 @@ public:
         if (SUCCEEDED(result)) {
             selection.range->Collapse(cookie, TF_ANCHOR_END);
             const auto caret_result = context_->SetSelection(cookie, 1, &selection);
+            if (undo_) {
+                if (SUCCEEDED(caret_result)) undo_->finish(context_, cookie);
+                else undo_.reset();
+            }
             if (SUCCEEDED(caret_result) && capture_end_) {
                 BOOL empty = FALSE;
                 if (FAILED(selection.range->Clone(&committed_end_)) || !committed_end_ ||
@@ -659,8 +672,10 @@ private:
     std::wstring expected_prefix_;
     ITfRange* committed_end_{};
     bool capture_end_{};
+    bool capture_undo_{};
     bool learning_continues_{};
     ITfComposition* composition_{};
+    std::optional<CandidateUndoEvidence> undo_;
 };
 
 class CaretEditSession final : public ITfEditSession {
@@ -1071,6 +1086,7 @@ HRESULT TextService::ActivateEx(ITfThreadMgr* thread_manager,
 }
 
 HRESULT TextService::Deactivate() { activation_trace("Deactivate");
+    clear_candidate_undo();
     if(compatibility::current_text_verifier==context_verifier_.get())compatibility::current_text_verifier=nullptr;
     context_verifier_.reset();
     end_candidate_ui();
@@ -1133,6 +1149,7 @@ HRESULT TextService::OnSetFocus(const BOOL foreground) {
     foreground_focus_ = foreground != FALSE;
     if(context_verifier_)context_verifier_->invalidate();
     if (!foreground_focus_) {
+        clear_candidate_undo();
         stop_scheme_keyboard_hook();
         language_space_key_suppressed_ = false;
         scheme_picker_escape_suppressed_ = false;
@@ -1158,6 +1175,7 @@ HRESULT TextService::OnInitDocumentMgr(ITfDocumentMgr*) {
 }
 
 HRESULT TextService::OnUninitDocumentMgr(ITfDocumentMgr*) {
+    clear_candidate_undo();
     cancel_scheme_picker();
     reset_learning_chain();
     // Retire experimental results even if a host omits a separate focus-loss callback.
@@ -1183,6 +1201,7 @@ HRESULT TextService::OnSetFocus(ITfDocumentMgr* document_manager,
             }
         }
         clear_composition();
+        clear_candidate_undo();
     }
     if (document_manager != previous_document_manager) {
         recent_language_context_.clear();
@@ -1197,6 +1216,7 @@ HRESULT TextService::OnSetFocus(ITfDocumentMgr* document_manager,
 }
 
 HRESULT TextService::OnPushContext(ITfContext*) {
+    clear_candidate_undo();
     cancel_scheme_picker();
     if (is_agent_mode()) cancel_agent_session();
     clear_composition();
@@ -1217,6 +1237,7 @@ HRESULT TextService::OnPopContext(ITfContext* context) {
         else commit_pending_composition(context);
     }
     clear_composition();
+    clear_candidate_undo();
     recent_language_context_.clear();
     recent_language_input_.clear();
     rotate_agent_context();
@@ -1240,6 +1261,7 @@ HRESULT TextService::OnKillThreadFocus() {
     else commit_pending_on_focus_loss();
     foreground_focus_ = false;
     clear_composition();
+    clear_candidate_undo();
     recent_language_context_.clear();
     recent_language_input_.clear();
     recent_agent_context_.clear();
@@ -1334,6 +1356,7 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
 
 HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) { activation_trace("OnTestKeyDown", S_OK, context);
     if (eaten == nullptr) return E_POINTER;
+    if (observe_candidate_undo_key(context, key, flags)) { *eaten = FALSE; return S_OK; }
     refresh_shortcut_config();
     if (!scheme_keyboard_hook_ && (is_control_key(key) || key == VK_SPACE)) sync_scheme_keyboard_hook();
     if (key == VK_SPACE) activation_trace("SCHEME_SPACE_TSF_TEST", scheme_picker_shortcut(key) ? S_OK : S_FALSE, context);
@@ -1355,6 +1378,7 @@ HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags
 
 HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) { activation_trace("OnKeyDown", S_OK, context);
     if (eaten == nullptr) return E_POINTER;
+    if (observe_candidate_undo_key(context, key, flags)) { *eaten = FALSE; return S_OK; }
     struct InputTimingReset {
         std::uint64_t& value; std::uint64_t previous;
         ~InputTimingReset() { value = previous; }
@@ -3384,6 +3408,9 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     if (message == WM_TIMER && wparam == kCandidateWindowOrderTimer && service != nullptr) {
         service->maintain_candidate_window_order(); return 0;
     }
+    if (message == WM_TIMER && wparam == kCandidateUndoTimer && service != nullptr) {
+        service->poll_candidate_undo(); return 0;
+    }
     if (message == WM_TIMER && wparam == kSchemePickerTimer && service != nullptr) {
         service->poll_scheme_picker(); return 0;
     }
@@ -5405,7 +5432,8 @@ void TextService::sync_inline_preedit() {
     if (selection_assistant_.active()) { if (inline_preedit_) inline_preedit_->cancel(); return; }
     const bool plugin = plugin_scheme_selected();
     const bool use_inline = plugin ? (scheme_presentation_ && scheme_presentation_->inline_preview)
-        : shortcut_config_.input_scheme == "full_pinyin" && shortcut_config_.pinyin_preview_location == "input";
+        : !undo_preview_in_window_ && shortcut_config_.input_scheme == "full_pinyin" &&
+            shortcut_config_.pinyin_preview_location == "input";
     // Do not reenter a TSF write while applying a plugin result under a read
     // lock or while the commit edit is replacing the composition.
     if (plugin_input_committing_ && plugin) return;
@@ -5942,7 +5970,120 @@ void TextService::reset_learning_chain() {
     release_interface(learning_document_);
 }
 
+std::optional<TextService::PinyinUndoInput> TextService::collect_candidate_undo_input() const {
+    if (shortcut_config_.input_scheme != "full_pinyin" || is_agent_mode()) return {};
+    PinyinUndoInput result;
+    for (const auto& fragment : staged_candidates_) {
+        for (const auto offset : fragment.manual_breaks)
+            result.manual_breaks.push_back(result.input.size() + offset);
+        result.input.append(fragment.source_input);
+    }
+    for (const auto offset : manual_breaks_) result.manual_breaks.push_back(result.input.size() + offset);
+    result.input.append(input_buffer_);
+    if (result.input.empty() || result.input.size() > kMaximumPinyinInputLength) return {};
+    return result;
+}
+
+void TextService::clear_candidate_undo() noexcept {
+    if (candidate_undo_ && message_window_) KillTimer(message_window_, kCandidateUndoTimer);
+    candidate_undo_probe_until_ = 0;
+    candidate_undo_.reset();
+}
+
+void TextService::remember_candidate_undo(ITfContext* context, std::optional<PinyinUndoInput> pinyin,
+                                          std::optional<CandidateUndoEvidence> evidence) {
+    clear_candidate_undo();
+    if (!pinyin || !evidence || !message_window_ || !plugin_context_is_current(context)) return;
+    candidate_undo_ = CandidateUndoRecord{
+        Microsoft::WRL::ComPtr<ITfContext>(context), std::move(*pinyin), std::move(*evidence),
+        GetTickCount64() + kCandidateUndoLifetimeMs, context_generation_};
+    if (!SetTimer(message_window_, kCandidateUndoTimer, kCandidateUndoLifetimeMs, nullptr))
+        clear_candidate_undo();
+}
+
+bool TextService::candidate_undo_matches(bool undone) {
+    if (!candidate_undo_ || candidate_undo_->generation != context_generation_) return false;
+    const auto context = candidate_undo_->context;
+    if (!plugin_context_is_current(context.Get())) return false;
+    const auto evidence = candidate_undo_->evidence;
+    const auto expires = candidate_undo_->expires;
+    const auto generation = candidate_undo_->generation;
+    auto* edit = new (std::nothrow) SchemeEditSession(context.Get(), [&](TfEditCookie cookie) {
+        return evidence.matches_document(context.Get(), cookie, undone) ? S_OK : S_FALSE;
+    });
+    if (!edit) return false;
+    HRESULT result = E_FAIL;
+    const auto status = context->RequestEditSession(client_id_, edit, TF_ES_SYNC | TF_ES_READ, &result);
+    edit->Release();
+    return SUCCEEDED(status) && result == S_OK && candidate_undo_ && candidate_undo_->expires == expires &&
+        candidate_undo_->generation == generation && context_generation_ == generation &&
+        GetTickCount64() < expires;
+}
+
+bool TextService::observe_candidate_undo_key(ITfContext* context, WPARAM key, LPARAM flags) {
+    const bool control = key_down(VK_CONTROL) && !key_down(VK_MENU) && !key_down(VK_LWIN) && !key_down(VK_RWIN);
+    const bool shift = key_down(VK_SHIFT);
+    const bool undo = control && !shift && key == 'Z';
+    if (undo_preview_in_window_ && control && ((shift && key == 'Z') || (!shift && key == 'Y'))) {
+        clear_composition(); // Native Redo must not leave the old candidate UI active.
+        return true;
+    }
+    if (!undo) {
+        if (candidate_undo_probe_until_ && !is_control_key(key) && !is_shift_key(key) && !is_alt_key(key))
+            clear_candidate_undo();
+        return false;
+    }
+    if (!candidate_undo_) {
+        if (undo_preview_in_window_) clear_composition();
+        return true;
+    }
+    const auto now = GetTickCount64();
+    if (now >= candidate_undo_->expires || (static_cast<ULONG_PTR>(flags) & (1ULL << 30)) != 0 ||
+        !same_context(context, candidate_undo_->context.Get()) ||
+        shortcut_config_.input_scheme != "full_pinyin" || !chinese_mode_ ||
+        candidate_undo_->generation != context_generation_ || (inline_preedit_ && inline_preedit_->active()) ||
+        selection_assistant_.active() || is_agent_mode() || unicode_palette_visible_) {
+        clear_candidate_undo();
+        return true;
+    }
+    if (!candidate_undo_probe_until_ && candidate_undo_matches(false)) {
+        candidate_undo_probe_until_ = std::min<std::uint64_t>(candidate_undo_->expires, now + kCandidateUndoWaitMs);
+        if (!SetTimer(message_window_, kCandidateUndoTimer, kCandidateUndoProbeMs, nullptr))
+            clear_candidate_undo();
+    }
+    // TSF calls OnTestKeyDown before the host's Undo. Never consume, replay,
+    // or synthesize the keystroke, including on failed proof or expired data.
+    return true;
+}
+
+void TextService::poll_candidate_undo() {
+    if (!candidate_undo_) return;
+    const auto now = GetTickCount64();
+    if (now >= candidate_undo_->expires ||
+        (candidate_undo_probe_until_ && (now >= candidate_undo_probe_until_ ||
+           candidate_undo_->generation != context_generation_ ||
+           !plugin_context_is_current(candidate_undo_->context.Get())))) {
+        clear_candidate_undo();
+        return;
+    }
+    if (!candidate_undo_probe_until_ || !candidate_undo_matches(true)) return;
+    auto restored = std::move(*candidate_undo_);
+    clear_candidate_undo();
+    clear_composition();
+    recent_language_context_.clear();
+    recent_language_input_.clear();
+    input_buffer_ = std::move(restored.pinyin.input);
+    manual_breaks_ = std::move(restored.pinyin.manual_breaks);
+    input_cursor_ = input_buffer_.size();
+    // Do not write a new inline composition into the editor immediately
+    // after native Undo (which could modify that editor's redo history).
+    undo_preview_in_window_ = true;
+    update_candidate_anchor(restored.context.Get());
+    queue_candidate_request();
+}
+
 void TextService::clear_composition(bool keep_plugin_session) {
+    undo_preview_in_window_ = false;
     cancel_scheme_picker();
     selection_assistant_.cancel();
     agent_trust_pending_ = false;
@@ -6112,10 +6253,11 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
     }
     const bool finishes_composition = remaining_input.empty();
     if (!staged_candidates_.empty()) inserted.insert(0, staged_text());
+    auto undo_input = collect_candidate_undo_input();
     auto* session = new (std::nothrow) CommitEditSession(context, std::move(inserted),
         same_context(context, learning_document_) ? learning_insertion_end_ : nullptr,
         learning_chain.text(), !finishes_composition && suffix.empty(),
-        inline_preedit_ ? inline_preedit_->prepare_commit(context) : nullptr);
+        inline_preedit_ ? inline_preedit_->prepare_commit(context) : nullptr, undo_input.has_value());
     if (session == nullptr) return E_OUTOFMEMORY;
     HRESULT session_result = E_FAIL;
     const HRESULT request_result = context->RequestEditSession(
@@ -6124,6 +6266,7 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
     const bool learning_continues = session->learning_continues() &&
         learning_generation == context_generation_;
     ITfRange* committed_end = session->take_end();
+    auto undo = session->take_undo();
     session->Release();
     if (SUCCEEDED(request_result) && SUCCEEDED(session_result)) {
         if (!learning_continues) learning_chain.clear();
@@ -6184,6 +6327,8 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
             reset_learning_chain();
         }
     }
+    if (SUCCEEDED(request_result) && SUCCEEDED(session_result))
+        remember_candidate_undo(context, std::move(undo_input), std::move(undo));
     release_interface(committed_end);
     return FAILED(request_result) ? request_result : session_result;
 }
@@ -6230,7 +6375,8 @@ HRESULT TextService::stage_agent_candidate(ITfContext* context,
     return S_OK;
 }
 
-HRESULT TextService::commit_text(ITfContext* context, std::wstring text, bool* learning_continues) {
+HRESULT TextService::commit_text(ITfContext* context, std::wstring text, bool* learning_continues,
+                                 std::optional<CandidateUndoEvidence>* undo) {
     if (learning_continues) *learning_continues = false;
     if (context == nullptr || text.empty()) return E_INVALIDARG;
     const std::wstring committed = text;
@@ -6238,7 +6384,7 @@ HRESULT TextService::commit_text(ITfContext* context, std::wstring text, bool* l
     auto* session = new (std::nothrow) CommitEditSession(context, std::move(text),
         learning_continues && same_context(context, learning_document_) ? learning_insertion_end_ : nullptr,
         learning_continues ? learning_chain_.text() : std::wstring_view{}, false,
-        inline_preedit_ ? inline_preedit_->prepare_commit(context) : nullptr);
+        inline_preedit_ ? inline_preedit_->prepare_commit(context) : nullptr, undo != nullptr);
     if (session == nullptr) return E_OUTOFMEMORY;
     HRESULT session_result = E_FAIL;
     const HRESULT request_result = context->RequestEditSession(
@@ -6246,8 +6392,10 @@ HRESULT TextService::commit_text(ITfContext* context, std::wstring text, bool* l
     if (inline_preedit_) inline_preedit_->finish_commit(SUCCEEDED(request_result) && SUCCEEDED(session_result));
     if (learning_continues)
         *learning_continues = session->learning_continues() && generation == context_generation_;
+    if (undo) *undo = session->take_undo();
     session->Release();
     if (SUCCEEDED(request_result) && SUCCEEDED(session_result)) {
+        clear_candidate_undo();
         if (!learning_continues) reset_learning_chain();
         append_language_context(committed);
     }
@@ -6266,6 +6414,7 @@ HRESULT TextService::commit_raw_input(ITfContext* context) {
     if (inline_preedit_) inline_preedit_->finish_commit(SUCCEEDED(request_result) && SUCCEEDED(session_result));
     session->Release();
     if (SUCCEEDED(request_result) && SUCCEEDED(session_result)) {
+        clear_candidate_undo();
         append_language_context(committed);
         clear_composition();
         recent_language_context_.clear();
@@ -6282,7 +6431,9 @@ HRESULT TextService::commit_pending_composition(ITfContext* context) {
     std::wstring text = staged_text();
     text.append(input_buffer_);
     bool learning_continues = false;
-    const HRESULT result = commit_text(context, std::move(text), &learning_continues);
+    auto undo_input = staged.empty() ? std::optional<PinyinUndoInput>{} : collect_candidate_undo_input();
+    std::optional<CandidateUndoEvidence> undo;
+    const HRESULT result = commit_text(context, std::move(text), &learning_continues, undo_input ? &undo : nullptr);
     if (SUCCEEDED(result)) {
         if (!learning_continues) learning_chain.clear();
         std::wstring feedback_context = previous_context;
@@ -6306,6 +6457,7 @@ HRESULT TextService::commit_pending_composition(ITfContext* context) {
             queue_commit_feedback(std::move(completed->text), std::move(completed->input),
                                   std::move(completed->context));
         clear_composition();
+        remember_candidate_undo(context, std::move(undo_input), std::move(undo));
     }
     return result;
 }
@@ -6623,6 +6775,7 @@ void TextService::draw_scheme_picker(HDC target) const {
 }
 
 void TextService::activate_input_scheme(std::string target) {
+    clear_candidate_undo();
     if (is_agent_mode()) cancel_agent_session();
     clear_composition();
     recent_language_context_.clear();

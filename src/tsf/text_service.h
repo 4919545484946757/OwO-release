@@ -13,6 +13,7 @@
 #include "owo/tsf/backdrop_snapshot.h"
 #include "owo/compatibility/uia_text_verifier.h"
 #include "inline_preedit.h"
+#include "candidate_undo.h"
 #include "selection_assistant.h"
 
 #include <Windows.h>
@@ -296,13 +297,25 @@ private:
     void update_candidate_anchor(ITfContext* context);
     void clear_composition(bool keep_plugin_session = false);
     void reset_learning_chain();
+    struct PinyinUndoInput {
+        std::wstring input;
+        std::vector<std::size_t> manual_breaks;
+    };
+    [[nodiscard]] std::optional<PinyinUndoInput> collect_candidate_undo_input() const;
+    void remember_candidate_undo(ITfContext*, std::optional<PinyinUndoInput>,
+                                 std::optional<CandidateUndoEvidence>);
+    void clear_candidate_undo() noexcept;
+    bool observe_candidate_undo_key(ITfContext*, WPARAM, LPARAM);
+    bool candidate_undo_matches(bool undone);
+    void poll_candidate_undo();
     [[nodiscard]] bool should_eat_key(WPARAM key) const noexcept;
     [[nodiscard]] std::optional<std::wstring> chinese_punctuation_for_key(
         WPARAM key, bool advance_quote_state = false);
     HRESULT commit_candidate(ITfContext* context, std::size_t index,
                              std::wstring_view suffix = {});
     HRESULT stage_agent_candidate(ITfContext* context, std::size_t index);
-    HRESULT commit_text(ITfContext* context, std::wstring text, bool* learning_continues = nullptr);
+    HRESULT commit_text(ITfContext* context, std::wstring text, bool* learning_continues = nullptr,
+                        std::optional<CandidateUndoEvidence>* undo = nullptr);
     HRESULT commit_raw_input(ITfContext* context);
     HRESULT commit_candidate_from_window(std::size_t index);
     HRESULT toggle_language_mode(ITfContext* context);
@@ -438,6 +451,16 @@ private:
         std::vector<std::size_t> manual_breaks;
     };
     std::wstring input_buffer_;
+    struct CandidateUndoRecord {
+        Microsoft::WRL::ComPtr<ITfContext> context;
+        PinyinUndoInput pinyin;
+        CandidateUndoEvidence evidence;
+        std::uint64_t expires{};
+        std::uint64_t generation{};
+    };
+    std::optional<CandidateUndoRecord> candidate_undo_;
+    std::uint64_t candidate_undo_probe_until_{};
+    bool undo_preview_in_window_{};
     std::vector<std::size_t> manual_breaks_;
     std::size_t input_cursor_{0};
     std::vector<StagedCandidate> staged_candidates_;

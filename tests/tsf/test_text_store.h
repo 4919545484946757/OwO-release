@@ -5,6 +5,7 @@
 #include <inputscope.h>
 #include <algorithm>
 #include <string>
+#include <string_view>
 
 // GUID_PROP_INPUTSCOPE value; local storage keeps the helper-only target free
 // from the production metadata inspection translation unit.
@@ -82,6 +83,14 @@ public:
         auto result = sink_->OnLockGranted(lock_); lock_ = 0; return result;
     }
     HRESULT STDMETHODCALLTYPE GetStatus(TS_STATUS* s) override { *s = {}; return S_OK; }
+    // Models an application-side edit (including native Undo), not an OwO write.
+    bool application_edit(LONG start, LONG end, std::wstring_view replacement, LONG caret) {
+        if (lock_ || !sink_ || start < 0 || end < start || end > static_cast<LONG>(text.size())) return false;
+        text.replace(start, end-start, replacement);
+        selection_ = {caret, caret, {TS_AE_NONE, FALSE}};
+        const TS_TEXTCHANGE change{start, end, start + static_cast<LONG>(replacement.size())};
+        return SUCCEEDED(sink_->OnTextChange(0, &change)) && SUCCEEDED(sink_->OnSelectionChange());
+    }
     HRESULT STDMETHODCALLTYPE QueryInsert(LONG a, LONG b, ULONG, LONG* x, LONG* y) override {
         if (a < 0 || b < a || b > static_cast<LONG>(text.size())) return E_INVALIDARG;
         *x = a; *y = b; return S_OK;

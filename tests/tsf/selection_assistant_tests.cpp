@@ -115,6 +115,81 @@ struct SelectionAssistantTestAccess {
               "explicit confirmation sends request from the matching window");
         service->cancel_agent_session();
         service->clear_composition();
+        store->hide_input_scope=false;
+        service->chinese_mode_=true;
+        service->shortcut_config_.input_scheme="full_pinyin";
+        service->shortcut_config_.candidate_immediate_commit_enabled=true;
+        const auto select_candidate = [&](std::wstring input, std::wstring word, std::size_t consumed,
+                                           std::vector<std::size_t> breaks = {}) {
+            service->clear_composition();
+            service->input_buffer_=std::move(input);
+            service->input_cursor_=service->input_buffer_.size();
+            service->manual_breaks_=std::move(breaks);
+            service->candidates_={std::move(word)};
+            service->candidate_consumed_={consumed};
+            return SUCCEEDED(service->commit_candidate(context,0));
+        };
+        const auto ctrl_z = [&] {
+            BYTE keys[256]{};
+            GetKeyboardState(keys);
+            const auto previous=keys[VK_CONTROL];
+            keys[VK_CONTROL]=0x80;
+            SetKeyboardState(keys);
+            BOOL eaten=TRUE;
+            const auto result=service->OnTestKeyDown(context,'Z',0,&eaten);
+            keys[VK_CONTROL]=previous;
+            SetKeyboardState(keys);
+            return SUCCEEDED(result) && !eaten;
+        };
+        check(store->application_edit(0,static_cast<LONG>(store->text.size()),L"前后",1), "seed undo document");
+        check(select_candidate(L"Ni'HaO",L"你好",6,{2}) && store->text==L"前你好后" &&
+              service->candidate_undo_.has_value(), "candidate commit records only its latest original input");
+        check(ctrl_z() && service->candidate_undo_probe_until_, "Ctrl+Z arms a matching write without eating the key");
+        service->poll_candidate_undo();
+        check(service->input_buffer_.empty() && service->candidate_undo_.has_value(),
+              "no candidate opens before native Undo changes the document");
+        const auto writes_before_undo=store->writes;
+        check(store->application_edit(1,3,L"",1), "native Undo removes the candidate");
+        service->poll_candidate_undo();
+        check(service->input_buffer_==L"Ni'HaO" && service->manual_breaks_==std::vector<std::size_t>{2} &&
+              service->candidate_request_pending_ && !service->candidate_undo_ &&
+              store->text==L"前后" && store->writes==writes_before_undo,
+              "Undo restores exact spelling and separators without writing to the host");
+
+        check(select_candidate(L"nishi",L"你",2) && service->input_buffer_==L"shi", "commit a prefix with pending tail");
+        check(ctrl_z() && service->candidate_undo_probe_until_, "native Undo also works with untouched pending pinyin");
+        check(store->application_edit(1,2,L"",1), "native Undo removes prefix only");
+        service->poll_candidate_undo();
+        check(service->input_buffer_==L"nishi" && !service->candidate_undo_, "Undo restores the prefix and pending tail together");
+
+        check(select_candidate(L"nihao",L"你好",5) && ctrl_z(), "arm probe for grouped undo");
+        check(store->application_edit(0,3,L"",0), "application undoes a grouped edit");
+        service->poll_candidate_undo();
+        check(service->input_buffer_.empty(), "no replay when host also removes other text");
+        if (service->candidate_undo_) service->candidate_undo_->expires=GetTickCount64();
+        service->poll_candidate_undo();
+        check(!service->candidate_undo_, "expired records are destroyed");
+
+        check(store->application_edit(0,static_cast<LONG>(store->text.size()),L"前后",1), "seed latest-commit test");
+        check(select_candidate(L"ni",L"你",2) && select_candidate(L"hao",L"好",3) && ctrl_z(),
+              "second candidate supersedes the earlier record");
+        check(store->application_edit(2,3,L"",2), "undo only the most recent commit");
+        service->poll_candidate_undo();
+        check(service->input_buffer_==L"hao" && !service->candidate_undo_, "only latest commit can be recovered");
+
+        check(store->application_edit(0,static_cast<LONG>(store->text.size()),L"前后",1), "seed staged commit");
+        service->shortcut_config_.candidate_immediate_commit_enabled=false;
+        check(select_candidate(L"ni'hao",L"你好",6,{2}) && store->text==L"前后",
+              "a staged choice does not create an app edit");
+        check(SUCCEEDED(service->commit_pending_composition(context)) && store->text==L"前你好后" &&
+              ctrl_z() && service->candidate_undo_probe_until_, "staged confirmation saves original pinyin");
+        check(store->application_edit(1,3,L"",1), "application undoes staged confirmation");
+        service->poll_candidate_undo();
+        check(service->input_buffer_==L"ni'hao" && service->manual_breaks_==std::vector<std::size_t>{2},
+              "staged candidate uses its original input and original manual separators");
+
+        check(SUCCEEDED(service->commit_raw_input(context)) && !service->candidate_undo_ && ctrl_z(),
+              "raw letters are normal native Undo without candidate recovery");
         test_edit_foreground=nullptr;
         service->Release();
         return failures;
@@ -131,7 +206,15 @@ int wmain(int argc, wchar_t** argv) {
     SetEnvironmentVariableW(L"OWO_CONFIG_PATH",config.c_str());
     if(FAILED(CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED)))return 91;
     auto* store=new TestTextStore;
-    store->window=CreateWindowExW(0,L"STATIC",L"OwO isolated selection test",WS_OVERLAPPEDWINDOW,0,0,300,100,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
+    // A STATIC HWND can legitimately report MSAA's READONLY flag. This
+    // fixture represents a custom edit host without a native control role.
+    WNDCLASSW host{};
+    host.lpfnWndProc=DefWindowProcW;
+    host.hInstance=GetModuleHandleW(nullptr);
+    host.lpszClassName=L"OwO.TestTextStore";
+    RegisterClassW(&host);
+    store->window=CreateWindowExW(0,host.lpszClassName,L"OwO isolated text store",WS_OVERLAPPEDWINDOW,
+                                  0,0,300,100,nullptr,nullptr,host.hInstance,nullptr);
     ShowWindow(store->window,SW_SHOW);SetForegroundWindow(store->window);SetFocus(store->window);
     ITfThreadMgr* manager{}; ITfDocumentMgr* document{}; ITfContext* context{}; TfClientId client{}; TfEditCookie cookie{};
     int result=92;bool activated=false,pushed=false;
@@ -152,6 +235,6 @@ int wmain(int argc, wchar_t** argv) {
     }
     CoUninitialize();SetEnvironmentVariableW(L"OWO_CONFIG_PATH",nullptr);
     std::filesystem::remove_all(root);
-    if(!result)std::cout<<"PASS selected-only trigger, four actions, exact direct replacement, stale/focus/failure cancellation; no network requests\n";
+    if(!result)std::cout<<"PASS selection, focus/trust, and native Undo with one-shot pinyin recovery; no network requests\n";
     return result;
 }
