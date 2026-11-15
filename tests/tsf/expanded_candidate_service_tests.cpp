@@ -13,6 +13,24 @@ struct ExpandedCandidateTestAccess {
         struct Release { TextService* value; ~Release() { value->Release(); } } release{service};
         service->shortcut_config_initialized_ = true;
         service->next_shortcut_config_refresh_ = std::numeric_limits<ULONGLONG>::max();
+        service->input_buffer_ = L"v";
+        service->input_cursor_ = 1;
+        if (service->composition_preview() != L"v") return 160;
+        service->input_buffer_ = L"vnihao";
+        service->segmented_input_ = L"ni'hao";
+        if (service->composition_preview() != L"v + ni'hao") return 161;
+        service->input_buffer_ = L"v";
+        service->segmented_input_.clear();
+        service->staged_candidates_.push_back({L"你好", L"nihao"});
+        if (service->composition_preview() != L"v + 你好") return 162;
+        service->agent_response_visible_ = true;
+        service->agent_message_ = L"收到";
+        if (service->agent_preview_text().find(L"v 收到") != 0 ||
+            service->agent_preview_text().find(L'+') != std::wstring::npos) return 163;
+        service->clear_composition();
+        service->agent_response_visible_ = false;
+        if (!service->shortcut_matches(service->shortcut_config_.previous_page_shortcuts, VK_OEM_MINUS) ||
+            !service->shortcut_matches(service->shortcut_config_.next_page_shortcuts, VK_OEM_PLUS)) return 164;
         service->input_buffer_ = L"nihao";
         service->input_cursor_ = 5;
         for (const bool light : {false, true}) for (const bool expanded : {false, true})

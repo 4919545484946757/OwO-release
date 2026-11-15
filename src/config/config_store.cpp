@@ -585,6 +585,20 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                 value.next_page_shortcuts = {"]", "Down"};
         }
     }
+    if (version < 5) {
+        // These versions had no persisted paging bindings. Do not let a
+        // newly introduced default conflict with an older explicitly saved key.
+        const auto occupied = [&value](std::string_view key) {
+            const auto has_key = [key](bool enabled, const auto& keys) {
+                return enabled && std::find(keys.begin(), keys.end(), key) != keys.end();
+            };
+            return has_key(value.correction_shortcut_enabled, value.correction_shortcuts) ||
+                has_key(value.language_shortcut_enabled, value.language_shortcuts) ||
+                has_key(value.raw_input_shortcut_enabled, value.raw_input_shortcuts);
+        };
+        if (occupied("Minus")) std::erase(value.previous_page_shortcuts, "Minus");
+        if (occupied("Plus")) std::erase(value.next_page_shortcuts, "Plus");
+    }
     if (version < 18) {
         for (const auto& [key, text] : fields) {
             if (!key.ends_with("_shortcut")) continue;

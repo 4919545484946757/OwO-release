@@ -170,12 +170,12 @@ public sealed partial class MainPage
             _ = new PluginNavigationLift(navigation, SettingsNavigation, layout.Refresh);
             _pluginPagesGroup.MenuItems.Add(navigation);
             _pluginSearchItems.Add(new SearchItem(plugin.Name,
-                $"插件 {plugin.Id} {plugin.Version}", page));
+                $"插件 {plugin.Id} {plugin.Version}", page, IsPage: true, Owner: plugin.Name));
             try {
                 var model = PluginSettingsModel.Load(_pluginClient.StorePath, plugin);
                 foreach (var field in model.Fields)
                     _pluginSearchItems.Add(new SearchItem(field.Title,
-                        $"{plugin.Name} {field.Description}", page, null, field.Key));
+                        $"{plugin.Name} {field.Description}", page, null, field.Key, Owner: plugin.Name));
             } catch {
                 // A damaged or legacy schema remains manageable from the main plugin page.
             }

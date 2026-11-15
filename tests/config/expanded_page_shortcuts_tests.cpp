@@ -21,7 +21,8 @@ std::string legacy(owo::config::AppConfig value) {
 int main() {
     using namespace owo::config;
     AppConfig value;
-    if (value.previous_page_shortcuts != std::vector<std::string>{"["} ||
+    if (value.previous_page_shortcuts != std::vector<std::string>{"[", "Minus"} ||
+        value.next_page_shortcuts != std::vector<std::string>{"]", "Plus"} ||
         value.expanded_previous_page_shortcuts != std::vector<std::string>{"Up"} ||
         value.expanded_next_page_shortcuts != std::vector<std::string>{"Down"}) return 1;
     value.previous_page_shortcuts = {"[", "Up"};

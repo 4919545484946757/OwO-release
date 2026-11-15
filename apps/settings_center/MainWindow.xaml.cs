@@ -59,7 +59,18 @@ public sealed partial class MainWindow : Window
         } else {
             AppWindow.Resize(new SizeInt32(1080, 760));
             RootFrame.Navigate(typeof(MainPage));
-            if (Environment.GetCommandLineArgs().Contains("--verify-plugin-catalog") && RootFrame.Content is MainPage catalogPage) {
+            if (Environment.GetCommandLineArgs().Contains("--verify-settings-search") && RootFrame.Content is MainPage searchPage) {
+                searchPage.Loaded += async (_, _) => {
+                    var report = Environment.GetEnvironmentVariable("OWO_SEARCH_TEST_REPORT");
+                    try {
+                        var checks = await searchPage.VerifySettingsSearchAsync();
+                        if (!string.IsNullOrEmpty(report)) File.WriteAllLines(report, checks);
+                    } catch (Exception error) {
+                        Environment.ExitCode = 1;
+                        if (!string.IsNullOrEmpty(report)) File.WriteAllText(report, error.ToString());
+                    } finally { _closingAfterSave = true; Close(); }
+                };
+            } else if (Environment.GetCommandLineArgs().Contains("--verify-plugin-catalog") && RootFrame.Content is MainPage catalogPage) {
                 catalogPage.Loaded += async (_, _) => {
                     try { await catalogPage.VerifyPluginCatalogAsync(); }
                     catch (Exception error) { Environment.ExitCode = 1; App.LogStage("Plugin catalog verification failed: " + error); }

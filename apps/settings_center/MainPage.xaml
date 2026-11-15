@@ -4,21 +4,18 @@
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#EDEDED"/>
                     <SvgImageSource x:Key="PluginPuzzleImageSource" UriSource="ms-appx:///Assets/Decor/PluginPuzzle.svg"/>
                     <x:Double x:Key="PluginPuzzleOpacity">0.01</x:Double>
                     <SolidColorBrush x:Key="PluginDisabledFill" Color="#E8E9EC"/>
                     <SolidColorBrush x:Key="PluginCardHoverTint" Color="#0D000000"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#232639"/>
                     <SvgImageSource x:Key="PluginPuzzleImageSource" UriSource="ms-appx:///Assets/Decor/PluginPuzzle.Dark.svg"/>
                     <x:Double x:Key="PluginPuzzleOpacity">0.01</x:Double>
                     <SolidColorBrush x:Key="PluginDisabledFill" Color="#30323F"/>
                     <SolidColorBrush x:Key="PluginCardHoverTint" Color="#13FFFFFF"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
-                    <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}"/>
                     <SvgImageSource x:Key="PluginPuzzleImageSource" UriSource="ms-appx:///Assets/Decor/PluginPuzzle.svg"/>
                     <x:Double x:Key="PluginPuzzleOpacity">0</x:Double>
                     <SolidColorBrush x:Key="PluginDisabledFill" Color="{ThemeResource SystemColorWindowColor}"/>
@@ -38,13 +35,7 @@
                 <Setter Property="OnContent" Value="开"/>
                 <Setter Property="OffContent" Value="关"/>
             </Style>
-            <Style x:Key="SettingsCardStyle" TargetType="Border">
-                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
-                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
-                <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="Padding" Value="16,12,8,12"/>
-            </Style>
+            <Style x:Key="SettingsCardStyle" TargetType="Border" BasedOn="{StaticResource OwOSettingsCardStyle}"/>
             <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="20"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
@@ -60,13 +51,7 @@
                 <Setter Property="BorderThickness" Value="0,1,0,0"/>
                 <Setter Property="Padding" Value="16,12"/>
             </Style>
-            <Style x:Key="PluginStateBadgeStyle" TargetType="Border">
-                <Setter Property="Background" Value="{ThemeResource ControlFillColorSecondaryBrush}"/>
-                <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}"/>
-                <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="CornerRadius" Value="5"/>
-                <Setter Property="Padding" Value="6,2"/>
-            </Style>
+            <Style x:Key="PluginStateBadgeStyle" TargetType="Border" BasedOn="{StaticResource SettingsBadgeStyle}"/>
             <Style x:Key="PluginCatalogCardButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="BorderBrush" Value="Transparent"/>
@@ -86,7 +71,26 @@
         <!-- Global search belongs to the page shell, not to any individual settings section. -->
         <Grid x:Name="GlobalSearchArea" Grid.Row="0" Margin="16,16,16,10" ColumnSpacing="12">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <AutoSuggestBox x:Name="SettingsSearchBox" PlaceholderText="查找设置" QueryIcon="Find" TextChanged="SettingsSearchBox_TextChanged" SuggestionChosen="SettingsSearchBox_SuggestionChosen" QuerySubmitted="SettingsSearchBox_QuerySubmitted" HorizontalAlignment="Stretch" MaxWidth="720"/>
+            <AutoSuggestBox x:Name="SettingsSearchBox" PlaceholderText="搜索页面、设置和快捷键" QueryIcon="Find"
+                            UpdateTextOnSelect="False" Loaded="SettingsSearchBox_Loaded"
+                            ActualThemeChanged="SettingsSearchBox_ActualThemeChanged"
+                            TextChanged="SettingsSearchBox_TextChanged" QuerySubmitted="SettingsSearchBox_QuerySubmitted"
+                            HorizontalAlignment="Stretch" MaxWidth="720">
+                <AutoSuggestBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid ColumnSpacing="9" MinHeight="38" AutomationProperties.Name="{Binding SpokenLabel}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource PluginStateBadgeStyle}" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding NamespacePrefix}" Foreground="{Binding NamespaceForeground}" FontFamily="Consolas" FontSize="12"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Subtitle}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </AutoSuggestBox.ItemTemplate>
+            </AutoSuggestBox>
             <local:ScrollNeutralComboBox Grid.Column="1" x:Name="SettingsSchemeSelector" PlaceholderText="配置输入方案" MinWidth="136" MaxWidth="220" VerticalAlignment="Center" HorizontalAlignment="Right"
                       DisplayMemberPath="Name" SelectionChanged="SettingsSchemeSelector_Changed" AutomationProperties.Name="选择要配置的输入方案" AutomationProperties.AutomationId="SettingsSchemeSelector"/>
         </Grid>

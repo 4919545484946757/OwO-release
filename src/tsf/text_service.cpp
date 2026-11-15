@@ -2994,7 +2994,7 @@ bool TextService::render_candidate_window() {
     std::wstring logical_input = input_buffer_;
     std::size_t agent_prefix_length = 0;
     if (editable_agent_preview) {
-        agent_prefix_length = 4;  // "v + "
+        agent_prefix_length = input_buffer_.size() > 1 || !staged.empty() ? 4 : 1;
         if (!reading.empty() && reading.front() == L'v') reading.erase(reading.begin());
         if (!logical_input.empty() && logical_input.front() == L'v')
             logical_input.erase(logical_input.begin());
@@ -3858,8 +3858,11 @@ bool TextService::is_agent_mode() const noexcept {
 std::wstring TextService::agent_preview_text() const {
     if (!is_agent_mode() || !agent_response_visible_) return {};
     if (agent_trust_pending_) return L"v：无法验证当前窗口。信任后允许向第三方 Agent 发送请求和上下文？";
-    std::wstring preview = L"v + ";
-    preview.append(agent_message_);
+    std::wstring preview = L"v";
+    if (!agent_message_.empty()) {
+        preview.push_back(L' ');
+        preview.append(agent_message_);
+    }
     preview.append(L"    [");
     preview.append(agent_status_label(agent_status_));
     preview.push_back(L']');
@@ -5482,13 +5485,15 @@ std::wstring TextService::staged_text() const {
 std::wstring TextService::composition_preview() const {
     if (selection_assistant_.active()) return selection_assistant_.header();
     if (is_agent_mode() && !input_buffer_.empty() && input_buffer_.front() == L'v') {
-        std::wstring result = L"v + ";
-        result.append(staged_text());
+        std::wstring result = L"v";
+        const auto staged = staged_text();
         std::wstring_view remaining = segmented_input_.empty()
             ? std::wstring_view(input_buffer_).substr(1)
             : std::wstring_view(segmented_input_);
         if (!remaining.empty() && remaining.front() == L'v') remaining.remove_prefix(1);
-        result.append(remaining);
+        if (!staged.empty() || input_buffer_.size() > 1) result.append(L" + ");
+        result.append(staged);
+        if (input_buffer_.size() > 1) result.append(remaining);
         return result;
     }
     std::wstring result = staged_text();

@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace OwO_Settings;
 
@@ -78,17 +79,11 @@ internal sealed class UninstallPage : Page
         TextWrapping = TextWrapping.Wrap
     };
 
-    private static Brush? BrushResource(string name) => Application.Current.Resources.TryGetValue(name, out var value)
-        ? value as Brush : null;
+    private static Style StyleResource(string name) => (Style)Application.Current.Resources[name];
 
-    private static void Surface(Border card, Thickness inset, bool quiet = false)
+    private static void Surface(Border card, Thickness inset, bool badge = false)
     {
-        card.CornerRadius = new CornerRadius(16);
-        card.BorderThickness = new Thickness(1);
-        card.BorderBrush = BrushResource("CardStrokeColorDefaultBrush") ??
-            new SolidColorBrush(Windows.UI.Color.FromArgb(38, 128, 128, 128));
-        card.Background = BrushResource(quiet ? "LayerFillColorDefaultBrush" : "CardBackgroundFillColorDefaultBrush") ??
-            new SolidColorBrush(Windows.UI.Color.FromArgb(quiet ? (byte)10 : (byte)18, 128, 128, 128));
+        card.Style = StyleResource(badge ? "SettingsBadgeStyle" : "OwOSettingsCardStyle");
         card.Padding = inset;
     }
 
@@ -97,10 +92,19 @@ internal sealed class UninstallPage : Page
         var header = new Grid { ColumnSpacing = 12 };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var identity = new StackPanel { Spacing = 5 };
-        var wordmark = Text("OwO / 卸载助手", 21, true);
+        var identity = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        var logo = new Image { Width = 38, Height = 38, VerticalAlignment = VerticalAlignment.Center };
+        void UpdateLogo() {
+            var theme = logo.ActualTheme == ElementTheme.Dark ? "Dark" : "Light";
+            logo.Source = new SvgImageSource(new Uri($"ms-appx:///Assets/Brand/LogoSmall{theme}.svg"));
+        }
+        logo.Loaded += (_, _) => UpdateLogo();
+        logo.ActualThemeChanged += (_, _) => UpdateLogo();
+        identity.Children.Add(logo);
+        var wordmark = new StackPanel { Spacing = 2 };
+        wordmark.Children.Add(Text("OwO 输入法", 20, true));
+        wordmark.Children.Add(Text("卸载助手", 12));
         identity.Children.Add(wordmark);
-        identity.Children.Add(Text("Windows 输入法"));
         header.Children.Add(identity);
         var tag = new Border { Child = Text(_example ? "界面预览" : "本机安装", 12, true),
             VerticalAlignment = VerticalAlignment.Center };
@@ -114,10 +118,10 @@ internal sealed class UninstallPage : Page
         summary.Children.Add(_activeStep);
         summary.Children.Add(_choice);
         _rail.Child = summary;
-        Surface(_rail, new Thickness(17), true);
+        Surface(_rail, new Thickness(16, 12, 16, 12));
         _rail.VerticalAlignment = VerticalAlignment.Top;
         _article.Child = _body;
-        Surface(_article, new Thickness(22));
+        Surface(_article, new Thickness(20));
         _article.VerticalAlignment = VerticalAlignment.Top;
         _dashboard.ColumnDefinitions.Add(_railColumn);
         _dashboard.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -128,8 +132,7 @@ internal sealed class UninstallPage : Page
         _dashboard.SizeChanged += (_, args) => Reflow(args.NewSize.Width);
         Reflow(850);
 
-        var main = new StackPanel { Spacing = 20, MaxWidth = 940, Margin = new Thickness(24, 20, 24, 12) };
-        main.Children.Add(header);
+        var main = new StackPanel { Spacing = 16, MaxWidth = 940, Margin = new Thickness(24, 16, 24, 16) };
         main.Children.Add(_dashboard);
         var scroll = new ScrollViewer { Content = main, HorizontalScrollMode = ScrollMode.Disabled,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -140,11 +143,16 @@ internal sealed class UninstallPage : Page
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetColumn(_secondary, 1); footer.Children.Add(_secondary);
         Grid.SetColumn(_primary, 2); footer.Children.Add(_primary);
-        var shell = new Grid();
+        var contentPanel = new Grid { Style = StyleResource("SettingsContentPanelStyle") };
+        contentPanel.Children.Add(scroll);
+        var shell = new Grid { Style = StyleResource("SettingsShellStyle") };
+        shell.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         shell.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         shell.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        shell.Children.Add(scroll);
-        Grid.SetRow(footer, 1); shell.Children.Add(footer);
+        header.MaxWidth = 940; header.Margin = new Thickness(24, 16, 24, 14);
+        shell.Children.Add(header);
+        Grid.SetRow(contentPanel, 1); shell.Children.Add(contentPanel);
+        Grid.SetRow(footer, 2); shell.Children.Add(footer);
         return shell;
     }
 
@@ -156,7 +164,7 @@ internal sealed class UninstallPage : Page
         Grid.SetRow(_article, _compact ? 1 : 0);
         Grid.SetColumn(_article, _compact ? 0 : 1);
         Grid.SetColumnSpan(_article, _compact ? 2 : 1);
-        _article.Padding = new Thickness(_compact ? 16 : 22);
+        _article.Padding = new Thickness(_compact ? 16 : 20);
     }
 
     private void Outlet(Step stage, string section, string label)
@@ -195,7 +203,7 @@ internal sealed class UninstallPage : Page
             settings.Children.Add(_keep);
             settings.Children.Add(Text("保留配置、用户词库、词频、插件及模型设置，方便以后重新安装。"));
             var card = new Border { Child = settings };
-            Surface(card, new Thickness(14), true);
+            Surface(card, new Thickness(16, 12, 16, 12));
             panel.Children.Add(card);
             panel.Children.Add(_dataWarning);
             _optionsPanel = panel;

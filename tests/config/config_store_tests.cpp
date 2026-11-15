@@ -192,7 +192,7 @@ int main(const int argc, char** argv) {
         legacy.value.language_shortcuts != std::vector<std::string>{"Ctrl+Space"} ||
         legacy.value.raw_input_shortcuts != std::vector<std::string>{"Enter"} ||
         legacy.value.cursor_left_shortcuts != std::vector<std::string>{"Left"} ||
-        legacy.value.next_page_shortcuts != std::vector<std::string>{"]"} ||
+        legacy.value.next_page_shortcuts != std::vector<std::string>{"]", "Plus"} ||
         legacy.value.expanded_next_page_shortcuts != std::vector<std::string>{"Down"} ||
         legacy.value.candidate_wrap_length != 12 ||
         !legacy.value.candidate_partition_enabled ||
@@ -240,11 +240,11 @@ int main(const int argc, char** argv) {
     version_ten_text.replace(version_ten_text.find("cursor_right_shortcut=Right"),
                              std::string("cursor_right_shortcut=Right").size(),
                              "cursor_right_shortcut=Shift+Right");
-    version_ten_text.replace(version_ten_text.find("previous_page_shortcut=[\n"),
-                             std::string("previous_page_shortcut=[\n").size(),
+    version_ten_text.replace(version_ten_text.find("previous_page_shortcut=[;Minus\n"),
+                             std::string("previous_page_shortcut=[;Minus\n").size(),
                              "previous_page_shortcut=[;Shift+Up\n");
-    version_ten_text.replace(version_ten_text.find("next_page_shortcut=]\n"),
-                             std::string("next_page_shortcut=]\n").size(),
+    version_ten_text.replace(version_ten_text.find("next_page_shortcut=];Plus\n"),
+                             std::string("next_page_shortcut=];Plus\n").size(),
                              "next_page_shortcut=];Shift+Down\n");
     const auto version_ten = owo::config::parse_config(version_ten_text);
     if (!version_ten.ok ||
@@ -269,6 +269,14 @@ int main(const int argc, char** argv) {
         version_two.value.user_learning_sensitivity != 10 ||
         !version_two.value.user_lexicon_completion_enabled ||
         version_two.value.user_lexicon_completion_max_syllables != 0) return 24;
+    const auto legacy_minus = owo::config::parse_config(
+        "schema_version=2\ncandidate_page_size=5\nuser_learning_enabled=true\n"
+        "model_ranking_enabled=false\nmodel_timeout_ms=50\n"
+        "correction_shortcut_enabled=true\ncorrection_shortcut=Minus\n"
+        "language_shortcut_enabled=true\nlanguage_shortcut=Ctrl+Space\n"
+        "raw_input_shortcut_enabled=true\nraw_input_shortcut=Enter\n");
+    if (!legacy_minus.ok || legacy_minus.value.correction_shortcuts != std::vector<std::string>{"Minus"} ||
+        legacy_minus.value.previous_page_shortcuts != std::vector<std::string>{"["}) return 97;
 
     auto duplicate_shortcuts = changed;
     duplicate_shortcuts.raw_input_shortcut_enabled = true;

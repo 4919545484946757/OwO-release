@@ -184,7 +184,9 @@ public sealed partial class MainPage
             foreach (var binding in bindings) {
                 var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
                 var capture = new Button {
-                    Content = binding.Value, Tag = binding,
+                    Content = string.Join('+', binding.Value.Split('+').Select(key => key switch {
+                        "Minus" => "-", "Plus" => "=", _ => key
+                    })), Tag = binding,
                     HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Left,
                 };
                 capture.Click += ShortcutButton_Click;

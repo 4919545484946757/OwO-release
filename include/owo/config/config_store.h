@@ -62,9 +62,9 @@ struct AppConfig {
     bool cursor_right_shortcut_enabled{true};
     std::vector<std::string> cursor_right_shortcuts{"Right"};
     bool previous_page_shortcut_enabled{true};
-    std::vector<std::string> previous_page_shortcuts{"["};
+    std::vector<std::string> previous_page_shortcuts{"[", "Minus"};
     bool next_page_shortcut_enabled{true};
-    std::vector<std::string> next_page_shortcuts{"]"};
+    std::vector<std::string> next_page_shortcuts{"]", "Plus"};
     bool expanded_previous_page_shortcut_enabled{true};
     std::vector<std::string> expanded_previous_page_shortcuts{"Up"};
     bool expanded_next_page_shortcut_enabled{true};

@@ -31,10 +31,12 @@ public sealed partial class MainPage : Page
     private sealed record SearchItem(string Title, string Detail, string Page,
                                      Microsoft.UI.Xaml.FrameworkElement? Target = null,
                                      string? PluginField = null,
-                                     SettingsCapability Capability = SettingsCapability.None)
+                                     SettingsCapability Capability = SettingsCapability.None,
+                                     bool IsPage = false, string? Owner = null)
     {
-        public override string ToString() => string.IsNullOrWhiteSpace(Detail)
-            ? Title : $"{Title}  ·  {Detail}";
+        internal SearchTerm Term => new(Title, Detail, Owner ?? SettingsPageMetadata(Page).Title,
+            Page.StartsWith("plugin:", StringComparison.Ordinal) ? SearchArea.Plugin :
+            IsPage ? SearchArea.Page : Page == "shortcuts" ? SearchArea.Shortcut : SearchArea.Setting);
     }
     private sealed class ShortcutBinding(string group, string value)
     {
@@ -95,8 +97,8 @@ public sealed partial class MainPage : Page
         SetShortcutBindings("separator", ["Quote"]);
         SetShortcutBindings("cursor-left", ["Left"]);
         SetShortcutBindings("cursor-right", ["Right"]);
-        SetShortcutBindings("previous-page", ["["]);
-        SetShortcutBindings("next-page", ["]"]);
+        SetShortcutBindings("previous-page", ["[", "Minus"]);
+        SetShortcutBindings("next-page", ["]", "Plus"]);
         SetShortcutBindings("expanded-previous-page", ["Up"]);
         SetShortcutBindings("expanded-next-page", ["Down"]);
         SetShortcutBindings("text-navigation", ["Shift+Left", "Shift+Right", "Shift+Up", "Shift+Down"]);
@@ -266,7 +268,14 @@ public sealed partial class MainPage : Page
         SetVisibility(page == "intelligence", _learningSettingsLayout);
         if (generalPage) GeneralSettingsPage.ChangeView(null, 0, null, true);
         UpdateManualSettingsActions();
-        (CurrentPageTitle.Text, CurrentPageDescription.Text) = page switch {
+        (CurrentPageTitle.Text, CurrentPageDescription.Text) = SettingsPageMetadata(page);
+        UpdateSchemeHintVisibility();
+        UpdatePluginDiscoveryActivation();
+        UpdateConfigurationSchemeBadge();
+        UpdateSchemeScopePage();
+    }
+
+    private static (string Title, string Description) SettingsPageMetadata(string page) => page switch {
             "general" => ("通用设置", "管理自动保存、配置备份、更新与资源下载"),
             "schemes" => ("输入方案", "选择编码方案并查看当前方案能力"),
             "candidates" => ("候选与输入", "调整候选显示、组合上屏、标点和符号预览"),
@@ -278,12 +287,7 @@ public sealed partial class MainPage : Page
             "models" => ("模型管理器", "管理模型 API、选区翻译、润色、代码纠错和内容生成"),
             "diagnostics" => ("调试与性能", "本地测量候选生成全链路，定位排队、搜索、模型与界面耗时"),
             _ => ("输入方案", "选择编码方案并查看当前方案能力"),
-        };
-        UpdateSchemeHintVisibility();
-        UpdatePluginDiscoveryActivation();
-        UpdateConfigurationSchemeBadge();
-        UpdateSchemeScopePage();
-    }
+    };
 
     private void OpenDiagnostics_Click(object sender, RoutedEventArgs args) => ShowPage("diagnostics");
 
@@ -303,6 +307,11 @@ public sealed partial class MainPage : Page
 
     private void InitializeSearchIndex()
     {
+        foreach (var page in new[] { "general", "schemes", "candidates", "punctuation", "intelligence",
+            "user-lexicon", "shortcuts", "plugins", "models", "diagnostics" }) {
+            var labels = SettingsPageMetadata(page);
+            _baseSearchItems.Add(new SearchItem(labels.Title, labels.Description, page, IsPage: true));
+        }
         void Add(string title, string detail, string page,
                  Microsoft.UI.Xaml.FrameworkElement target) =>
             _baseSearchItems.Add(new SearchItem(title, detail, page, target));
@@ -318,41 +327,9 @@ public sealed partial class MainPage : Page
             _baseSearchItems.Add(new SearchItem($"中文标点 · {option.Name}",
                 $"标点 {option.Source} {option.Output}", "punctuation", _punctuationCards[option.Source],
                 Capability: SettingsCapability.ChinesePunctuation));
-        Add("词库管理器", "用户词库 字典 搜索 编辑 新增 删除 清除 导入 导出 Gboard Rime CSV TSV 词频", "user-lexicon", UserLexiconPageHost);
-        Add("模型管理器", "API 大模型 翻译 润色 代码纠错 内容生成 首选语言 次选语言 密钥", "models", ModelManagerPageHost);
+        Add("用户词库", "字典 搜索 编辑 新增 删除 清除 导入 导出 Gboard Rime CSV TSV 词频", "user-lexicon", UserLexiconPageHost);
         Add("调试与性能 · 候选生成计时", "调试 性能 速度 延迟 阻塞 IPC Core TSF 模型 解析 P50 P95 报告", "diagnostics", DiagnosticsPageHost);
-        Add("插件管理器", "下载 在线 发现 搜索 插件 更新 安装 权限 卸载 恢复", "plugins", PluginSection);
-    }
-
-    private void SettingsSearchBox_TextChanged(AutoSuggestBox sender,
-                                                AutoSuggestBoxTextChangedEventArgs args)
-    {
-        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
-        var query = sender.Text.Trim();
-        if (query.Length == 0) { sender.ItemsSource = null; return; }
-        sender.ItemsSource = SettingsSearchItems()
-            .Where(item => ($"{item.Title} {item.Detail}").Contains(
-                query, StringComparison.OrdinalIgnoreCase)).Take(12).ToArray();
-    }
-
-    private void SettingsSearchBox_SuggestionChosen(
-        AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
-    {
-        if (args.SelectedItem is SearchItem item) sender.Text = item.Title;
-    }
-
-    private async void SettingsSearchBox_QuerySubmitted(
-        AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
-    {
-        var selected = args.ChosenSuggestion as SearchItem;
-        selected ??= SettingsSearchItems().FirstOrDefault(item =>
-            ($"{item.Title} {item.Detail}").Contains(args.QueryText.Trim(),
-                StringComparison.OrdinalIgnoreCase));
-        if (selected is null) {
-            ShowStatus("未找到匹配的设置。", InfoBarSeverity.Warning);
-            return;
-        }
-        await NavigateToSearchItemAsync(selected);
+        Add("下载与更新插件", "在线 发现 搜索 插件 安装 权限 卸载 恢复", "plugins", PluginSection);
     }
 
     private async Task NavigateToSearchItemAsync(SearchItem item)
