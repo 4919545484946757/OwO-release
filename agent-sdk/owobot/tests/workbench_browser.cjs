@@ -121,7 +121,11 @@ async function applyDelivery(thread, approve) {
     }
     throw new Error(context);
   };
-  const panel = () => document.querySelector(".owobot-panel-frame")?.contentDocument?.querySelector(".owobot-delivery");
+  const panel = () => {
+    const doc = document.querySelector(".owobot-panel-frame")?.contentDocument;
+    if (doc?.querySelector(".owobot-connection")) return null;
+    return doc?.querySelector(".owobot-delivery");
+  };
   const loaded = await until(() => {
     const candidate = panel();
     return candidate?.querySelector(".owobot-task-id")?.textContent === "owobot-" + thread ? candidate : null;
@@ -175,7 +179,7 @@ async function typeDraft() {
     const frame = document.querySelector(".owobot-panel-frame");
     const doc = frame?.contentDocument;
     const area = doc?.querySelector("textarea");
-    if (area && !area.disabled) {
+    if (area && !area.disabled && !doc.querySelector(".owobot-connection")) {
       const draft = "请查看项目目录，并列出可用的报名资料。";
       Object.getOwnPropertyDescriptor(frame.contentWindow.HTMLTextAreaElement.prototype, "value").set.call(area, draft);
       area.dispatchEvent(new frame.contentWindow.Event("input", { bubbles: true }));

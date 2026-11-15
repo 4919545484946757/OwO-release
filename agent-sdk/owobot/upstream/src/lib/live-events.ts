@@ -67,7 +67,7 @@ export function liveEventsUrl(options?: { since?: string | null; screens?: boole
   if (options?.since) params.set("since", options.since);
   if (isOwOPage() || options?.screens === false) params.set("screens", "off");
   params.set("window", "1");
-  return `${collaborationPath(LIVE_EVENTS_PATH)}?${params}`;
+  return collaborationPath(`${LIVE_EVENTS_PATH}?${params}`);
 }
 
 export interface LiveFrameListener {
