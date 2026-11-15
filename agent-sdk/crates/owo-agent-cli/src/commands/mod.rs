@@ -1,5 +1,6 @@
 // §12.3 CLI 拆分：命令域模块（每域一文件，自 main.rs 逐批机械外移）。
 
+pub(crate) mod acp;
 pub(crate) mod audit;
 pub(crate) mod backup;
 pub(crate) mod bench;

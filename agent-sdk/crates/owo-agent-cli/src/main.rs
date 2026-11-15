@@ -46,6 +46,8 @@ struct Cli {
 enum Commands {
     /// 执行一轮一次性任务（非交互）
     Turn(commands::turn::TurnArgs),
+    /// Connect an ACP client to the local OwO Daemon.
+    Acp(commands::acp::AcpArgs),
     /// 启动本地 HTTP API 服务
     Serve(commands::serve::ServeArgs),
     /// Daemon 生命周期（P1：status/stop，经 discovery + 共享客户端）
@@ -134,6 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::process::exit(i32::from(code));
             }
         }
+        Some(Commands::Acp(args)) => run_async(commands::acp::run(args))?,
         Some(Commands::Serve(args)) => run_async(commands::serve::run_serve(args))?,
         Some(Commands::Daemon(args)) => run_async(commands::daemon::run_daemon_cmd(args))?,
         Some(Commands::Repl(args)) => run_async(commands::repl::Repl::run(args, cli.permissions))?,
