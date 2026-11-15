@@ -61,11 +61,19 @@ async function checkLauncher(workspace) {
     }
     throw new Error(description + ": " + document.querySelector("#panelRoot")?.innerText.slice(0, 500));
   };
-  const openPanel = (name) => document.querySelector('[data-workbench-panel="' + name + '"]').click();
+  const openPanel = (name) => {
+    const button = document.querySelector('#panelNav [data-panel="' + name + '"]')
+      || document.querySelector('[data-workbench-panel="' + name + '"]');
+    if (!button) throw new Error("Missing desktop navigation for " + name);
+    button.click();
+  };
+  // Folder switching clears the session when leaving its workspace.
+  showHomeView();
   const input = document.querySelector("#workspace");
   input.value = workspace;
   input.dispatchEvent(new Event("change"));
   openPanel("project-launcher");
+  if (document.querySelector("#pl-root")?.value !== workspace) throw new Error("Launcher used a different project");
   const backend = () => document.querySelector("#pl-backend");
   if (backend()?.value !== "owobot") throw new Error("OwOBot was not the project default");
   backend().value = "workswarm";

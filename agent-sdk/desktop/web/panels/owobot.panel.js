@@ -19,8 +19,8 @@
     return opened;
   }
 
-  async function groupRequest(group, action = "", body, signal) {
-    const url = new URL("/owobot/api/groups/" + encodeURIComponent(group) + action, location.origin);
+  async function projectRequest(group, path, body, signal) {
+    const url = new URL("/owobot/api" + path, location.origin);
     url.searchParams.set("owoProject", group);
     const response = await fetch(url, body === undefined
       ? { signal }
@@ -33,16 +33,18 @@
   async function createTask(helpers, workspace, objective, requestId) {
     const opened = await openProject(helpers, workspace);
     const group = opened.groupId;
-    const { task } = await groupRequest(group, "/tasks", { title: objective, requestId });
+    const path = "/groups/" + encodeURIComponent(group);
+    const { task } = await projectRequest(group, path + "/tasks", { title: objective, requestId });
     if (task?.threadId !== requestId) throw new Error("无法核对 OwOBot 任务编号。");
-    await groupRequest(group, "/messages", { text: objective, threadId: requestId, sendId: requestId });
+    await projectRequest(group, path + "/messages", { text: objective, threadId: requestId, sendId: requestId });
     return { thread: requestId, workspace };
   }
 
   async function history(helpers, workspace, signal) {
     const { groupId } = await openProject(helpers, workspace, false);
     signal.throwIfAborted();
-    const { group } = await groupRequest(groupId, "?messages=0", undefined, signal);
+    const { groups } = await projectRequest(groupId, "/bots?messages=0", undefined, signal);
+    const group = groups.find(candidate => candidate.id === groupId);
     return (group?.tasks || []).filter(task => !task.archivedAt)
       .sort((a, b) => (b.lastThreadOrderAt ?? b.createdAt) - (a.lastThreadOrderAt ?? a.createdAt));
   }
