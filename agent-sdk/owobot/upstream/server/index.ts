@@ -12892,6 +12892,11 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (internalCapability.kind !== requiredCapabilityKind) {
         return json(res, 403, { error: "this internal capability cannot access that service" });
       }
+      if (OWOBOT_MANAGED && requiredCapabilityKind === "agents" &&
+          !(method === "GET" && path === "/api/internal/owobot-scope") &&
+          !(method === "POST" && path === "/api/internal/owobot-delegate")) {
+        return json(res, 403, { error: "OwOBot's room capability is limited to its project scope and assignments" });
+      }
       if (requiredCapabilityKind !== "agents" && requiredCapabilityKind !== "hooks") usageTrace.timeServed(req, res, internalCapability.threadId);
       // The opaque bearer is the authority: refuse disagreeing sender ids, so a Full bot cannot reuse its token to impersonate a peer.
       for (const key of ["self", "fromBotId", "botId"] as const) {
@@ -13695,7 +13700,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         const mode: NonNullable<HandoffOptions["mode"]> = call.consult ? "consult" : call.reply === "none" ? "notify" : "work";
         const reply: NonNullable<HandoffOptions["reply"]> = call.reply === "none" ? "none" : EXTERNAL ? "poll" : "resume";
         const returns = reply === "none" ? "nothing comes back from it" : reply === "poll" ? "read its result with assignment_status" : "its result will resume you";
-        const inRoom = targets.filter(target => target.groupId).length, lanes = inRoom > 0 && roomJobs.useLanes(destination!, roomThreadId!, inRoom, mode);
+        const inRoom = targets.filter(target => target.groupId).length, lanes = !OWOBOT_MANAGED && inRoom > 0 && roomJobs.useLanes(destination!, roomThreadId!, inRoom, mode);
         const receipts: PeerDeliveryReceipt[] = [];
         const refused: string[] = [];
         const answeredForPerson = new Set<PeerDeliveryReceipt>();
@@ -13837,6 +13842,23 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           }
           await new Promise((wake) => setTimeout(wake, 500));
         }
+      }
+      if (method === "POST" && path === "/api/internal/owobot-delegate" && OWOBOT_MANAGED) {
+        const params = z.object({
+          groupId: z.string().min(1).max(128), targetBot: z.string().min(1).max(128),
+          message: z.string().trim().min(1).max(4000),
+        }).strict().safeParse(await readInternalBody());
+        if (!params.success) return json(res, 400, { error: "invalid collaboration assignment" });
+        const { groupId, targetBot, message } = params.data;
+        const room = store.groupByThread(internalCapability.threadId);
+        if (!room || room.dm || room.id !== groupId || room.defaultResponder.kind !== "member" ||
+            room.defaultResponder.botId !== internalSender.id || targetBot === internalSender.id ||
+            !room.memberIds.includes(targetBot) || internalCapability.depth >= 3) {
+          return json(res, 403, { error: "collaboration assignment is outside the leader's project" });
+        }
+        const result = await coordinateBots({ groupId, botIds: [targetBot], message, rework: false,
+          thread: "standing", reply: "resume", consult: false });
+        return json(res, result.status, result.body);
       }
       if (method === "POST" && path === "/api/internal/coordinate-bots") {
         const parsed = z.object({

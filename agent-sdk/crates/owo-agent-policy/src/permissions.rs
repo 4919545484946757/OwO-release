@@ -417,6 +417,7 @@ pub struct Policy {
     runtime_deny: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
     read_only: Arc<AtomicBool>,
     request_read_only: bool,
+    workspace_only: bool,
     /// §5.3 权限档位（默认 Workspace：工作区内只读默认允许，首次写入/执行/联网/
     /// UI 控制/越界/破坏性操作询问；审批后由有作用域 Grant 记忆）。
     profile: std::sync::Arc<std::sync::Mutex<PermissionProfile>>,
@@ -445,6 +446,7 @@ impl Policy {
             runtime_deny: Arc::clone(&self.runtime_deny),
             read_only: Arc::clone(&self.read_only),
             request_read_only: self.request_read_only,
+            workspace_only: self.workspace_only,
             profile: Arc::clone(&self.profile),
             grants: Arc::clone(&self.grants),
             spec: Arc::clone(&self.spec),
@@ -468,6 +470,7 @@ impl Policy {
             runtime_deny: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
             read_only: Arc::new(AtomicBool::new(false)),
             request_read_only: false,
+            workspace_only: false,
             profile: std::sync::Arc::new(std::sync::Mutex::new(PermissionProfile::Workspace)),
             grants: Arc::new(std::sync::RwLock::new(None)),
             spec: std::sync::Arc::new(std::sync::Mutex::new(None)),
@@ -539,10 +542,15 @@ impl Policy {
         if self.request_read_only {
             return PermissionProfile::ReadOnly;
         }
-        self.profile
+        let profile = self
+            .profile
             .lock()
             .map(|guard| *guard)
-            .unwrap_or(PermissionProfile::ReadOnly)
+            .unwrap_or(PermissionProfile::ReadOnly);
+        if self.workspace_only && profile == PermissionProfile::Unrestricted {
+            return PermissionProfile::FullAccess;
+        }
+        profile
     }
 
     /// §4.5.3 提交结构化 profile（权限中心唯一写入口）。
@@ -754,6 +762,12 @@ impl Policy {
         PermissionRequest::new(tool, args.clone(), level, reason)
             .with_risk_note(risk_note)
             .with_redacted_args(Some(redact_args(args)))
+    }
+
+    /// Confine the request to its project even when the host opts into unrestricted paths.
+    pub fn workspace_scope(mut self) -> Self {
+        self.workspace_only = true;
+        self
     }
 
     /// Apply an immutable request restriction without changing the shared host policy.
@@ -1176,6 +1190,26 @@ mod tests {
             Decision::Deny,
             "越界写入在 evaluate 阶段拒绝"
         );
+    }
+
+    #[test]
+    fn workspace_scope_keeps_project_paths_scoped_with_unrestricted_host() {
+        let host = Policy::new(".");
+        let project = host.for_workspace(".").unwrap().workspace_scope();
+        host.set_profile(PermissionProfile::Unrestricted);
+
+        let args = json!({"path": "../outside-project.txt"});
+        assert_eq!(
+            host.decision(&host.evaluate("read_file", &args)),
+            Decision::Allow
+        );
+        assert_eq!(
+            project.decision(&project.evaluate("read_file", &args)),
+            Decision::Deny
+        );
+
+        host.set_profile(PermissionProfile::ReadOnly);
+        assert_eq!(project.profile(), PermissionProfile::ReadOnly);
     }
 
     #[test]

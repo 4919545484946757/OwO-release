@@ -84,9 +84,20 @@ class SelectedModel:
     name = "owobot-desktop-selection"
     text = "The selected desktop model answered."
     credential = "owobot-loopback-fixture-key"
+    scenario = "Assign the fixture signup lookup."
+    assignment = "Read roster.csv and check the fixture count."
+    child_result = "Execution member read the signup fixture: 12 participants."
+    review_assignment = "Independently verify the 12-person result against roster.csv."
+    review_result = "Reviewer verified that the project fixture records 12 participants."
+    summary = "The worker delivered the count and the reviewer verified it."
+    proof = "fixture-participants,12"
 
     def __init__(self, port):
         self.calls = []
+        self.issued_assignment = False
+        self.issued_read = False
+        self.issued_review = False
+        self.issued_review_read = False
         endpoint = f"http://127.0.0.1:{port}/v1"
         reference = "1" * 32
         name = "OWO_CUSTOM_MODEL_SECRET_" + reference
@@ -99,9 +110,9 @@ class SelectedModel:
 
     def check(self, daemon, data, thread, port, cookie, call_offset, role):
         expected_readers = {
-            "lead": {"read_file", "list_dir", "search_files"},
+            "lead": {"read_file", "list_dir", "search_files", "owobot_delegate"},
             "worker": {"read_file", "list_dir", "search_files", "grep", "find_symbol"},
-            "reviewer": {"read_file", "list_dir", "search_files", "grep", "git_status", "git_diff", "git_log", "find_symbol"},
+            "reviewer": {"read_file", "list_dir", "search_files", "grep"},
         }[role]
         def terminal():
             for path in (data / "owobot").glob(f"*/events/{thread}.ndjson"):
@@ -123,7 +134,49 @@ class SelectedModel:
         for path in (data / "owobot").glob("*/config.json"):
             saved = path.read_text(encoding="utf-8")
             assert self.credential not in saved and "OWO_CUSTOM_MODEL_SECRET" not in saved
-        print(f"PASS the {role} role used the selected model and only its project readers", flush=True)
+        print(f"PASS the {role} role used the selected model and only its permitted tools", flush=True)
+
+
+    def response(self, messages, tools):
+        text = json.dumps(messages, ensure_ascii=False)
+        if "owobot_delegate" in tools and self.scenario in text and not self.issued_assignment:
+            self.issued_assignment = True
+            return self.tool_response("delegate", "owobot_delegate", {"recipient": "worker", "task": self.assignment})
+        if "owobot_delegate" in tools and self.child_result in text and not self.issued_review:
+            self.issued_review = True
+            return self.tool_response("review", "owobot_delegate", {"recipient": "reviewer", "task": self.review_assignment})
+        if "grep" in tools and "find_symbol" not in tools and self.review_assignment in text:
+            if not self.issued_review_read:
+                self.issued_review_read = True
+                return self.tool_response("verify", "read_file", {"path": "roster.csv"})
+            if self.proof in text:
+                return self.text_response(self.review_result)
+        if "owobot_delegate" in tools and self.review_result in text:
+            return self.text_response(self.summary)
+        if "find_symbol" in tools and self.assignment in text:
+            if not self.issued_read:
+                self.issued_read = True
+                return self.tool_response("read", "read_file", {"path": "roster.csv"})
+            if self.proof in text:
+                return self.text_response(self.child_result)
+        return self.text_response(self.text)
+
+    @staticmethod
+    def tool_response(call_id, name, args):
+        return [
+            {"index": 0, "delta": {"role": "assistant", "tool_calls": [{
+                "index": 0, "id": call_id, "type": "function",
+                "function": {"name": name, "arguments": json.dumps(args)},
+            }]}, "finish_reason": None},
+            {"index": 0, "delta": {}, "finish_reason": "tool_calls"},
+        ]
+
+    @staticmethod
+    def text_response(text):
+        return [
+            {"index": 0, "delta": {"role": "assistant", "content": text}, "finish_reason": None},
+            {"index": 0, "delta": {}, "finish_reason": "stop"},
+        ]
 
 
 @contextmanager
@@ -132,17 +185,12 @@ def selected_provider():
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             bound = self.headers.get("Authorization") == f"Bearer {provider.credential}"
-            provider.calls.append({
-                "model": body["model"], "credential_bound": bound,
-                "tools": [tool["function"]["name"] for tool in body.get("tools", [])],
-            })
+            tools = [tool["function"]["name"] for tool in body.get("tools", [])]
+            provider.calls.append({"model": body["model"], "credential_bound": bound, "tools": tools})
             if self.path != "/v1/chat/completions" or not bound or body["model"] != provider.name:
                 self.send_error(400)
                 return
-            chunks = [
-                {"index": 0, "delta": {"role": "assistant", "content": provider.text}, "finish_reason": None},
-                {"index": 0, "delta": {}, "finish_reason": "stop"},
-            ]
+            chunks = provider.response(body["messages"], tools)
             frames = ["data: " + json.dumps({
                 "id": "owo-model-fixture", "model": provider.name, "object": "chat.completion.chunk",
                 "choices": [chunk],
@@ -180,6 +228,8 @@ def check_wrong_worker(port, auth, session, provider):
 def run(agent, home, root, desktop, electron, provider):
     workspace = root / "Project with spaces"
     workspace.mkdir()
+    if provider:
+        (workspace / "roster.csv").write_text(provider.proof + "\n", encoding="utf-8")
     home_dir = root / "home"
     home_dir.mkdir()
     data = root / "owo"
@@ -244,6 +294,26 @@ def run(agent, home, root, desktop, electron, provider):
                     "mentions": [group["memberIds"][index]], "threadId": task["threadId"], "sendId": str(uuid4()),
                 })
                 provider.check(daemon, data, task["threadId"], port, cookie, offset, role)
+            task = expect(port, thread_route + "/tasks", (200, 201), headers=outbound, body={})["group"]
+            send = {"text": provider.scenario, "threadId": task["threadId"], "sendId": str(uuid4())}
+            for _ in range(2):
+                expect(port, thread_route + "/messages", (200, 202), headers=outbound, body=send)
+
+            def completed_relay():
+                snapshot = expect(port, "/owobot/api/bots?messages=40", 200, headers=cookie)
+                messages = next((g["messages"] for g in snapshot["groups"] if g["threadId"] == task["threadId"]), [])
+                for index, result in enumerate((provider.summary, provider.child_result, provider.review_result)):
+                    if not any((message.get("from") or {}).get("botId") == group["memberIds"][index]
+                               and result in (message.get("text") or "") for message in messages):
+                        return False
+                return sum(message.get("text") == provider.scenario for message in messages) == 1
+
+            until(daemon, "OwOBot's worker, reviewer and lead did not finish their relay", completed_relay)
+            receipts = expect(port, "/audit?event=tool_receipt&tool=owobot_delegate", 200, headers=auth)
+            assert len(receipts) == 2 and all(json.loads(row["detail"])["ok"] is True for row in receipts), receipts
+            assert provider.issued_assignment and provider.issued_read and provider.issued_review and provider.issued_review_read
+            assert (workspace / "roster.csv").read_text(encoding="utf-8").strip() == provider.proof
+            print("PASS the lead delegated within the room, both members read the project file and reported back, and duplicate send was ignored", flush=True)
 
         expect(port, "/server/shutdown", (200, 202), headers=auth, body={"confirm": True})
         assert daemon.wait(timeout=18) == 0

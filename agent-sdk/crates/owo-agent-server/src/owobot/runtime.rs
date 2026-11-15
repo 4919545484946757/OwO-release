@@ -35,6 +35,10 @@ impl Running {
         matches!(self.child.try_wait(), Ok(None))
     }
 
+    pub(super) fn member(&self, role: WorkerRole) -> &str {
+        &self.members[role as usize]
+    }
+
     pub(super) fn role_for(&self, id: &str) -> Option<WorkerRole> {
         self.members
             .iter()

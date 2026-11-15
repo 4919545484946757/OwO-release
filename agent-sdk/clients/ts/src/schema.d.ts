@@ -12528,7 +12528,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description Local managed ACP worker capability. Must accompany the active room turn capability for project-scoped read-only work. */
+                /** @description Local managed ACP worker capability. Must accompany the active room turn capability; the Daemon assigns tools according to the project role. */
                 "x-owo-owobot-worker"?: string;
                 /** @description Per-turn room capability from the same locally managed collaboration service. */
                 "x-owo-owobot-turn"?: string;

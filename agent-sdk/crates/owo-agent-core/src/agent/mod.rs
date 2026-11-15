@@ -498,12 +498,13 @@ impl Agent {
         })
     }
 
-    /// Use only the named, host-verified readers for a project collaboration turn.
+    /// Use named project readers and an optional, host-owned collaboration dispatcher.
     /// Preserve the host's live policy and audit, and never run project hooks for a worker.
-    pub fn with_project_readers(
+    pub fn with_project_tools(
         &self,
         provider: Arc<dyn ModelProvider>,
         names: &[&str],
+        dispatcher: Option<Arc<dyn crate::tools::Tool>>,
     ) -> Result<Self, String> {
         let mut agent = self.with_turn_provider(provider)?;
         let mut registry = ToolRegistry::empty();
@@ -525,7 +526,12 @@ impl Agent {
         agent.registry = Arc::new(RwLock::new(registry));
         agent.tool_host =
             ToolHostService::new(Arc::clone(&agent.registry), Arc::clone(&agent.audit));
-        agent.policy = agent.policy.read_only_scope();
+        agent.policy = agent.policy.workspace_scope();
+        if let Some(dispatcher) = dispatcher {
+            agent.register_tool(dispatcher);
+        } else {
+            agent.policy = agent.policy.read_only_scope();
+        }
         agent.hooks = RwLock::new(crate::hooks::HookManager::default());
         agent.skills = SkillRegistry::default();
         let cap = |current: usize, limit| {

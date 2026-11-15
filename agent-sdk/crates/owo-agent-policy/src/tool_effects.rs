@@ -98,7 +98,8 @@ fn builtin_dimensions(tool: &str) -> Option<&'static [ToolDimension]> {
         | "desktop_shortcut" | "desktop_activate" | "desktop_launch" | "desktop_scroll" => {
             UNBOUNDED_DIMENSIONS
         }
-        "todo"
+        "owobot_delegate" // The host writes only to its own local collaboration queue.
+        | "todo"
         | "verification_plan"
         | "ask_user"
         | "screen_ocr"

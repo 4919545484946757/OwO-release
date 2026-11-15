@@ -407,13 +407,19 @@ pub(crate) async fn turn(
         abort: Arc::clone(&abort_flag),
     };
 
+    let delegation_allowed = worker
+        .as_ref()
+        .is_some_and(|worker| worker.dispatcher.is_some());
     let agent = match (worker, turn_provider) {
         (Some(worker), provider) => Arc::new(
             state
                 .agent
-                .with_project_readers(
+                .with_project_tools(
                     provider.unwrap_or_else(|| state.agent.provider()),
                     worker.role.readers(),
+                    worker.dispatcher.map(|dispatcher| {
+                        Arc::new(dispatcher) as Arc<dyn owo_agent_core::tools::Tool>
+                    }),
                 )
                 .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error))?,
         ),
@@ -500,6 +506,10 @@ pub(crate) async fn turn(
             store: Arc::clone(&producer_store),
             queue: Arc::clone(&producer_queue),
             receiver: producer_receiver.clone(),
+        };
+        let approver = crate::owobot::delegation::ProjectApprover {
+            delegate: delegation_allowed,
+            parent: &approver,
         };
         let mut success_stats = None;
         let options = owo_agent_core::TurnExecutionOptions {

@@ -37,7 +37,7 @@ impl AgentClient {
             .await
     }
 
-    /// Submit a read-only OwOBot turn. The owning Daemon resolves the model selection.
+    /// Submit a managed OwOBot turn. The owning Daemon resolves the role, tools and model.
     pub async fn open_owobot_turn(
         &self,
         session_id: &str,
@@ -51,7 +51,7 @@ impl AgentClient {
         self.open_turn_request(
             session_id,
             prompt,
-            true,
+            false,
             Some(id),
             Some((worker_proof, collaboration_turn)),
         )
@@ -110,9 +110,16 @@ impl AgentClient {
         };
         let mut outbound = self.post_stream(&format!("/session/{session_id}/turn"), &request);
         if let Some((proof, collaboration_turn)) = worker_proof {
+            let sensitive = |token: &str| {
+                let mut value = reqwest::header::HeaderValue::from_str(token).map_err(|_| {
+                    crate::ClientError::Protocol("owobot/invalid_capability".into())
+                })?;
+                value.set_sensitive(true);
+                Ok::<_, crate::ClientError>(value)
+            };
             outbound = outbound
-                .header("x-owo-owobot-worker", proof)
-                .header("x-owo-owobot-turn", collaboration_turn);
+                .header("x-owo-owobot-worker", sensitive(proof)?)
+                .header("x-owo-owobot-turn", sensitive(collaboration_turn)?);
         }
         let response = self.send_stream(outbound).await?;
         let received = response

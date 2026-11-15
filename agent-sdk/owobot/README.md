@@ -39,11 +39,11 @@ The test exercises the OwO Daemon's managed child process, project-scoped browse
 
 A development shell can use `OWOBOT_HOME` pointing at a staged runtime with `node.exe`, `dist/index.html`, and `dist-server/index.js`. The smoke test can also use a staged runtime via `--runtime`.
 
-The current ACP path supports text in read-only OwO turns. Project-scoped model delegation, approval and delivery are subsequent integration steps.
+The current ACP path supports scoped project reading and in-room assignments by the project lead. Approval and artifact delivery are subsequent integration steps.
 
 ## Verify the selected desktop model
 
-The loopback fixture exercises the full group message, ACP, OwO Daemon and streaming model path. It asserts that the selected model and its bound credential reach the endpoint, that each of the three roles receives its own project readers, and that a forged worker capability cannot launch a turn. It uses a synthetic key and a local HTTP endpoint.
+The loopback fixture exercises the full group message, ACP, OwO Daemon and streaming model path. It asserts that the selected model and its bound credential reach the endpoint, that each of the three roles receives its own project readers, and that a forged worker capability cannot launch a turn. The fixture then drives a lead, worker and reviewer relay through model tool calls. It checks a project file read, both member replies, the lead summary, two audited assignments and a repeated send ID. It uses a synthetic key and a local HTTP endpoint.
 
     python agent-sdk/owobot/tests/desktop_gateway.py --runtime agent-sdk/desktop/electron/binaries/owobot --agent agent-sdk/target/debug/owo-agent.exe --verify-model
 

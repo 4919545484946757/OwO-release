@@ -10848,7 +10848,7 @@
           {
             "name": "x-owo-owobot-worker",
             "in": "header",
-            "description": "Local managed ACP worker capability. Must accompany the active room turn capability for project-scoped read-only work.",
+            "description": "Local managed ACP worker capability. Must accompany the active room turn capability; the Daemon assigns tools according to the project role.",
             "schema": {
               "type": "string"
             }

@@ -1,5 +1,6 @@
 //! OwO's local gateway to the managed collaboration process.
 
+pub(crate) mod delegation;
 mod runtime;
 
 use crate::{auth_token::AuthToken, AppState};
@@ -20,7 +21,7 @@ const COOKIE: &str = "owo_collaboration";
 const WORKER_PROOF: &str = "x-owo-owobot-worker";
 const TURN_PROOF: &str = "x-owo-owobot-turn";
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum WorkerRole {
     Lead,
     Worker,
@@ -40,7 +41,7 @@ impl WorkerRole {
 
     pub(crate) fn instructions(self) -> &'static str {
         match self {
-            Self::Lead => "理解任务，查阅当前项目信息，汇总成员汇报。",
+            Self::Lead => "理解任务，查阅当前项目信息。在可用时使用 owobot_delegate 交给执行员，收到结果后请评审员独立核对，最后汇总。",
             Self::Worker => "查阅当前项目材料，提供执行结果与交付建议。",
             Self::Reviewer => "独立核对任务要求、项目材料和执行结果，记录评审意见。",
         }
@@ -56,16 +57,7 @@ impl WorkerRole {
                 "grep",
                 "find_symbol",
             ],
-            Self::Reviewer => &[
-                "read_file",
-                "list_dir",
-                "search_files",
-                "grep",
-                "git_status",
-                "git_diff",
-                "git_log",
-                "find_symbol",
-            ],
+            Self::Reviewer => &["read_file", "list_dir", "search_files", "grep"],
         }
     }
 }
@@ -73,6 +65,7 @@ impl WorkerRole {
 pub(crate) struct WorkerTurn {
     pub(crate) role: WorkerRole,
     pub(crate) model: Option<String>,
+    pub(crate) dispatcher: Option<delegation::Delegate>,
 }
 
 #[derive(Deserialize)]
@@ -216,7 +209,7 @@ impl Collaboration {
         {
             return Err(denied());
         }
-        if request.read_only != Some(true)
+        if request.read_only == Some(false)
             || request.model_connection.is_some()
             || !request.attachments.is_empty()
             || !request.content_parts.is_empty()
@@ -241,9 +234,25 @@ impl Collaboration {
         }
         let role = active.role_for(&scope.bot_id).ok_or_else(denied)?;
         request.model_connection = active.model.connection.clone();
+        let dispatcher = (role == WorkerRole::Lead
+            && scope.depth < 3
+            && request.read_only != Some(true))
+        .then(|| {
+            delegation::Delegate::new(
+                self.client.clone(),
+                active.base_url.clone(),
+                turn.to_owned(),
+                active.group.clone(),
+                [
+                    active.member(WorkerRole::Worker).to_owned(),
+                    active.member(WorkerRole::Reviewer).to_owned(),
+                ],
+            )
+        });
         Ok(Some(WorkerTurn {
             role,
             model: active.model.model.clone(),
+            dispatcher,
         }))
     }
 
