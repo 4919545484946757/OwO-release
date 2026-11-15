@@ -1,4 +1,6 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
@@ -9,6 +11,7 @@ using System.Diagnostics;
 using Windows.Graphics;
 using Windows.Storage.Pickers;
 using Windows.System;
+using DispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
 
 namespace OwO_Settings;
 
@@ -67,6 +70,9 @@ public sealed partial class SetupPage : Page
     };
     private readonly ToggleButton _detailsToggle = new() { Content = "显示安装详细信息" };
     private Grid? _progressTipsGrid;
+    private TextBlock? _progressTipPosition;
+    private DispatcherQueueTimer? _progressTipsTimer;
+    private int _progressTipIndex;
     private readonly TextBox _installLog = new() {
         IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
         MinHeight = 140, MaxHeight = 220, Visibility = Visibility.Collapsed,
@@ -233,6 +239,7 @@ public sealed partial class SetupPage : Page
     private void ShowWelcome()
     {
         _step = SetupStep.Welcome;
+        _progressTipsTimer?.Stop();
         ResizeInstallerWindow(760);
         var body = PageBody("欢迎使用 OwO", "面向 Windows 11 的模块化中文输入法。");
         var introduction = new StackPanel { Spacing = 14 };
@@ -274,6 +281,7 @@ public sealed partial class SetupPage : Page
     private void ShowOptions()
     {
         _step = SetupStep.Options;
+        _progressTipsTimer?.Stop();
         ResizeInstallerWindow(760);
         if (!RestorePage()) SetPage(BuildOptionsBody());
 
@@ -372,6 +380,7 @@ public sealed partial class SetupPage : Page
     {
         _step = SetupStep.Progress;
         if (!RestorePage()) SetPage(BuildProgressBody());
+        SelectProgressTip(0);
         _progress.IsIndeterminate = indeterminate;
         _progress.Minimum = 0;
         _progress.Maximum = 100;
@@ -445,46 +454,63 @@ public sealed partial class SetupPage : Page
             ("撤销后重新选词 · Ctrl + Z",
              "最近一次全拼候选上屏后 10 秒内，若应用成功撤销它，OwO 会恢复原拼音供你重新选词。"),
         };
-        var grid = new Grid { ColumnSpacing = 18, RowSpacing = 10 };
+        // Overlay the tips in one cell so the tallest wrapped tip reserves
+        // space and automatic rotation never shifts the details controls.
+        var grid = new Grid { IsHitTestVisible = false };
         _progressTipsGrid = grid;
-        var items = tips.Select(tip => {
+        foreach (var (title, description) in tips) {
             var item = new StackPanel { Spacing = 2 };
             item.Children.Add(new TextBlock {
-                Text = tip.Item1, FontSize = 13, TextWrapping = TextWrapping.Wrap,
+                Text = title, FontSize = 13, TextWrapping = TextWrapping.Wrap,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             });
             item.Children.Add(new TextBlock {
-                Text = tip.Item2, FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.Wrap
+                Text = description, FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.Wrap
             });
             grid.Children.Add(item);
-            return item;
-        }).ToArray();
-        var columns = 0;
-        void Arrange(double width) {
-            var desired = width >= 570 ? 2 : 1;
-            if (columns == desired) return;
-            columns = desired;
-            grid.ColumnDefinitions.Clear();
-            grid.RowDefinitions.Clear();
-            for (var i = 0; i < columns; i++)
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            for (var i = 0; i < (items.Length + columns - 1) / columns; i++)
-                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            for (var i = 0; i < items.Length; i++) {
-                Grid.SetRow(items[i], i / columns);
-                Grid.SetColumn(items[i], i % columns);
-            }
         }
-        Arrange(0);
-        grid.SizeChanged += (_, args) => Arrange(args.NewSize.Width);
-        var content = new StackPanel { Spacing = 9 };
-        content.Children.Add(new TextBlock { Text = "使用提示", FontSize = 16,
+        var header = new Grid { ColumnSpacing = 8 };
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        header.Children.Add(new TextBlock { Text = "使用提示", FontSize = 16, TextWrapping = TextWrapping.Wrap,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        _progressTipPosition = new TextBlock { FontSize = 12, Opacity = 0.68, VerticalAlignment = VerticalAlignment.Center };
+        Grid.SetColumn(_progressTipPosition, 1);
+        header.Children.Add(_progressTipPosition);
+        var content = new StackPanel { Spacing = 9 };
+        content.Children.Add(header);
         content.Children.Add(grid);
         var card = Card(content);
         card.Padding = new Thickness(14, 10, 14, 12);
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(card, "InstallProgressTips");
+        AutomationProperties.SetAutomationId(card, "InstallProgressTips");
+        SelectProgressTip(0);
+
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromSeconds(6);
+        timer.IsRepeating = true;
+        timer.Tick += (_, _) => {
+            if (_step != SetupStep.Progress || !card.IsLoaded) { timer.Stop(); return; }
+            SelectProgressTip((_progressTipIndex + 1) % grid.Children.Count);
+        };
+        _progressTipsTimer = timer;
+        card.Loaded += (_, _) => { if (_step == SetupStep.Progress) timer.Start(); };
+        card.Unloaded += (_, _) => timer.Stop();
         return card;
+    }
+
+    private void SelectProgressTip(int index)
+    {
+        if (_progressTipsGrid is not { } grid || _progressTipPosition is not { } position) return;
+        _progressTipIndex = index;
+        position.Text = $"{index + 1} / {grid.Children.Count}";
+        for (var i = 0; i < grid.Children.Count; i++) {
+            var item = (StackPanel)grid.Children[i];
+            item.Opacity = i == index ? 1 : 0;
+            // Hidden tips remain measured but should not be read alongside the displayed tip.
+            var view = i == index ? AccessibilityView.Content : AccessibilityView.Raw;
+            AutomationProperties.SetAccessibilityView(item, view);
+            foreach (var line in item.Children) AutomationProperties.SetAccessibilityView(line, view);
+        }
     }
 
     private async void PrimaryButton_Click(object sender, RoutedEventArgs e)

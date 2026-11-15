@@ -1,3 +1,6 @@
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
+
 namespace OwO_Settings;
 
 public sealed partial class SetupPage
@@ -72,22 +75,48 @@ public sealed partial class SetupPage
             throw new InvalidOperationException("Stale or stderr progress changed the visible stage.");
         await Task.Delay(150);
         var tips = _progressTipsGrid ?? throw new InvalidOperationException("Missing usage tips on progress page.");
-        if (tips.Children.Count != 4 || tips.ActualWidth <= 0 ||
-            tips.ColumnDefinitions.Count != (tips.ActualWidth >= 570 ? 2 : 1))
-            throw new InvalidOperationException("Usage tips did not render in the progress page.");
+        var timer = _progressTipsTimer ?? throw new InvalidOperationException("Missing usage tip timer.");
+        if (tips.Children.Count != 4 || tips.ActualWidth <= 0 || !timer.IsRunning ||
+            !timer.IsRepeating || timer.Interval != TimeSpan.FromSeconds(6))
+            throw new InvalidOperationException("Usage tip carousel did not start on the progress page.");
+        VerifyProgressTip(0);
         var window = ((App)Microsoft.UI.Xaml.Application.Current).MainWindow.AppWindow;
         var wideSize = window.Size;
         try {
             window.Resize(new Windows.Graphics.SizeInt32(Math.Min(wideSize.Width, 470), wideSize.Height));
             await Task.Delay(220);
             UpdateLayout();
-            if (tips.ColumnDefinitions.Count != 1 || tips.RowDefinitions.Count != 4 ||
-                _progress.Value != 45 || _installLog.Visibility != Microsoft.UI.Xaml.Visibility.Collapsed)
-                throw new InvalidOperationException("Narrow usage tips did not reflow without changing progress or details.");
-            var tipsBottom = tips.TransformToVisual(this).TransformPoint(new Windows.Foundation.Point(0, tips.ActualHeight)).Y;
-            var detailsTop = _detailsToggle.TransformToVisual(this).TransformPoint(default).Y;
-            if (detailsTop < tipsBottom)
+            var tipsHeight = tips.ActualHeight;
+            var detailsTop = DetailsTop();
+            if (detailsTop < tips.TransformToVisual(this).TransformPoint(new Windows.Foundation.Point(0, tipsHeight)).Y)
                 throw new InvalidOperationException("Usage tips overlap the details action at narrow width.");
+
+            // Run the same UI timer as the installer, only faster in this fixture.
+            var complete = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var interval = timer.Interval;
+            var ticks = 0;
+            void ObserveTick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
+            {
+                try {
+                    VerifyProgressTip(++ticks % tips.Children.Count);
+                    UpdateLayout();
+                    if (Math.Abs(tips.ActualHeight - tipsHeight) > 0.5 || Math.Abs(DetailsTop() - detailsTop) > 0.5 ||
+                        _progress.Value != 45 || _installLog.Visibility != Microsoft.UI.Xaml.Visibility.Collapsed)
+                        throw new InvalidOperationException("Rotating tips moved the narrow layout or changed progress and details.");
+                    if (ticks == tips.Children.Count) { sender.Stop(); complete.TrySetResult(); }
+                } catch (Exception error) { sender.Stop(); complete.TrySetException(error); }
+            }
+            timer.Stop();
+            timer.Interval = TimeSpan.FromMilliseconds(120);
+            timer.Tick += ObserveTick;
+            timer.Start();
+            try { await complete.Task.WaitAsync(TimeSpan.FromSeconds(4)); }
+            finally {
+                timer.Stop();
+                timer.Tick -= ObserveTick;
+                timer.Interval = interval;
+                timer.Start();
+            }
         } finally {
             window.Resize(wideSize);
         }
@@ -96,8 +125,28 @@ public sealed partial class SetupPage
         _detailsToggle.IsChecked = false;
         await Task.Delay(300);
         ShowOptions();
+        if (timer.IsRunning) throw new InvalidOperationException("Usage tip timer is still running outside the progress page.");
         await Task.Delay(500);
+        ShowProgress("Resume carousel verification", false);
+        await Task.Delay(150);
+        VerifyProgressTip(0);
+        if (!timer.IsRunning) throw new InvalidOperationException("Usage tip timer did not resume on reentering the progress page.");
+        ShowOptions();
         if (_installing || _consent.IsChecked == true)
             throw new InvalidOperationException("Read-only navigation verification changed installation state.");
+
+        double DetailsTop() => _detailsToggle.TransformToVisual(this).TransformPoint(default).Y;
+        void VerifyProgressTip(int index)
+        {
+            if (_progressTipIndex != index || _progressTipPosition?.Text != $"{index + 1} / {tips.Children.Count}")
+                throw new InvalidOperationException($"Usage tips did not select position {index + 1}.");
+            for (var row = 0; row < tips.Children.Count; row++) {
+                var item = (Microsoft.UI.Xaml.Controls.StackPanel)tips.Children[row];
+                var view = row == index ? AccessibilityView.Content : AccessibilityView.Raw;
+                if (item.Opacity != (row == index ? 1 : 0) || item.Children.Any(line =>
+                    AutomationProperties.GetAccessibilityView(line) != view))
+                    throw new InvalidOperationException("Only the current usage tip should be visible and accessible.");
+            }
+        }
     }
 }
