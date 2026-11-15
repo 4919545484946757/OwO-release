@@ -1,3 +1,4 @@
+// Modified by the OwO project for the OwOBot desktop integration.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -17,11 +18,13 @@ import { TEAM_LEFT_REFUSAL } from "../shared/cloud-hints";
 import { HomeScreen, SignedOutAtHome } from "./components/HomeScreen";
 import { PageBoundary } from "./components/PageBoundary";
 import { endedBeforeReload, forgetEndedSession } from "./lib/session-ended";
+import { followOwOTheme } from "./owobot/theme";
 import "./styles.css";
+import "./owobot/theme.css";
 
 // Before first paint; settleInterfaceMode must run before applySkin writes omb-skin.
 settleInterfaceMode();
-applySkinChoice(readSkinChoice());
+if (!followOwOTheme()) applySkinChoice(readSkinChoice());
 applyFont(readFont());
 applySoftwareRendering();
 applyChatWidth(readChatWidth());

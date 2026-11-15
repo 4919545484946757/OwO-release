@@ -1,3 +1,4 @@
+// Modified by the OwO project for the OwOBot desktop integration.
 import { useSyncExternalStore } from "react";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -16,6 +17,7 @@ export function useSkinChoice(): SkinChoice {
 
 export function ThemeRow({ simple = false }: { simple?: boolean }) {
   const choice = useSkinChoice();
+  if (document.documentElement.dataset.owoTheme) return null;
   const look = THEMES.some((theme) => theme.choice === choice) ? undefined : SKINS.find((skin) => skin.id === choice)?.name;
   return (
     <SettingRow

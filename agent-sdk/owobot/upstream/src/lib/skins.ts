@@ -1,3 +1,4 @@
+// Modified by the OwO project for the OwOBot desktop integration.
 import { SKIN_IDS } from "../../shared/app-settings";
 import { paintAuroraField } from "./aurora-field";
 import { hasPriorRun } from "./prior-run";
@@ -128,6 +129,7 @@ export function wearSkin(value: unknown): void {
 }
 
 export function applySkinChoice(choice: SkinChoice): void {
+  if (document.documentElement.dataset.owoTheme) return;
   try {
     getStore()?.setItem(KEY, choice);
   } catch {
