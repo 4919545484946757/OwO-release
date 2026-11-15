@@ -65,7 +65,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Open the OwOBot workbench for the Daemon workspace */
+        /** Open the OwOBot workbench for a selected project workspace */
         post: operations["openOwobot"];
         delete?: never;
         options?: never;
@@ -6050,6 +6050,8 @@ export interface operations {
     owobotDelivery: {
         parameters: {
             query?: {
+                /** @description Group ID returned by openOwobot for the selected project. Omit for the original Daemon workspace. */
+                owoProject?: string;
                 /** @description Read this immutable revision instead of the latest revision. */
                 revision?: number;
             };
@@ -6116,7 +6118,10 @@ export interface operations {
     };
     decideOwobotDelivery: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Group ID returned by openOwobot for the selected project. Omit for the original Daemon workspace. */
+                owoProject?: string;
+            };
             header?: never;
             path: {
                 thread: string;
@@ -6184,7 +6189,10 @@ export interface operations {
     };
     getOwobotCollaboration: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Group ID returned by openOwobot for the selected project. Omit for the original Daemon workspace. */
+                owoProject?: string;
+            };
             header?: never;
             path: {
                 /** @description Relative path within the installed collaboration API. */
@@ -6229,7 +6237,10 @@ export interface operations {
     };
     postOwobotCollaboration: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Group ID returned by openOwobot for the selected project. Omit for the original Daemon workspace. */
+                owoProject?: string;
+            };
             header?: never;
             path: {
                 /** @description Relative path within the installed collaboration API. */
@@ -6281,6 +6292,8 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
+                    /** @description Absolute path to an existing project directory. Defaults to the original Daemon workspace. */
+                    workspace?: string;
                     /** @description Desktop-selected model, or the Daemon default. */
                     model?: string | null;
                     /** @description Desktop model connection. Credentials must use the bound environment reference; plaintext keys are refused. */
@@ -6304,7 +6317,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description Invalid or unavailable model selection, or plaintext model credential */
+            /** @description Invalid project directory or model selection, or plaintext model credential */
             400: {
                 headers: {
                     [name: string]: unknown;

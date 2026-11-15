@@ -4,5 +4,10 @@ export function isOwOPage(): boolean {
 }
 
 export function collaborationPath(path: string): string {
-  return isOwOPage() && path.startsWith("/api/") ? "/owobot" + path : path;
+  if (!isOwOPage() || !path.startsWith("/api/")) return path;
+  const group = new URLSearchParams(location.search).get("group");
+  if (!group) return "/owobot" + path;
+  const url = new URL("/owobot" + path, location.origin);
+  url.searchParams.set("owoProject", group);
+  return url.pathname + url.search;
 }

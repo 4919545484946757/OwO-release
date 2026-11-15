@@ -60,8 +60,10 @@ def browser_session(origin, auth, model=None):
         return body["groupId"], {"Cookie": f"owo_collaboration={attributes.value}"}
 
 
-def event_hello(origin, auth):
-    request = Request(origin + "/owobot/api/events?screens=off", headers=auth)
+def event_hello(origin, auth, project=None, cursor=None):
+    query = "?screens=off" + (f"&owoProject={project}" if project else "")
+    headers = {**auth, "Last-Event-ID": cursor} if cursor else auth
+    request = Request(origin + "/owobot/api/events" + query, headers=headers)
     with HTTP.open(request, timeout=10) as stream:
         assert stream.headers.get_content_type() == "text/event-stream"
         for line in stream:
@@ -94,8 +96,8 @@ def running_sidecar_ports(daemon, data):
     )
     assert result.returncode == 0, result.stderr
     ports = [int(line) for line in result.stdout.splitlines() if line.isdigit()]
-    assert len(ports) == 1, f"expected one loopback listener, found {ports}"
-    return ports[0]
+    assert ports, "no loopback collaboration listener was found"
+    return ports
 
 
 def stage_fixture(node, destination):
@@ -272,17 +274,21 @@ def check_wrong_worker(port, auth, session, provider):
     print("PASS forged ACP worker capability was rejected before reaching the model", flush=True)
 
 
-def run_browser(electron, root, origin, thread=None):
+def run_browser(electron, root, origin, thread=None, launcher_workspace=None):
     args = [electron, Path(__file__).with_name("workbench_browser.cjs"), root, origin]
     browser_env = os.environ.copy()
     browser_env.pop("OWOBOT_SMOKE_DELIVERY_THREAD", None)
+    browser_env.pop("OWOBOT_SMOKE_LAUNCHER_WORKSPACE", None)
     if thread:
         browser_env["OWOBOT_SMOKE_DELIVERY_THREAD"] = thread
+    if launcher_workspace:
+        browser_env["OWOBOT_SMOKE_LAUNCHER_WORKSPACE"] = str(launcher_workspace)
     result = subprocess.run(
         args, env=browser_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
         errors="replace", timeout=80, creationflags=subprocess.CREATE_NO_WINDOW,
     )
-    (root / "browser.log").write_text(result.stdout, encoding="utf-8")
+    name = "launcher-browser.log" if launcher_workspace else "browser.log"
+    (root / name).write_text(result.stdout, encoding="utf-8")
     if result.stdout:
         print(result.stdout.strip(), flush=True)
     result.check_returncode()
@@ -309,6 +315,47 @@ def verify_reopened_delivery(agent, workspace, env, root, data, selection, group
     print("PASS reopening OwO recovered the same task, previews, review and applied decision", flush=True)
 
 
+def verify_second_project(daemon, port, origin, auth, cookie, selection, group_id, original_route, root, electron):
+    project = root / "Second project"
+    project.mkdir()
+    shutil.copyfile(demo.SOURCE, project / "registration.csv")
+    group, _ = browser_session(origin, auth, {**selection, "workspace": str(project)})
+    assert group != group_id
+    first_cursor = event_hello(origin, cookie, group_id)["cursor"]
+    second_cursor = event_hello(origin, cookie, group)["cursor"]
+    assert first_cursor.split(":")[0] != second_cursor.split(":")[0]
+    assert event_hello(origin, cookie, group, first_cursor)["resumed"] is False
+    assert event_hello(origin, cookie, group, second_cursor)["resumed"] is True
+    assert expect(port, f"/owobot/api/bots?owoProject={group}", 200, headers=cookie)["groups"][0]["id"] == group
+    expect(port, f"/owobot/api/groups/{group_id}?owoProject={group}", 403, headers=cookie)
+    expect(port, original_route + f"?owoProject={group}", 404, headers=cookie)
+    assert expect(port, original_route + f"?owoProject={group_id}", 200, headers=cookie)["status"] == "applied"
+    expect(port, "/owobot/open", 400, headers=auth, body={"workspace": str(project / "missing")})
+    run_browser(electron, root, origin, launcher_workspace=project)
+    thread = (root / "launcher-thread.txt").read_text(encoding="utf-8")
+    assert len(thread) == 36
+    selected = f"?owoProject={group}"
+    headers = {**cookie, "Origin": origin}
+    route = f"/owobot/api/groups/{group}"
+    objective = "查看第二个项目的报名资料。"
+    task = expect(port, route + "/tasks" + selected, 200, headers=headers,
+                  body={"title": objective, "requestId": thread})["task"]
+    assert task["threadId"] == thread
+    expect(port, route + "/tasks" + selected, 409, headers=headers,
+           body={"title": "Different objective", "requestId": thread})
+    sent = expect(port, route + "/messages" + selected, (200, 202), headers=headers,
+                  body={"text": objective, "threadId": thread, "sendId": thread})
+    assert sent["threadId"] == thread
+    transcript = expect(port, f"/owobot/api/threads/{thread}/messages" + selected, 200, headers=cookie)
+    assert sum(row.get("text") == objective for row in transcript["messages"]) == 1
+    expect(port, f"/owobot/api/threads/{thread}/messages?owoProject={group_id}", 404, headers=cookie)
+    def has_second_workspace():
+        sessions = expect(port, "/sessions", 200, headers=auth)
+        return any(Path(row["workspace"]).samefile(project) for row in sessions)
+    until(daemon, "The second project did not dispatch to OwO ACP in its directory", has_second_workspace)
+    print("PASS two projects used isolated workspaces, live streams, threads, and delivery records", flush=True)
+
+
 def run(agent, home, root, desktop, electron, provider, delivery_electron=None):
     workspace = root / "Project with spaces"
     workspace.mkdir()
@@ -332,7 +379,7 @@ def run(agent, home, root, desktop, electron, provider, delivery_electron=None):
         selection = provider.selection if provider else None
         group_id, cookie = browser_session(origin, auth, selection)
         assert browser_session(origin, auth, selection)[0] == group_id
-        sidecar = running_sidecar_ports(daemon, data)
+        sidecar, = running_sidecar_ports(daemon, data)
         expect(sidecar, "/api/bots", 403)
         expect(port, "/owobot/api/auth/session", 403, headers=cookie)
         expect(port, "/owobot/api/groups/other-project", 403, headers=cookie)
@@ -411,12 +458,19 @@ def run(agent, home, root, desktop, electron, provider, delivery_electron=None):
             assert len(decisions) == 1 and decisions[0]["session_id"] == approved["taskId"], decisions
             print("PASS one delegated signup delivery passed review, human apply, 12-person and masking checks, and replay deduplication", flush=True)
 
+        sidecars = [sidecar]
+        if provider and delivery_electron:
+            verify_second_project(daemon, port, origin, auth, cookie, selection, group_id,
+                                  delivery_route, root, delivery_electron)
+            sidecars = running_sidecar_ports(daemon, data)
+            assert len(sidecars) == 2 and sidecar in sidecars
         expect(port, "/server/shutdown", (200, 202), headers=auth, body={"confirm": True})
         assert daemon.wait(timeout=18) == 0
-        with socket.socket() as sock:
-            sock.settimeout(2)
-            assert sock.connect_ex(("127.0.0.1", sidecar)) != 0
-        print("PASS OwO shutdown closed its managed collaboration listener", flush=True)
+        for listener in sidecars:
+            with socket.socket() as sock:
+                sock.settimeout(2)
+                assert sock.connect_ex(("127.0.0.1", listener)) != 0
+        print("PASS OwO shutdown closed its managed collaboration listeners", flush=True)
     if provider:
         verify_reopened_delivery(agent, workspace, env, root, data, selection, group_id, delivery_route, approved, decision)
 

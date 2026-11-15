@@ -13,6 +13,7 @@ use axum::Json;
 use owo_agent_protocol::{CustomModelConnection, TurnRequest};
 use serde::Deserialize;
 use serde_json::json;
+use std::collections::HashMap;
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -203,7 +204,8 @@ pub(crate) struct Collaboration {
     home: Option<PathBuf>,
     client: reqwest::Client,
     browser_session: AuthToken,
-    live: Mutex<Option<runtime::Running>>,
+    live: Mutex<HashMap<PathBuf, runtime::Running>>,
+    starting: Mutex<()>,
     delivery_gate: Arc<std::sync::Mutex<()>>,
 }
 
@@ -220,7 +222,8 @@ impl Collaboration {
                 .build()
                 .expect("loopback collaboration HTTP client"),
             browser_session: AuthToken::generate(),
-            live: Mutex::new(None),
+            live: Mutex::new(HashMap::new()),
+            starting: Mutex::new(()),
             delivery_gate: Arc::new(std::sync::Mutex::new(())),
         }
     }
@@ -233,10 +236,13 @@ impl Collaboration {
     }
 
     pub(crate) async fn shutdown(&self) {
-        let running = self.live.lock().await.take();
-        if let Some(running) = running {
-            running.stop().await;
+        let _starting = self.starting.lock().await;
+        let running = std::mem::take(&mut *self.live.lock().await);
+        let mut stopping = tokio::task::JoinSet::new();
+        for project in running.into_values() {
+            stopping.spawn(project.stop());
         }
+        while stopping.join_next().await.is_some() {}
     }
 
     pub(crate) async fn bind_worker_turn(
@@ -260,8 +266,11 @@ impl Collaboration {
             .filter(|token| token.len() == 48 && token.bytes().all(|byte| byte.is_ascii_hexdigit()))
             .ok_or_else(denied)?;
         let mut live = self.live.lock().await;
-        let active = live.as_mut().ok_or_else(denied)?;
-        if !active.worker_proof.verify(proof) || !active.is_alive() {
+        let active = live
+            .values_mut()
+            .find(|project| project.worker_proof.verify(proof))
+            .ok_or_else(denied)?;
+        if !active.is_alive() {
             return Err(denied());
         }
         if workspace != active.workspace
@@ -330,17 +339,40 @@ impl Collaboration {
     }
 }
 
-pub(crate) async fn open(
-    State(state): State<Arc<AppState>>,
-    model: Option<Json<ModelSelection>>,
-) -> Response {
-    open_desktop(&state, model.map(|Json(model)| model).unwrap_or_default())
-        .await
-        .unwrap_or_else(IntoResponse::into_response)
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct OpenRequest {
+    workspace: Option<PathBuf>,
+    model: Option<String>,
+    connection: Option<CustomModelConnection>,
 }
 
-async fn open_desktop(state: &AppState, model: ModelSelection) -> GatewayResult<Response> {
-    let model = model.validate()?;
+pub(crate) async fn open(
+    State(state): State<Arc<AppState>>,
+    request: Option<Json<OpenRequest>>,
+) -> Response {
+    open_desktop(
+        &state,
+        request.map(|Json(request)| request).unwrap_or_default(),
+    )
+    .await
+    .unwrap_or_else(IntoResponse::into_response)
+}
+
+async fn open_desktop(state: &AppState, request: OpenRequest) -> GatewayResult<Response> {
+    let workspace = request.workspace.as_deref().unwrap_or(&state.workspace);
+    let workspace = canonical_project(workspace).await?;
+    let model = if request.model.is_some() || request.connection.is_some() {
+        Some(
+            ModelSelection {
+                model: request.model,
+                connection: request.connection,
+            }
+            .validate()?,
+        )
+    } else {
+        None
+    };
     let collaboration = &state.owobot;
     let home = collaboration
         .home
@@ -350,26 +382,30 @@ async fn open_desktop(state: &AppState, model: ModelSelection) -> GatewayResult<
         })
         .filter(|_| collaboration.web_dir().join("index.html").is_file())
         .ok_or(GatewayError::Unavailable("当前安装缺少 OwOBot 运行组件"))?;
+    let _starting = collaboration.starting.lock().await;
     let mut live = collaboration.live.lock().await;
-    let needs_start = match live.as_mut() {
+    let needs_start = match live.get_mut(&workspace) {
         Some(running) => !running.is_alive(),
         None => true,
     };
     if needs_start {
-        live.take();
-        *live = Some(
-            runtime::start(
-                &collaboration.client,
-                home,
-                &state.data_root,
-                &state.workspace,
-                Arc::clone(&collaboration.delivery_gate),
-            )
-            .await?,
-        );
+        live.remove(&workspace);
+        drop(live);
+        let running = runtime::start(
+            &collaboration.client,
+            home,
+            &state.data_root,
+            &workspace,
+            Arc::clone(&collaboration.delivery_gate),
+        )
+        .await?;
+        live = collaboration.live.lock().await;
+        live.insert(workspace.clone(), running);
     }
-    let active = live.as_mut().expect("sidecar started");
-    active.model = model;
+    let active = live.get_mut(&workspace).expect("sidecar started");
+    if let Some(model) = model {
+        active.model = model;
+    }
     let group = &active.group;
     let cookie = format!(
         "{COOKIE}={}; Path=/owobot/api/; HttpOnly; SameSite=Strict",
@@ -383,30 +419,68 @@ async fn open_desktop(state: &AppState, model: ModelSelection) -> GatewayResult<
     Ok(response)
 }
 
-async fn browser_delivery(
+async fn canonical_project(workspace: &FsPath) -> GatewayResult<PathBuf> {
+    let invalid =
+        || GatewayError::Refused(StatusCode::BAD_REQUEST, "OwOBot 需要一个存在的项目目录");
+    if !workspace.is_absolute() {
+        return Err(invalid());
+    }
+    let path = tokio::fs::canonicalize(workspace)
+        .await
+        .map_err(|_| invalid())?;
+    if !tokio::fs::metadata(&path)
+        .await
+        .map_err(|_| invalid())?
+        .is_dir()
+    {
+        return Err(invalid());
+    }
+    Ok(path)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BrowserProject {
+    owo_project: Option<String>,
+}
+
+async fn browser_project<T>(
     state: &AppState,
     method: &Method,
     headers: &HeaderMap,
-) -> Result<delivery::Store, Response> {
+    group: Option<&str>,
+    select: impl FnOnce(&runtime::Running) -> GatewayResult<T>,
+) -> GatewayResult<T> {
     let collaboration = &state.owobot;
     if !collaboration.accepts(headers) {
         return Err(GatewayError::Refused(
             StatusCode::UNAUTHORIZED,
-            "Please open OwOBot from the desktop",
-        )
-        .into_response());
+            "请从 OwO 打开协作工作台",
+        ));
     }
     if !same_origin(method, headers) {
         return Err(GatewayError::Refused(
             StatusCode::FORBIDDEN,
-            "OwOBot delivery needs a same-origin desktop request",
-        )
-        .into_response());
+            "OwOBot 仅接受桌面工作台请求",
+        ));
     }
-    let live = collaboration.live.lock().await;
-    live.as_ref()
-        .map(|running| running.delivery.clone())
-        .ok_or_else(|| GatewayError::Unavailable("Please reopen OwOBot").into_response())
+    let default_workspace = if group.is_none() {
+        Some(canonical_project(&state.workspace).await?)
+    } else {
+        None
+    };
+    let mut live = collaboration.live.lock().await;
+    let running = match default_workspace {
+        Some(workspace) => live.get_mut(&workspace),
+        None => live
+            .values_mut()
+            .find(|project| group == Some(project.group.as_str())),
+    }
+    .ok_or(GatewayError::Unavailable("请重新打开 OwOBot"))?;
+    if !running.is_alive() {
+        return Err(GatewayError::Unavailable("OwOBot 已停止，请重新打开"));
+    }
+    select(running)
 }
 
 fn delivery_error(error: delivery::DeliveryError) -> Response {
@@ -420,8 +494,10 @@ fn delivery_error(error: delivery::DeliveryError) -> Response {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct DeliveryLookup {
     revision: Option<u64>,
+    owo_project: Option<String>,
 }
 
 pub(crate) async fn read_delivery(
@@ -430,9 +506,17 @@ pub(crate) async fn read_delivery(
     Query(lookup): Query<DeliveryLookup>,
     headers: HeaderMap,
 ) -> Response {
-    let store = match browser_delivery(&state, &Method::GET, &headers).await {
+    let store = match browser_project(
+        &state,
+        &Method::GET,
+        &headers,
+        lookup.owo_project.as_deref(),
+        |running| Ok(running.delivery.clone()),
+    )
+    .await
+    {
         Ok(store) => store,
-        Err(response) => return response,
+        Err(error) => return error.into_response(),
     };
     match tokio::task::spawn_blocking(move || store.inspect(&thread, lookup.revision)).await {
         Ok(Ok(view)) => Json(view).into_response(),
@@ -444,12 +528,21 @@ pub(crate) async fn read_delivery(
 pub(crate) async fn decide_delivery(
     State(state): State<Arc<AppState>>,
     Path(thread): Path<String>,
+    Query(project): Query<BrowserProject>,
     request: Request,
 ) -> Response {
     let (parts, body) = request.into_parts();
-    let store = match browser_delivery(&state, &parts.method, &parts.headers).await {
+    let store = match browser_project(
+        &state,
+        &parts.method,
+        &parts.headers,
+        project.owo_project.as_deref(),
+        |running| Ok(running.delivery.clone()),
+    )
+    .await
+    {
         Ok(store) => store,
-        Err(response) => return response,
+        Err(error) => return error.into_response(),
     };
     let Ok(bytes) = to_bytes(body, 4096).await else {
         return StatusCode::PAYLOAD_TOO_LARGE.into_response();
@@ -493,55 +586,39 @@ pub(crate) async fn decide_delivery(
 pub(crate) async fn proxy(
     State(state): State<Arc<AppState>>,
     Path(path): Path<String>,
+    Query(project): Query<BrowserProject>,
     request: Request,
 ) -> Response {
-    forward(&state.owobot, &path, request)
+    forward(&state, &path, project.owo_project.as_deref(), request)
         .await
         .unwrap_or_else(IntoResponse::into_response)
 }
 
 async fn forward(
-    collaboration: &Collaboration,
+    state: &AppState,
     path: &str,
+    group: Option<&str>,
     request: Request,
 ) -> GatewayResult<Response> {
     let (parts, body) = request.into_parts();
-    if !collaboration.accepts(&parts.headers) {
-        return Err(GatewayError::Refused(
-            StatusCode::UNAUTHORIZED,
-            "请从 OwO 打开协作工作台",
-        ));
-    }
-    if !same_origin(&parts.method, &parts.headers) {
-        return Err(GatewayError::Refused(
-            StatusCode::FORBIDDEN,
-            "OwOBot 仅接受桌面工作台请求",
-        ));
-    }
-
-    let (base_url, session) = {
-        let mut live = collaboration.live.lock().await;
-        let running = live
-            .as_mut()
-            .ok_or(GatewayError::Unavailable("请重新打开 OwOBot"))?;
-        if !running.is_alive() {
-            return Err(GatewayError::Unavailable("OwOBot 已停止，请重新打开"));
-        }
-        if !route_allowed(&parts.method, path, &running.group) {
-            return Err(GatewayError::Refused(
-                StatusCode::FORBIDDEN,
-                "该操作不属于 OwOBot 协作入口",
-            ));
-        }
-        (running.base_url.clone(), running.session.clone())
-    };
-
+    let (base_url, session) =
+        browser_project(state, &parts.method, &parts.headers, group, |running| {
+            if !route_allowed(&parts.method, path, &running.group) {
+                return Err(GatewayError::Refused(
+                    StatusCode::FORBIDDEN,
+                    "该操作不属于 OwOBot 协作入口",
+                ));
+            }
+            Ok((running.base_url.clone(), running.session.clone()))
+        })
+        .await?;
     let query = parts
         .uri
         .query()
         .map(|value| format!("?{value}"))
         .unwrap_or_default();
-    let mut upstream = collaboration
+    let mut upstream = state
+        .owobot
         .client
         .request(
             parts.method.clone(),

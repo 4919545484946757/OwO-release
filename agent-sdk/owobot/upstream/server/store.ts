@@ -1,3 +1,4 @@
+// Modified by OwO contributors for scoped project task creation.
 import { chmodSync, existsSync, readFileSync, mkdirSync, rmSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path"; import { isDeepStrictEqual } from "node:util";
 
@@ -985,12 +986,13 @@ export class Store {
     return group;
   }
 
-  createGroupTask(groupId: string, title?: string, activate = true): GroupTaskRecord | null {
+  createGroupTask(groupId: string, title?: string, activate = true, requestId?: string): GroupTaskRecord | null {
     const group = this.group(groupId);
     if (!group || group.dm) return null;
+    if (requestId && (this.groupByThread(requestId) || this.botByThread(requestId))) return null;
     const createdAt = Date.now();
     const task: GroupTaskRecord = {
-      threadId: newId(),
+      threadId: requestId ?? newId(),
       title: title?.trim().slice(0, 80) || UNTITLED_TASK,
       createdAt,
       updatedAt: createdAt,

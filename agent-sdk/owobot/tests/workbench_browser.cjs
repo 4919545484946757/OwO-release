@@ -5,6 +5,7 @@ const { app, BrowserWindow, nativeTheme } = require("electron");
 
 const [, , directory, origin] = process.argv;
 const deliveryThread = process.env.OWOBOT_SMOKE_DELIVERY_THREAD;
+const launcherWorkspace = process.env.OWOBOT_SMOKE_LAUNCHER_WORKSPACE;
 app.setPath("userData", path.join(directory, "chromium"));
 
 async function exercise(window) {
@@ -17,6 +18,13 @@ async function exercise(window) {
   });
   await window.loadURL(origin + "/");
   await contents.executeJavaScript("new Promise(resolve => { const timer = setInterval(() => { if (shellHydrated) { clearInterval(timer); resolve(); } }, 50); })");
+  if (launcherWorkspace) {
+    const thread = await contents.executeJavaScript(
+      "(" + checkLauncher.toString() + ")(" + JSON.stringify(launcherWorkspace) + ")",
+    );
+    fs.writeFileSync(path.join(directory, "launcher-thread.txt"), thread, "utf8");
+    return;
+  }
   await contents.executeJavaScript('document.querySelector(\'[data-workbench-panel="owobot"]\').click()');
   if (deliveryThread) {
     const deliveryAction = (approve) => contents.executeJavaScript(
@@ -41,6 +49,58 @@ async function exercise(window) {
   nativeTheme.themeSource = "dark";
   assert.deepEqual(await themed(null), ["dark", "rgb(23, 24, 25)", "flex", true]);
   await contents.executeJavaScript("(" + sendDraft.toString() + ")()");
+}
+
+async function checkLauncher(workspace) {
+  const until = async (test, description) => {
+    const deadline = Date.now() + 23_000;
+    while (Date.now() < deadline) {
+      const result = test();
+      if (result) return result;
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    }
+    throw new Error(description + ": " + document.querySelector("#panelRoot")?.innerText.slice(0, 500));
+  };
+  const openPanel = (name) => document.querySelector('[data-workbench-panel="' + name + '"]').click();
+  const input = document.querySelector("#workspace");
+  input.value = workspace;
+  input.dispatchEvent(new Event("change"));
+  openPanel("project-launcher");
+  const backend = () => document.querySelector("#pl-backend");
+  if (backend()?.value !== "owobot") throw new Error("OwOBot was not the project default");
+  backend().value = "workswarm";
+  backend().dispatchEvent(new Event("change"));
+  if (!document.querySelector(".owo-pl-wizard")) throw new Error("WorkSwarm workflow wizard was unavailable");
+  openPanel("project-history");
+  openPanel("project-launcher");
+  if (backend()?.value !== "workswarm") throw new Error("The project backend preference did not persist");
+  backend().value = "owobot";
+  backend().dispatchEvent(new Event("change"));
+  const objective = "查看第二个项目的报名资料。";
+  document.querySelector("#pl-objective").value = objective;
+  const create = await until(() => {
+    const button = document.querySelector("#pl-create");
+    return button && !button.disabled && button;
+  }, "Launcher was unavailable");
+  create.click();
+  const frame = await until(() => document.querySelector(".owobot-panel-frame"), "Launcher did not open OwOBot");
+  const thread = new URL(frame.src).searchParams.get("thread");
+  if (!thread) throw new Error("Launcher did not open the created task");
+  await until(() => frame.contentDocument?.querySelector(".glass-scroller")?.textContent.includes(objective),
+    "The original objective was not sent to the project");
+  const group = new URL(frame.src).searchParams.get("group");
+  const changed = await fetch("/owobot/api/groups/" + group + "/tasks?owoProject=" + group, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Other task" }),
+  });
+  if (!changed.ok) throw new Error("Failed to switch away from the created task");
+  openPanel("project-history");
+  const record = await until(() => document.querySelector('[data-owobot-thread="' + thread + '"]'),
+    "Project history did not show the new task");
+  record.click();
+  const reopened = await until(() => document.querySelector(".owobot-panel-frame"), "History did not open the task");
+  await until(() => reopened.contentDocument?.querySelector(".glass-scroller")?.textContent.includes(objective),
+    "Project history did not reopen the correct conversation");
+  return thread;
 }
 
 async function applyDelivery(thread, approve) {
@@ -172,8 +232,9 @@ app.whenReady().then(async () => {
   });
   try {
     await exercise(window);
-    console.log(deliveryThread
-      ? "PASS desktop displayed both previews and the review, then applied with explicit user approval"
+    console.log(launcherWorkspace
+      ? "PASS project launcher default and saved fallback, first send, and history reopening in a second project"
+      : deliveryThread ? "PASS desktop displayed both previews and the review, then applied with explicit user approval"
       : "PASS desktop light, dark and system appearance; composer draft and new task through the real OwOBot page");
     app.exit(0);
   } catch (error) {

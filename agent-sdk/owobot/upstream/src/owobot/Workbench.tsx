@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { GroupView } from "@/components/GroupView";
 import { DesktopCapabilitiesProvider } from "@/components/DesktopCapabilities";
 import { ThreadRefsProvider } from "@/components/ThreadRefs";
@@ -6,12 +7,24 @@ import { StoreProvider, openRoomThread, useStore } from "@/state/store";
 import { DeliveryPanel } from "./DeliveryPanel";
 import "./workbench.css";
 
-function ProjectRoom({ groupId }: { groupId: string }) {
+function ProjectRoom({ groupId, requestedThread }: { groupId: string; requestedThread: string | null }) {
   const { state, dispatch } = useStore();
   const group = state.groups.find((candidate) => candidate.id === groupId);
-  if (!group) {
+  const requestedSwitch = useRef(false);
+  const reachedRequestedTask = useRef(false);
+  if (requestedThread && group?.threadId === requestedThread) reachedRequestedTask.current = true;
+  const openingRequestedTask = requestedThread && !reachedRequestedTask.current;
+  const hasRequestedThread = group?.tasks?.some((task) => task.threadId === requestedThread);
+  useEffect(() => {
+    if (!requestedThread || !openingRequestedTask || !hasRequestedThread || requestedSwitch.current) return;
+    requestedSwitch.current = true;
+    dispatch({ type: "switchGroupTask", groupId, threadId: requestedThread });
+  }, [dispatch, groupId, hasRequestedThread, openingRequestedTask, requestedThread]);
+  if (!group || openingRequestedTask) {
     return <p className="owobot-connection" role="status">
-      {state.connected ? "正在读取项目会话…" : "正在连接 OwOBot…"}
+      {!state.connected ? "正在连接 OwOBot…"
+        : openingRequestedTask && group && !hasRequestedThread ? "无法找到这个项目任务。"
+          : "正在读取项目会话…"}
     </p>;
   }
 
@@ -44,11 +57,12 @@ function ProjectRoom({ groupId }: { groupId: string }) {
 }
 
 export function OwOBotWorkbench() {
-  const groupId = new URLSearchParams(location.search).get("group");
+  const params = new URLSearchParams(location.search);
+  const groupId = params.get("group");
   if (!groupId) return <p className="owobot-connection">请从 OwO 桌面工作台打开 OwOBot。</p>;
   return <DesktopCapabilitiesProvider>
     <StoreProvider>
-      <ThreadRefsProvider><ProjectRoom groupId={groupId} /></ThreadRefsProvider>
+      <ThreadRefsProvider><ProjectRoom groupId={groupId} requestedThread={params.get("thread")} /></ThreadRefsProvider>
     </StoreProvider>
   </DesktopCapabilitiesProvider>;
 }

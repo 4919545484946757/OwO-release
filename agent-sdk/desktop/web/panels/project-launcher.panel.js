@@ -93,6 +93,7 @@
     // ---------- 状态 ----------
     var state = {
       objective: "",
+      backend: "workswarm",
       root: "",
       readOnly: true,
       writePathsRaw: "",
@@ -710,6 +711,101 @@
         });
     }
 
+    var nextBackend = null;
+    var pendingOwobot = null;
+
+    function backendKey(workspace) {
+      return "owo.teamBackend." + (H.workspaceKey?.(workspace) || workspace);
+    }
+
+    function preferredBackend(workspace) {
+      if (!win.OwoPanels.owobot || !H.openOwobot) return "workswarm";
+      try {
+        if (localStorage.getItem(backendKey(workspace)) === "workswarm") return "workswarm";
+      } catch (_) { /* Browser storage may be disabled. */ }
+      return "owobot";
+    }
+
+    function switchBackend(backend) {
+      syncStateFromDom();
+      state.backend = backend;
+      state.result = null;
+      state.error = "";
+      try {
+        localStorage.setItem(backendKey(state.root), backend);
+      } catch (_) { /* The choice still applies to the current launch. */ }
+      render();
+      if (backend === "workswarm") loadCatalog();
+    }
+
+    function backendPicker() {
+      if (!win.OwoPanels.owobot || !H.openOwobot) return "";
+      return '<label class="owo-pl-label" for="pl-backend">新任务使用</label>' +
+        '<select id="pl-backend"><option value="owobot"' + (state.backend === "owobot" ? " selected" : "") +
+        '>OwOBot</option><option value="workswarm"' + (state.backend === "workswarm" ? " selected" : "") +
+        '>WorkSwarm</option></select>';
+    }
+
+    function owobotHtml() {
+      return '<div class="owo-pl">' + backendPicker() +
+        '<label class="owo-pl-label" for="pl-objective">任务目标</label>' +
+        '<textarea id="pl-objective" rows="4" placeholder="例如整理活动报名表，提交分组统计和脱敏明细">' +
+        esc(state.objective) + '</textarea>' +
+        '<label class="owo-pl-label" for="pl-root">项目目录</label><input id="pl-root" value="' + esc(state.root) + '">' +
+        '<p class="hint">组长、执行员和评审员协作处理。产物经你批准后写入项目。</p>' +
+        '<div id="pl-errors" role="alert"></div>' +
+        '<button id="pl-create" class="primary" data-core-action' + (state.creating ? ' disabled data-core-busy="true"' : '') +
+        '>开始协作</button></div>';
+    }
+
+    async function createOwobot() {
+      if (state.creating) return;
+      syncStateFromDom();
+      var workspace = state.root.trim();
+      var objective = state.objective.trim();
+      var errors = el("#pl-errors");
+      if (!objective || !workspace) {
+        if (errors) errors.textContent = "请填写任务目标和项目目录。";
+        return;
+      }
+      var lifecycle = lifecycleGeneration;
+      var request = ++creationGeneration;
+      var helpers = H;
+      var btn = el("#pl-create");
+      var signature = JSON.stringify([workspace, objective]);
+      if (pendingOwobot?.signature !== signature) pendingOwobot = { signature, id: crypto.randomUUID() };
+      var launch = pendingOwobot;
+      if (errors) errors.textContent = "";
+      state.creating = true;
+      btn.disabled = true;
+      btn.setAttribute("data-core-busy", "true");
+      btn.setAttribute("aria-busy", "true");
+      try {
+        var task = await win.OwoPanels.owobot.createTask(helpers, workspace, objective, launch.id);
+        if (pendingOwobot === launch) pendingOwobot = null;
+        if (isCurrent(lifecycle) && request === creationGeneration && state.backend === "owobot") {
+          state.objective = "";
+          helpers.openOwobot(task);
+        }
+      } catch (error) {
+        if (isCurrent(lifecycle) && errors) errors.textContent = friendly(error);
+      } finally {
+        if (request === creationGeneration) {
+          state.creating = false;
+          var currentButton = el("#pl-create");
+          if (currentButton && state.backend === "owobot") {
+            currentButton.removeAttribute("aria-busy");
+            currentButton.removeAttribute("data-core-busy");
+            if (win.OwoCoreActionAvailability) {
+              win.OwoCoreActionAvailability.update(win.OwoCoreActionAvailability.isAvailable());
+            } else {
+              currentButton.disabled = false;
+            }
+          }
+        }
+      }
+    }
+
     function doCreate() {
       if (state.creating) return;
       syncStateFromDom();
@@ -807,6 +903,7 @@
     function viewHtml() {
       return (
         '<div class="owo-pl">' +
+        backendPicker() +
         '<p class="hint owo-pl-intro">定义目标，确认执行范围，再开始任务。</p>' +
         '<nav class="owo-pl-wizard" aria-label="新任务步骤"><button type="button" data-pl-wizard="1">1 · 任务目标</button><button type="button" data-pl-wizard="2">2 · 范围与方式</button><button type="button" data-pl-wizard="3">3 · 预览并开始</button></nav><p id="pl-wizard-error" role="alert" hidden></p>' +
         '<div class="owo-pl-step"><label class="owo-pl-label" for="pl-objective">任务目标</label>' +
@@ -885,7 +982,30 @@
 
     function render() {
       if (!rootEl) return;
-      rootEl.innerHTML = viewHtml();
+      var owobot = state.backend === "owobot";
+      if (owobot && inputAssets) {
+        inputAssets.dispose();
+        inputAssets = null;
+      }
+      rootEl.innerHTML = owobot ? owobotHtml() : viewHtml();
+      var backend = el("#pl-backend");
+      if (backend) backend.onchange = () => switchBackend(backend.value);
+      if (owobot) {
+        var button = el("#pl-create");
+        if (button) button.onclick = createOwobot;
+        var project = el("#pl-root");
+        if (project) project.onchange = () => {
+          if (state.creating) return;
+          var preference = preferredBackend(project.value.trim());
+          if (preference !== state.backend) {
+            syncStateFromDom();
+            state.backend = preference;
+            render();
+            if (preference === "workswarm") loadCatalog();
+          }
+        };
+        return;
+      }
       if (win.OwoInputAssets) inputAssets = win.OwoInputAssets.mountPanel(inputAssets, rootEl.querySelector("[data-task-inputs]"), H);
 
       syncWizard();
@@ -1033,8 +1153,10 @@
       if (!H.post) H.post = defaultPost;
       if (!H.esc) H.esc = defaultEsc;
       esc = H.esc;
+      state.backend = nextBackend || preferredBackend(state.root);
+      nextBackend = null;
       render();
-      loadCatalog();
+      if (state.backend === "workswarm") loadCatalog();
     }
 
     function dispose() {
@@ -1101,7 +1223,14 @@
 
     return {
       id: ID,
-      setObjective: function (text) { state.objective = String(text || ""); state.wizardStep = 1; state.result = null; state.error = ""; render(); },
+      setObjective: function (text, backend) {
+        nextBackend = backend || null;
+        state.objective = String(text || "");
+        state.wizardStep = 1;
+        state.result = null;
+        state.error = "";
+        render();
+      },
       title: "新建项目任务",
       mount: mount,
       dispose: dispose,

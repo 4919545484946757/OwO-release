@@ -1,3 +1,4 @@
+// Modified by OwO contributors for scoped project task creation.
 import { z } from "zod";
 import { routeRunOwners, type Actor, type RouteRunOwners } from "../host/run-owner.ts";
 import type { ResolvedSender, WireGroup } from "../../shared/wire.ts";
@@ -55,6 +56,7 @@ export interface ChannelRouteDeps {
   userName(threadId: string): PersonName;
   /** The desktop app owns this server, so a loopback caller is its owner. */
   desktopManaged: boolean;
+  owobotManaged?: boolean;
   routines(): Pick<RoutineManager, "disableForGroup"> | null;
   broadcast(payload: Record<string, unknown>): void;
   notificationListed: NotificationListed;
@@ -108,6 +110,7 @@ export interface ChannelRouteDeps {
 }
 
 const createGroupTaskRequestSchema = z.object({ title: z.string().optional() });
+const owobotTaskRequestSchema = createGroupTaskRequestSchema.extend({ requestId: z.uuidv4().optional() });
 
 export function createChannelRoutes(deps: ChannelRouteDeps): RouteHandler {
   const {
@@ -173,10 +176,26 @@ export function createChannelRoutes(deps: ChannelRouteDeps): RouteHandler {
       if (!body || typeof body !== "object" || Array.isArray(body)) {
         return json(res, 400, { error: "body must be a JSON object" });
       }
-      const request = createGroupTaskRequestSchema.safeParse(body);
-      if (!request.success) return json(res, 400, { error: "title must be text" });
-      const task = store.createGroupTask(group.id, request.data.title);
-      if (!task) return json(res, 500, { error: "couldn't create that task" });
+      const clientId = deps.owobotManaged && auth.kind === "session" && auth.scopes.includes("admin");
+      const base = createGroupTaskRequestSchema.safeParse(body);
+      if (!base.success) return json(res, 400, { error: "title must be text" });
+      const request = owobotTaskRequestSchema.safeParse(clientId ? body : base.data);
+      if (!request.success) return json(res, 400, { error: "invalid requestId" });
+      const { title, requestId } = request.data;
+      if (requestId) {
+        if (!title?.trim()) return json(res, 400, { error: "requestId requires a task title" });
+        const existing = store.groupTaskByThread(group.id, requestId);
+        if (existing) {
+          if (existing.title !== title?.trim().slice(0, 80)) {
+            return json(res, 409, { error: "requestId already belongs to another task" });
+          }
+          return json(res, 200, { group: own(publicGroupState(group)), task: existing });
+        }
+      }
+      const task = store.createGroupTask(group.id, title, true, requestId);
+      if (!task) return requestId
+        ? json(res, 409, { error: "task id is already in use" })
+        : json(res, 500, { error: "couldn't create that task" });
       // Who opened it decides who may answer its cards on a shared workspace.
       if (auth.kind === "session") threadStarters.set(task.threadId, actorKey(auth));
       return json(res, 201, { group: own(groupWithThread(store.group(group.id)!)), task });

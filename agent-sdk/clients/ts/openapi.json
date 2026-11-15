@@ -3361,6 +3361,14 @@
         ],
         "parameters": [
           {
+            "name": "owoProject",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Group ID returned by openOwobot for the selected project. Omit for the original Daemon workspace."
+          },
+          {
             "name": "thread",
             "in": "path",
             "required": true,
@@ -3421,6 +3429,14 @@
           }
         ],
         "parameters": [
+          {
+            "name": "owoProject",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Group ID returned by openOwobot for the selected project. Omit for the original Daemon workspace."
+          },
           {
             "name": "thread",
             "in": "path",
@@ -3484,6 +3500,14 @@
         ],
         "parameters": [
           {
+            "name": "owoProject",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Group ID returned by openOwobot for the selected project. Omit for the original Daemon workspace."
+          },
+          {
             "name": "path",
             "in": "path",
             "required": true,
@@ -3528,6 +3552,14 @@
         ],
         "parameters": [
           {
+            "name": "owoProject",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Group ID returned by openOwobot for the selected project. Omit for the original Daemon workspace."
+          },
+          {
             "name": "path",
             "in": "path",
             "required": true,
@@ -3561,7 +3593,7 @@
     "/owobot/open": {
       "post": {
         "operationId": "openOwobot",
-        "summary": "Open the OwOBot workbench for the Daemon workspace",
+        "summary": "Open the OwOBot workbench for a selected project workspace",
         "security": [
           {
             "bearerAuth": []
@@ -3600,7 +3632,7 @@
             }
           },
           "400": {
-            "description": "Invalid or unavailable model selection, or plaintext model credential"
+            "description": "Invalid project directory or model selection, or plaintext model credential"
           },
           "401": {
             "description": "OwO bearer authorization required"
@@ -3616,6 +3648,10 @@
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
+                  "workspace": {
+                    "type": "string",
+                    "description": "Absolute path to an existing project directory. Defaults to the original Daemon workspace."
+                  },
                   "model": {
                     "type": [
                       "string",

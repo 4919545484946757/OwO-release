@@ -12204,6 +12204,7 @@ ROUTES.push(createChannelRoutes({
   cfg,
   userName: userNameFor,
   desktopManaged: DESKTOP_MANAGED,
+  owobotManaged: OWOBOT_MANAGED,
   routines: () => routines,
   broadcast, notificationListed,
   actorKey,
