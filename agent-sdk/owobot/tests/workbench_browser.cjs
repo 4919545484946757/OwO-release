@@ -4,6 +4,7 @@ const path = require("node:path");
 const { app, BrowserWindow, nativeTheme } = require("electron");
 
 const [, , directory, origin] = process.argv;
+const deliveryThread = process.env.OWOBOT_SMOKE_DELIVERY_THREAD;
 app.setPath("userData", path.join(directory, "chromium"));
 
 async function exercise(window) {
@@ -17,6 +18,18 @@ async function exercise(window) {
   await window.loadURL(origin + "/");
   await contents.executeJavaScript("new Promise(resolve => { const timer = setInterval(() => { if (shellHydrated) { clearInterval(timer); resolve(); } }, 50); })");
   await contents.executeJavaScript('document.querySelector(\'[data-workbench-panel="owobot"]\').click()');
+  if (deliveryThread) {
+    const deliveryAction = (approve) => contents.executeJavaScript(
+      "(" + applyDelivery.toString() + ")(" + JSON.stringify(deliveryThread) + "," + approve + ")",
+    );
+    await deliveryAction(false);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    fs.writeFileSync(path.join(directory, "owobot-review.png"), (await contents.capturePage()).toPNG());
+    await deliveryAction(true);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    fs.writeFileSync(path.join(directory, "owobot-delivery.png"), (await contents.capturePage()).toPNG());
+    return;
+  }
   const themed = (mode) => contents.executeJavaScript("(" + setAppearance.toString() + ")(" + JSON.stringify(mode) + ")");
   await contents.executeJavaScript("(" + typeDraft.toString() + ")()");
   assert.deepEqual(await themed("light"), ["light", "rgb(255, 255, 255)", "flex", true]);
@@ -28,6 +41,36 @@ async function exercise(window) {
   nativeTheme.themeSource = "dark";
   assert.deepEqual(await themed(null), ["dark", "rgb(23, 24, 25)", "flex", true]);
   await contents.executeJavaScript("(" + sendDraft.toString() + ")()");
+}
+
+async function applyDelivery(thread, approve) {
+  const until = async (pick, context) => {
+    const end = Date.now() + 15_000;
+    while (Date.now() < end) {
+      const answer = pick();
+      if (answer) return answer;
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    }
+    throw new Error(context);
+  };
+  const panel = () => document.querySelector(".owobot-panel-frame")?.contentDocument?.querySelector(".owobot-delivery");
+  const loaded = await until(() => {
+    const candidate = panel();
+    return candidate?.querySelector(".owobot-task-id")?.textContent === "owobot-" + thread ? candidate : null;
+  }, "OwOBot did not reopen the reviewed task");
+  const files = [...loaded.querySelectorAll(".owobot-delivery-file")];
+  if (files.length !== 2 || !loaded.querySelector(".owobot-review")?.textContent.includes("共 12 人")) {
+    throw new Error("The review and both delivery previews must be visible before approving");
+  }
+  for (const file of files) file.open = true;
+  const button = loaded.querySelector(".owobot-delivery-actions button:first-child");
+  if (button?.textContent.trim() !== "\u6279\u51c6\u5e76\u5e94\u7528") {
+    throw new Error("The reviewed task did not offer the approval action");
+  }
+  if (!approve) return;
+  button.click();
+  await until(() => panel()?.querySelector(".owobot-delivery-status")?.textContent === "\u5df2\u5e94\u7528",
+    "The desktop did not confirm that delivery was applied");
 }
 
 async function captureAppearance(contents, theme) {
@@ -129,7 +172,9 @@ app.whenReady().then(async () => {
   });
   try {
     await exercise(window);
-    console.log("PASS desktop light, dark and system appearance; composer draft and new task through the real OwOBot page");
+    console.log(deliveryThread
+      ? "PASS desktop displayed both previews and the review, then applied with explicit user approval"
+      : "PASS desktop light, dark and system appearance; composer draft and new task through the real OwOBot page");
     app.exit(0);
   } catch (error) {
     console.error(error);

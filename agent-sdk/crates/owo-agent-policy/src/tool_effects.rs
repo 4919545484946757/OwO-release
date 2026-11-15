@@ -99,6 +99,7 @@ fn builtin_dimensions(tool: &str) -> Option<&'static [ToolDimension]> {
             UNBOUNDED_DIMENSIONS
         }
         "owobot_delegate" // The host writes only to its own local collaboration queue.
+        | "owobot_stage_delivery" | "owobot_read_delivery" | "owobot_review_delivery"
         | "todo"
         | "verification_plan"
         | "ask_user"

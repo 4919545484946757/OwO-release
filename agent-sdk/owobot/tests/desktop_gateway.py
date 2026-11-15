@@ -1,6 +1,10 @@
 """Run the managed OwOBot gateway and optional Chromium workbench on Windows."""
 
 import argparse
+from collections import Counter
+import csv
+import importlib.util
+import io
 from contextlib import contextmanager, nullcontext
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -16,6 +20,30 @@ from urllib.request import Request
 from uuid import uuid4
 
 from windows_smoke import HTTP, UPSTREAM, expect, isolated_environment, process, until
+
+
+demo_spec = importlib.util.spec_from_file_location(
+    "verify_signup", UPSTREAM.parent / "demo" / "verify_signup.py",
+)
+demo = importlib.util.module_from_spec(demo_spec)
+demo_spec.loader.exec_module(demo)
+
+
+def signup_outputs(text):
+    incoming = csv.DictReader(io.StringIO(text.lstrip("\ufeff")))
+    assert incoming.fieldnames == demo.COLUMNS
+    rows = list(incoming)
+    name, group, phone = demo.COLUMNS
+    csv_out = io.StringIO(newline="")
+    writer = csv.DictWriter(csv_out, fieldnames=demo.COLUMNS, lineterminator="\n")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({name: row[name], group: row[group], phone: "*" * 7 + row[phone][-4:]})
+    counts = sorted(Counter(row[group] for row in rows).items())
+    total = "\u603b\u8ba1"
+    report = "| " + group + " | " + "\u4eba\u6570" + " |\n| --- | --- |\n"
+    report += "".join(f"| {label} | {number} |\n" for label, number in counts + [(total, len(rows))])
+    return [{"path": demo.DETAILS, "text": csv_out.getvalue()}, {"path": demo.SUMMARY, "text": report}]
 
 
 def browser_session(origin, auth, model=None):
@@ -82,22 +110,19 @@ def stage_fixture(node, destination):
 
 class SelectedModel:
     name = "owobot-desktop-selection"
-    text = "The selected desktop model answered."
+    text = "已核对当前项目材料。"
     credential = "owobot-loopback-fixture-key"
-    scenario = "Assign the fixture signup lookup."
-    assignment = "Read roster.csv and check the fixture count."
-    child_result = "Execution member read the signup fixture: 12 participants."
-    review_assignment = "Independently verify the 12-person result against roster.csv."
-    review_result = "Reviewer verified that the project fixture records 12 participants."
-    summary = "The worker delivered the count and the reviewer verified it."
-    proof = "fixture-participants,12"
+    scenario = "\u6574\u7406\u6d3b\u52a8\u62a5\u540d\u8868\uff0c\u751f\u6210\u5206\u7ec4\u7edf\u8ba1\u548c\u8131\u654f\u660e\u7ec6\u3002"
+    assignment = "读取 registration.csv，生成并暂存报名统计和脱敏明细。"
+    child_result = "已暂存报名统计和脱敏明细，等待评审。"
+    review_assignment = "请独立核对暂存版的报名人数、分组和手机号脱敏。"
+    review_result = "暂存版评审通过，统计和脱敏明细均已核对。"
+    summary = "报名交付已完成评审，请查看预览并批准应用。"
 
     def __init__(self, port):
         self.calls = []
         self.issued_assignment = False
-        self.issued_read = False
         self.issued_review = False
-        self.issued_review_read = False
         endpoint = f"http://127.0.0.1:{port}/v1"
         reference = "1" * 32
         name = "OWO_CUSTOM_MODEL_SECRET_" + reference
@@ -110,9 +135,9 @@ class SelectedModel:
 
     def check(self, daemon, data, thread, port, cookie, call_offset, role):
         expected_readers = {
-            "lead": {"read_file", "list_dir", "search_files", "owobot_delegate"},
-            "worker": {"read_file", "list_dir", "search_files", "grep", "find_symbol"},
-            "reviewer": {"read_file", "list_dir", "search_files", "grep"},
+            "lead": {"read_file", "list_dir", "search_files", "owobot_delegate", "owobot_read_delivery"},
+            "worker": {"read_file", "list_dir", "search_files", "grep", "find_symbol", "owobot_read_delivery", "owobot_stage_delivery"},
+            "reviewer": {"read_file", "list_dir", "search_files", "grep", "owobot_read_delivery", "owobot_review_delivery"},
         }[role]
         def terminal():
             for path in (data / "owobot").glob(f"*/events/{thread}.ndjson"):
@@ -130,7 +155,7 @@ class SelectedModel:
         answer = until(daemon, "Selected-model text did not reach the conversation", lambda:
                        next((group for group in expect(port, "/owobot/api/bots?messages=20", 200, headers=cookie)["groups"]
                              if group["threadId"] == thread and any(self.text in (msg.get("text") or "") for msg in group["messages"])), None))
-        assert self.text in json.dumps(answer)
+        assert self.text in json.dumps(answer, ensure_ascii=False)
         for path in (data / "owobot").glob("*/config.json"):
             saved = path.read_text(encoding="utf-8")
             assert self.credential not in saved and "OWO_CUSTOM_MODEL_SECRET" not in saved
@@ -145,21 +170,43 @@ class SelectedModel:
         if "owobot_delegate" in tools and self.child_result in text and not self.issued_review:
             self.issued_review = True
             return self.tool_response("review", "owobot_delegate", {"recipient": "reviewer", "task": self.review_assignment})
-        if "grep" in tools and "find_symbol" not in tools and self.review_assignment in text:
-            if not self.issued_review_read:
-                self.issued_review_read = True
-                return self.tool_response("verify", "read_file", {"path": "roster.csv"})
-            if self.proof in text:
+        if "owobot_review_delivery" in tools and self.review_assignment in text:
+            reviewed = self.tool_result(messages, "review-signup")
+            if reviewed is not None:
+                assert reviewed["saved"]
                 return self.text_response(self.review_result)
+            preview = self.tool_result(messages, "inspect-signup")
+            if preview is None:
+                return self.tool_response("inspect-signup", "owobot_read_delivery", {})
+            with tempfile.TemporaryDirectory(prefix="owobot-review-") as directory:
+                for file in preview["files"]:
+                    assert file["path"] in (demo.DETAILS, demo.SUMMARY)
+                    (Path(directory) / file["path"]).write_text(file["after"], encoding="utf-8")
+                demo.verify(Path(directory))
+            return self.tool_response("review-signup", "owobot_review_delivery", {
+                "revision": preview["revision"], "approved": True, "note": "共 12 人，A 组 7 人，B 组 5 人。手机号仅保留后四位。",
+            })
         if "owobot_delegate" in tools and self.review_result in text:
             return self.text_response(self.summary)
-        if "find_symbol" in tools and self.assignment in text:
-            if not self.issued_read:
-                self.issued_read = True
-                return self.tool_response("read", "read_file", {"path": "roster.csv"})
-            if self.proof in text:
+        if "owobot_stage_delivery" in tools and self.assignment in text:
+            staged = self.tool_result(messages, "stage-signup")
+            if staged is not None:
+                assert staged["saved"]
                 return self.text_response(self.child_result)
+            source = self.tool_result(messages, "read-signup")
+            if source is None:
+                return self.tool_response("read-signup", "read_file", {"path": "registration.csv"})
+            return self.tool_response("stage-signup", "owobot_stage_delivery", {
+                "baseRevision": 0, "files": signup_outputs(source["content"]),
+            })
         return self.text_response(self.text)
+
+    @staticmethod
+    def tool_result(messages, call_id):
+        for message in reversed(messages):
+            if message["role"] == "tool" and message.get("tool_call_id") == call_id:
+                return json.loads(message["content"])
+        return None
 
     @staticmethod
     def tool_response(call_id, name, args):
@@ -225,11 +272,48 @@ def check_wrong_worker(port, auth, session, provider):
     print("PASS forged ACP worker capability was rejected before reaching the model", flush=True)
 
 
-def run(agent, home, root, desktop, electron, provider):
+def run_browser(electron, root, origin, thread=None):
+    args = [electron, Path(__file__).with_name("workbench_browser.cjs"), root, origin]
+    browser_env = os.environ.copy()
+    browser_env.pop("OWOBOT_SMOKE_DELIVERY_THREAD", None)
+    if thread:
+        browser_env["OWOBOT_SMOKE_DELIVERY_THREAD"] = thread
+    result = subprocess.run(
+        args, env=browser_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
+        errors="replace", timeout=80, creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    (root / "browser.log").write_text(result.stdout, encoding="utf-8")
+    if result.stdout:
+        print(result.stdout.strip(), flush=True)
+    result.check_returncode()
+
+
+def verify_reopened_delivery(agent, workspace, env, root, data, selection, group, delivery_route, approved, decision):
+    with process([agent, "serve", "--port", "0", "--workspace", workspace],
+                 cwd=workspace, env=env, log=root / "reopened-daemon.log") as daemon:
+        port = daemon_port(daemon, data)
+        origin = f"http://127.0.0.1:{port}"
+        token = (data / "auth" / "token").read_text(encoding="utf-8").strip()
+        auth = {"Authorization": "Bearer " + token}
+        group_id, cookie = browser_session(origin, auth, selection)
+        assert group_id == group
+        saved = expect(port, delivery_route, 200, headers=cookie)
+        assert saved["taskId"] == approved["taskId"]
+        assert saved["files"] == approved["files"] and saved["review"] == approved["review"]
+        assert saved["status"] == "applied" and saved["decidedAt"]
+        replay = expect(port, delivery_route + "/decision", 200, headers={**cookie, "Origin": origin}, body=decision)
+        assert replay["replayed"] and replay["taskId"] == saved["taskId"]
+        demo.verify(workspace)
+        expect(port, "/server/shutdown", (200, 202), headers=auth, body={"confirm": True})
+        assert daemon.wait(timeout=18) == 0
+    print("PASS reopening OwO recovered the same task, previews, review and applied decision", flush=True)
+
+
+def run(agent, home, root, desktop, electron, provider, delivery_electron=None):
     workspace = root / "Project with spaces"
     workspace.mkdir()
     if provider:
-        (workspace / "roster.csv").write_text(provider.proof + "\n", encoding="utf-8")
+        shutil.copyfile(demo.SOURCE, workspace / "registration.csv")
     home_dir = root / "home"
     home_dir.mkdir()
     data = root / "owo"
@@ -262,19 +346,11 @@ def run(agent, home, root, desktop, electron, provider):
         group = expect(port, "/owobot/api/bots", 200, headers=cookie)["groups"][0]
         assert group["id"] == group_id and len(group["memberIds"]) == 3
         if electron:
-            result = subprocess.run([
-                electron, Path(__file__).with_name("workbench_browser.cjs"),
-                root, origin,
-            ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
-               errors="replace", timeout=80, creationflags=subprocess.CREATE_NO_WINDOW)
-            (root / "browser.log").write_text(result.stdout, encoding="utf-8")
-            if result.stdout:
-                print(result.stdout.strip(), flush=True)
-            result.check_returncode()
+            run_browser(electron, root, origin)
         else:
             expect(port, f"/owobot/api/groups/{group_id}/messages", (200, 202),
                    headers={**cookie, "Origin": origin}, body={
-                       "text": "Read the project directory.",
+                       "text": "查看当前项目目录。",
                        "threadId": group["threadId"], "sendId": str(uuid4()),
                    })
         sessions = until(daemon, "The manager did not dispatch to OwO ACP", lambda:
@@ -290,7 +366,7 @@ def run(agent, home, root, desktop, electron, provider):
                 task = expect(port, thread_route + "/tasks", (200, 201), headers=outbound, body={})["group"]
                 offset = len(provider.calls)
                 expect(port, thread_route + "/messages", (200, 202), headers=outbound, body={
-                    "text": f"@{mention} Inspect the project material.",
+                    "text": f"@{mention} 查看当前项目材料。",
                     "mentions": [group["memberIds"][index]], "threadId": task["threadId"], "sendId": str(uuid4()),
                 })
                 provider.check(daemon, data, task["threadId"], port, cookie, offset, role)
@@ -311,9 +387,29 @@ def run(agent, home, root, desktop, electron, provider):
             until(daemon, "OwOBot's worker, reviewer and lead did not finish their relay", completed_relay)
             receipts = expect(port, "/audit?event=tool_receipt&tool=owobot_delegate", 200, headers=auth)
             assert len(receipts) == 2 and all(json.loads(row["detail"])["ok"] is True for row in receipts), receipts
-            assert provider.issued_assignment and provider.issued_read and provider.issued_review and provider.issued_review_read
-            assert (workspace / "roster.csv").read_text(encoding="utf-8").strip() == provider.proof
-            print("PASS the lead delegated within the room, both members read the project file and reported back, and duplicate send was ignored", flush=True)
+            assert provider.issued_assignment and provider.issued_review
+            delivery_route = f"/owobot/api/delivery/{task['threadId']}"
+            staged = expect(port, delivery_route, 200, headers=cookie)
+            assert staged["status"] == "reviewed" and staged["revision"] == 1
+            assert {turn["role"] for turn in staged["turns"]} == {"lead", "worker", "reviewer"}
+            assert {turn["role"] for turn in staged["turns"] if turn["assignmentId"]} >= {"worker", "reviewer"}
+            assert len(staged["files"]) == 2 and staged["review"]["actor"]["role"] == "reviewer"
+            assert sorted(path.name for path in workspace.iterdir() if path.is_file()) == ["registration.csv"]
+            expect(port, delivery_route + "/decision", 403, headers={**cookie, "Origin": "http://foreign.invalid"}, body={})
+            decision = {"revision": 1, "action": "apply", "idempotencyKey": "desktop-apply-1"}
+            if delivery_electron:
+                run_browser(delivery_electron, root, origin, task["threadId"])
+                approved = expect(port, delivery_route, 200, headers=cookie)
+            else:
+                approved = expect(port, delivery_route + "/decision", 200, headers=outbound, body=decision)
+            assert approved["status"] == "applied" and not approved["replayed"]
+            demo.verify(workspace)
+            replay = expect(port, delivery_route + "/decision", 200, headers=outbound, body=decision)
+            assert replay["replayed"]
+            assert (workspace / "registration.csv").read_bytes() == demo.SOURCE.read_bytes()
+            decisions = expect(port, "/audit?event=owobot_delivery_decision", 200, headers=auth)
+            assert len(decisions) == 1 and decisions[0]["session_id"] == approved["taskId"], decisions
+            print("PASS one delegated signup delivery passed review, human apply, 12-person and masking checks, and replay deduplication", flush=True)
 
         expect(port, "/server/shutdown", (200, 202), headers=auth, body={"confirm": True})
         assert daemon.wait(timeout=18) == 0
@@ -321,6 +417,8 @@ def run(agent, home, root, desktop, electron, provider):
             sock.settimeout(2)
             assert sock.connect_ex(("127.0.0.1", sidecar)) != 0
         print("PASS OwO shutdown closed its managed collaboration listener", flush=True)
+    if provider:
+        verify_reopened_delivery(agent, workspace, env, root, data, selection, group_id, delivery_route, approved, decision)
 
 
 def main():
@@ -332,8 +430,11 @@ def main():
     scenario = parser.add_mutually_exclusive_group()
     scenario.add_argument("--electron", type=Path, help="Exercise the model-disabled desktop workbench")
     scenario.add_argument("--verify-model", action="store_true", help="Verify the selected model with a loopback fixture")
+    parser.add_argument("--delivery-electron", type=Path, help="Approve in the desktop UI after the model relay fixture")
     parser.add_argument("--desktop-web", type=Path, default=UPSTREAM.parents[1] / "desktop" / "web")
     args = parser.parse_args()
+    if args.delivery_electron and not args.verify_model:
+        parser.error("--delivery-electron needs --verify-model")
     if os.name != "nt":
         parser.error("this test requires Windows")
     root = Path(tempfile.mkdtemp(prefix="owobot-desktop-")).resolve()
@@ -343,7 +444,8 @@ def main():
         stage_fixture(args.node.resolve(strict=True), home)
     with (selected_provider() if args.verify_model else nullcontext()) as provider:
         run(args.agent.resolve(strict=True), home, root, args.desktop_web.resolve(strict=True),
-            args.electron.resolve(strict=True) if args.electron else None, provider)
+            args.electron.resolve(strict=True) if args.electron else None, provider,
+            args.delivery_electron.resolve(strict=True) if args.delivery_electron else None)
 
 
 if __name__ == "__main__":

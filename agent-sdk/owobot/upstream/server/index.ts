@@ -13161,7 +13161,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         }
         return json(res, 200, {
           groupId: room.id, botId: internalSender.id, threadId: internalCapability.threadId,
-          depth: internalCapability.depth,
+          depth: internalCapability.depth, assignmentId: internalCapability.roomHandoffId ?? null,
         });
       }
       if (method === "GET" && path === "/api/internal/agents") {

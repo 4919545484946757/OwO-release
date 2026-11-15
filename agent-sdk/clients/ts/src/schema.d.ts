@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/owobot/api/delivery/{thread}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the task delivery previews and review */
+        get: operations["owobotDelivery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/owobot/api/delivery/{thread}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply or reject the exact OwOBot delivery revision */
+        post: operations["decideOwobotDelivery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/owobot/api/{path}": {
         parameters: {
             query?: never;
@@ -5966,6 +6000,44 @@ export interface components {
             model?: string | null;
             model_connection?: components["schemas"]["CustomModelConnection"] | null;
         };
+        OwOBotDeliveryActor: {
+            botId: string;
+            sessionId: string;
+            turnId: string;
+            /** @enum {string} */
+            role: "lead" | "worker" | "reviewer";
+            assignmentId: string | null;
+        };
+        OwOBotDeliveryReview: {
+            approved: boolean;
+            note: string;
+            reviewedAt: string;
+            actor: components["schemas"]["OwOBotDeliveryActor"];
+        };
+        OwOBotDelivery: {
+            taskId: string;
+            threadId: string;
+            turns: components["schemas"]["OwOBotDeliveryActor"][];
+            revision: number;
+            /** @enum {string} */
+            status: "working" | "staged" | "changesRequested" | "reviewed" | "applying" | "applied" | "rejected";
+            files: {
+                path: string;
+                before: string | null;
+                after: string;
+                sha256: string;
+            }[];
+            review: components["schemas"]["OwOBotDeliveryReview"] | null;
+            replayed: boolean;
+            decidedAt: string | null;
+            revisions: number[];
+        };
+        OwOBotDeliveryDecision: {
+            revision: number;
+            /** @enum {string} */
+            action: "apply" | "reject";
+            idempotencyKey: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -5975,6 +6047,141 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    owobotDelivery: {
+        parameters: {
+            query?: {
+                /** @description Read this immutable revision instead of the latest revision. */
+                revision?: number;
+            };
+            header?: never;
+            path: {
+                thread: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task delivery and its current or decided revision */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwOBotDelivery"];
+                };
+            };
+            /** @description Invalid task or decision */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OwOBot browser session is required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The desktop request is outside the OwOBot origin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description There is no delivery record for the current project's task thread */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The revision, review, decision key or workspace contents conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OwOBot delivery storage or the runtime is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    decideOwobotDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OwOBotDeliveryDecision"];
+            };
+        };
+        responses: {
+            /** @description The task delivery and its current or decided revision */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwOBotDelivery"];
+                };
+            };
+            /** @description Invalid task or decision */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OwOBot browser session is required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The desktop request is outside the OwOBot origin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description There is no delivery record for the current project's task thread */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The revision, review, decision key or workspace contents conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OwOBot delivery storage or the runtime is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getOwobotCollaboration: {
         parameters: {
             query?: never;

@@ -1,11 +1,12 @@
 //! OwO's local gateway to the managed collaboration process.
 
 pub(crate) mod delegation;
+mod delivery;
 mod runtime;
 
 use crate::{auth_token::AuthToken, AppState};
 use axum::body::{to_bytes, Body};
-use axum::extract::{Path, Request, State};
+use axum::extract::{Path, Query, Request, State};
 use axum::http::{header, HeaderMap, HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -39,11 +40,19 @@ impl WorkerRole {
         }
     }
 
+    fn key(self) -> &'static str {
+        match self {
+            Self::Lead => "lead",
+            Self::Worker => "worker",
+            Self::Reviewer => "reviewer",
+        }
+    }
+
     pub(crate) fn instructions(self) -> &'static str {
         match self {
             Self::Lead => "理解任务，查阅当前项目信息。在可用时使用 owobot_delegate 交给执行员，收到结果后请评审员独立核对，最后汇总。",
-            Self::Worker => "查阅当前项目材料，提供执行结果与交付建议。",
-            Self::Reviewer => "独立核对任务要求、项目材料和执行结果，记录评审意见。",
+            Self::Worker => "查阅当前项目材料。需要交付文件时，使用 owobot_stage_delivery 暂存完整文件集，回报修订版本与验收结果。",
+            Self::Reviewer => "独立核对任务、项目材料和执行结果。有暂存文件时，用 owobot_read_delivery 读取确切版本，用 owobot_review_delivery 记录结论。",
         }
     }
 
@@ -65,7 +74,55 @@ impl WorkerRole {
 pub(crate) struct WorkerTurn {
     pub(crate) role: WorkerRole,
     pub(crate) model: Option<String>,
-    pub(crate) dispatcher: Option<delegation::Delegate>,
+    dispatcher: Option<delegation::Delegate>,
+    delivery: delivery::Store,
+    scope: CollaborationTurn,
+    readonly: bool,
+}
+
+impl WorkerTurn {
+    pub(crate) async fn project_tools(
+        self,
+        session_id: &str,
+        turn_id: &str,
+    ) -> Result<Vec<Arc<dyn owo_agent_core::tools::Tool>>, (StatusCode, String)> {
+        let actor = delivery::Actor {
+            role: self.role.key().to_owned(),
+            bot_id: self.scope.bot_id,
+            session_id: session_id.to_owned(),
+            turn_id: turn_id.to_owned(),
+            assignment_id: self.scope.assignment_id,
+        };
+        let thread = self.scope.thread_id;
+        let store = self.delivery;
+        let mut tools = tokio::task::spawn_blocking(move || {
+            store.bind(&thread, actor.clone())?;
+            Ok::<_, delivery::DeliveryError>(delivery::tools::for_role(
+                &store,
+                &thread,
+                &actor,
+                self.role,
+                self.readonly,
+            ))
+        })
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "owobot/delivery_unavailable".into(),
+            )
+        })?
+        .map_err(|error| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                format!("owobot/{}", error.code()),
+            )
+        })?;
+        if let Some(dispatcher) = self.dispatcher {
+            tools.push(Arc::new(dispatcher));
+        }
+        Ok(tools)
+    }
 }
 
 #[derive(Deserialize)]
@@ -75,6 +132,7 @@ struct CollaborationTurn {
     group_id: String,
     thread_id: String,
     depth: u32,
+    assignment_id: Option<String>,
 }
 
 #[derive(Clone, Default, Deserialize)]
@@ -146,6 +204,7 @@ pub(crate) struct Collaboration {
     client: reqwest::Client,
     browser_session: AuthToken,
     live: Mutex<Option<runtime::Running>>,
+    delivery_gate: Arc<std::sync::Mutex<()>>,
 }
 
 impl Collaboration {
@@ -162,6 +221,7 @@ impl Collaboration {
                 .expect("loopback collaboration HTTP client"),
             browser_session: AuthToken::generate(),
             live: Mutex::new(None),
+            delivery_gate: Arc::new(std::sync::Mutex::new(())),
         }
     }
 
@@ -253,6 +313,9 @@ impl Collaboration {
             role,
             model: active.model.model.clone(),
             dispatcher,
+            delivery: active.delivery.clone(),
+            scope,
+            readonly: request.read_only == Some(true),
         }))
     }
 
@@ -300,6 +363,7 @@ async fn open_desktop(state: &AppState, model: ModelSelection) -> GatewayResult<
                 home,
                 &state.data_root,
                 &state.workspace,
+                Arc::clone(&collaboration.delivery_gate),
             )
             .await?,
         );
@@ -317,6 +381,113 @@ async fn open_desktop(state: &AppState, model: ModelSelection) -> GatewayResult<
         HeaderValue::from_str(&cookie).expect("generated cookie is ASCII"),
     );
     Ok(response)
+}
+
+async fn browser_delivery(
+    state: &AppState,
+    method: &Method,
+    headers: &HeaderMap,
+) -> Result<delivery::Store, Response> {
+    let collaboration = &state.owobot;
+    if !collaboration.accepts(headers) {
+        return Err(GatewayError::Refused(
+            StatusCode::UNAUTHORIZED,
+            "Please open OwOBot from the desktop",
+        )
+        .into_response());
+    }
+    if !same_origin(method, headers) {
+        return Err(GatewayError::Refused(
+            StatusCode::FORBIDDEN,
+            "OwOBot delivery needs a same-origin desktop request",
+        )
+        .into_response());
+    }
+    let live = collaboration.live.lock().await;
+    live.as_ref()
+        .map(|running| running.delivery.clone())
+        .ok_or_else(|| GatewayError::Unavailable("Please reopen OwOBot").into_response())
+}
+
+fn delivery_error(error: delivery::DeliveryError) -> Response {
+    let status = match error {
+        delivery::DeliveryError::Invalid(_) => StatusCode::BAD_REQUEST,
+        delivery::DeliveryError::Conflict(_) => StatusCode::CONFLICT,
+        delivery::DeliveryError::Missing => StatusCode::NOT_FOUND,
+        delivery::DeliveryError::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+    };
+    (status, Json(json!({"error": error.code()}))).into_response()
+}
+
+#[derive(Deserialize)]
+pub(crate) struct DeliveryLookup {
+    revision: Option<u64>,
+}
+
+pub(crate) async fn read_delivery(
+    State(state): State<Arc<AppState>>,
+    Path(thread): Path<String>,
+    Query(lookup): Query<DeliveryLookup>,
+    headers: HeaderMap,
+) -> Response {
+    let store = match browser_delivery(&state, &Method::GET, &headers).await {
+        Ok(store) => store,
+        Err(response) => return response,
+    };
+    match tokio::task::spawn_blocking(move || store.inspect(&thread, lookup.revision)).await {
+        Ok(Ok(view)) => Json(view).into_response(),
+        Ok(Err(error)) => delivery_error(error),
+        Err(_) => delivery_error(delivery::DeliveryError::Unavailable),
+    }
+}
+
+pub(crate) async fn decide_delivery(
+    State(state): State<Arc<AppState>>,
+    Path(thread): Path<String>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    let store = match browser_delivery(&state, &parts.method, &parts.headers).await {
+        Ok(store) => store,
+        Err(response) => return response,
+    };
+    let Ok(bytes) = to_bytes(body, 4096).await else {
+        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+    };
+    let Ok(decision) = serde_json::from_slice::<delivery::DecisionRequest>(&bytes) else {
+        return delivery_error(delivery::DeliveryError::Invalid(
+            "invalid_delivery_decision",
+        ));
+    };
+    let revision = decision.revision;
+    let action = decision.action;
+    let task_id = format!("owobot-{thread}");
+    let lease = crate::workswarm_api::acquire_workspace_delivery_lease(&store.workspace).await;
+    let result = tokio::task::spawn_blocking(move || {
+        let _lease = lease;
+        let result = store.decide(&thread, decision);
+        if !matches!(&result, Ok(view) if view.replayed) {
+            if let Ok(mut log) = state.agent.audit_log().lock() {
+                log.record(
+                    &task_id,
+                    "owobot_delivery_decision",
+                    None,
+                    Some(result.is_ok()),
+                    json!({"revision":revision,"action":action,
+                        "error":result.as_ref().err().map(delivery::DeliveryError::code)})
+                    .to_string(),
+                );
+            }
+            crate::flush_audit(&state);
+        }
+        result
+    })
+    .await;
+    match result {
+        Ok(Ok(view)) => Json(view).into_response(),
+        Ok(Err(error)) => delivery_error(error),
+        Err(_) => delivery_error(delivery::DeliveryError::Unavailable),
+    }
 }
 
 pub(crate) async fn proxy(

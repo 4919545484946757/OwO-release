@@ -121,10 +121,10 @@ impl Tool for Delegate {
     }
 }
 
-/// The project task authorizes its lead to dispatch the registered room tool.
+/// Only the operations assigned to the verified project role are authorized.
 /// The inherited policy still evaluates the action before this decision.
 pub(crate) struct ProjectApprover<'a> {
-    pub(crate) delegate: bool,
+    pub(crate) authorized: Vec<String>,
     pub(crate) parent: &'a dyn Approver,
 }
 
@@ -141,10 +141,10 @@ impl Approver for ProjectApprover<'_> {
         request: &PermissionRequest,
         notify: &mut (dyn FnMut() + Send),
     ) -> ApprovalOutcome {
-        if self.delegate && request.tool == TOOL && request.level == Level::Write {
+        if self.authorized.contains(&request.tool) && request.level == Level::Write {
             return ApprovalOutcome {
                 decision: Decision::Allow,
-                reason: Some("owobot/project_role_delegation".into()),
+                reason: Some("owobot/project_role_tool".into()),
             };
         }
         self.parent.decide_with_notification(request, notify).await

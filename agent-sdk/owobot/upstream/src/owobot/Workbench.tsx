@@ -3,6 +3,7 @@ import { DesktopCapabilitiesProvider } from "@/components/DesktopCapabilities";
 import { ThreadRefsProvider } from "@/components/ThreadRefs";
 import { localizedTaskTitle } from "@/lib/task-title";
 import { StoreProvider, openRoomThread, useStore } from "@/state/store";
+import { DeliveryPanel } from "./DeliveryPanel";
 import "./workbench.css";
 
 function ProjectRoom({ groupId }: { groupId: string }) {
@@ -38,6 +39,7 @@ function ProjectRoom({ groupId }: { groupId: string }) {
       {!state.connected && <p className="owobot-connection" role="status">正在恢复连接…</p>}
       <GroupView group={group} />
     </div>
+    <DeliveryPanel key={group.threadId} thread={group.threadId} working={group.working === true} message={group.messages.at(-1)?.id} />
   </div>;
 }
 

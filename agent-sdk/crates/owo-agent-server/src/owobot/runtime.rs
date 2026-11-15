@@ -1,4 +1,4 @@
-use super::{GatewayError, GatewayResult, ModelSelection, WorkerRole};
+use super::{delivery, GatewayError, GatewayResult, ModelSelection, WorkerRole};
 use crate::auth_token::AuthToken;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use reqwest::Client;
@@ -8,6 +8,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
@@ -26,6 +27,7 @@ pub(super) struct Running {
     pub(super) workspace: PathBuf,
     pub(super) worker_proof: AuthToken,
     pub(super) model: ModelSelection,
+    pub(super) delivery: delivery::Store,
     child: Child,
     stdin: ChildStdin,
 }
@@ -110,10 +112,14 @@ pub(super) async fn start(
     home: &Path,
     data_root: &Path,
     workspace: &Path,
+    delivery_gate: Arc<Mutex<()>>,
 ) -> GatewayResult<Running> {
-    tokio::time::timeout(START_LIMIT, launch(client, home, data_root, workspace))
-        .await
-        .map_err(|_| GatewayError::Unavailable("OwOBot 启动超时"))?
+    tokio::time::timeout(
+        START_LIMIT,
+        launch(client, home, data_root, workspace, delivery_gate),
+    )
+    .await
+    .map_err(|_| GatewayError::Unavailable("OwOBot 启动超时"))?
 }
 
 async fn launch(
@@ -121,6 +127,7 @@ async fn launch(
     home: &Path,
     data_root: &Path,
     workspace: &Path,
+    delivery_gate: Arc<Mutex<()>>,
 ) -> GatewayResult<Running> {
     let workspace = workspace
         .canonicalize()
@@ -209,6 +216,9 @@ async fn launch(
     )
     .await?;
     let (group, members) = prepare_group(client, &base_url, &session.token, workspace_text).await?;
+    let delivery =
+        delivery::Store::new(&state_home, workspace.clone(), group.clone(), delivery_gate)
+            .map_err(|_| GatewayError::Unavailable("OwOBot 交付存储无法打开"))?;
     Ok(Running {
         base_url,
         session: session.token,
@@ -217,6 +227,7 @@ async fn launch(
         workspace,
         worker_proof,
         model: ModelSelection::default(),
+        delivery,
         child,
         stdin,
     })

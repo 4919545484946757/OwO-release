@@ -3129,6 +3129,207 @@
             "nullable": true
           }
         }
+      },
+      "OwOBotDeliveryActor": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "botId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "turnId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "lead",
+              "worker",
+              "reviewer"
+            ]
+          },
+          "assignmentId": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "botId",
+          "sessionId",
+          "turnId",
+          "role",
+          "assignmentId"
+        ]
+      },
+      "OwOBotDeliveryReview": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "approved": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          },
+          "reviewedAt": {
+            "type": "string"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/OwOBotDeliveryActor"
+          }
+        },
+        "required": [
+          "approved",
+          "note",
+          "reviewedAt",
+          "actor"
+        ]
+      },
+      "OwOBotDelivery": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "threadId": {
+            "type": "string"
+          },
+          "turns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OwOBotDeliveryActor"
+            }
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "working",
+              "staged",
+              "changesRequested",
+              "reviewed",
+              "applying",
+              "applied",
+              "rejected"
+            ]
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "before": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "after": {
+                  "type": "string"
+                },
+                "sha256": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "before",
+                "after",
+                "sha256"
+              ]
+            }
+          },
+          "review": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OwOBotDeliveryReview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "decidedAt": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revisions": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "required": [
+          "taskId",
+          "threadId",
+          "turns",
+          "revision",
+          "status",
+          "files",
+          "review",
+          "replayed",
+          "decidedAt",
+          "revisions"
+        ]
+      },
+      "OwOBotDeliveryDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "apply",
+              "reject"
+            ]
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "revision",
+          "action",
+          "idempotencyKey"
+        ]
       }
     },
     "securitySchemes": {
@@ -3149,6 +3350,129 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/owobot/api/delivery/{thread}": {
+      "get": {
+        "operationId": "owobotDelivery",
+        "summary": "Read the task delivery previews and review",
+        "security": [
+          {
+            "owobotCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "thread",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "description": "Read this immutable revision instead of the latest revision.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The task delivery and its current or decided revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwOBotDelivery"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid task or decision"
+          },
+          "401": {
+            "description": "OwOBot browser session is required"
+          },
+          "403": {
+            "description": "The desktop request is outside the OwOBot origin"
+          },
+          "404": {
+            "description": "There is no delivery record for the current project's task thread"
+          },
+          "409": {
+            "description": "The revision, review, decision key or workspace contents conflict"
+          },
+          "503": {
+            "description": "OwOBot delivery storage or the runtime is unavailable"
+          }
+        }
+      }
+    },
+    "/owobot/api/delivery/{thread}/decision": {
+      "post": {
+        "operationId": "decideOwobotDelivery",
+        "summary": "Apply or reject the exact OwOBot delivery revision",
+        "security": [
+          {
+            "owobotCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "thread",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The task delivery and its current or decided revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwOBotDelivery"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid task or decision"
+          },
+          "401": {
+            "description": "OwOBot browser session is required"
+          },
+          "403": {
+            "description": "The desktop request is outside the OwOBot origin"
+          },
+          "404": {
+            "description": "There is no delivery record for the current project's task thread"
+          },
+          "409": {
+            "description": "The revision, review, decision key or workspace contents conflict"
+          },
+          "503": {
+            "description": "OwOBot delivery storage or the runtime is unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwOBotDeliveryDecision"
+              }
+            }
+          }
+        }
+      }
+    },
     "/owobot/api/{path}": {
       "get": {
         "operationId": "getOwobotCollaboration",

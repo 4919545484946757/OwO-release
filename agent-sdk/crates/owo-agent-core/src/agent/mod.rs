@@ -504,7 +504,7 @@ impl Agent {
         &self,
         provider: Arc<dyn ModelProvider>,
         names: &[&str],
-        dispatcher: Option<Arc<dyn crate::tools::Tool>>,
+        extra_tools: Vec<Arc<dyn crate::tools::Tool>>,
     ) -> Result<Self, String> {
         let mut agent = self.with_turn_provider(provider)?;
         let mut registry = ToolRegistry::empty();
@@ -527,9 +527,15 @@ impl Agent {
         agent.tool_host =
             ToolHostService::new(Arc::clone(&agent.registry), Arc::clone(&agent.audit));
         agent.policy = agent.policy.workspace_scope();
-        if let Some(dispatcher) = dispatcher {
-            agent.register_tool(dispatcher);
-        } else {
+        let readonly = extra_tools.iter().all(|tool| {
+            tool.spec()
+                .effect
+                .is_some_and(|effect| effect.host_verified_readonly)
+        });
+        for tool in extra_tools {
+            agent.register_tool(tool);
+        }
+        if readonly {
             agent.policy = agent.policy.read_only_scope();
         }
         agent.hooks = RwLock::new(crate::hooks::HookManager::default());

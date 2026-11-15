@@ -31,6 +31,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     let collaboration_gateway = get(owobot::proxy).post(owobot::proxy);
     let public = Router::new()
         .route("/health", get(health))
+        .route("/owobot/api/delivery/{thread}", get(owobot::read_delivery))
+        .route(
+            "/owobot/api/delivery/{thread}/decision",
+            post(owobot::decide_delivery),
+        )
         .route("/owobot/api/{*path}", collaboration_gateway)
         .route("/openapi.json", get(openapi::openapi_spec))
         .route("/auth/token", get(auth_token::auth_token_bootstrap))

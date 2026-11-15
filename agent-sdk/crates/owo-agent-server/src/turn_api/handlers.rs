@@ -407,22 +407,28 @@ pub(crate) async fn turn(
         abort: Arc::clone(&abort_flag),
     };
 
-    let delegation_allowed = worker
-        .as_ref()
-        .is_some_and(|worker| worker.dispatcher.is_some());
+    let mut authorized = Vec::new();
     let agent = match (worker, turn_provider) {
-        (Some(worker), provider) => Arc::new(
-            state
-                .agent
-                .with_project_tools(
-                    provider.unwrap_or_else(|| state.agent.provider()),
-                    worker.role.readers(),
-                    worker.dispatcher.map(|dispatcher| {
-                        Arc::new(dispatcher) as Arc<dyn owo_agent_core::tools::Tool>
-                    }),
-                )
-                .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error))?,
-        ),
+        (Some(worker), provider) => {
+            let role = worker.role;
+            let tools = worker.project_tools(&session.id, &turn_id).await?;
+            authorized.extend(tools.iter().map(|tool| tool.spec()).filter_map(|spec| {
+                spec.effect
+                    .filter(|effect| effect.class == owo_agent_core::EffectClass::Write)
+                    .map(|_| spec.name)
+            }));
+            Arc::new(
+                state
+                    .agent
+                    .with_project_tools(
+                        provider.unwrap_or_else(|| state.agent.provider()),
+                        role.readers(),
+                        tools,
+                    )
+                    .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error))?,
+            )
+        }
+
         (None, Some(provider)) => Arc::new(
             state
                 .agent
@@ -508,7 +514,7 @@ pub(crate) async fn turn(
             receiver: producer_receiver.clone(),
         };
         let approver = crate::owobot::delegation::ProjectApprover {
-            delegate: delegation_allowed,
+            authorized,
             parent: &approver,
         };
         let mut success_stats = None;

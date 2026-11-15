@@ -510,6 +510,7 @@ fn sample_body(path: &str) -> Option<&'static str> {
 fn sample_path(path: &str, session_id: &str) -> String {
     path.replace("{id}", session_id)
         .replace("{path}", "bots")
+        .replace("{thread}", "no-such-thread")
         .replace("{request_id}", "no-such-request")
         .replace("{name}", "no-such-name")
         .replace("{index}", "0")
@@ -6539,6 +6540,8 @@ async fn owobot_gateway_requires_its_own_browser_capability() {
     for (method, path) in [
         ("GET", "/owobot/api/bots"),
         ("GET", "/owobot/api/events"),
+        ("GET", "/owobot/api/delivery/test"),
+        ("POST", "/owobot/api/delivery/test/decision"),
         ("POST", "/owobot/api/groups/test/messages"),
     ] {
         let response = app

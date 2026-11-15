@@ -39,7 +39,7 @@ The test exercises the OwO Daemon's managed child process, project-scoped browse
 
 A development shell can use `OWOBOT_HOME` pointing at a staged runtime with `node.exe`, `dist/index.html`, and `dist-server/index.js`. The smoke test can also use a staged runtime via `--runtime`.
 
-The current ACP path supports scoped project reading and in-room assignments by the project lead. Approval and artifact delivery are subsequent integration steps.
+The current ACP path supports scoped project reading, in-room assignments, staging by the worker, revision-specific reviewer decisions and explicit desktop apply or reject.
 
 ## Verify the selected desktop model
 
