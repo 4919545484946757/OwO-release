@@ -349,7 +349,8 @@ private:
 
     LONG references_{1};
     bool plugin_scheme_selected() const noexcept;
-    bool plugin_context_allowed(ITfContext*,bool* pending=nullptr, bool ordinary=false);
+    bool plugin_context_allowed(ITfContext*, bool* pending = nullptr, bool ordinary = false,
+                                std::optional<bool>* previous_number = nullptr);
     void prefetch_context_metadata();
     std::unique_ptr<compatibility::UiaTextVerifier> context_verifier_;
     bool plugin_context_is_current(ITfContext*) const;

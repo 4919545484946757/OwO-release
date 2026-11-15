@@ -20,5 +20,16 @@ int main() {
 
     owo::tsf::append_bounded_language_context(context, L"ignored", 0);
     if (!context.empty()) return 4;
+
+    owo::tsf::append_ranking_language_context(context, L"前缀１２３");
+    owo::tsf::append_ranking_language_context(context, L"④\U0001d7db");
+    if (context != L"前缀0" || !owo::engine::ranking_context_ends_in_number(std::wstring_view(context))) return 5;
+    owo::tsf::append_ranking_language_context(context, L"，一起5.64号");
+    if (context != L"前缀0，一起0.0号" || owo::engine::ranking_context_ends_in_number(std::wstring_view(context))) return 6;
+    std::string encoded = "订单１２3④\U0001d7db；一起²Ⅵ";
+    if (!owo::engine::ranking_numbers_need_redaction(encoded)) return 7;
+    owo::engine::redact_ranking_numbers(encoded);
+    if (encoded != "订单0；一起0" || owo::engine::ranking_numbers_need_redaction(encoded) ||
+        !owo::engine::ranking_context_ends_in_number(std::string_view(encoded))) return 8;
     return 0;
 }

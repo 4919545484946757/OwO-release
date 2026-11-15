@@ -7,6 +7,7 @@
 #include <functional>
 #include <fstream>
 #include "owo/tsf/language_context.h"
+#include "numeric_caret_context.h"
 #include "owo/tsf/learning_anchor.h"
 
 #include "owo/tsf/pinyin_cursor.h"
@@ -1429,7 +1430,11 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         }
     }
     *eaten = should_eat_key(key) ? TRUE : FALSE;
-    if(*eaten && context && !plugin_context_allowed(context,nullptr,true)){
+    std::optional<bool> previous_number;
+    const bool starting_ranked_pinyin = !has_composition() && key >= 'A' && key <= 'Z' &&
+        shortcut_config_.input_scheme == "full_pinyin" && shortcut_config_.model_ranking_enabled;
+    if (*eaten && context && !plugin_context_allowed(context, nullptr, true,
+            starting_ranked_pinyin ? &previous_number : nullptr)) {
         clear_composition(); *eaten=FALSE;
     }
     if (!*eaten) return S_OK;
@@ -1548,6 +1553,12 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         queue_candidate_request();
     } else if (key >= 'A' && key <= 'Z') {
         if (input_buffer_.size() >= kMaximumPinyinInputLength) return S_OK;
+        if (previous_number) {
+            const auto last_was_number = engine::ranking_context_ends_in_number(std::wstring_view(recent_language_context_));
+            if (*previous_number && !last_was_number) append_ranking_language_context(recent_language_context_, L"0");
+            if (!*previous_number && last_was_number) recent_language_context_.clear();
+            if (*previous_number || last_was_number) recent_language_input_.clear();
+        }
         if (is_agent_mode() && agent_response_visible_) {
             if (!agent_message_.empty()) {
                 input_buffer_ = L"v";
@@ -4443,7 +4454,7 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
         candidate_cancellation_event_ = CreateEventW(
             nullptr, TRUE, FALSE, event_name.c_str());
         std::wstring request_context = recent_language_context_;
-        append_bounded_language_context(request_context, staged_text());
+        append_ranking_language_context(request_context, staged_text());
         std::wstring previous_input = staged_candidates_.empty()
             ? recent_language_input_ : staged_candidates_.back().source_input;
         while (!previous_input.empty() && previous_input.back() == L'\'')
@@ -4498,7 +4509,7 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
 }
 
 void TextService::append_language_context(const std::wstring_view text) {
-    append_bounded_language_context(recent_language_context_, text);
+    append_ranking_language_context(recent_language_context_, text);
     append_bounded_language_context(recent_agent_context_, text, 4096);
     queue_agent_context(std::wstring(text));
 }
@@ -6314,7 +6325,7 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
             while (!fragment_input.empty() && fragment_input.back() == L'\'')
                 fragment_input.pop_back();
             queue_commit_feedback(fragment.text, fragment_input, feedback_context);
-            append_bounded_language_context(feedback_context, fragment.text);
+            append_ranking_language_context(feedback_context, fragment.text);
             composite_text += fragment.text;
             composite_input += compact_feedback_input(fragment_input);
         }
@@ -6430,7 +6441,9 @@ HRESULT TextService::commit_raw_input(ITfContext* context) {
         clear_candidate_undo();
         append_language_context(committed);
         clear_composition();
-        recent_language_context_.clear();
+        // Raw spellings are not linguistic context, but a trailing number is
+        // useful for the next word, including hosts without readable context.
+        recent_language_context_ = engine::ranking_context_ends_in_number(std::wstring_view(committed)) ? L"0" : L"";
         recent_language_input_.clear();
     }
     return FAILED(request_result) ? request_result : session_result;
@@ -6457,7 +6470,7 @@ HRESULT TextService::commit_pending_composition(ITfContext* context) {
             while (!feedback_input.empty() && feedback_input.back() == L'\'')
                 feedback_input.pop_back();
             queue_commit_feedback(fragment.text, feedback_input, feedback_context);
-            append_bounded_language_context(feedback_context, fragment.text);
+            append_ranking_language_context(feedback_context, fragment.text);
             composite_text += fragment.text;
             composite_input += compact_feedback_input(feedback_input);
             recent_language_input_ = std::move(feedback_input);
@@ -7010,20 +7023,24 @@ bool TextService::scheme_selection_allowed(ITfContext* context, TfEditCookie coo
     return scheme_selection_matches(context, cookie, plugin_input_selection_);
 }
 
-bool TextService::plugin_context_allowed(ITfContext* context,bool* pending,bool ordinary) {
+bool TextService::plugin_context_allowed(ITfContext* context, bool* pending, bool ordinary,
+                                         std::optional<bool>* previous_number) {
     if(pending)*pending=false;
     if (!plugin_context_is_current(context)) { activation_trace("CONTEXT_NOT_CURRENT", E_ACCESSDENIED, context); return false; }
     const auto allowed = [&](const InputContextResolution& resolution) {
         if (pending) *pending = resolution.pending_verification;
         return ordinary ? resolution.ordinary_input : resolution.safety == InputMethodContextSafety::allowed;
     };
-    if(plugin_read_context_==context){
-        return allowed(resolve_input_context(context,plugin_read_cookie_)) &&
-            scheme_selection_allowed(context,plugin_read_cookie_);
-    }
+    const auto check = [&](TfEditCookie cookie) {
+        const auto resolution = resolve_input_context(context, cookie);
+        const bool safe = allowed(resolution) && scheme_selection_allowed(context, cookie);
+        if (safe && previous_number) *previous_number = preceding_numeric_symbol(context, cookie, resolution.safety);
+        return safe;
+    };
+    if (plugin_read_context_ == context) return check(plugin_read_cookie_);
     bool safe = false;
     auto* edit = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
-        safe = allowed(resolve_input_context(context, cookie)) && scheme_selection_allowed(context, cookie);
+        safe = check(cookie);
         return S_OK;
     });
     if (!edit) return false;

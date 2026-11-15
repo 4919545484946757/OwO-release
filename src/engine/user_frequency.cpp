@@ -1,4 +1,5 @@
 #include "owo/engine/user_frequency.h"
+#include "owo/engine/ranking_context.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -143,7 +144,7 @@ std::string compact_input_key(const std::string_view input) {
 std::string_view relevant_language_context(std::string_view context) {
     while (!context.empty()) {
         const auto value = static_cast<unsigned char>(context.back());
-        if (value != ' ' && value != '\t' && value != '\r' && value != '\n') break;
+        if (value != ' ' && value != '\t') break;
         context.remove_suffix(1);
     }
     std::size_t sentence_begin = 0;
@@ -242,13 +243,22 @@ bool decode(const std::filesystem::path& path,
         std::uint64_t observed = count == 1 ? 0 : kConfirmedObservation;
         if (version >= 4 && !read_u64(bytes, offset, observed)) return false;
         if (!context_text.empty() && !input_text.empty()) {
+            redact_ranking_numbers(context_text);
             context_text.push_back('\0');
             context_text += input_text;
             context_text.push_back('\0');
             context_text += text;
-            if (count == 1 && observed != kConfirmedObservation) parsed_language_singles.emplace(context_text, observed);
-            if (!parsed_language_context.emplace(std::move(context_text), count).second)
-                return false;
+            const auto [entry, added] = parsed_language_context.try_emplace(std::move(context_text), count);
+            if (added) {
+                if (count == 1 && observed != kConfirmedObservation) parsed_language_singles.emplace(entry->first, observed);
+            } else {
+                // Legacy raw-number keys can coalesce, including suffixes from
+                // the same observation. Do not sum and amplify their evidence.
+                entry->second = (std::max)(entry->second, count);
+                if (entry->second > 1 || observed == kConfirmedObservation) parsed_language_singles.erase(entry->first);
+                else if (auto time = parsed_language_singles.find(entry->first); time != parsed_language_singles.end())
+                    time->second = (std::max)(time->second, observed);
+            }
         } else if (input_text.empty()) {
             if (count == 1 && observed != kConfirmedObservation) parsed_singles.emplace(text, observed);
             if (!parsed.emplace(std::move(text), count).second) return false;
@@ -440,7 +450,9 @@ void UserFrequencyStore::record(const std::string_view context, const std::strin
                                 const std::string_view text, const std::uint32_t amount) {
     record(input, text, amount);
     if (context.empty() || input.empty() || text.empty() || amount == 0) return;
-    for (const auto suffix : context_suffixes_for_record(context)) {
+    auto masked = std::string(context);
+    redact_ranking_numbers(masked);
+    for (const auto suffix : context_suffixes_for_record(masked)) {
         std::string group(suffix.text);
         group.push_back('\0');
         group += input;
@@ -517,7 +529,12 @@ std::int64_t UserFrequencyStore::language_context_score(
     const std::string_view text) const {
     const auto gain = 1'000LL + static_cast<std::int64_t>(sensitivity_ - 1U) * 1'000LL;
     std::int64_t best = 0;
-    for (const auto suffix : context_suffixes_for_record(context)) {
+    std::string masked;
+    if (ranking_numbers_need_redaction(context)) {
+        masked.assign(context);
+        redact_ranking_numbers(masked);
+    }
+    for (const auto suffix : context_suffixes_for_record(masked.empty() ? context : std::string_view(masked))) {
         std::string key(suffix.text);
         key.push_back('\0');
         key += input;

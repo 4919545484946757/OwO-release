@@ -4,6 +4,7 @@
 #include <iostream>
 #include <limits>
 #include "inline_preedit_fixture.h"
+#include "numeric_caret_context.h"
 
 namespace owo::tsf {
 // 不激活 TSF/工作线程：验证真实按键、异步响应及离屏窗口的像素边界。
@@ -541,6 +542,19 @@ struct ExpandedCandidateTestAccess {
         using Microsoft::WRL::ComPtr;
         ComPtr<preedit_fixture::Context> editor;
         editor.Attach(new preedit_fixture::Context());
+        {
+            ComPtr<preedit_fixture::Context> number;
+            number.Attach(new preedit_fixture::Context());
+            number->doc.text = L"前文12\U0001d7db后文";
+            number->doc.caret = number->doc.end = 6;
+            if (preceding_numeric_symbol(number.Get(), 1, InputMethodContextSafety::allowed) != true ||
+                preceding_numeric_symbol(number.Get(), 1, InputMethodContextSafety::sensitive).has_value() ||
+                preceding_numeric_symbol(number.Get(), 1, InputMethodContextSafety::unknown).has_value()) return 172;
+            number->doc.end = 7;
+            if (preceding_numeric_symbol(number.Get(), 1, InputMethodContextSafety::allowed) != false) return 173;
+            number->doc.caret = number->doc.end = 8;
+            if (preceding_numeric_symbol(number.Get(), 1, InputMethodContextSafety::allowed) != false) return 174;
+        }
         service->inline_preedit_.Attach(new InlinePreedit());
         auto* preedit = service->inline_preedit_.Get();
         service->shortcut_config_.pinyin_preview_location = "input";

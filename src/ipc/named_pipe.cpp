@@ -19,6 +19,7 @@
 #include "owo/engine/managed_dictionary.h"
 #include "owo/engine/user_lexicon_alignment.h"
 #include "owo/engine/symbol_composition.h"
+#include "owo/engine/ranking_context.h"
 
 #include "owo/protocol/messages.h"
 #include "owo/protocol/candidate_pages.h"
@@ -873,6 +874,28 @@ std::vector<std::string> contextual_lexicon_preferences(
     return preferences;
 }
 
+std::vector<std::string> numeric_suffix_preferences(const std::vector<engine::Candidate>& candidates,
+                                                     const std::size_t input_bytes) {
+    // Chinese number followers: ordinals/identifiers, classifiers, time,
+    // money and measurement. Match candidate text, never a particular pinyin
+    // spelling or number. Do not create candidates or move incomplete rivals.
+    constexpr std::string_view units[]{"号", "号楼", "号线", "楼", "层", "栋", "座", "页", "章", "节", "集", "段",
+        "个", "位", "名", "人", "只", "条", "张", "本", "件", "份", "套", "对", "双", "辆", "台", "部", "间", "瓶", "杯",
+        "次", "遍", "场", "局", "组", "批", "班", "站", "门", "课", "期", "分", "秒", "点", "时", "分钟", "小时",
+        "天", "日", "周", "星期", "月", "个月", "年", "岁", "毫米", "厘米", "米", "公里", "千米", "平方米", "立方米",
+        "升", "毫升", "克", "公斤", "千克", "斤", "吨", "度", "摄氏度", "元", "角", "块", "万元", "亿", "万", "倍", "成"};
+    std::vector<std::string> preferences;
+    for (const auto& candidate : candidates) {
+        if (candidate.model_only || candidate.match_kind != engine::InputMatchKind::exact ||
+            candidate.consumed_input_bytes != input_bytes || candidate.segment_count != 1 ||
+            std::ranges::find(units, std::string_view(candidate.text)) == std::end(units)) continue;
+        if (std::ranges::find(preferences, candidate.text) == preferences.end())
+            preferences.push_back(candidate.text);
+        if (preferences.size() == 2) break;
+    }
+    return preferences;
+}
+
 void promote_contextual_preferences(
     const std::vector<std::string>& preferences,
     std::vector<engine::Candidate>& candidates) {
@@ -1519,6 +1542,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
             response.type = protocol::MessageType::error_response;
             response.text = decoded.validation.message;
         } else {
+            if (!auxiliary && (decoded.message.type == protocol::MessageType::candidate_request ||
+                              decoded.message.type == protocol::MessageType::candidate_committed))
+                engine::redact_ranking_numbers(decoded.message.context);
             const auto runtime_config = config_monitor != nullptr
                                             ? config_monitor->snapshot()
                                             : std::shared_ptr<const config::AppConfig>{};
@@ -1602,7 +1628,22 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         symbol_state->composition = std::move(composition);
                         symbol_state->first_pages.resize(symbol_state->composition.segments.size() - 1);
                     }
-                    decoded.message.text = symbol_state->composition.segments.front().query;
+                    const auto& first = symbol_state->composition.segments.front();
+                    if (adaptive_ranking_enabled && first.letters > 0) {
+                        const auto first_phonetic_end = std::ranges::find_if(first.symbols,
+                            [](const engine::CompositionSymbol& symbol) { return symbol.letters != 0; });
+                        if (first_phonetic_end != first.symbols.begin() && engine::ranking_context_ends_in_number(
+                                std::string_view(std::prev(first_phonetic_end)->text))) {
+                            if (!engine::ranking_context_ends_in_number(std::string_view(decoded.message.context)))
+                                decoded.message.context += '0';
+                            decoded.message.input.clear();
+                        } else if (first_phonetic_end != first.symbols.begin() &&
+                                   engine::ranking_context_ends_in_number(std::string_view(decoded.message.context))) {
+                            decoded.message.context.clear();
+                            decoded.message.input.clear();
+                        }
+                    }
+                    decoded.message.text = first.query;
                     if (symbol_requests.size() >= 64) {
                         const auto stale = std::find_if(symbol_requests.begin(), symbol_requests.end(),
                             [&](const auto& entry) { return entry.first != composition_symbol_key &&
@@ -2036,6 +2077,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 std::size_t model_visible_count = 0;
                 std::size_t abbreviation_sentence_limit = 0;
                 bool abbreviation_recall = false;
+                const bool numeric_context = full_pinyin_scheme && adaptive_ranking_enabled &&
+                    engine::ranking_context_ends_in_number(std::string_view(decoded.message.context));
                 if (decoded.message.page > maximum_page ||
                     (decoded.message.expanded && decoded.message.page != 0)) {
                     response.type = protocol::MessageType::error_response;
@@ -2072,8 +2115,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     auto result_limit = decoded.message.expanded
                                             ? result_size
                                             : begin + result_size + 1;
-                    if (adaptive_ranking_enabled && !decoded.message.input.empty() &&
-                        !decoded.message.context.empty())
+                    if (numeric_context || (adaptive_ranking_enabled && !decoded.message.input.empty() &&
+                        !decoded.message.context.empty()))
                         result_limit = std::max<std::size_t>(result_limit, 16);
                     if (partitioned_layout)
                         result_limit = std::min(
@@ -2097,7 +2140,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         ? result_size : begin + result_size + 1;
                     const auto full_generation_limit = result_limit;
                     const auto fast_generation_limit = std::max<std::size_t>(
-                        result_size + 1, result_size * 2 + 4);
+                        numeric_context ? 16 : result_size + 1, result_size * 2 + 4);
                     auto generation_limit =
                         decoded.message.defer_expensive_candidates
                             ? std::min(full_generation_limit, fast_generation_limit)
@@ -2415,17 +2458,18 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 candidates, page_size, parsed.normalized_input.size());
                         candidate_pool_exhausted = candidates.size() < generation_limit;
                     }
-                    if (!cancelled() && adaptive_ranking_enabled &&
-                        !decoded.message.input.empty() &&
-                        !decoded.message.context.empty() && !candidates.empty()) {
+                    if (!cancelled() && numeric_context && parsed.valid) {
+                        contextual_preferences = numeric_suffix_preferences(candidates, parsed.normalized_input.size());
+                    } else if (!cancelled() && adaptive_ranking_enabled && !decoded.message.input.empty() &&
+                               !decoded.message.context.empty() && !candidates.empty()) {
                         const auto previous = full_pinyin_scheme
                             ? full_pinyin_schema.parse(decoded.message.input, 8, false)
                             : exact_code_schema.parse(decoded.message.input, 8);
                         contextual_preferences = contextual_lexicon_preferences(
                             lexicon, previous, decoded.message.context, candidates);
-                        if (!cache_hit)
-                            promote_contextual_preferences(contextual_preferences, candidates);
                     }
+                    if (!cache_hit && !contextual_preferences.empty())
+                        promote_contextual_preferences(contextual_preferences, candidates);
                     if (symbol_state && !cache_hit && !cancelled()) {
                         const auto weak_deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(20);
                         engine::refine_weak_symbol_candidates(symbol_state->composition.segments.front(), candidates,
@@ -3112,7 +3156,11 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     page.message.text = symbol_state->composition.source.substr(next.source_begin,
                         next.source_end - next.source_begin);
                     page.message.input = decoded.message.input;
-                    page.message.context = decoded.message.context;
+                    // A strong delimiter breaks adjacency with a number before
+                    // the leading segment. A numeric literal inside this row
+                    // can establish its own context when the row is evaluated.
+                    if (!engine::ranking_context_ends_in_number(std::string_view(decoded.message.context)))
+                        page.message.context = decoded.message.context;
                     page.message.correction_enabled = decoded.message.correction_enabled;
                     page.message.symbol_composition = true;
                     for (const auto offset : decoded.message.manual_breaks)

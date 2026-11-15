@@ -296,6 +296,23 @@ int main() {
     owo::engine::UserFrequencyStore related_reload([&] { return now; });
     if (!related_reload.load(timed_path).success || related_reload.lookup_related("ejry", 8).empty() ||
         related_reload.lookup_related("ejry", 8).front().text != "俄籍人员") return 37;
+    const auto numeric_path = path.wstring() + L".numeric";
+    owo::engine::UserFrequencyStore numeric;
+    if (!numeric.load(numeric_path).success) return 92;
+    numeric.record("订单９８７６５", "hao", "号", 2);
+    const auto numeric_score = numeric.language_context_score("订单0", "hao", "号");
+    if (numeric_score <= 0 || numeric.language_context_score("订单⑤", "hao", "号") != numeric_score ||
+        numeric.language_context_score("订单456。", "hao", "号") != 0 ||
+        numeric.language_context_score("订单456\n", "hao", "号") != 0 || !numeric.flush().success) return 93;
+    std::ifstream saved_numeric(numeric_path, std::ios::binary);
+    const std::string saved_numeric_bytes((std::istreambuf_iterator<char>(saved_numeric)), {});
+    saved_numeric.close();
+    if (saved_numeric_bytes.find("订单0") == saved_numeric_bytes.npos ||
+        saved_numeric_bytes.find("９８７６５") != saved_numeric_bytes.npos) return 94;
+    owo::engine::UserFrequencyStore restored_numeric;
+    if (!restored_numeric.load(numeric_path).success ||
+        restored_numeric.language_context_score("订单12345", "hao", "号") != numeric_score) return 95;
+    std::filesystem::remove(numeric_path, ignored);
     std::filesystem::remove(v3_path + L".bak", ignored);
     std::filesystem::remove(legacy_path, ignored);
     std::filesystem::remove(timed_path, ignored);

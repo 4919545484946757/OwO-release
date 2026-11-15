@@ -1,5 +1,7 @@
 #pragma once
 
+#include "owo/engine/ranking_context.h"
+
 #include <cstddef>
 #include <string>
 #include <string_view>
@@ -24,6 +26,12 @@ inline void append_bounded_language_context(std::wstring& context,
         context[begin - 1] >= 0xd800 && context[begin - 1] <= 0xdbff)
         ++begin;
     context.erase(0, begin);
+}
+
+inline void append_ranking_language_context(std::wstring& context, const std::wstring_view committed) {
+    context.append(committed);
+    engine::redact_ranking_numbers(context);
+    append_bounded_language_context(context, {});
 }
 
 }  // namespace owo::tsf
