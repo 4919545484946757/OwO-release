@@ -38,7 +38,8 @@ public:
     bool fail_write{}, fail_selection{}, defer_write_lock{}, defer_read_lock{};
     DWORD deferred_lock{};
     DWORD last_lock_flags{};
-    unsigned writes{}, locks{};
+    unsigned writes{}, locks{}, reads{};
+    bool hide_input_scope{};
     HWND window{};
     bool reject_composition{};
     unsigned compositions_started{}, compositions_ended{};
@@ -98,6 +99,7 @@ public:
     HRESULT STDMETHODCALLTYPE GetText(LONG a, LONG b, WCHAR* out, ULONG capacity, ULONG* got,
                                       TS_RUNINFO* runs, ULONG nruns, ULONG* ngot, LONG* next) override {
         if (!lock_) return TS_E_NOLOCK;
+        if (out && capacity) ++reads;
         if (b == -1) b = static_cast<LONG>(text.size());
         if (a < 0 || b < a || b > static_cast<LONG>(text.size())) return E_INVALIDARG;
         auto n = std::min<ULONG>(b - a, capacity);
@@ -130,7 +132,8 @@ public:
     }
     HRESULT STDMETHODCALLTYPE RequestAttrsAtPosition(LONG, ULONG count, const TS_ATTRID* attrs, DWORD) override {
         scope_requested_ = false;
-        for (ULONG i = 0; i < count; ++i) if (attrs[i] == kTestInputScopeProperty) scope_requested_ = true;
+        for (ULONG i = 0; !hide_input_scope && i < count; ++i)
+            if (attrs[i] == kTestInputScopeProperty) scope_requested_ = true;
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE RequestAttrsTransitioningAtPosition(LONG, ULONG, const TS_ATTRID*, DWORD) override { return S_OK; }

@@ -40,8 +40,21 @@ bool flag(ITfCompartmentMgr* manager, REFGUID id, bool& value) {
 InputContextResolution resolve_input_context(ITfContext* context, TfEditCookie cookie) {
     InputContextResolution resolved;
     InputMethodContextFacts facts;
+    bool scope_missing = false;
     const auto finish = [&] {
         resolved.safety = evaluate_input_method_context(facts);
+        // A missing scope alone is not permission. This narrower fallback is
+        // only for a writable TSF selection in the active, same-thread view.
+        const auto foreground = edit_foreground_window();
+        resolved.ordinary_input = resolved.safety == InputMethodContextSafety::allowed ||
+            (resolved.safety == InputMethodContextSafety::unknown && scope_missing &&
+             facts.status_known && facts.compartments_known && resolved.range_known &&
+             resolved.view && resolved.focus && foreground &&
+             resolved.process == GetCurrentProcessId() && resolved.thread == GetCurrentThreadId() &&
+             GetWindowThreadProcessId(resolved.view, nullptr) == resolved.thread &&
+             IsWindowEnabled(resolved.view) && IsWindowEnabled(resolved.focus) &&
+             (resolved.view == resolved.focus || IsChild(resolved.view, resolved.focus)) &&
+             GetAncestor(resolved.focus, GA_ROOT) == foreground);
         using compatibility::Decision; using compatibility::Reason;
         switch (resolved.safety) {
         case InputMethodContextSafety::allowed: resolved.access = {Decision::allowed, Reason::verified}; break;
@@ -115,6 +128,7 @@ InputContextResolution resolve_input_context(ITfContext* context, TfEditCookie c
     if (SUCCEEDED(hr) && value.vt == VT_UNKNOWN && value.punkVal)
         (void)value.punkVal->QueryInterface(IID_PPV_ARGS(&scope));
     const bool native_fallback = native_scope_fallback_allowed(hr,value.vt);
+    scope_missing = native_fallback;
     VariantClear(&value);
     if (!scope) {
         activation_trace("CONTEXT_SCOPE_UNAVAILABLE", E_NOINTERFACE, context);

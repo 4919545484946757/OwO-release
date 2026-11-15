@@ -23,6 +23,8 @@ OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入
 
 ## 安装与使用
 
+使用前请阅读[输入环境与高级编辑使用协议](packaging/windows/USER-AGREEMENT.zh-CN.md)。
+
 运行 `OwO-Input-Method-0.3.1-windows-x64-Setup.exe`，允许系统管理员授权后，由 Setup 解包并启动 WinUI 3 安装助手：先查看软件介绍，再选择安装位置和快捷方式，最后确认安装并查看进度。随包插件可跳过，新插件仍需明确授权；已有同版本插件保留本机设置。安装助手自带运行时，无需另外安装 .NET 或 Windows App SDK。也可解压便携包后双击 `Install-OwO.cmd` 使用脚本入口（不自动导入插件）。系统需要 Windows 11 x64，以及“中文（简体，中国）”语言和基本输入支持；不要求把中文设为 Windows 显示语言。
 
 安装完成后按 `Win + Space` 选择 OwO Input Method。常用入口：

@@ -108,7 +108,7 @@ Copy-Item -LiteralPath $lexicon -Destination (Join-Path $stage 'data\owo-cn.owol
 $packaging = Join-Path $root 'packaging\windows'
 foreach ($name in @('Install-OwO.cmd', 'Uninstall-OwO.cmd', 'Start-OwO.cmd',
                     'Open-OwO-Settings.cmd',
-                    'README.zh-CN.md', 'THIRD-PARTY-NOTICES.md')) {
+                    'README.zh-CN.md', 'USER-AGREEMENT.zh-CN.md', 'THIRD-PARTY-NOTICES.md')) {
     Copy-Item -LiteralPath (Join-Path $packaging $name) -Destination $stage -Force
 }
 foreach ($name in @('Install-OwO.ps1', 'Install-Prerequisites.ps1', 'Uninstall-OwO.ps1', 'Finish-Uninstall-OwO.ps1',

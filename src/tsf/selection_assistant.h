@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include "owo/tsf/input_method_context.h"
 
 namespace owo::tsf {
 class TextService;
@@ -20,7 +21,7 @@ public:
     ~SelectionAssistant();
     bool active() const noexcept { return active_; }
     bool test(ITfContext*, WPARAM);
-    bool key(ITfContext*, WPARAM);
+    bool key(ITfContext*, WPARAM, LPARAM flags = 0);
     void choose(std::size_t);
     void poll();
     void cancel();
@@ -30,10 +31,13 @@ private:
     friend struct SelectionAssistantTestAccess;
 #endif
     void show();
+    void confirm_window();
     void start(std::size_t);
     bool unchanged(bool write, const std::wstring& replacement = {});
     TextService& service_;
     bool active_{}, busy_{}, failed_{};
+    bool awaiting_trust_{};
+    EditWindowIdentity trust_window_{};
     std::size_t operation_{};
     Microsoft::WRL::ComPtr<ITfContext> context_;
     Microsoft::WRL::ComPtr<ITfRange> range_;

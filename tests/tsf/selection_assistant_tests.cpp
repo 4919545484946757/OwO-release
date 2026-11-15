@@ -22,6 +22,7 @@ private: ULONG refs_{1}; ITfContext* context_; LONG start_,end_;
 };
 struct SelectionAssistantTestAccess {
     static int run(ITfThreadMgr* manager, TfClientId client, ITfContext* context, TestTextStore* store) {
+        test_edit_foreground=store->window;
         auto* service=new TextService;
         service->thread_manager_=manager;manager->AddRef();service->client_id_=client;
         service->foreground_focus_=true; service->chinese_mode_=false;
@@ -75,6 +76,46 @@ struct SelectionAssistantTestAccess {
         service->selection_assistant_.result_=SelectionAssistant::Result{true,L"禁止写入"};
         service->selection_assistant_.poll();
         check(store->writes==before_stale && store->text==L"前文 hello 后文","focus loss cannot replace text");
+        service->foreground_focus_=true;
+        store->hide_input_scope=true;
+        check(select(3,8), "restore selection without scope metadata");
+        const auto reads=store->reads;
+        check(service->selection_assistant_.test(context,'V') && service->selection_assistant_.key(context,'V'),
+              "writable unknown scope can ask the user");
+        check(service->selection_assistant_.awaiting_trust_ && store->reads==reads &&
+              service->selection_assistant_.selection_.empty(),
+              "trust prompt must not read selected text");
+        service->selection_assistant_.key(context,VK_SPACE);
+        check(service->selection_assistant_.awaiting_trust_, "space is not affirmative consent");
+        service->selection_assistant_.key(context,'1');
+        check(service->selection_assistant_.active() && !service->selection_assistant_.awaiting_trust_ &&
+              service->candidates_.size()==4, "explicit consent opens the four-action menu");
+        check(!service->selection_assistant_.selection_.empty() && !service->selection_assistant_.busy_,
+              "explicit consent captures the selection but does not call the model");
+        service->selection_assistant_.key(context,'1',1LL<<30);
+        check(!service->selection_assistant_.busy_, "holding consent key cannot call the model");
+        service->clear_composition();
+        check(service->selection_assistant_.key(context,'V'), "new call does not inherit approval");
+        check(select(0,2), "change untrusted selection before confirmation");
+        const auto stale_reads=store->reads;
+        service->selection_assistant_.key(context,'1');
+        check(!service->selection_assistant_.active() && store->reads==stale_reads,
+              "stale trust cannot read a changed selection");
+        check(select(3,3), "place caret for ordinary input and Agent");
+        check(service->plugin_context_allowed(context,nullptr,true) &&
+              !service->plugin_context_allowed(context), "ordinary input stays available without advanced proof");
+        check(SUCCEEDED(service->commit_text(context,L"你")) && store->text==L"前文 你hello 后文",
+              "ordinary commit writes to the unclassified, writable document");
+        service->input_buffer_=L"vnihao";
+        service->queue_agent_action(agent::Action::submit);
+        check(service->agent_trust_pending_ && !service->pending_request_ && !service->agent_request_submitted_,
+              "unverified Agent window cannot send before consent");
+        service->choose_agent_window_trust(true);
+        check(!service->agent_trust_pending_ && service->pending_request_ && service->agent_request_submitted_,
+              "explicit confirmation sends request from the matching window");
+        service->cancel_agent_session();
+        service->clear_composition();
+        test_edit_foreground=nullptr;
         service->Release();
         return failures;
     }

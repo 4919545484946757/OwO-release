@@ -215,6 +215,8 @@ private:
     void queue_candidate_request();
     void schedule_candidate_request(bool reset_retry);
     [[nodiscard]] bool is_agent_mode() const noexcept;
+    bool check_agent_window(agent::Action action);
+    void choose_agent_window_trust(bool accept);
     void queue_agent_action(agent::Action action, std::string command_id = {},
                             std::uint32_t page = 0,
                             std::uint64_t task_revision = 0,
@@ -333,7 +335,7 @@ private:
 
     LONG references_{1};
     bool plugin_scheme_selected() const noexcept;
-    bool plugin_context_allowed(ITfContext*,bool* pending=nullptr);
+    bool plugin_context_allowed(ITfContext*,bool* pending=nullptr, bool ordinary=false);
     void prefetch_context_metadata();
     std::unique_ptr<compatibility::UiaTextVerifier> context_verifier_;
     bool plugin_context_is_current(ITfContext*) const;
@@ -453,6 +455,9 @@ private:
     std::vector<CandidatePreviewRow> following_previews_;
     bool candidate_symbol_preview_{};
     std::string agent_session_id_;
+    Microsoft::WRL::ComPtr<ITfContext> agent_trust_context_;
+    EditWindowIdentity agent_trust_window_{};
+    bool agent_trust_pending_{};
     std::string agent_context_id_;
     agent::Status agent_status_{agent::Status::agent_mode};
     std::wstring agent_message_;

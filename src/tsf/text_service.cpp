@@ -607,7 +607,7 @@ public:
         return static_cast<ULONG>(remaining);
     }
     HRESULT STDMETHODCALLTYPE DoEditSession(TfEditCookie cookie) override {
-        if(inspect_input_method_context(context_,cookie)!=InputMethodContextSafety::allowed)return E_ACCESSDENIED;
+        if(!resolve_input_context(context_,cookie).ordinary_input)return E_ACCESSDENIED;
         TF_SELECTION selection{};
         ULONG fetched = 0;
         HRESULT result = context_->GetSelection(cookie, TF_DEFAULT_SELECTION, 1,
@@ -1342,11 +1342,14 @@ HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags
     }
     if (scheme_picker_shortcut(key) || (scheme_picker_.showing() && key == VK_ESCAPE)) { *eaten = TRUE; return S_OK; }
     if (scheme_picker_.showing() && !is_control_key(key)) cancel_scheme_picker();
+    if (agent_trust_pending_ && !command_modifier_down() && !key_down(VK_SHIFT) &&
+        (key == '1' || key == '2' || key == VK_ESCAPE ||
+        key == VK_SPACE || key == VK_RETURN)) { *eaten = TRUE; return S_OK; }
     if (selection_assistant_.test(context, key)) { *eaten = TRUE; return S_OK; }
     if (selection_assistant_.active() && !(is_control_key(key) && scheme_picker_binding_enabled())) clear_composition();
     *eaten = (plugin_scheme_selected() ? plugin_should_eat_key(context, key, flags)
                                      : should_eat_key(key)) ? TRUE : FALSE;
-    if(*eaten && !plugin_scheme_selected() && context && !plugin_context_allowed(context)) *eaten=FALSE;
+    if(*eaten && !plugin_scheme_selected() && context && !plugin_context_allowed(context,nullptr,true)) *eaten=FALSE;
     return S_OK;
 }
 
@@ -1371,8 +1374,18 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         cancel_scheme_picker();
         if (key == VK_ESCAPE) { *eaten = TRUE; return S_OK; }
     }
+    if (agent_trust_pending_ && !command_modifier_down() && !key_down(VK_SHIFT) &&
+        (key == '1' || key == '2' || key == VK_ESCAPE ||
+        key == VK_SPACE || key == VK_RETURN)) {
+        *eaten = TRUE;
+        if (key == '2' || key == VK_ESCAPE) choose_agent_window_trust(false);
+        else if (key == '1' &&
+                 (static_cast<ULONG_PTR>(flags) & (1ULL << 30)) == 0)
+            choose_agent_window_trust(true);
+        return S_OK;
+    }
     if (!(is_control_key(key) && scheme_picker_binding_enabled()) &&
-        selection_assistant_.key(context, key)) { *eaten = TRUE; return S_OK; }
+        selection_assistant_.key(context, key, flags)) { *eaten = TRUE; return S_OK; }
     if (plugin_scheme_selected()) return handle_plugin_key(context, key, flags, eaten);
     if (inline_preedit_ && inline_preedit_->take_termination()) clear_composition();
     if (context && inline_preedit_ && inline_preedit_->active()) {
@@ -1393,10 +1406,11 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         }
     }
     *eaten = should_eat_key(key) ? TRUE : FALSE;
-    if(*eaten && context && !plugin_context_allowed(context)){
+    if(*eaten && context && !plugin_context_allowed(context,nullptr,true)){
         clear_composition(); *eaten=FALSE;
     }
     if (!*eaten) return S_OK;
+    if (agent_trust_pending_) choose_agent_window_trust(false);
     if (context != nullptr) update_candidate_anchor(context);
 
     if (unicode_palette_visible_) {
@@ -3816,6 +3830,7 @@ bool TextService::is_agent_mode() const noexcept {
 
 std::wstring TextService::agent_preview_text() const {
     if (!is_agent_mode() || !agent_response_visible_) return {};
+    if (agent_trust_pending_) return L"v：无法验证当前窗口。信任后允许向第三方 Agent 发送请求和上下文？";
     std::wstring preview = L"v + ";
     preview.append(agent_message_);
     preview.append(L"    [");
@@ -3824,11 +3839,83 @@ std::wstring TextService::agent_preview_text() const {
     return preview;
 }
 
+bool TextService::check_agent_window(const agent::Action action) {
+    Microsoft::WRL::ComPtr<ITfDocumentMgr> document;
+    Microsoft::WRL::ComPtr<ITfContext> context;
+    InputContextResolution resolution;
+    if (thread_manager_ && SUCCEEDED(thread_manager_->GetFocus(&document)) && document &&
+        SUCCEEDED(document->GetTop(&context)) && plugin_context_is_current(context.Get())) {
+        auto* edit = new (std::nothrow) SchemeEditSession(context.Get(), [&](TfEditCookie cookie) {
+            resolution = resolve_input_context(context.Get(), cookie);
+            return S_OK;
+        });
+        if (edit) {
+            HRESULT result = E_FAIL;
+            const auto request = context->RequestEditSession(client_id_, edit, TF_ES_SYNC | TF_ES_READ, &result);
+            edit->Release();
+            if (FAILED(request) || FAILED(result)) resolution = {};
+        }
+    }
+    if (resolution.safety == InputMethodContextSafety::allowed &&
+        (!agent_trust_context_ || (same_context(context.Get(), agent_trust_context_.Get()) &&
+                                  edit_window_identity(resolution) == agent_trust_window_))) return true;
+    if (agent_trust_context_ && same_context(context.Get(), agent_trust_context_.Get()) &&
+        edit_window_identity(resolution) == agent_trust_window_ && !agent_trust_pending_ &&
+        advanced_edit_allowed(resolution, agent_trust_window_)) return true;
+
+    // Only a new submit can ask for consent. A page or command must never
+    // inherit approval from another window or open a new session on its own.
+    if (resolution.ordinary_input && action == agent::Action::submit && agent_session_id_.empty() &&
+        !agent_trust_context_) {
+        agent_trust_context_ = context;
+        agent_trust_window_ = edit_window_identity(resolution);
+        agent_trust_pending_ = true;
+        candidates_ = {L"仅本次信任", L"取消"};
+        candidate_consumed_.assign(candidates_.size(), 0);
+    } else {
+        candidate_consumed_.clear();
+        candidates_.clear();
+        agent_message_ = L"无法在当前输入位置安全调用 Agent";
+        agent_status_ = agent::Status::error;
+    }
+    clear_deferred_candidate_selection();
+    clear_deferred_punctuation();
+    candidate_request_pending_ = false;
+    candidate_groups_.clear();
+    candidate_page_ = 0;
+    has_more_candidates_ = false;
+    candidates_expanded_ = false;
+    agent_response_visible_ = true;
+    agent_commands_.clear();
+    agent_executing_command_.clear();
+    hovered_target_.reset();
+    pressed_target_.reset();
+    update_candidate_window();
+    return false;
+}
+
+void TextService::choose_agent_window_trust(const bool accept) {
+    if (!agent_trust_pending_) return;
+    agent_trust_pending_ = false;
+    agent_response_visible_ = false;
+    candidates_.clear();
+    candidate_consumed_.clear();
+    if (accept) {
+        queue_agent_action(agent::Action::submit);
+    } else {
+        agent_trust_context_.Reset();
+        agent_trust_window_ = {};
+        if (input_buffer_.size() > 1) queue_candidate_request();
+        else update_candidate_window();
+    }
+}
+
 void TextService::queue_agent_action(const agent::Action action,
                                      std::string command_id,
                                      const std::uint32_t page,
                                      const std::uint64_t task_revision,
                                      std::vector<agent::SlotUpdate> slot_updates) {
+    if (!check_agent_window(action)) return;
     if (agent_session_id_.empty()) {
         agent_session_id_ = new_agent_session_id();
         agent_last_request_id_.clear();
@@ -4003,6 +4090,9 @@ bool TextService::select_agent_command(const std::size_t index) {
 }
 
 void TextService::cancel_agent_session() {
+    agent_trust_pending_ = false;
+    agent_trust_context_.Reset();
+    agent_trust_window_ = {};
     if (agent_session_id_.empty()) return;
     agent::Request cancel;
     cancel.action = agent::Action::cancel;
@@ -5042,6 +5132,9 @@ void TextService::handle_agent_result(AgentResult* raw_result) {
     if (terminal) {
         agent_request_pending_ = false;
         agent_session_id_.clear();
+        agent_trust_pending_ = false;
+        agent_trust_context_.Reset();
+        agent_trust_window_ = {};
         agent_last_request_id_.clear();
         agent_state_revision_ = 0;
         agent_task_ = {};
@@ -5268,6 +5361,7 @@ void TextService::change_alt_code_preview_page(const int direction) {
 }
 
 void TextService::change_candidate_page(const int direction) {
+    if (agent_trust_pending_) return;
     if (plugin_scheme_selected()) { change_plugin_page(direction); return; }
     if (candidates_expanded_ || direction == 0) return;
     if (is_agent_mode() && !agent_session_id_.empty()) {
@@ -5553,6 +5647,7 @@ void TextService::scroll_expanded_candidates(const int rows) {
 
 std::size_t TextService::candidate_page_width() const noexcept {
     if (selection_assistant_.active()) return 4; // Fixed action menu, independent of normal page preferences.
+    if (agent_trust_pending_) return 2;
     return static_cast<std::size_t>(std::clamp<std::uint64_t>(candidate_page_size_, 1, 9));
 }
 
@@ -5663,6 +5758,11 @@ std::optional<TextService::HitTarget> TextService::hit_test(const POINT point) c
 }
 
 void TextService::invoke_hit_target(const HitTarget& target) {
+    if (agent_trust_pending_) {
+        if (target.kind == HitKind::candidate && target.candidate_index < 2)
+            choose_agent_window_trust(target.candidate_index == 0);
+        return;
+    }
     if (selection_assistant_.active()) {
         if (target.kind == HitKind::candidate) selection_assistant_.choose(target.candidate_index);
         return;
@@ -5845,6 +5945,9 @@ void TextService::reset_learning_chain() {
 void TextService::clear_composition(bool keep_plugin_session) {
     cancel_scheme_picker();
     selection_assistant_.cancel();
+    agent_trust_pending_ = false;
+    agent_trust_context_.Reset();
+    agent_trust_window_ = {};
     if (inline_preedit_) inline_preedit_->cancel();
     if (keep_plugin_session) {
         plugin_input_document_.composition().discard_input();
@@ -6362,7 +6465,7 @@ HRESULT TextService::finish_scheme_picker(std::optional<std::size_t> clicked) {
         }).empty())) &&
         (!config::is_plugin_input_scheme(target) || usable_scheme_plugin(target).ok)) {
         // Recheck the original focus and composition safety immediately before writing.
-        if (plugin_context_is_current(context) && (!has_composition() || plugin_context_allowed(context))) {
+        if (plugin_context_is_current(context) && (!has_composition() || plugin_context_allowed(context,nullptr,true))) {
             system_keyboard_closed_ = false;
             result = switch_input_scheme(target, context);
             activation_trace("SCHEME_PICKER_CONFIRMED", result);
@@ -6741,19 +6844,20 @@ bool TextService::scheme_selection_allowed(ITfContext* context, TfEditCookie coo
     return scheme_selection_matches(context, cookie, plugin_input_selection_);
 }
 
-bool TextService::plugin_context_allowed(ITfContext* context,bool* pending) {
+bool TextService::plugin_context_allowed(ITfContext* context,bool* pending,bool ordinary) {
     if(pending)*pending=false;
     if (!plugin_context_is_current(context)) { activation_trace("CONTEXT_NOT_CURRENT", E_ACCESSDENIED, context); return false; }
+    const auto allowed = [&](const InputContextResolution& resolution) {
+        if (pending) *pending = resolution.pending_verification;
+        return ordinary ? resolution.ordinary_input : resolution.safety == InputMethodContextSafety::allowed;
+    };
     if(plugin_read_context_==context){
-        const auto resolution=resolve_input_context(context,plugin_read_cookie_);
-        if(pending)*pending=resolution.pending_verification;
-        return resolution.safety==InputMethodContextSafety::allowed &&
+        return allowed(resolve_input_context(context,plugin_read_cookie_)) &&
             scheme_selection_allowed(context,plugin_read_cookie_);
     }
-    InputMethodContextSafety safety = InputMethodContextSafety::unknown;
+    bool safe = false;
     auto* edit = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
-        safety = inspect_input_method_context(context, cookie);
-        if (!scheme_selection_allowed(context, cookie)) safety = InputMethodContextSafety::unknown;
+        safe = allowed(resolve_input_context(context, cookie)) && scheme_selection_allowed(context, cookie);
         return S_OK;
     });
     if (!edit) return false;
@@ -6762,8 +6866,8 @@ bool TextService::plugin_context_allowed(ITfContext* context,bool* pending) {
     edit->Release();
     activation_trace("CONTEXT_EDIT_REQUEST", request, context);
     activation_trace("CONTEXT_EDIT_RESULT", result, context);
-    activation_trace(safety == InputMethodContextSafety::allowed ? "CONTEXT_ALLOWED" : "CONTEXT_DENIED", S_OK, context);
-    return SUCCEEDED(request) && SUCCEEDED(result) && safety == InputMethodContextSafety::allowed;
+    activation_trace(safe ? "CONTEXT_ALLOWED" : "CONTEXT_DENIED", S_OK, context);
+    return SUCCEEDED(request) && SUCCEEDED(result) && safe;
 }
 
 void TextService::prefetch_context_metadata(){

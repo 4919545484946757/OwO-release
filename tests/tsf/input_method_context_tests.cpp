@@ -30,6 +30,20 @@ int main() {
     check(!native_scope_fallback_allowed(S_FALSE,VT_EMPTY), "mixed InputScope is not absence");
     check(!native_scope_fallback_allowed(S_OK,VT_UNKNOWN), "explicit unsupported scope cannot be ignored");
     check(!native_scope_fallback_allowed(E_FAIL,VT_UNKNOWN), "malformed failed scope cannot be ignored");
+    InputContextResolution unclassified;
+    unclassified.ordinary_input = true;
+    unclassified.view = unclassified.focus = reinterpret_cast<HWND>(1);
+    unclassified.process = 2; unclassified.thread = 3;
+    const auto consent = edit_window_identity(unclassified);
+    check(!advanced_edit_allowed(unclassified), "ordinary input alone does not authorize advanced edit");
+    check(advanced_edit_allowed(unclassified, consent), "one-time consent matches a writable window");
+    ++unclassified.thread;
+    check(!advanced_edit_allowed(unclassified, consent), "another window thread cannot inherit consent");
+    --unclassified.thread;
+    unclassified.safety = InputMethodContextSafety::sensitive;
+    check(!advanced_edit_allowed(unclassified, consent), "explicit sensitive scope cannot be overridden");
+    unclassified.safety = InputMethodContextSafety::unknown; unclassified.ordinary_input = false;
+    check(!advanced_edit_allowed(unclassified, consent), "unproven writability cannot be overridden");
     const auto parent = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPED, 0, 0, 100, 100,
                                         nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
     const auto plain = CreateWindowExW(0, L"EDIT", L"", WS_CHILD, 0, 0, 20, 20,

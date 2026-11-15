@@ -132,6 +132,10 @@ foreach ($directory in @('bin', 'data', 'model', 'settings', 'scripts', 'LICENSE
 }
 Copy-Item -LiteralPath (Join-Path $packageRoot 'README.zh-CN.md') `
     -Destination $installRoot -Force
+$agreement = Join-Path $packageRoot 'USER-AGREEMENT.zh-CN.md'
+if (Test-Path -LiteralPath $agreement -PathType Leaf) {
+    Copy-Item -LiteralPath $agreement -Destination $installRoot -Force
+}
 Copy-Item -LiteralPath (Join-Path $packageRoot 'THIRD-PARTY-NOTICES.md') `
     -Destination $installRoot -Force
 Copy-Item -LiteralPath (Join-Path $packageRoot 'Open-OwO-Settings.cmd') `

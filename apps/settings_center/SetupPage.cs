@@ -348,9 +348,19 @@ public sealed partial class SetupPage : Page
         });
 
         _consent.Content = new TextBlock {
-            Text = "我确认安装来源可信，并同意注册输入法组件和启动当前用户后台服务。",
+            Text = "我确认安装来源可信，已了解输入环境提示，并同意注册输入法组件和启动当前用户后台服务。",
             TextWrapping = TextWrapping.Wrap
         };
+        body.Children.Add(new Expander {
+            Header = "输入环境与高级编辑使用协议",
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Content = new TextBlock {
+                Text = "能正常打字不代表当前控件已通过安全验证。使用 OwO 前请确认输入位置的性质、你有权处理其中的内容，且符合所在环境的数据规则。普通输入仍按设置运行；未验证窗口调用 v 高级功能时会要求仅本次信任，相关文字或上下文可能发送给配置的 AI 模型或第三方 Agent。请勿在无法确认其安全性的环境中输入凭据或保密信息。\n\n在适用法律允许的范围内，OwO 项目不对因误判输入环境、未经授权处理内容或主动向用户自行选择的第三方发送信息所造成的后果承担责任；本提示不限制依法不得免除的责任。",
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 960
+            }
+        });
         InitializeInstallConsentFeedback();
         body.Children.Add(_consent);
         body.Children.Add(_availability);

@@ -52,8 +52,15 @@ bool trigger(WPARAM key) {
         GetKeyState(VK_MENU) >= 0 && GetKeyState(VK_LWIN) >= 0 && GetKeyState(VK_RWIN) >= 0;
 }
 HWND focus() { GUITHREADINFO info{sizeof(info)}; return GetGUIThreadInfo(GetCurrentThreadId(), &info) ? info.hwndFocus : nullptr; }
-struct Snapshot { ComPtr<ITfRange> range; std::wstring text, context; };
-std::optional<Snapshot> capture(ITfContext* context, TfClientId client, bool with_context) {
+struct Snapshot {
+    ComPtr<ITfRange> range;
+    std::wstring text, context;
+    EditWindowIdentity window{};
+    bool needs_trust{};
+};
+std::optional<Snapshot> capture(ITfContext* context, TfClientId client, bool with_context,
+                               bool metadata_only = false, const EditWindowIdentity& trusted = {},
+                               ITfRange* expected = nullptr) {
     wchar_t executable[32768]{};
     GetModuleFileNameW(nullptr, executable, 32768);
     auto application = std::filesystem::path(executable).filename().wstring();
@@ -62,13 +69,25 @@ std::optional<Snapshot> capture(ITfContext* context, TfClientId client, bool wit
         if (application == blocked) return std::nullopt;
     Snapshot snapshot;
     const auto ok = edit(context, client, false, [&](TfEditCookie cookie) {
-        if (resolve_input_context(context, cookie).safety != InputMethodContextSafety::allowed) return E_ACCESSDENIED;
+        const auto resolution = resolve_input_context(context, cookie);
+        if (!resolution.ordinary_input) return E_ACCESSDENIED;
+        snapshot.window = edit_window_identity(resolution);
+        if (expected && snapshot.window != trusted) return E_ACCESSDENIED;
+        snapshot.needs_trust = !advanced_edit_allowed(resolution, trusted);
         TF_SELECTION selected{}; ULONG count{};
         if (FAILED(context->GetSelection(cookie, TF_DEFAULT_SELECTION, 1, &selected, &count)) || count != 1 || !selected.range) return E_FAIL;
         snapshot.range.Attach(selected.range);
         if (selected.style.fInterimChar) return E_FAIL;
         BOOL empty = TRUE;
         if (FAILED(snapshot.range->IsEmpty(cookie, &empty)) || empty) return E_FAIL;
+        if (expected) {
+            LONG start{}, end{};
+            if (FAILED(snapshot.range->CompareStart(cookie, expected, TF_ANCHOR_START, &start)) || start ||
+                FAILED(snapshot.range->CompareEnd(cookie, expected, TF_ANCHOR_END, &end)) || end) return E_ABORT;
+        }
+        // Neither the key probe nor the trust prompt reads protected text.
+        if (metadata_only || (snapshot.needs_trust && !expected)) return S_OK;
+        if (snapshot.needs_trust) return E_ACCESSDENIED;
         wchar_t buffer[8193]{}; ULONG read{};
         if (FAILED(snapshot.range->GetText(cookie, 0, buffer, 8193, &read)) || read == 0 || read > 8192) return E_FAIL;
         snapshot.text.assign(buffer, read);
@@ -210,22 +229,28 @@ bool SelectionAssistant::test(ITfContext* context, WPARAM key) {
     if (active_) return key == VK_ESCAPE || ((GetKeyState(VK_CONTROL) >= 0 && GetKeyState(VK_MENU) >= 0 &&
         GetKeyState(VK_SHIFT) >= 0 && GetKeyState(VK_LWIN) >= 0 && GetKeyState(VK_RWIN) >= 0) &&
         (key == VK_SPACE || key == 'V' || (key >= '1' && key <= '4') || (key >= VK_NUMPAD1 && key <= VK_NUMPAD4)));
-    return trigger(key) && !service_.has_composition() && gate(L"selection-assistant.enabled") && capture(context, service_.client_id_, false).has_value();
+    return trigger(key) && !service_.has_composition() && gate(L"selection-assistant.enabled") &&
+        service_.plugin_context_is_current(context) && capture(context, service_.client_id_, false, true).has_value();
 }
-bool SelectionAssistant::key(ITfContext* context, WPARAM key) {
+bool SelectionAssistant::key(ITfContext* context, WPARAM key, LPARAM flags) {
     if (active_) {
         if (!test(context, key)) { service_.clear_composition(); return false; }
         if (key == 'V') return true; // Suppress auto-repeat of the trigger.
         if (key == VK_ESCAPE) { service_.clear_composition(); return true; }
+        if ((static_cast<ULONG_PTR>(flags) & (1ULL << 30)) != 0) return true; // Trust and action need distinct presses.
+        if (awaiting_trust_ && key == VK_SPACE) return true; // Never accept by default.
         if (key >= VK_NUMPAD1 && key <= VK_NUMPAD4) { choose(key - VK_NUMPAD1); return true; }
         if (key == VK_SPACE || (key >= '1' && key <= '4')) { choose(key == VK_SPACE ? 0 : key - '1'); return true; }
         service_.clear_composition(); return false;
     }
-    if (!trigger(key) || service_.has_composition() || !gate(L"selection-assistant.enabled")) return false;
+    if (!trigger(key) || service_.has_composition() || !gate(L"selection-assistant.enabled") ||
+        !service_.plugin_context_is_current(context)) return false;
     auto selected = capture(context, service_.client_id_, gate(L"context.enabled"));
     if (!selected || !focus()) return false;
     service_.clear_composition(); // Invalidate any late ordinary-candidate update.
     context_ = context; range_ = selected->range; selection_ = std::move(selected->text); surrounding_ = std::move(selected->context); focus_ = focus();
+    awaiting_trust_ = selected->needs_trust;
+    if (awaiting_trust_) trust_window_ = selected->window;
     wchar_t executable[32768]{};
     GetModuleFileNameW(nullptr, executable, 32768); application_ = std::filesystem::path(executable).filename().wstring();
     active_ = true; busy_ = false; failed_ = false;
@@ -234,25 +259,50 @@ bool SelectionAssistant::key(ITfContext* context, WPARAM key) {
     show(); return true;
 }
 void SelectionAssistant::show() {
-    service_.candidates_ = busy_ ? std::vector<std::wstring>{L"正在请求模型 · Esc 取消"}
+    service_.candidates_ = awaiting_trust_ ? std::vector<std::wstring>{L"仅本次信任", L"取消"}
+        : busy_ ? std::vector<std::wstring>{L"正在请求模型 · Esc 取消"}
         : failed_ ? std::vector<std::wstring>{L"重试", L"取消"} : std::vector<std::wstring>(std::begin(labels), std::end(labels));
     service_.candidate_consumed_.assign(service_.candidates_.size(), 0);
     service_.candidate_groups_.clear(); service_.candidate_page_ = 0; service_.has_more_candidates_ = false;
     service_.candidate_request_pending_ = false; service_.candidates_expanded_ = false;
     service_.update_candidate_window();
 }
-std::wstring SelectionAssistant::header() const { return failed_ ? error_ : busy_ ? L"v模式原文保留中" : L"v模式：选择功能"; }
+std::wstring SelectionAssistant::header() const {
+    if (awaiting_trust_) return L"v：无法验证当前窗口。信任后允许读取选区并发送给所选模型？";
+    return failed_ ? error_ : busy_ ? L"v模式原文保留中" : L"v模式：选择功能";
+}
+void SelectionAssistant::confirm_window() {
+    if (!service_.plugin_context_is_current(context_.Get()) || focus() != focus_ ||
+        !gate(L"selection-assistant.enabled")) { service_.clear_composition(); return; }
+    auto selected = capture(context_.Get(), service_.client_id_, gate(L"context.enabled"),
+                            false, trust_window_, range_.Get());
+    if (!selected) { service_.clear_composition(); return; }
+    range_ = selected->range;
+    selection_ = std::move(selected->text);
+    surrounding_ = std::move(selected->context);
+    awaiting_trust_ = false;
+    // Trust opens the menu only. The user must separately select an operation.
+    show();
+}
 void SelectionAssistant::choose(std::size_t index) {
     if (!active_ || busy_) return;
+    if (awaiting_trust_) {
+        if (index == 0) confirm_window();
+        else if (index == 1) service_.clear_composition();
+        return;
+    }
     if (failed_) { if (index == 0) start(operation_); else if (index == 1) service_.clear_composition(); }
     else if (index < 4) start(index);
 }
 bool SelectionAssistant::unchanged(bool write, const std::wstring& replacement) {
-    if (!active_ || !context_ || !range_ || !focus_ || focus() != focus_ || !service_.foreground_focus_) return false;
-    DWORD process{}; const auto foreground = GetForegroundWindow();
+    if (!active_ || !context_ || !range_ || !focus_ || focus() != focus_ ||
+        !service_.plugin_context_is_current(context_.Get())) return false;
+    DWORD process{}; const auto foreground = edit_foreground_window();
     if (foreground && (GetWindowThreadProcessId(foreground, &process), process != GetCurrentProcessId())) return false;
     return edit(context_.Get(), service_.client_id_, write, [&](TfEditCookie cookie) {
-        if (resolve_input_context(context_.Get(), cookie).safety != InputMethodContextSafety::allowed) return E_ACCESSDENIED;
+        const auto resolution = resolve_input_context(context_.Get(), cookie);
+        if ((trust_window_.focus && trust_window_ != edit_window_identity(resolution)) ||
+            !advanced_edit_allowed(resolution, trust_window_)) return E_ACCESSDENIED;
         TF_SELECTION selected{}; ULONG count{};
         if (FAILED(context_->GetSelection(cookie, TF_DEFAULT_SELECTION, 1, &selected, &count)) || count != 1 || !selected.range) return E_FAIL;
         ComPtr<ITfRange> current; current.Attach(selected.range); LONG start{}, end{};
@@ -306,5 +356,6 @@ void SelectionAssistant::cancel() {
     if (worker_.joinable()) { worker_.request_stop(); worker_.join(); }
     { std::lock_guard lock(mutex_); result_.reset(); }
     context_.Reset(); range_.Reset(); selection_.clear(); surrounding_.clear(); application_.clear(); error_.clear(); focus_ = nullptr;
+    awaiting_trust_ = false; trust_window_ = {};
 }
 } // namespace owo::tsf

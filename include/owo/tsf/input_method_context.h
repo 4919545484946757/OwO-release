@@ -5,6 +5,16 @@
 #include "owo/compatibility/input_context.h"
 
 namespace owo::tsf {
+#ifdef OWO_TSF_TEST_ACCESS
+// In-process TSF fixtures must not steal the user's desktop foreground.
+inline thread_local HWND test_edit_foreground{};
+#endif
+[[nodiscard]] inline HWND edit_foreground_window() noexcept {
+#ifdef OWO_TSF_TEST_ACCESS
+    if (test_edit_foreground) return test_edit_foreground;
+#endif
+    return GetForegroundWindow();
+}
 [[nodiscard]] inline bool native_scope_fallback_allowed(HRESULT result, VARTYPE type) noexcept {
     return type==VT_EMPTY && (result==S_OK || result==E_FAIL || result==E_NOTIMPL);
 }
@@ -29,9 +39,25 @@ struct InputContextResolution {
     HWND view{}, focus{};
     DWORD process{}, thread{};
     bool range_known{}, native_scope{};
+    bool ordinary_input{};
     bool pending_verification{};
     HRESULT scope_result{E_PENDING};
 };
+struct EditWindowIdentity {
+    HWND view{}, focus{};
+    DWORD process{}, thread{};
+    bool operator==(const EditWindowIdentity&) const = default;
+};
+[[nodiscard]] inline EditWindowIdentity edit_window_identity(const InputContextResolution& r) noexcept {
+    return {r.view, r.focus, r.process, r.thread};
+}
+// User trust is not evidence of writability and cannot override an explicit restriction.
+[[nodiscard]] inline bool advanced_edit_allowed(const InputContextResolution& r,
+                                                 const EditWindowIdentity& trusted = {}) noexcept {
+    return r.safety == InputMethodContextSafety::allowed ||
+        (r.safety == InputMethodContextSafety::unknown && r.ordinary_input && trusted.focus &&
+         trusted == edit_window_identity(r));
+}
 // Returned handles/identity describe this edit session only; re-resolve before
 // writing. No range COM pointer or application text escapes the read lock.
 [[nodiscard]] InputContextResolution resolve_input_context(ITfContext*, TfEditCookie);
