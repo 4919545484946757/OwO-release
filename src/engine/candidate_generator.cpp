@@ -729,10 +729,38 @@ std::vector<ParsePath> dictionary_initial_paths(const ParseResult& parsed,
     const Lexicon& lexicon, const std::function<bool()>& cancelled) {
     std::vector<ParsePath> result;
     if (!parsed.phonetic_assistance) return result;
-    const auto anchor = std::find_if(parsed.paths.begin(), parsed.paths.end(), [](const auto& path) {
+    const auto exact = std::find_if(parsed.paths.begin(), parsed.paths.end(), [](const auto& path) {
         return path.match_kind == InputMatchKind::exact;
     });
-    if (anchor == parsed.paths.end()) return result;
+    std::optional<ParsePath> mixed_anchor;
+    if (exact == parsed.paths.end() && parsed.normalized_input.size() <= 18) {
+        // A leading abbreviation does not always have an exact parser path
+        // to anchor dictionary recovery. Recover the typed spans from a
+        // no-edit path with a fully typed tail, discarding the parser's
+        // arbitrary early initial completions (including syllabic m/n).
+        for (const auto& source : parsed.paths) {
+            if (source.match_kind != InputMatchKind::abbreviated_completion ||
+                source.edit_count != 0 || source.syllables.size() < 3 || source.syllables.size() > 6) continue;
+            const auto raw = source_segments(parsed, source);
+            if (raw.size() != source.syllables.size() || raw.back().size() < 2 ||
+                raw.back() != source.syllables.back().text ||
+                !source.syllables.back().complete) continue;
+            auto candidate = source;
+            bool leading_initial = false, valid = true;
+            for (std::size_t i = 0; i < raw.size(); ++i) {
+                if (raw[i].empty() || raw[i].find('\'') != std::string::npos) { valid = false; break; }
+                const bool initial = raw[i].size() == 1 &&
+                    std::string_view("bcdfghjklmnpqrstvwxyz").find(raw[i].front()) != std::string_view::npos;
+                leading_initial |= initial;
+                auto& syllable = candidate.syllables[i];
+                syllable.complete = !initial && syllable.complete && syllable.text == raw[i];
+                syllable.text = raw[i];
+            }
+            if (valid && leading_initial) { mixed_anchor = std::move(candidate); break; }
+        }
+    }
+    const auto* anchor = exact != parsed.paths.end() ? &*exact : mixed_anchor ? &*mixed_anchor : nullptr;
+    if (!anchor) return result;
     const auto ambiguous = [](const Syllable& s) {
         return s.complete && s.text.size() == 1 && std::string_view("bcdfghjklmnpqrstvwxyz").find(s.text[0]) != std::string_view::npos;
     };
@@ -773,9 +801,12 @@ std::vector<ParsePath> dictionary_initial_paths(const ParseResult& parsed,
                 for (auto end = std::max(begin + 2, position + 1);
                      end <= state.syllables.size() && end - begin <= 4; ++end) {
                     if (cancelled && cancelled()) return {};
-                    const auto& first = state.syllables[begin];
-                    const auto input = std::string_view(parsed.normalized_input).substr(first.begin, state.syllables[end - 1].end - first.begin);
-                    if (input.find('\'') != std::string_view::npos) continue;
+                    std::string input;
+                    for (auto i = begin; i < end; ++i) {
+                        const auto& syllable = state.syllables[i];
+                        input.append(std::string_view(parsed.normalized_input).substr(
+                            syllable.begin, syllable.end - syllable.begin));
+                    }
                     const auto key = begin * (state.syllables.size() + 1) + end;
                     auto found = matches.find(key);
                     if (found == matches.end()) {
@@ -814,6 +845,60 @@ std::vector<ParsePath> dictionary_initial_paths(const ParseResult& parsed,
         pending = std::move(next);
     }
     return result;
+}
+
+// Grammar role vocabulary, independent of any specific input or prefix.
+// A prefix earns this alternative only if the active lexicon attests the
+// same word in a sentence-final particle frame. A carrier syllable alone
+// is not enough to generate e.g. a catalog of unrelated noun + particle pairs.
+std::optional<Candidate> mixed_particle_alternative(
+    const ParseResult& parsed, std::span<const ParsePath> recovered, RequestLexiconCache& cache,
+    const std::function<bool()>& cancelled) {
+    struct Particle { std::string_view reading, text; bool frame; };
+    constexpr std::array particles{
+        Particle{"ne", "呢", true}, Particle{"ma", "吗", true}, Particle{"ba", "吧", true},
+        Particle{"a", "啊", true}, Particle{"ya", "呀", true}, Particle{"la", "啦", true},
+        Particle{"o", "哦", false}, Particle{"ma", "嘛", false}, Particle{"li", "哩", false},
+        Particle{"lie", "咧", false}, Particle{"lei", "嘞", false}
+    };
+    std::optional<Candidate> best;
+    for (const auto& path : recovered) {
+        if (cancelled && cancelled()) return {};
+        const auto count = path.syllables.size();
+        if (count < 3 || count > 5 || path.syllables.back().end != parsed.normalized_input.size()) continue;
+        auto raw = source_segments(parsed, path);
+        if (raw.size() != count || raw.back() != path.syllables.back().text ||
+            std::none_of(particles.begin(), particles.end(),
+                [&](const auto& p) { return p.reading == raw.back(); })) continue;
+        std::vector<std::string_view> reading;
+        for (const auto& syllable : path.syllables) reading.push_back(syllable.text);
+        const auto head_reading = std::span<const std::string_view>(reading).first(count - 1);
+        const auto tail_reading = std::span<const std::string_view>(reading).last(1);
+        auto heads = cache.lookup(head_reading);
+        retain_frequent_entries(heads, 2);
+        for (const auto& head : heads) {
+            if (utf8_character_count(head.text) != count - 1) continue;
+            auto probe = reading;
+            const auto supported = std::any_of(particles.begin(), particles.end(), [&](const auto& particle) {
+                if (!particle.frame) return false;
+                probe.back() = particle.reading;
+                return cache.phrase_score(probe, std::string(head.text) + std::string(particle.text)).has_value();
+            });
+            if (!supported) continue;
+            for (const auto& ending : cache.lookup(tail_reading)) {
+                if (std::none_of(particles.begin(), particles.end(), [&](const auto& particle) {
+                    return particle.reading == raw.back() && particle.text == ending.text;
+                })) continue;
+                const auto score = candidate_unigram_score(head.frequency) + candidate_unigram_score(ending.frequency) -
+                    kAdditionalSegmentPenalty - candidate_input_match_penalty(path) + source_initial_bonus(parsed, path);
+                Candidate candidate{std::string(head.text) + std::string(ending.text), own_syllables(reading),
+                    score, path.match_kind, raw, parsed.normalized_input.size(), 2};
+                candidate.segment_lengths = {count - 1, 1};
+                if (!best || score_less(candidate, *best)) best = std::move(candidate);
+            }
+        }
+    }
+    return best;
 }
 
 }  // namespace
@@ -1318,6 +1403,20 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     }
     const auto boundary_paths = dictionary_boundary_paths(parsed, lookup_cache, cancelled);
     const auto initial_paths = dictionary_initial_paths(parsed, lexicon_, cancelled);
+    std::optional<std::string> mixed_particle_text;
+    if (!correction_only && !pure_initial_sequence && parsed.normalized_input.size() <= 18 &&
+        std::none_of(parsed.paths.begin(), parsed.paths.end(),
+            [](const auto& path) {
+                return path.match_kind == InputMatchKind::exact &&
+                    std::all_of(path.syllables.begin(), path.syllables.end(), [](const auto& syllable) {
+                        return syllable.complete;
+                    });
+            })) {
+        if (auto alternative = mixed_particle_alternative(parsed, initial_paths, lookup_cache, cancelled)) {
+            mixed_particle_text = alternative->text;
+            store_candidate(std::move(*alternative));
+        }
+    }
     std::vector<ParsePath> phrase_tail_paths;
     // Recover word-backed consonant tails before the generic completion list
     // spends its bounded path budget on Cartesian initial expansions.
@@ -2594,6 +2693,20 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         if (terminal_alternative) {
             if (ordered.size() == 1) ordered.push_back(std::move(*terminal_alternative));
             else if (!ordered[1].user_preferred()) ordered[1] = std::move(*terminal_alternative);
+        }
+        if (mixed_particle_text && std::none_of(ordered.begin(), ordered.end(), [&](const auto& value) {
+                return value.text == *mixed_particle_text;
+            })) {
+            const auto particle = std::find_if(full.begin() + static_cast<std::ptrdiff_t>(sentence_count), full.end(),
+                [&](const auto& value) { return value.text == *mixed_particle_text; });
+            if (particle != full.end()) {
+                // A full dictionary word uses the word pool, not the
+                // composition reserve. Preserve it alongside the alternative.
+                if (ordered.size() == 1 || ordered[1].segment_count == 1)
+                    ordered.push_back(std::move(*particle));
+                else if (!ordered[1].user_preferred() && ordered[1].segment_count > 1)
+                    ordered[1] = std::move(*particle);
+            }
         }
 
         // Keep one independently supported boundary interpretation selectable

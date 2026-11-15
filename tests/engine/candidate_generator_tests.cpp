@@ -1349,6 +1349,41 @@ int main() {
             target->source_segments != std::vector<std::string>{"xiu","fu","lei","si","w","t"})
             return fail("word-backed consonant tail was pruned before sentence composition");
     }
+    const owo::engine::MemoryLexicon mixed_head_lexicon({
+        {{"zen","me"},"怎么",501014}, {{"shen","me"},"什么",800000},
+        {{"zhu","ming"},"著名",500285}, {{"zen","me","ne"},"怎么呢",100},
+        {{"shen","me","ne"},"什么呢",219875},
+        {{"li"},"里",7329328}, {{"li"},"理",1903915}, {{"li"},"哩",58164},
+        {{"zi","mo","li"},"紫茉莉",850000}, {{"xuan"},"选",3000000},
+        {{"zen"},"怎",100000}, {{"shen"},"什",100000}, {{"zhu"},"著",100000},
+        {{"me"},"么",100000}, {{"ming"},"名",100000}, {{"m"},"呣",500}});
+    const owo::engine::CandidateGenerator mixed_head_generator(mixed_head_lexicon);
+    for (const bool correction : {false, true})
+        for (const auto partition : {0U, 7U})
+            for (const auto& [input, expected] : {
+                std::pair{"zmli", "怎么哩"}, std::pair{"z'm'li", "怎么哩"}, std::pair{"smli", "什么哩"}}) {
+                const auto values = mixed_head_generator.generate(schema.parse(input, 32, correction),
+                    18, false, {}, nullptr, {}, false, partition, false, 0, 7);
+                if (std::none_of(values.begin(), values.end(), [&](const auto& item) {
+                    return item.text == expected && !item.model_only && item.consumed_input_bytes == std::string_view(input).size() &&
+                        item.segment_lengths == std::vector<std::size_t>{2, 1} &&
+                        item.source_segments.back() == "li";
+                })) {
+                    std::cerr << input << ", correction=" << correction << ", partition=" << partition << ':';
+                    for (const auto& value : values) std::cerr << ' ' << value.text;
+                    std::cerr << '\n';
+                    return fail("mixed leading initials lost a dictionary-backed colloquial tail");
+                }
+                if (std::any_of(values.begin(), values.end(), [](const auto& item) {
+                    return item.text == "著名哩";
+                })) return fail("mixed particle reserve fabricated an unattested frame");
+            }
+    const auto mixed_verb_tail = mixed_head_generator.generate(schema.parse("zmxuan", 32, false),
+        18, false, {}, nullptr, {}, false, 7, false, 0, 7);
+    if (std::none_of(mixed_verb_tail.begin(), mixed_verb_tail.end(), [](const auto& item) {
+        return item.text == "怎么选" && item.consumed_input_bytes == 6 &&
+            item.source_segments == std::vector<std::string>{"z", "m", "xuan"};
+    })) return fail("dictionary-backed leading initials did not preserve a non-particle exact tail");
     const auto cancelled_generation = word_priority_generator.generate(
         schema.parse("shi"), 32, false, {}, nullptr, [] { return true; });
     if (!cancelled_generation.empty())

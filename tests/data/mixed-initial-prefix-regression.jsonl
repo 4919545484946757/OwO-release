@@ -1,0 +1,4 @@
+{"id":"mixed-initial-colloquial","input":"zmli","expected":["怎么哩"],"tags":["mixed","particle"]}
+{"id":"mixed-initial-colloquial-explicit","input":"z'm'li","expected":["怎么哩"],"correction":false,"tags":["mixed","particle","separator"]}
+{"id":"mixed-initial-colloquial-second-head","input":"smli","expected":["什么哩"],"tags":["mixed","particle"]}
+{"id":"mixed-initial-verb-tail","input":"zmxuan","expected":["怎么选"],"correction":false,"tags":["mixed","verb"]}
