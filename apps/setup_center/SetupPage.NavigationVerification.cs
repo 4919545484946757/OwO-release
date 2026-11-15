@@ -70,6 +70,27 @@ public sealed partial class SetupPage
         ShowBackendLine(new InstallerProcessLine("OWO_SETUP_PROGRESS|99|complete", true));
         if (_progress.Value != 45 || _progressPercentage.Text != "45%")
             throw new InvalidOperationException("Stale or stderr progress changed the visible stage.");
+        await Task.Delay(150);
+        var tips = _progressTipsGrid ?? throw new InvalidOperationException("Missing usage tips on progress page.");
+        if (tips.Children.Count != 4 || tips.ActualWidth <= 0 ||
+            tips.ColumnDefinitions.Count != (tips.ActualWidth >= 570 ? 2 : 1))
+            throw new InvalidOperationException("Usage tips did not render in the progress page.");
+        var window = ((App)Microsoft.UI.Xaml.Application.Current).MainWindow.AppWindow;
+        var wideSize = window.Size;
+        try {
+            window.Resize(new Windows.Graphics.SizeInt32(Math.Min(wideSize.Width, 470), wideSize.Height));
+            await Task.Delay(220);
+            UpdateLayout();
+            if (tips.ColumnDefinitions.Count != 1 || tips.RowDefinitions.Count != 4 ||
+                _progress.Value != 45 || _installLog.Visibility != Microsoft.UI.Xaml.Visibility.Collapsed)
+                throw new InvalidOperationException("Narrow usage tips did not reflow without changing progress or details.");
+            var tipsBottom = tips.TransformToVisual(this).TransformPoint(new Windows.Foundation.Point(0, tips.ActualHeight)).Y;
+            var detailsTop = _detailsToggle.TransformToVisual(this).TransformPoint(default).Y;
+            if (detailsTop < tipsBottom)
+                throw new InvalidOperationException("Usage tips overlap the details action at narrow width.");
+        } finally {
+            window.Resize(wideSize);
+        }
         _detailsToggle.IsChecked = true;
         await Task.Delay(500);
         _detailsToggle.IsChecked = false;

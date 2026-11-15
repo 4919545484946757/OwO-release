@@ -93,11 +93,13 @@ public partial class App : Application
             try {
                 var page = new UninstallPage(ValueOf("--uninstall-root"), ValueOf("--uninstall-workspace"), preview, window.Close);
                 window.Content = page;
+                UninstallTitleBar.Bind(window, page);
                 window.AppWindow.Closing += (_, closing) => { if (page.Busy) closing.Cancel = true; };
                 window.Activate();
                 if (verify) {
                     try {
-                        await page.VerifyAsync(width => window.AppWindow.Resize(new Windows.Graphics.SizeInt32(width, 620)));
+                        await page.VerifyAsync(width => window.AppWindow.Resize(new Windows.Graphics.SizeInt32(width, 620)),
+                            window.AppWindow.TitleBar);
                         if (report is not null) File.WriteAllLines(report, page.VerificationReport);
                     } catch (Exception error) {
                         Environment.ExitCode = 1;

@@ -1,4 +1,5 @@
 using Microsoft.UI.Text;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -316,7 +317,7 @@ internal sealed class UninstallPage : Page
         if (_simulateFailure) throw new IOException("测试：程序文件仍被占用。");
     }
 
-    internal async Task VerifyAsync(Action<int> resize)
+    internal async Task VerifyAsync(Action<int> resize, AppWindowTitleBar titleBar)
     {
         if (!_example) throw new InvalidOperationException("UI verification requires a simulation.");
         var checks = new List<string>();
@@ -328,6 +329,21 @@ internal sealed class UninstallPage : Page
         Check(!_compact && Grid.GetColumn(_article) == 1, "wide dashboard uses two columns");
         resize(520); await Task.Delay(140);
         Check(_compact && Grid.GetRow(_article) == 1, "narrow dashboard stacks the cards");
+        if (AppWindowTitleBar.IsCustomizationSupported()) {
+            if (new Windows.UI.ViewManagement.AccessibilitySettings().HighContrast) {
+                Check(titleBar.PreferredTheme == TitleBarTheme.UseDefaultAppMode, "title bar respects system high contrast");
+            } else {
+                RequestedTheme = ElementTheme.Dark;
+                await Task.Delay(80);
+                Check(ActualTheme == ElementTheme.Dark && titleBar.PreferredTheme == TitleBarTheme.Dark,
+                    "native caption follows the dark XAML theme");
+                RequestedTheme = ElementTheme.Light;
+                await Task.Delay(80);
+                Check(ActualTheme == ElementTheme.Light && titleBar.PreferredTheme == TitleBarTheme.Light,
+                    "native caption updates when the XAML theme changes");
+                RequestedTheme = ElementTheme.Default;
+            }
+        }
         Check(_keep.IsChecked == true && !_dataWarning.IsOpen, "keep user data is default");
         Check(UninstallProgress.TryParse("{\"stage\":\"stop\",\"percent\":18,\"detail\":\"\"}", out var packet) &&
               packet?.Percent == 18 && !UninstallProgress.TryParse("{\"stage\":\"stop\",\"percent\":100,\"detail\":\"\"}", out _),

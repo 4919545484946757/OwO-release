@@ -66,6 +66,7 @@ public sealed partial class SetupPage : Page
         IsOpen = true, IsClosable = false, HorizontalContentAlignment = HorizontalAlignment.Stretch
     };
     private readonly ToggleButton _detailsToggle = new() { Content = "显示安装详细信息" };
+    private Grid? _progressTipsGrid;
     private readonly TextBox _installLog = new() {
         IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
         MinHeight = 140, MaxHeight = 220, Visibility = Visibility.Collapsed,
@@ -426,9 +427,64 @@ public sealed partial class SetupPage : Page
             Text = "请稍候，安装完成前不要关闭此窗口。",
             TextWrapping = TextWrapping.Wrap, Opacity = 0.78
         });
+        body.Children.Add(BuildProgressTips());
         body.Children.Add(_detailsToggle);
         body.Children.Add(_installLog);
         return body;
+    }
+
+    private Border BuildProgressTips()
+    {
+        var tips = new[] {
+            ("切换输入方案 · 默认 Ctrl + Space",
+             "按住 Ctrl，点按空格唤起方案列表，再点空格切换，松开 Ctrl 确认。"),
+            ("逐个自定义中文标点",
+             "进入「设置中心 → 候选与输入 → 中文标点」，分别选择每个符号是否使用中文格式。"),
+            ("官方在线资源来自 GitHub",
+             "在线下载失败时，请检查网络连接以及是否能访问 GitHub。"),
+            ("撤销后重新选词 · Ctrl + Z",
+             "最近一次全拼候选上屏后 10 秒内，若应用成功撤销它，OwO 会恢复原拼音供你重新选词。"),
+        };
+        var grid = new Grid { ColumnSpacing = 18, RowSpacing = 10 };
+        _progressTipsGrid = grid;
+        var items = tips.Select(tip => {
+            var item = new StackPanel { Spacing = 2 };
+            item.Children.Add(new TextBlock {
+                Text = tip.Item1, FontSize = 13, TextWrapping = TextWrapping.Wrap,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            });
+            item.Children.Add(new TextBlock {
+                Text = tip.Item2, FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.Wrap
+            });
+            grid.Children.Add(item);
+            return item;
+        }).ToArray();
+        var columns = 0;
+        void Arrange(double width) {
+            var desired = width >= 570 ? 2 : 1;
+            if (columns == desired) return;
+            columns = desired;
+            grid.ColumnDefinitions.Clear();
+            grid.RowDefinitions.Clear();
+            for (var i = 0; i < columns; i++)
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            for (var i = 0; i < (items.Length + columns - 1) / columns; i++)
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            for (var i = 0; i < items.Length; i++) {
+                Grid.SetRow(items[i], i / columns);
+                Grid.SetColumn(items[i], i % columns);
+            }
+        }
+        Arrange(0);
+        grid.SizeChanged += (_, args) => Arrange(args.NewSize.Width);
+        var content = new StackPanel { Spacing = 9 };
+        content.Children.Add(new TextBlock { Text = "使用提示", FontSize = 16,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        content.Children.Add(grid);
+        var card = Card(content);
+        card.Padding = new Thickness(14, 10, 14, 12);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(card, "InstallProgressTips");
+        return card;
     }
 
     private async void PrimaryButton_Click(object sender, RoutedEventArgs e)
@@ -781,7 +837,7 @@ public sealed partial class SetupPage : Page
         _detailsToggle.Content = visible ? "隐藏安装详细信息" : "显示安装详细信息";
         _installLog.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         if (_step == SetupStep.Progress)
-            ResizeInstallerWindow(visible ? 750 : 670, preservePosition: true);
+            ResizeInstallerWindow(visible ? 805 : 725, preservePosition: true);
     }
 
     private static void ResizeInstallerWindow(int preferredHeight, bool preservePosition = false)
