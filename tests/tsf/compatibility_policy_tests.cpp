@@ -18,6 +18,26 @@ int main() {
     check(!UiaTextVerifier::current(sample,handle,10,21,1,1050),"wrong UIA thread rejected");
     check(!UiaTextVerifier::current(sample,nullptr,10,20,1,1050),"wrong UIA focus rejected");
     check(!UiaTextVerifier::current(sample,handle,10,20,1,999),"invalid UIA clock rejected");
+    VARIANT password{}, enabled{}, read_only{};
+    password.vt=enabled.vt=read_only.vt=VT_BOOL;
+    enabled.boolVal=VARIANT_TRUE;
+    const auto focused_edit = [&](bool same=true, bool focused=true, CONTROLTYPEID type=UIA_EditControlTypeId) {
+        return evaluate_uia_focused_edit(same,focused,type,password,enabled,read_only);
+    };
+    check(focused_edit().decision==Decision::allowed,"focused custom edit with explicit writable metadata");
+    check(focused_edit(false).decision!=Decision::allowed,"unrelated process cannot authorize");
+    check(focused_edit(true,false).decision!=Decision::allowed,"stale focus cannot authorize");
+    check(focused_edit(true,true,UIA_PaneControlTypeId).decision!=Decision::allowed,"generic wrapper cannot use edit metadata fallback");
+    read_only.vt=VT_UNKNOWN;
+    check(focused_edit().decision==Decision::unknown,"unsupported or mixed readonly property cannot authorize");
+    password.boolVal=VARIANT_TRUE;
+    check(focused_edit().reason==Reason::password,"password denied even with missing readonly metadata");
+    password.boolVal=VARIANT_FALSE; enabled.boolVal=VARIANT_FALSE; read_only.vt=VT_BOOL;
+    check(focused_edit().reason==Reason::disabled,"disabled edit denied");
+    enabled.boolVal=VARIANT_TRUE; read_only.boolVal=VARIANT_TRUE;
+    check(focused_edit().reason==Reason::read_only,"readonly edit denied");
+    read_only.boolVal=VARIANT_FALSE; password.vt=VT_EMPTY;
+    check(focused_edit().decision==Decision::unknown,"unsupported password property cannot authorize");
     VARIANT role{}, state{}; role.vt=state.vt=VT_I4;
     role.lVal=ROLE_SYSTEM_TEXT; state.lVal=STATE_SYSTEM_FOCUSED|STATE_SYSTEM_FOCUSABLE;
     check(evaluate_accessible_edit(S_OK,role,S_OK,state).decision==Decision::allowed,"focused MSAA writable text supplies independent metadata");

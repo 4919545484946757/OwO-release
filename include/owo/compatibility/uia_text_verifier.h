@@ -9,6 +9,46 @@
 
 namespace owo::compatibility {
 struct UiaCaretProof {Resolution access{};HRESULT result{E_ACCESSDENIED};};
+
+[[nodiscard]] inline Resolution evaluate_uia_focused_edit(bool same_process, bool focused,
+    CONTROLTYPEID type, const VARIANT& password, const VARIANT& enabled, const VARIANT& read_only) noexcept {
+    if (!same_process || !focused || type != UIA_EditControlTypeId ||
+        password.vt != VT_BOOL || enabled.vt != VT_BOOL) return {};
+    if (password.boolVal != VARIANT_FALSE) return {Decision::denied, Reason::password};
+    if (enabled.boolVal == VARIANT_FALSE) return {Decision::denied, Reason::disabled};
+    return evaluate_edit({true, true, true, read_only.vt == VT_BOOL, true, false,
+        read_only.vt == VT_BOOL && read_only.boolVal != VARIANT_FALSE});
+}
+
+// For a freshly fetched focused element only, not an arbitrary HWND wrapper.
+// Legacy providers can expose Value or TextPattern v1 without TextPattern2.
+// Ask only for Boolean metadata; do not get Value, GetText, or SetValue.
+[[nodiscard]] inline UiaCaretProof inspect_uia_focused_edit(IUIAutomationElement* element, DWORD expected_pid) {
+    UiaCaretProof proof;
+    int pid{}; CONTROLTYPEID type{}; BOOL focused=FALSE;
+    if (!element || !expected_pid || element->get_CurrentProcessId(&pid) != S_OK ||
+        pid != static_cast<int>(expected_pid) || element->get_CurrentControlType(&type) != S_OK ||
+        type != UIA_EditControlTypeId || element->get_CurrentHasKeyboardFocus(&focused) != S_OK ||
+        !focused) return proof;
+    struct Property { VARIANT value{}; ~Property(){VariantClear(&value);} } password, enabled, read_only;
+    if (element->GetCurrentPropertyValueEx(UIA_IsPasswordPropertyId, TRUE, &password.value) != S_OK ||
+        element->GetCurrentPropertyValueEx(UIA_IsEnabledPropertyId, TRUE, &enabled.value) != S_OK) return proof;
+    proof.access = evaluate_uia_focused_edit(true, true, type, password.value, enabled.value, read_only.value);
+    if (proof.access.decision == Decision::denied || password.value.vt != VT_BOOL || enabled.value.vt != VT_BOOL) return proof;
+    proof.result = element->GetCurrentPropertyValueEx(UIA_ValueIsReadOnlyPropertyId, TRUE, &read_only.value);
+    if (proof.result == S_OK && read_only.value.vt != VT_BOOL) {
+        VariantClear(&read_only.value);
+        Microsoft::WRL::ComPtr<IUIAutomationTextPattern> pattern;
+        Microsoft::WRL::ComPtr<IUIAutomationTextRange> range;
+        proof.result = element->GetCurrentPatternAs(UIA_TextPatternId,IID_PPV_ARGS(&pattern));
+        if (proof.result == S_OK && pattern) proof.result = pattern->get_DocumentRange(&range);
+        if (proof.result == S_OK && range) proof.result = range->GetAttributeValue(UIA_IsReadOnlyAttributeId,&read_only.value);
+    }
+    if (proof.result == S_OK && element->get_CurrentHasKeyboardFocus(&focused) == S_OK && focused)
+        proof.access = evaluate_uia_focused_edit(true, true, type, password.value, enabled.value, read_only.value);
+    return proof;
+}
+
 [[nodiscard]] inline UiaCaretProof inspect_uia_text_caret(IUIAutomationElement* element,DWORD expected_pid,bool cached=false){
     UiaCaretProof proof;
     if(!element)return proof;
@@ -75,11 +115,15 @@ private:
         target.result=automation->GetFocusedElementBuildCache(cache,&element);
         if(FAILED(target.result)||!element)return target;
         auto verified=inspect_uia_text_caret(element.Get(),target.pid,true);
-        if(verified.access.decision==Decision::unknown || verified.result==E_NOINTERFACE){
+        if(verified.access.decision==Decision::unknown && verified.result==E_NOINTERFACE){
+            const auto focused_edit=inspect_uia_focused_edit(element.Get(),target.pid);
+            if(focused_edit.access.decision!=Decision::unknown)verified=focused_edit;
+        }
+        if(verified.access.decision==Decision::unknown){
             Microsoft::WRL::ComPtr<IUIAutomationElement> native;
             if(SUCCEEDED(automation->ElementFromHandleBuildCache(target.focus,cache,&native))&&native){
                 const auto alternative=inspect_uia_text_caret(native.Get(),target.pid,true);
-                if(alternative.access.decision==Decision::allowed){element=std::move(native);verified=alternative;}
+                if(alternative.access.decision!=Decision::unknown)verified=alternative;
             }
         }
         target.result=verified.result;target.access=verified.access;

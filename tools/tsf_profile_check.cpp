@@ -47,6 +47,7 @@ int main(int argc, char** argv) {
                 const auto password_hr=element->get_CurrentIsPassword(&password);
                 const auto enabled_hr=element->get_CurrentIsEnabled(&enabled);
                 const auto focus_hr=element->get_CurrentHasKeyboardFocus(&focused);
+                const auto focused_edit=owo::compatibility::inspect_uia_focused_edit(element.Get(),pid);
                 Microsoft::WRL::ComPtr<IUIAutomationTextPattern2> pattern;
                 Microsoft::WRL::ComPtr<IUIAutomationTextRange> range;
                 auto caret_hr=element->GetCurrentPatternAs(UIA_TextPattern2Id,IID_PPV_ARGS(&pattern));
@@ -56,7 +57,8 @@ int main(int argc, char** argv) {
                 std::cout<<" type="<<type<<" type_hr="<<type_hr<<" password="<<password<<" password_hr="<<password_hr
                          <<" enabled="<<enabled<<" enabled_hr="<<enabled_hr<<" focused="<<focused<<" focus_hr="<<focus_hr
                          <<" pattern="<<static_cast<bool>(pattern)<<" caret="<<active<<" caret_hr="<<caret_hr
-                         <<" readonly_vt="<<attribute.vt<<" readonly="<<(attribute.vt==VT_BOOL?attribute.boolVal:0);
+                         <<" readonly_vt="<<attribute.vt<<" readonly="<<(attribute.vt==VT_BOOL?attribute.boolVal:0)
+                         <<" focused_edit_hr="<<focused_edit.result<<" focused_edit_decision="<<static_cast<int>(focused_edit.access.decision);
                 VariantClear(&attribute);
             }
             std::cout<<'\n';
