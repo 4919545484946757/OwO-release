@@ -39,6 +39,19 @@ int main(const int argc, char** argv) {
     invalid_keypad.replace(invalid_keypad.find("candidate_selection_numpad=true"),
         std::string_view("candidate_selection_numpad=true").size(), "candidate_selection_numpad=invalid");
     if (owo::config::parse_config(invalid_keypad).ok) return 103;
+    if (keypad_roundtrip.value.syntax_collocation_enabled || migrated_preview.value.syntax_collocation_enabled) return 104;
+    for (const bool use_keypad : {false, true}) {
+        auto syntax = preview;
+        syntax.candidate_selection_numpad = use_keypad;
+        syntax.syntax_collocation_enabled = true;
+        auto encoded = owo::config::serialize_config(syntax);
+        const auto roundtrip = owo::config::parse_config(encoded);
+        if (!encoded.starts_with("schema_version=23\n") || !roundtrip.ok || roundtrip.value != syntax) return 105;
+        const auto pos = encoded.find("syntax_collocation_enabled=true");
+        if (pos == std::string::npos) return 106;
+        encoded.replace(pos, std::string_view("syntax_collocation_enabled=true").size(), "syntax_collocation_enabled=invalid");
+        if (owo::config::parse_config(encoded).ok) return 107;
+    }
     preview.pinyin_preview_location = "unknown";
     if (owo::config::validate_config(preview).ok) return 73;
     auto single_first = owo::config::AppConfig{};

@@ -70,12 +70,14 @@ public sealed partial class MainPage
         Toggle(nameof(SettingsSnapshot.UserCompletionEnabled), UserCompletion);
         Number(nameof(SettingsSnapshot.UserCompletionMaxSyllables), UserCompletionRange, 0, 8, "最多补全后续音节");
         Toggle(nameof(SettingsSnapshot.ModelRankingEnabled), ModelRanking);
+        Toggle(nameof(SettingsSnapshot.SyntaxCollocationEnabled), SyntaxCollocation);
         Number(nameof(SettingsSnapshot.ModelTimeoutMs), ModelTimeout, 5, 500, "外部模型预算");
         Card(nameof(SettingsSnapshot.UserLearningEnabled), UserLearningCard, "用户词频学习", "学习 词频");
         Card(nameof(SettingsSnapshot.UserLearningSensitivity), LearningSensitivityCard, "词频学习灵敏度", "灵敏度 1 10", () => UserLearning.IsOn, "请先开启用户词频学习。");
         Card(nameof(SettingsSnapshot.UserCompletionEnabled), UserCompletionCard, "用户词拼音补全", "学习 词库 前缀 补全");
         Card(nameof(SettingsSnapshot.UserCompletionMaxSyllables), UserCompletionRangeCard, "最多补全后续音节", "用户词 补全 范围 长短", () => UserCompletion.IsOn, "请先开启用户词拼音补全。");
         Card(nameof(SettingsSnapshot.ModelRankingEnabled), ModelRankingCard, "智能排序", "模型 上下文 本地");
+        Card(nameof(SettingsSnapshot.SyntaxCollocationEnabled), SyntaxCollocationCard, "句法搭配（实验）", "句法分析 依存 词语搭配 候选 本地");
         Card(nameof(SettingsSnapshot.ModelTimeoutMs), ModelTimeoutCard, "外部模型预算", "模型 超时 毫秒", () => ModelRanking.IsOn, "请先开启智能排序。");
 
         void Shortcut(string enabledKey, string bindingsKey, ToggleSwitch enabled, string group,

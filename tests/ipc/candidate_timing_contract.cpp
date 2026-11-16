@@ -37,7 +37,9 @@ int wmain(int argc, wchar_t** argv) {
     Sleep(270); recorder.refresh();
     if (!recorder.active()) return 5;
     const owo::engine::MemoryLexicon lexicon({
-        {{"ni"}, "你", 1000}, {{"hao"}, "好", 1000}, {{"ni", "hao"}, "你好", 10000}});
+        {{"ni"}, "你", 1000}, {{"hao"}, "好", 1000}, {{"ni", "hao"}, "你好", 10000},
+        {{"jie", "jue"}, "解决", 9800}, {{"jie", "jue"}, "解诀", 10000},
+        {{"wen", "ti"}, "问题", 9500}});
     const auto pipe = LR"(\\.\pipe\OwO.CandidateTiming.Contract.)" + std::to_wstring(GetCurrentProcessId());
     const auto model_pipe = pipe + L".Model";
     owo::config::ConfigStore config_writer;
@@ -70,6 +72,13 @@ int wmain(int argc, wchar_t** argv) {
         TerminateProcess(GetCurrentProcess(), 22); return 22;
     }
     const auto disabled = send({owo::protocol::MessageType::candidate_request, 104, 1, "nihao"});
+    const auto syntax_off = send({owo::protocol::MessageType::candidate_request, 105, 1, "jiejuewenti"});
+    const auto disabled_generation = monitor.generation();
+    config.syntax_collocation_enabled = true;
+    if (!config_writer.save(config).success || !monitor.wait_for_generation(disabled_generation, std::chrono::seconds(2))) {
+        TerminateProcess(GetCurrentProcess(), 24); return 24;
+    }
+    const auto syntax_on = send({owo::protocol::MessageType::candidate_request, 106, 1, "jiejuewenti"});
     const auto shutdown = send({owo::protocol::MessageType::shutdown_request, 110, 1, {}});
     if (!shutdown.validation) { TerminateProcess(GetCurrentProcess(), 6); return 6; }
     server.join();
@@ -81,25 +90,31 @@ int wmain(int argc, wchar_t** argv) {
     if (server_exit != 0 || !first.validation || first.message.candidates.empty() ||
         !cached.validation || !update.validation || !off_page.validation || !disabled.validation ||
         first.message.candidates != cached.message.candidates || first.message.candidates != disabled.message.candidates) return 7;
+    if (!syntax_off.validation || syntax_off.message.candidates.empty() || syntax_off.message.candidates.front() != "解诀问题" ||
+        !syntax_on.validation || syntax_on.message.candidates.empty() || syntax_on.message.candidates.front() != "解决问题") return 25;
     const auto file = directory / (std::string(session) + "-" + std::to_string(GetCurrentProcessId()) + ".jsonl");
     std::ifstream input(file, std::ios::binary);
     std::string records((std::istreambuf_iterator<char>(input)), {});
     input.close();
-    auto preparation = [&](std::uint64_t id, bool prepared) {
+    auto generation_has = [&](std::uint64_t id, std::string_view field, bool present = true) {
         const auto request = "\"request_id\":" + std::to_string(id) + ',';
-        const auto expected = std::string("\"model_prepared\":") + (prepared ? '1' : '0');
         std::size_t begin = 0;
         while (begin < records.size()) {
             const auto end = records.find('\n', begin);
             const auto line = std::string_view(records).substr(begin, end == std::string::npos ? end : end - begin);
             if (line.find(request) != std::string_view::npos && line.find("\"event\":\"generation\"") != std::string_view::npos)
-                return line.find(expected) != std::string_view::npos;
+                return (line.find(field) != std::string_view::npos) == present;
             if (end == std::string::npos) break;
             begin = end + 1;
         }
         return false;
     };
-    if (!preparation(100, true) || !preparation(103, false) || !preparation(104, false)) return 23;
+    if (!generation_has(100, "\"model_prepared\":1") || !generation_has(103, "\"model_prepared\":0") ||
+        !generation_has(104, "\"model_prepared\":0")) return 23;
+    if (!generation_has(105, "\"syntax_collocation_hits\":0") ||
+        !generation_has(106, "\"syntax_collocation_hits\":") ||
+        !generation_has(106, "\"syntax_collocation_hits\":0", false) ||
+        records.find("jiejuewenti") != std::string::npos || records.find("解决问题") != std::string::npos) return 26;
     for (const auto* event : {"received", "prepare", "generation", "response_ready", "encoded", "written", "model_queued", "model_begin", "model_end", "ranked"})
         if (records.find(std::string("\"event\":\"") + event + '"') == std::string::npos) return 8;
     if (records.find("\"cache_hit\":1") == std::string::npos || records.find("nihao") != std::string::npos ||

@@ -4,6 +4,7 @@
 #include "owo/engine/candidate_scoring.h"
 #include "owo/engine/exact_code_schema.h"
 #include "owo/engine/full_pinyin_schema.h"
+#include "owo/engine/syntax_collocations.h"
 
 #include <algorithm>
 #include <iostream>
@@ -26,6 +27,27 @@ std::size_t utf8_character_count(const std::string_view text) {
 }  // namespace
 
 int main() {
+    {
+        using namespace owo::engine;
+        using syntax_collocations::kRecords;
+        if (!std::is_sorted(std::begin(kRecords), std::end(kRecords), [](const auto& a, const auto& b) {
+                return std::pair{a.left, a.right} < std::pair{b.left, b.right};
+            }) || syntax_collocations::score("解决", "问题") == 0 ||
+                syntax_collocations::score("问题", "解决") != 0)
+            return fail("dependency index is not sorted/directional");
+        const MemoryLexicon lexicon({{{"jie", "jue"}, "解决", 9800},
+            {{"jie", "jue"}, "解诀", 10000}, {{"wen", "ti"}, "问题", 9500}});
+        const CandidateGenerator generator(lexicon);
+        const auto parsed = FullPinyinSchema{}.parse("jiejuewenti", 16, false);
+        CandidateGenerationMetrics off, on;
+        const auto base = generator.generate(parsed, 16, false, {}, &off);
+        const auto assisted = generator.generate(parsed, 16, false, {}, &on, {}, false, 0, false, 0, 0, false, true);
+        if (base.empty() || base != generator.generate(parsed, 16, false, {}, nullptr, {}, false, 0, true, 0, 0, false, false) ||
+            base.front().text != "解诀问题" || assisted.empty() || assisted.front().text != "解决问题" ||
+            off.syntax_collocation_queries || !on.syntax_collocation_hits ||
+            on.syntax_collocation_queries > syntax_collocations::kMaximumQueries)
+            return fail("syntax toggle did not promote the parsed dependency within its query budget");
+    }
     {
         using namespace owo::engine;
         const MemoryLexicon mixed({

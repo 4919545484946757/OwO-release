@@ -122,6 +122,7 @@ Top-K 必须满足 `max-pages × page-size >= top-k`。扫描范围外不计命�
 | `--paths 32` | 解析诊断路径上限，1–128；不改变 Core 内部生产解析预算 |
 | `--page-size N` | 本次页长 4–9，省略则采用隔离配置 |
 | `--partition on/off` | 本次分区开关，省略则采用隔离配置 |
+| `--syntax-collocation on/off` | 仅覆盖当前全拼批次的句法搭配开关，用于 A/B 质量与延迟比较 |
 | `--top-k 10` / `--max-pages 4` | 基础候选质量排名范围 / 最多查询页数，页数 1–101 |
 | `--typing incremental` | 先逐字请求前缀，再评估最终输入；默认 `whole` |
 | `--repeat 3` | 首次最终请求后再查两次，记录重复请求缓存耗时；范围 1–100 |

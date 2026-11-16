@@ -1,5 +1,6 @@
 #include "owo/engine/candidate_generator.h"
 #include "owo/engine/compact_collocations.h"
+#include "owo/engine/syntax_collocations.h"
 #include "owo/engine/candidate_partition.h"
 #include "owo/engine/user_lexicon_alignment.h"
 #include "owo/engine/candidate_scoring.h"
@@ -29,6 +30,7 @@ struct SearchState {
     std::int64_t score{};
     std::vector<std::size_t> segment_lengths;
     std::int64_t collocation_bonus{};
+    std::int64_t syntax_bonus{};
 };
 
 struct OrderedParsePath {
@@ -256,6 +258,7 @@ void append_successor(std::vector<SearchState>& destination, const std::size_t w
     next.score = score;
     next.segment_count = source.segment_count;
     next.collocation_bonus = source.collocation_bonus;
+    next.syntax_bonus = source.syntax_bonus;
     next.segment_lengths.reserve(source.segment_lengths.size() + 1);
     next.segment_lengths.insert(next.segment_lengths.end(),
         source.segment_lengths.begin(), source.segment_lengths.end());
@@ -914,7 +917,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                     const bool user_completion_enabled,
                                                     const std::size_t user_completion_max_syllables,
                                                     const std::size_t incomplete_candidate_page_size,
-                                                    const bool zero_lattice) const {
+                                                    const bool zero_lattice,
+                                                    const bool syntax_collocation_enabled) const {
     if (!parsed.valid || limit == 0 || (cancelled && cancelled())) return {};
     // A normal first page needs only page_size + one look-ahead candidate.
     // Keeping a small quality margin avoids the former 32-result floor, which
@@ -1457,6 +1461,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
     }
     CompactCollocations collocations;
+    std::uint32_t syntax_queries = 0;
     std::vector<const ParsePath*> source_paths;
     source_paths.reserve(parsed.paths.size() + boundary_paths.size() + initial_paths.size() + phrase_tail_paths.size());
     const auto first_exact = std::find_if(parsed.paths.begin(), parsed.paths.end(), [](const auto& path) {
@@ -1649,6 +1654,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                   ? std::max<std::size_t>(16, search_limit * 4)
                   : std::max<std::size_t>(12, search_limit * 2);
         const std::size_t maximum_reading_length = lexicon_.maximum_reading_length();
+        const bool syntax_path = syntax_collocation_enabled &&
+            (path.match_kind == InputMatchKind::exact || path.match_kind == InputMatchKind::abbreviated_completion);
         for (std::size_t begin = 0; begin < path.syllables.size(); ++begin) {
             if (cancelled && cancelled()) return {};
             if (chart[begin].empty()) continue;
@@ -1688,9 +1695,33 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                             });
                             score += collocation;
                         }
+                        std::int64_t syntax_bonus = 0;
+                        if (syntax_path && syntax_queries < syntax_collocations::kMaximumQueries &&
+                            state.syntax_bonus < syntax_collocations::kMaximumPathBonus &&
+                            !state.segment_lengths.empty() && state.segment_lengths.back() <= 4 && reading.size() <= 4 &&
+                            state.previous.size() == state.segment_lengths.back() * 3 &&
+                            entry.text.size() == reading.size() * 3) {
+                            const auto room = std::min(syntax_collocations::kMaximumPairBonus,
+                                syntax_collocations::kMaximumPathBonus - state.syntax_bonus);
+                            if (chart[end].size() < beam_width || score + room >= chart[end].front().score) {
+                                const auto started = metrics ? std::chrono::steady_clock::now() :
+                                    std::chrono::steady_clock::time_point{};
+                                ++syntax_queries;
+                                syntax_bonus = std::min(room, syntax_collocations::score(state.previous, entry.text));
+                                if (metrics) {
+                                    metrics->syntax_collocation_ns += static_cast<std::uint64_t>(
+                                        std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                            std::chrono::steady_clock::now() - started).count());
+                                    ++metrics->syntax_collocation_queries;
+                                    if (syntax_bonus != 0) ++metrics->syntax_collocation_hits;
+                                }
+                                score += syntax_bonus;
+                            }
+                        }
                         append_successor(chart[end], beam_width, state, entry.text, score, 0,
                             [&](SearchState& next) {
                                 next.collocation_bonus += collocation;
+                                next.syntax_bonus += syntax_bonus;
                                 next.previous.assign(entry.text);
                                 ++next.segment_count;
                                 next.segment_lengths.push_back(reading.size());

@@ -120,6 +120,7 @@ Copy-Item -LiteralPath (Join-Path $root 'LICENSE') `
     -Destination (Join-Path $stage 'LICENSES\OwO-GPL-3.0-only.txt') -Force
 
 $licenseInputs = [ordered]@{
+    'Chinese-GSDSimp-CC-BY-SA-4.0.md' = Join-Path $root 'data\syntax\README.md'
     'libime-LGPL-2.1-or-later.txt' = Join-Path $runtime 'licenses\libime-LGPL-2.1-or-later.txt'
     'libcxx-LICENSE.txt' = 'C:\msys64\clang64\share\licenses\libc++\LICENSE'
     'zstd-LICENSE.txt' = 'C:\msys64\clang64\share\licenses\zstd\LICENSE'

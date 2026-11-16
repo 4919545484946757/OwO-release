@@ -38,7 +38,7 @@ public sealed partial class MainPage
             SettingsColumns(
                 SettingsSection("词频学习", "调整已上屏词语对后续候选的影响。", [UserLearningCard, LearningSensitivityCard], "LearningFrequencyLayout"),
                 SettingsSection("用户词补全", "控制只输入词语的一部分时，是否以及何时出现已学词语。", [UserCompletionCard, UserCompletionRangeCard], "LearningCompletionLayout")),
-            SettingsSection("上下文排序", "本地排序与选区大模型功能独立。", [ModelRankingCard, ModelTimeoutCard], "LearningRankingLayout"));
+            SettingsSection("候选辅助排序", "本地排序与选区大模型功能独立。", [ModelRankingCard, ModelTimeoutCard, SyntaxCollocationCard], "LearningRankingLayout"));
         NativeSettingsContent.Children.Add(InputSchemeCard);
         NativeSettingsContent.Children.Add(_candidateSettingsLayout);
         NativeSettingsContent.Children.Add(_learningSettingsLayout);

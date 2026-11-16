@@ -153,24 +153,10 @@ try {
     Check ($enabled.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq [Windows.Automation.ToggleState]::Off) 'Must default disabled.'
     $zero = Find-Id $window 'ZeroCandidateEnabled'
     $zeroMode = Find-Id $window 'ZeroCandidateMode'
-    Check (!$zeroMode.Current.IsEnabled) 'Modes remain disabled while zero candidate is off.'
+    Check (!$zero.Current.IsEnabled -and !$zeroMode.Current.IsEnabled) 'Automatic zero candidate and its modes are paused.'
     $zeroToggle = $zero.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
     Check ($zeroToggle.Current.ToggleState -eq [Windows.Automation.ToggleState]::Off) 'Zero candidate must default disabled.'
-    $zeroToggle.Toggle()
-    Start-Sleep -Milliseconds 250
-    Check ($null -ne (Find-Name $window '启用')) 'Zero candidate requires separate explicit opt-in.'
-    Invoke (Find-Name $window '取消')
-    Start-Sleep -Milliseconds 250
-    Check (!(Test-Path -LiteralPath (Join-Path $fixture 'models/zero-candidate.mode'))) 'Cancelling must not allow automatic requests.'
-    $zeroToggle.Toggle()
-    Start-Sleep -Milliseconds 250
-    Invoke (Find-Name $window '启用')
-    Start-Sleep -Milliseconds 250
-    Check ((Get-Content (Join-Path $fixture 'models/zero-candidate.mode') -Raw) -eq 'lattice-eco') 'Consent must enable local energy mode.'
-    Check ($zeroMode.Current.IsEnabled) 'Core ranking modes do not depend on the linked API.'
-    $zeroToggle.Toggle()
-    Start-Sleep -Milliseconds 250
-    Check (!(Test-Path -LiteralPath (Join-Path $fixture 'models/zero-candidate.mode'))) 'Disable must revoke zero candidate authorization.'
+    Check (!(Test-Path -LiteralPath (Join-Path $fixture 'models/zero-candidate.mode'))) 'Opening a paused page must not authorize automatic requests.'
     Invoke (Find-Name $window '编辑')
     Start-Sleep -Milliseconds 250
     foreach ($id in @('ModelApiName','ModelApiEndpoint','ModelApiModel','ModelApiKey')) { Check ($null -ne (Find-Id $window $id)) "Profile editor field missing: $id" }

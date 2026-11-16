@@ -136,6 +136,7 @@ internal sealed class CandidateTimingStore {
         "partition", "model_enabled", "model_timeout_ms", "base_dictionary", "imported_dictionary", "parse_us",
         "normalization_us", "segmentation_us", "correction_us", "assistance_us", "generation_us", "lookup_us", "sort_us",
         "lookup_count", "beam_transitions", "beam_materialized", "search_us", "layout_us", "cache_hit", "cancelled",
+        "syntax_collocation_ns", "syntax_collocation_queries", "syntax_collocation_hits",
         "correction_fallback", "parse_paths", "status", "dropped_total", "render_us", "model_prepare_us", "model_prepared"
     };
     internal static bool TryParse(string line, string session, out CandidateTimingEvent? record) {
@@ -190,6 +191,9 @@ internal sealed class CandidateTimingStore {
                 ("correction", "correction_us"), ("assistance", "assistance_us"),
                 ("generation", "generation_us"), ("lookup", "lookup_us"), ("sort", "sort_us"), ("layout", "layout_us"), ("model_prepare", "model_prepare_us") })
                 Sum(key, "core", "generation", field, true);
+            var syntax = sorted.Where(e => e.Component == "core" && e.Event == "generation" &&
+                e.Get("auxiliary") == 0 && e.Get("syntax_collocation_queries") > 0).ToArray();
+            if (syntax.Length > 0) stages["syntax"] = syntax.Sum(e => e.Get("syntax_collocation_ns")) / 1_000_000.0;
             Sum("encode", "core", "encoded", "duration_us", true);
             Sum("write", "core", "written", "duration_us", true);
             Sum("convert", "tsf", "response_posted", "conversion_us");

@@ -51,6 +51,9 @@ struct CandidateGenerationMetrics {
     std::uint64_t beam_materialized{};
     std::uint64_t exact_lookup_cache_hits{};
     std::uint64_t coherence_cache_hits{};
+    std::uint64_t syntax_collocation_ns{};
+    std::uint64_t syntax_collocation_queries{};
+    std::uint64_t syntax_collocation_hits{};
 };
 
 class CandidateGenerator {
@@ -70,7 +73,8 @@ public:
                                                   bool user_completion_enabled = true,
                                                   std::size_t user_completion_max_syllables = 0,
                                                   std::size_t incomplete_candidate_page_size = 0,
-                                                  bool zero_lattice = false) const;
+                                                  bool zero_lattice = false,
+                                                  bool syntax_collocation_enabled = false) const;
 
 private:
     const Lexicon& lexicon_;

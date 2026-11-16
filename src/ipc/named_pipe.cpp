@@ -1613,7 +1613,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 decoded.message.context, nullptr, stop, false,
                                 runtime_config->candidate_partition_enabled ? page_size : 0,
                                 runtime_config->user_lexicon_completion_enabled,
-                                runtime_config->user_lexicon_completion_max_syllables, page_size);
+                                runtime_config->user_lexicon_completion_max_syllables, page_size,
+                                false, runtime_config->syntax_collocation_enabled);
                             std::size_t maximum = 0;
                             for (const auto& candidate : candidates)
                                 maximum = std::max(maximum, utf8_character_count(candidate.text));
@@ -2269,7 +2270,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             decoded.message.context, &generation_metrics, cancelled,
                             external_model_ranking_enabled,
                             partitioned_layout ? page_size : 0,
-                            user_completion_enabled, user_completion_max_syllables, page_size);
+                            user_completion_enabled, user_completion_max_syllables, page_size,
+                            false, full_pinyin_scheme && runtime_config && runtime_config->syntax_collocation_enabled);
                         generation_phase_us += static_cast<std::uint64_t>(
                             std::chrono::duration_cast<std::chrono::microseconds>(
                                 std::chrono::steady_clock::now() -
@@ -2503,7 +2505,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 if (stop()) return std::vector<engine::Candidate>{};
                                 auto local = full_pinyin_schema.parse(query, 8, decoded.message.correction_enabled, nullptr, stop);
                                 return generator.generate(local, page_size, false, decoded.message.context,
-                                    nullptr, stop, false, 0, false);
+                                    &generation_metrics, stop, false, 0, false, 0, 0, false,
+                                    runtime_config && runtime_config->syntax_collocation_enabled);
                             }, page_size);
                     }
                     full_input_bytes = parsed.normalized_input.size();
@@ -2869,6 +2872,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         {"lookup_count", static_cast<std::int64_t>(generation_metrics.lexicon_lookup_count)},
                         {"beam_transitions", static_cast<std::int64_t>(generation_metrics.beam_transitions)},
                         {"beam_materialized", static_cast<std::int64_t>(generation_metrics.beam_materialized)},
+                        {"syntax_collocation_ns", static_cast<std::int64_t>(generation_metrics.syntax_collocation_ns)},
+                        {"syntax_collocation_queries", static_cast<std::int64_t>(generation_metrics.syntax_collocation_queries)},
+                        {"syntax_collocation_hits", static_cast<std::int64_t>(generation_metrics.syntax_collocation_hits)},
                         {"model_prepare_us", static_cast<std::int64_t>(model_prepare_us)},
                         {"model_prepared", model_metadata_prepared},
                         {"search_us", total_us},
@@ -2896,6 +2902,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         << R"(,"sort_us":)" << generation_metrics.sort_us
                         << R"(,"beam_transitions":)" << generation_metrics.beam_transitions
                         << R"(,"beam_materialized":)" << generation_metrics.beam_materialized
+                        << R"(,"syntax_collocation_ns":)" << generation_metrics.syntax_collocation_ns
+                        << R"(,"syntax_collocation_queries":)" << generation_metrics.syntax_collocation_queries
+                        << R"(,"syntax_collocation_hits":)" << generation_metrics.syntax_collocation_hits
                         << R"(,"exact_lookup_cache_hits":)" << generation_metrics.exact_lookup_cache_hits
                         << R"(,"coherence_cache_hits":)" << generation_metrics.coherence_cache_hits
                         << R"(,"total_us":)" << total_us

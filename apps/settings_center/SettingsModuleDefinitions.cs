@@ -36,6 +36,7 @@ internal static class SettingsModuleDefinitions
             F(nameof(SettingsSnapshot.UserCompletionMaxSyllables), s => s.UserCompletionMaxSyllables, (s, v) => s with { UserCompletionMaxSyllables = v }, SettingsCapability.UserCompletion)]),
         new("ranking", "intelligence", [
             F(nameof(SettingsSnapshot.ModelRankingEnabled), s => s.ModelRankingEnabled, (s, v) => s with { ModelRankingEnabled = v }, SettingsCapability.ModelRanking),
+            F(nameof(SettingsSnapshot.SyntaxCollocationEnabled), s => s.SyntaxCollocationEnabled, (s, v) => s with { SyntaxCollocationEnabled = v }, SettingsCapability.SyntaxCollocation),
             F(nameof(SettingsSnapshot.ModelTimeoutMs), s => s.ModelTimeoutMs, (s, v) => s with { ModelTimeoutMs = v }, SettingsCapability.ModelRanking)]),
         new("shortcuts", "shortcuts", [
             F(nameof(SettingsSnapshot.CandidateSelectionNumpad), s => s.CandidateSelectionNumpad, (s, v) => s with { CandidateSelectionNumpad = v }),

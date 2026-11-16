@@ -127,6 +127,8 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         config.punctuation_shortcut_enabled = parsed;
     else if (field == L"candidate_partition_enabled")
         config.candidate_partition_enabled = parsed;
+    else if (field == L"syntax_collocation_enabled")
+        config.syntax_collocation_enabled = parsed;
     else if (field == L"candidate_selection_numpad")
         config.candidate_selection_numpad = parsed;
     else if (field == L"candidate_single_character_first_enabled")
@@ -392,7 +394,7 @@ int wmain(const int argc, wchar_t** argv) {
     if (command == L"set-all" &&
         (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23 ||
          argc == 24 || argc == 27 || argc == 30 || argc == 32 || argc == 35 ||
-         argc == 36 || argc == 38 || argc == 39 || argc == 40 || argc == 44 || argc == 47 || argc == 48 || argc == 49 || argc == 50 || argc == 51)) {
+         argc == 36 || argc == 38 || argc == 39 || argc == 40 || argc == 44 || argc == 47 || argc == 48 || argc == 49 || argc == 50 || argc == 51 || argc == 52)) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);
         if (!loaded.success) return 3;
@@ -453,7 +455,8 @@ int wmain(const int argc, wchar_t** argv) {
             (argc >= 48 && !apply(value, L"pinyin_preview_location", argv[47])) ||
             (argc >= 49 && !apply(value, L"input_scheme_order", argv[48])) ||
             (argc >= 50 && !apply(value, L"input_scheme_picker_enabled", argv[49])) ||
-            (argc >= 51 && !apply(value, L"candidate_selection_numpad", argv[50]))) {
+            (argc >= 51 && !apply(value, L"candidate_selection_numpad", argv[50])) ||
+            (argc >= 52 && !apply(value, L"syntax_collocation_enabled", argv[51]))) {
             std::cerr << "invalid configuration value type\n";
             return 4;
         }

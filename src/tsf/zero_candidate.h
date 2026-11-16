@@ -15,6 +15,7 @@ inline constexpr UINT_PTR kZeroCandidateTimer = 0x4f574f30;
 
 class ZeroCandidate final {
 public:
+    static constexpr bool kAutomaticGenerationPaused = true;
     explicit ZeroCandidate(TextService& owner) : owner_(owner) {}
     void observe();
     void poll();

@@ -3839,7 +3839,7 @@ LRESULT CALLBACK TextService::scheme_keyboard_proc(int code, WPARAM message, LPA
 void TextService::queue_candidate_request() {
     if (plugin_scheme_selected()) { queue_plugin_compose(); return; }
     schedule_candidate_request(true);
-    zero_candidate_.observe();
+    if constexpr (!ZeroCandidate::kAutomaticGenerationPaused) zero_candidate_.observe();
 }
 
 bool TextService::symbol_composition_enabled() const noexcept {

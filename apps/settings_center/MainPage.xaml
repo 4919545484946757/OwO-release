@@ -393,6 +393,19 @@
                                         <ToggleSwitch x:Name="ModelRanking" Grid.Column="1" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
                                     </Grid>
                                 </Border>
+                                <Border x:Name="SyntaxCollocationCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="句法搭配（实验）" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="依据本地中文依存标注，为匹配常见词语搭配的全拼候选小幅加分。默认关闭，不上传输入数据。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="SyntaxCollocation" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
+                                    </Grid>
+                                </Border>
                                 <Border x:Name="ModelTimeoutCard" Style="{StaticResource SettingsCardStyle}">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>

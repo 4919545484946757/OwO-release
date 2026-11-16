@@ -387,7 +387,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 17 ? std::size(expanded_navigation_required) : 0) +
                                (version >= 18 ? std::size(symbol_required) : 0) +
                                (version >= 19 ? 1 : 0) + (version >= 20 ? 1 : 0) +
-                               (version >= 21 ? 1 : 0) + (version >= 22 ? 1 : 0);
+                               (version >= 21 ? 1 : 0) + (version >= 22 ? 1 : 0) +
+                               (version >= 23 ? 1 : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -440,6 +441,9 @@ ConfigParseResult parse_config(const std::string_view utf8) {
     if (version >= 22 && (!fields.contains("candidate_selection_numpad") ||
         !parse_bool(fields["candidate_selection_numpad"], value.candidate_selection_numpad)))
         return {false, {}, "candidate_selection_numpad is missing or invalid"};
+    if (version >= 23 && (!fields.contains("syntax_collocation_enabled") ||
+        !parse_bool(fields["syntax_collocation_enabled"], value.syntax_collocation_enabled)))
+        return {false, {}, "syntax_collocation_enabled is missing or invalid"};
     if (version >= 19) {
         if (!fields.contains("pinyin_preview_location"))
             return {false, {}, "pinyin_preview_location is missing"};
@@ -628,13 +632,15 @@ ConfigParseResult parse_config(const std::string_view utf8) {
 
 std::string serialize_config(const AppConfig& value) {
     if (!validate_config(value).ok) return {};
-    const auto version = value.candidate_selection_numpad ? kConfigSchemaVersion :
+    const auto version = value.syntax_collocation_enabled ? 23U : value.candidate_selection_numpad ? 22U :
         value.input_scheme_order.empty() && value.input_scheme_picker_enabled ? 19U : 21U;
     return "schema_version=" + std::to_string(version) +
            "\ninput_scheme=" + value.input_scheme +
            (version < 21 ? std::string{} : "\ninput_scheme_order=" + serialize_shortcut_list(value.input_scheme_order) +
                "\ninput_scheme_picker_enabled=" + (value.input_scheme_picker_enabled ? "true" : "false")) +
-           (version >= 22 ? "\ncandidate_selection_numpad=true" : "") +
+           (version >= 22 ? std::string("\ncandidate_selection_numpad=") +
+               (value.candidate_selection_numpad ? "true" : "false") : "") +
+           (version >= 23 ? "\nsyntax_collocation_enabled=true" : "") +
            "\ncandidate_page_size=" + std::to_string(value.candidate_page_size) +
            "\ncandidate_wrap_length=" + std::to_string(value.candidate_wrap_length) +
            "\npinyin_preview_location=" + value.pinyin_preview_location +

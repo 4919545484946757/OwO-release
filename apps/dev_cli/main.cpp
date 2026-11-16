@@ -469,6 +469,7 @@ void batch_input(Args& args, const fs::path& root) {
     options.min_topk = threshold("min-topk", 1); options.max_p95_ms = threshold("max-p95-ms", 30000);
     auto report_name = args.get("report", "batch-" + std::to_string(GetTickCount64()) + "-" + std::to_string(GetCurrentProcessId()));
     auto page_size = args.number("page-size", 0, 9); auto partition = args.get("partition");
+    const auto syntax = args.get("syntax-collocation");
     auto timeout = args.number("timeout-ms", 2500), model_timeout = args.number("model-timeout-ms", 100, 1000);
     auto bridge = args.get("bridge"), model_path = args.get("model"); const auto run_model = args.flag("run-model");
     args.finish();
@@ -479,6 +480,7 @@ void batch_input(Args& args, const fs::path& root) {
     require(options.paths && options.top_k && options.max_pages && options.repeat && timeout && model_timeout, "batch budgets must be positive");
     require(!page_size || page_size >= 4, "page-size must be 4..9");
     require(partition.empty() || partition == "on" || partition == "off", "partition must be on/off");
+    require(syntax.empty() || syntax == "on" || syntax == "off", "syntax-collocation must be on/off");
     require(!report_name.empty() && report_name.size() <= 80 && std::all_of(report_name.begin(), report_name.end(), [](unsigned char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_'; }), "report must be an ASCII basename, not a path");
     auto device_name = report_name;
     std::transform(device_name.begin(), device_name.end(), device_name.begin(), [](unsigned char c) { return char(c >= 'A' && c <= 'Z' ? c + 'a' - 'A' : c); });
@@ -497,6 +499,7 @@ void batch_input(Args& args, const fs::path& root) {
     settings.value.input_scheme = "full_pinyin";
     if (page_size) settings.value.candidate_page_size = page_size;
     if (!partition.empty()) settings.value.candidate_partition_enabled = partition == "on";
+    if (!syntax.empty()) settings.value.syntax_collocation_enabled = syntax == "on";
     settings.value.model_ranking_enabled = options.model != "base";
     settings.value.model_timeout_ms = model_timeout;
     require(options.mode == "parse" || options.max_pages * settings.value.candidate_page_size >= options.top_k,
@@ -1091,6 +1094,7 @@ void help() {
            "  [--correction on|off] [--paths 32] [--page 0] [--expanded] [--context text] "
            "[--previous input] [--learn]\n"
            "input batch --file <UTF-8 jsonl/tsv> [--lexicon file] [--report basename]\n"
+           "  [--syntax-collocation on|off] override local dependency scoring for this batch only\n"
            "  --mode parse|candidates|both --typing whole|incremental --top-k 10 --max-pages 4\n"
            "  [--check-expanded] [--repeat 1] [--page-size 7] [--partition on|off]\n"
            "  [--format auto|jsonl|tsv] [--hash-assets]\n"

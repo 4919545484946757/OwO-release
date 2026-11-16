@@ -1,0 +1,16 @@
+{"id":"object-solve","input":"jiejuewenti","expected":["解决问题"],"tags":["complete","object"]}
+{"id":"object-raise","input":"tichuzhegefangfa","expected":["提出这个方法"],"tags":["complete","object"]}
+{"id":"object-idea","input":"tichuzhegexf","expected":["提出这个想法"],"tags":["mixed","object"]}
+{"id":"object-fix","input":"xiufuleisiwt","expected":["修复类似问题"],"tags":["mixed","object"]}
+{"id":"object-accept","input":"jieshoujianyi","expected":["接受建议"],"tags":["complete","object"]}
+{"id":"subject-change","input":"qingkuanggaibian","expected":["情况改变"],"tags":["complete","subject"]}
+{"id":"modifier-follow","input":"jixuchuli","expected":["继续处理"],"tags":["complete","modifier"]}
+{"id":"modifier-enable","input":"zhengchangshiyong","expected":["正常使用"],"tags":["complete","modifier"]}
+{"id":"modifier-unfold","input":"zidongzhankai","expected":["自动展开"],"tags":["complete","modifier"]}
+{"id":"modifier-preference","input":"youxianxuanze","expected":["优先选择"],"tags":["complete","modifier"]}
+{"id":"control-phrase","input":"wanan","expected":["晚安"],"tags":["control"]}
+{"id":"control-single","input":"qian","expected":["前","千","钱"],"tags":["control"]}
+{"id":"control-boundary","input":"bing'ewai","expected":["并额外"],"tags":["control"]}
+{"id":"control-short","input":"nihao","expected":["你好"],"tags":["control"]}
+{"id":"control-long","input":"zhongwuhuijiachifan","expected":["中午回家吃饭"],"tags":["control","long"]}
+{"id":"control-demand","input":"yaoquanbu","expected":["要全部"],"tags":["control"]}

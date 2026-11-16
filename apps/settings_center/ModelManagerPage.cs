@@ -52,7 +52,7 @@ internal sealed partial class ModelManagerPage : UserControl {
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(add, "AddModelApi");
         add.Click += async (_, _) => await EditAsync(null);
         body.Children.Add(Card(Stack(12, ResponsivePair(Stack(4, Heading("API 连接"), _profileCount), add, 380, fitTrailing: true), _profiles)));
-        body.Children.Add(Section("0 号候选", "全拼停顿后，Core 从不同切分的完整候选中选优，再由本地 Qwen3-4B 异步重排。普通候选不等待模型。", _zeroSource, _zero, _zeroMode, _zeroHint));
+        body.Children.Add(Section("0 号候选（暂停）", "自动生成已暂停，等待本地句法搭配的耗时与质量评估。原有配置已保留，本地模型调试和选区功能可继续使用。", _zeroSource, _zero, _zeroMode, _zeroHint));
         body.Children.Add(Section("本地模型", "一键下载 Qwen3-4B 权重及共享 llama.cpp CPU 运行时，用于 0 号候选与离线调试对话。", _localRows));
         foreach (var item in new[] { "一档 · 字词与语法", "二档 · 语法与格式", "三档 · 语义优化与扩写" }) _polish.Items.Add(item);
         foreach (var item in new[] { "一档 · 语法修复与注释", "二档 · 逻辑修复与注释", "三档 · 算法优化与注释" }) _code.Items.Add(item);
@@ -133,15 +133,12 @@ internal sealed partial class ModelManagerPage : UserControl {
     private void Apply() {
         _loading = true;
         _enabled.IsOn = _value.Enabled; _context.IsOn = _value.IncludeContext;
-        _zero.IsOn = _value.ZeroCandidateEnabled;
-        var qwen = LocalModelStore.Catalog[0];
-        _zeroSource.Text = StoreFor(qwen).Installed(qwen)
-            ? "来源：本机词库候选格 · Qwen3-4B 已安装"
-            : "Qwen3-4B 未就绪。可在下方下载；此时使用本机词库候选格首选。";
-        _zeroMode.IsEnabled = _value.ZeroCandidateEnabled;
+        _zero.IsOn = false;
+        _zero.IsEnabled = false;
+        _zeroSource.Text = "状态：已暂停";
+        _zeroMode.IsEnabled = false;
         _zeroMode.SelectedIndex = _value.ZeroCandidateNoContext ? -1 : _value.ZeroCandidatePerformance ? 1 : 0;
-        _zeroHint.Text = (_value.ZeroCandidateNoContext ? "已保留旧设置中的仅拼音模式；选择档位后才会使用前文。\n" : "") +
-            "能效优先：最多 12 条候选、16 个字符前文。性能优先：最多 24 条候选、光标前 128 个字符。模型不可用时使用候选格首选。";
+        _zeroHint.Text = "输入拼音时不会启动 0 号候选请求。";
         _preferred.Text = _value.PreferredLanguage; _secondary.Text = _value.SecondaryLanguage;
         _polish.SelectedIndex = _value.PolishLevel - 1; _code.SelectedIndex = _value.CodeLevel - 1;
         _timeout.Value = _value.TimeoutSeconds; _tokens.Value = _value.MaxOutputTokens;
