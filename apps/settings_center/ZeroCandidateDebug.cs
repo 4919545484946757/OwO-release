@@ -10,41 +10,47 @@ namespace OwO_Settings;
 internal static class ZeroCandidateDebug {
     private const int ProtocolVersion = 15;
     private static int _sequence;
-    internal sealed record Result(string Initial, string Final, string[] Paths);
+    internal sealed record Result(string Initial, string Final, string[] Paths, bool QwenApplied);
 
-    internal static async Task<Result> ProbeAsync(string input, bool performance, CancellationToken cancellation) {
+    internal static async Task<Result> ProbeAsync(string input, bool performance, ModelManagerStore manager,
+        TextAssistantSettings settings, CancellationToken cancellation) {
         if (input.Length > 96 || input.Count(char.IsAsciiLetter) < 2 ||
             !input.All(c => char.IsAsciiLetter(c) || c == '\''))
             throw new ArgumentException("请输入 2–96 个拼音字母，可包含分隔符 '。");
         var id = ((ulong)(uint)Environment.ProcessId << 32) | 0x80000000U | (uint)Interlocked.Increment(ref _sequence);
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
-        deadline.CancelAfter(TimeSpan.FromSeconds(2));
-        var first = await ExchangeAsync(id, input, performance, deadline.Token);
-        if (!first.GetProperty("model_pending").GetBoolean())
-            return new(first.GetProperty("text").GetString() ?? "", first.GetProperty("text").GetString() ?? "", Paths(first));
-        while (true) {
-            await Task.Delay(40, deadline.Token);
-            var update = await ExchangeAsync(id, null, performance, deadline.Token);
-            if (!update.GetProperty("model_pending").GetBoolean())
-                return new(first.GetProperty("text").GetString() ?? "", update.GetProperty("text").GetString() ?? "", Paths(first));
+        JsonElement response;
+        using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellation)) {
+            deadline.CancelAfter(TimeSpan.FromSeconds(2));
+            response = await ExchangeAsync(id, input, performance, deadline.Token);
+        }
+        var initial = response.GetProperty("text").GetString() ?? "";
+        var paths = Paths(response);
+        if (paths.Length <= 1) return new(initial, initial, paths, false);
+        try {
+            var winner = await ZeroModelReranker.RankAsync(manager, settings,
+                new(performance ? "performance" : "eco", input, "", paths), cancellation);
+            return new(initial, winner, paths, true);
+        } catch (Exception error) when (!cancellation.IsCancellationRequested &&
+            (error is OperationCanceledException or IOException or InvalidOperationException or HttpRequestException or JsonException or KeyNotFoundException)) {
+            return new(initial, initial, paths, false);
         }
     }
 
     private static string[] Paths(JsonElement root) => root.GetProperty("candidates").EnumerateArray()
         .Select(item => item.GetString() ?? "").ToArray();
 
-    private static async Task<JsonElement> ExchangeAsync(ulong id, string? input, bool performance, CancellationToken cancellation) {
+    private static async Task<JsonElement> ExchangeAsync(ulong id, string input, bool performance, CancellationToken cancellation) {
         await using var pipe = new NamedPipeClientStream(".", "OwO.InputMethod.Core.P1", PipeDirection.InOut,
             PipeOptions.Asynchronous, TokenImpersonationLevel.Identification);
         await pipe.ConnectAsync(cancellation);
         var payload = JsonSerializer.SerializeToUtf8Bytes(new {
             protocol_version = ProtocolVersion,
-            type = input is null ? "zero_candidate_update_request" : "zero_candidate_request",
-            request_id = id, context_generation = 1, text = input ?? "", candidates = Array.Empty<string>(),
+            type = "zero_candidate_request",
+            request_id = id, context_generation = 1, text = input, candidates = Array.Empty<string>(),
             page = 0, has_more = false, model_pending = false, defer_expensive_candidates = false,
             candidate_refinement_pending = false, syllables = Array.Empty<string>(),
             candidate_consumed = Array.Empty<int>(), candidate_groups = Array.Empty<int>(), expanded = false, page_size = 0,
-            correction_enabled = true, input = input is null ? "" : performance ? "performance" : "eco", context = "",
+            correction_enabled = true, input = performance ? "performance" : "eco", context = "",
             application_context_id = "", application_process_id = 0, application_thread_id = 0, application_executable = "",
             application_window_class = "", application_focus_window_class = "", application_sensitive_input = false,
             symbol_composition = false, manual_breaks = Array.Empty<int>(), symbol_preview = "",

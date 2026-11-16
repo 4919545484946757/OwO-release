@@ -91,7 +91,7 @@ internal sealed partial class ModelManagerPage {
             input.MaxLength = mode.IsOn ? 96 : LocalModelChat.MaxUserLength;
             input.PlaceholderText = mode.IsOn ? "例如：xianzai（OwO 中按 Enter 保留原拼音）" : "输入调试消息…";
             state.Text = mode.IsOn
-                ? "请求实际 Core 候选格并显示重排结果，不读取其他窗口或前文，不使用大模型提示词。"
+                ? "请求实际 Core 候选格，再由本机 Qwen3-4B 选优；不读取其他窗口或前文。"
                 : installed ? "文字只交给此本地模型；关闭即清除记录。" : "此模型未安装或设备不支持。";
             UpdateControls();
         };
@@ -106,9 +106,9 @@ internal sealed partial class ModelManagerPage {
             state.Text = mode.IsOn ? "正在请求 Core 候选格…" : "正在启动本地模型并生成…";
             try {
                 if (mode.IsOn) {
-                    var result = await ZeroCandidateDebug.ProbeAsync(message, _value.ZeroCandidatePerformance, run.Token);
+                    var result = await ZeroCandidateDebug.ProbeAsync(message, _value.ZeroCandidatePerformance, _store, _value, run.Token);
                     if (!closed) AddTurn(message, result.Paths.Length == 0 ? "没有整串候选。" :
-                        $"重排前：{result.Initial}\n最终 0 号：{(result.Final.Length == 0 ? "已失效" : result.Final)}\n候选格：{string.Join("、", result.Paths)}");
+                        $"重排前：{result.Initial}\n最终 0 号：{result.Final}\n来源：{(result.QwenApplied ? "本地 Qwen3-4B" : "Core 初排")}\n候选格：{string.Join("、", result.Paths)}");
                 } else {
                     var reply = await LocalModelChat.SendAsync(localStore, model, system.Text, history.ToArray(), message, run.Token);
                     if (!closed) {

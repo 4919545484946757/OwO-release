@@ -40,7 +40,7 @@ internal sealed class LocalModelInference : IDisposable {
     }
 
     internal static async Task<LocalModelInference> StartAsync(LocalModelStore store, LocalModel model, bool performance, CancellationToken token,
-        bool debug = false) {
+        int? contextTokens = null) {
         if (!store.Installed(model)) throw new LocalModelFailure("local-not-installed", "本地模型未完成下载或不受此设备支持。");
         FileStream? slot = null;
         for (int attempts = 0; slot is null; ++attempts) {
@@ -48,7 +48,7 @@ internal sealed class LocalModelInference : IDisposable {
             try { slot = new FileStream(store.LockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite,
                        FileShare.None, 1, FileOptions.None); }
             catch (IOException) when (attempts < 5) { await Task.Delay(150, token).ConfigureAwait(false); }
-            catch (IOException) { throw new LocalModelFailure("local-busy", "另一个本地模型调试请求正在运行。"); }
+            catch (IOException) { throw new LocalModelFailure("local-busy", "另一个本地模型请求正在运行。"); }
         }
         Process? server = null;
         SafeFileHandle? job = null;
@@ -68,7 +68,7 @@ internal sealed class LocalModelInference : IDisposable {
                 start.Environment.Remove(key);
             start.Environment["LLAMA_API_KEY"] = secret;
             foreach (var arg in new[] { "-m", store.ModelPath(model), "--host", "127.0.0.1", "--port", port.ToString(),
-                "--alias", model.Id, "-ngl", "0", "-c", debug ? "4096" : performance ? "1024" : "512", "-np", "1",
+                "--alias", model.Id, "-ngl", "0", "-c", (contextTokens ?? (performance ? 1024 : 512)).ToString(System.Globalization.CultureInfo.InvariantCulture), "-np", "1",
                 "-t", Math.Clamp(Environment.ProcessorCount / 2, 1, performance ? 4 : 2).ToString(),
                 "--reasoning", "off", "--offline", "--no-ui", "--log-disable", "--no-agent" })
                 start.ArgumentList.Add(arg);

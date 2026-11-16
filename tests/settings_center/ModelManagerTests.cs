@@ -38,7 +38,45 @@ if (args.Length == 2 && args[0] == "--verify-local") {
     } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     return;
 }
+const string targetPinyin = "tihuandangqianbanbenyigongceshi";
+const string targetText = "替换当前版本以供测试";
+if (args.Length == 1 && args[0] == "--verify-live-zero-model") {
+    var installed = new ModelManagerStore(ModelManagerStore.DefaultRoot);
+    var clock = Stopwatch.StartNew();
+    var result = await ZeroModelReranker.RankAsync(installed, installed.Load(),
+        new("eco", targetPinyin, "",
+            ["替换当前版本一共测试", "替换当前版本一公测试", targetText, "替换当前版本义工测试"]), default);
+    Check(result == targetText, $"Qwen3-4B did not choose the expected phrase: {result}");
+    Console.WriteLine($"PASS: Qwen3-4B selected {result} ({clock.Elapsed.TotalSeconds:F1}s)");
+    clock.Restart();
+    var live = await ZeroCandidateDebug.ProbeAsync(targetPinyin, false, installed, installed.Load(), default);
+    Check(live.Paths.Contains(targetText) && live.QwenApplied && live.Final == targetText,
+        $"Live lattice did not produce the expected Qwen3-4B winner: {live.Final}");
+    Console.WriteLine($"PASS: {live.Paths.Length} live lattice paths → Qwen3-4B → {live.Final} ({clock.Elapsed.TotalSeconds:F1}s)");
+    return;
+}
 try {
+    var rankInput = new ZeroRankInput("eco", targetPinyin, "", ["替换当前版本一共测试", targetText]);
+    var rankWire = "OWORANK1\neco\n" + TextAssistantHost.Encode(targetPinyin) + "\n\n" +
+        string.Join("\n", rankInput.Candidates.Select(TextAssistantHost.Encode)) + "\n";
+    Check(ZeroModelReranker.Parse(rankWire).Candidates.SequenceEqual(rankInput.Candidates), "rank wire preserves a bounded lattice");
+    Reject(() => ZeroModelReranker.Parse(rankWire.Replace("eco", "cloud")), "rank must not accept a cloud mode");
+    Reject(() => ZeroModelReranker.Parse(rankWire.Replace(TextAssistantHost.Encode(rankInput.Candidates[0]),
+        TextAssistantHost.Encode(targetText))), "rank must reject duplicate rows");
+    Check(await ZeroModelReranker.RankAsync(store, settings, rankInput, default, new FakeHandler(async request => {
+        using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+        var data = body.RootElement;
+        Check(request.RequestUri!.IsLoopback && data.GetProperty("model").GetString() == "qwen3-4b-q4km", "only local Qwen3-4B");
+        Check(data.GetProperty("grammar").GetString() == "root ::= \"A\" | \"B\"" &&
+            !data.GetProperty("chat_template_kwargs").GetProperty("enable_thinking").GetBoolean(), "only shortlist IDs, no reasoning");
+        return FakeHandler.Json("{\"choices\":[{\"message\":{\"content\":\"B\"},\"finish_reason\":\"stop\"}]}");
+    })) == targetText, "selection must use the ranked member, not the initial winner");
+    foreach (var invalid in new[] { "在在", "C", "AB", "B: " + targetText }) {
+        await RejectAsync(() => ZeroModelReranker.RankAsync(store, settings, rankInput, default,
+            new FakeHandler(_ => Task.FromResult(FakeHandler.Json(JsonSerializer.Serialize(new {
+                choices = new[] { new { message = new { content = invalid }, finish_reason = "stop" } }
+            }))))), "rank must reject free text and invalid IDs");
+    }
     Check(!store.Load().Enabled, "feature must default off");
     Check(ModelManagerStore.ZeroCandidateMode(store.Load()) is null, "automatic candidate must default off");
     Check(ModelKeyProtection.Unprotect(profile.ProtectedKey) == key && !profile.ProtectedKey.Contains(key), "DPAPI round trip");
@@ -230,7 +268,7 @@ try {
         cancellation.Cancel();
         await RejectAsync(async () => { await TextAssistantApi.ExecuteAsync(settings, input, cancellation.Token, new FakeHandler(_ => Task.FromResult(FakeHandler.Json("{}")))); }, "cancelled call accepted");
     }
-    if (args.Length == 1) foreach (var workerRequest in new[] { wire, zeroWire }) {
+    if (args.Length == 1) foreach (var workerRequest in new[] { wire, zeroWire, rankWire }) {
         // Real worker IPC, disabled model: no network, no personal profile writes.
         store.Save(settings with { Enabled = false });
         var name = "OwO.TextAssistant." + Guid.NewGuid().ToString("N");
@@ -253,6 +291,9 @@ try {
             if (workerRequest == zeroWire)
                 Check(workerReply == "OWOTEXT1\nERROR\n" + TextAssistantHost.Encode("文字助手请求格式错误。") + "\n",
                     "real worker rejects retired transport before executing any model request");
+            if (workerRequest == rankWire)
+                Check(workerReply == "OWOTEXT1\nERROR\n" + TextAssistantHost.Encode("0 号候选未启用或档位已变更。") + "\n",
+                    "real worker requires a live zero-candidate opt-in");
         } finally { if (!worker.WaitForExit(5000)) { worker.Kill(); worker.WaitForExit(); } }
     }
     Console.WriteLine($"PASS: {checks} model manager/privacy/protocol/API checks; mock HTTP only, no paid model requests.");

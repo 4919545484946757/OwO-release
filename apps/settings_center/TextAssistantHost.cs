@@ -15,8 +15,7 @@ internal static class TextAssistantHost {
     internal static string Decode(string value) => Utf8.GetString(Convert.FromHexString(value));
     internal static TextAssistantInput Parse(string wire) {
         var lines = wire.Split('\n');
-        // Automatic candidate ranking never goes through a text-generation
-        // helper, even if an old TSF DLL remains loaded in a running app.
+        // Old direct-pinyin generation operations remain retired.
         if (lines.Length != 6 || lines[0] != "OWOTEXT1" || lines[^1] != "" ||
             lines[1] is not ("translate" or "polish" or "code" or "generate"))
             throw new InvalidOperationException("文字助手请求格式错误。");
@@ -46,11 +45,22 @@ internal static class TextAssistantHost {
             if (count is 0 or > 128 * 1024) return;
             var data = new byte[count];
             await pipe.ReadExactlyAsync(data, lifetime.Token);
-            var request = Parse(Utf8.GetString(data));
-            var settings = new ModelManagerStore(ModelManagerStore.DefaultRoot).Load();
-            if (!settings.IncludeContext) request = request with { Context = "" };
-            CheckSensitive(request);
-            var text = await TextAssistantApi.ExecuteAsync(settings, request, lifetime.Token);
+            var wire = Utf8.GetString(data);
+            var manager = new ModelManagerStore(ModelManagerStore.DefaultRoot);
+            string text;
+            if (wire.StartsWith("OWORANK1\n", StringComparison.Ordinal)) {
+                var rank = ZeroModelReranker.Parse(wire);
+                var enabled = manager.Load();
+                if (ModelManagerStore.ZeroCandidateMode(enabled) != rank.Mode)
+                    throw new InvalidOperationException("0 号候选未启用或档位已变更。");
+                text = await ZeroModelReranker.RankAsync(manager, enabled, rank, lifetime.Token);
+            } else {
+                var request = Parse(wire);
+                var settings = manager.Load();
+                if (!settings.IncludeContext) request = request with { Context = "" };
+                CheckSensitive(request);
+                text = await TextAssistantApi.ExecuteAsync(settings, request, lifetime.Token);
+            }
             response = "OWOTEXT1\nOK\n" + Encode(text) + "\n";
         } catch (OperationCanceledException) { response = Error("请求已取消或超时，原文未修改。"); }
           catch (HttpRequestException) { response = Error("无法连接模型服务，请检查网络及 API 地址。原文未修改。"); }

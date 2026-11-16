@@ -5,6 +5,7 @@
 #include "owo/protocol/messages.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -15,17 +16,11 @@ using namespace std::chrono_literals;
 
 class RankingFixture final : public model::IModelBackend {
 public:
+    std::atomic_uint zero_calls{0};
     std::string_view id() const noexcept override { return "owo.test.zero"; }
     model::ModelResult rank(const model::ModelRequest& request, std::stop_token) override {
-        if (request.context == "延时") return {request.request_id, model::ModelStatus::timeout, {}, {}};
-        if (request.input == "xianzai")
-            return {request.request_id, model::ModelStatus::success, {"在在"}, {}};
-        auto rows = request.candidates;
-        if (request.context == "去0号") {
-            const auto target = std::find(rows.begin(), rows.end(), "西安");
-            if (target != rows.end()) std::rotate(rows.begin(), target, target + 1);
-        }
-        return {request.request_id, model::ModelStatus::success, std::move(rows), {}};
+        if (request.input != "xian") ++zero_calls;
+        return {request.request_id, model::ModelStatus::success, request.candidates, {}};
     }
 };
 }
@@ -35,7 +30,10 @@ int main() {
         {{"xian"}, "先", 1'000'000}, {{"xian"}, "现", 90'000},
         {{"xi", "an"}, "西安", 1000}, {{"xi"}, "西", 5'000}, {{"an"}, "安", 5'000},
         {{"xian", "zai"}, "现在", 500'000}, {{"zai"}, "在", 5'000},
-        {{"xian", "zhai"}, "闲宅", 10'000'000}
+        {{"xian", "zhai"}, "闲宅", 10'000'000},
+        {{"ti", "huan"}, "替换", 100'000}, {{"dang", "qian"}, "当前", 100'000},
+        {{"ban", "ben"}, "版本", 100'000}, {{"yi", "gong"}, "以供", 90'000},
+        {{"yi", "gong"}, "一共", 80'000}, {{"ce", "shi"}, "测试", 100'000}
     });
     const auto pipe = LR"(\\.\pipe\OwO.Test.Zero.)" +
         std::to_wstring(std::chrono::steady_clock::now().time_since_epoch().count());
@@ -54,19 +52,6 @@ int main() {
             decoded.message.context_generation == request.context_generation, "invalid response or correlation id");
         return decoded.message;
     };
-    const auto settle = [&](protocol::Message response) {
-        protocol::Message poll;
-        poll.type = protocol::MessageType::zero_candidate_update_request;
-        poll.request_id = response.request_id;
-        poll.context_generation = response.context_generation;
-        for (int attempt = 0; response.model_pending && attempt < 60; ++attempt) {
-            std::this_thread::sleep_for(20ms);
-            response = send(poll);
-        }
-        require(!response.model_pending && response.type == protocol::MessageType::zero_candidate_response,
-            "zero ranking did not settle");
-        return response;
-    };
     protocol::Message request;
     request.type = protocol::MessageType::zero_candidate_request;
     request.request_id = 1; request.context_generation = 5;
@@ -75,7 +60,7 @@ int main() {
     const auto has = [](const protocol::Message& response, std::string_view candidate) {
         return std::find(response.candidates.begin(), response.candidates.end(), candidate) != response.candidates.end();
     };
-    require(first.model_pending && first.text == "先" && has(first, "西安") && !has(first, "西"),
+    require(!first.model_pending && first.text == "先" && has(first, "西安") && !has(first, "西"),
         "lattice must preserve xian and xi'an, but not standalone prefix xi");
     protocol::Message ordinary;
     ordinary.type = protocol::MessageType::candidate_request;
@@ -83,29 +68,22 @@ int main() {
     const auto visible = send(ordinary);
     require(visible.type == protocol::MessageType::candidate_response && !visible.candidates.empty(),
         "ordinary candidates must remain independent");
-    protocol::Message mismatched;
-    mismatched.type = protocol::MessageType::zero_candidate_update_request;
-    mismatched.request_id = request.request_id;
-    mismatched.context_generation = request.context_generation + 1;
-    require(send(mismatched).text.empty(), "a stale context generation cannot read the ranking result");
-    require(settle(first).text == "西安", "model should reorder an existing path using redacted context");
-
     request.request_id = 3; request.text = "xi'an"; request.context.clear();
-    const auto manual = settle(send(request));
+    const auto manual = send(request);
     require(manual.text == "西安", "must respect explicit apostrophe boundaries");
 
     request.request_id = 4; request.text = "xianzai";
     const auto exact = send(request);
     require(exact.text == "现在" && !has(exact, "现") && !has(exact, "在在") && !has(exact, "闲宅"),
         "only complete readings enter the shortlist and exact beats assisted");
-    require(settle(exact).text == "现在", "model cannot inject an unlisted homophone");
-
-    request.request_id = 5; request.text = "xian"; request.context = "延时";
-    const auto deadline = send(request);
-    require(settle(deadline).text == deadline.text && !deadline.text.empty(), "model timeout must keep local lattice top");
+    request.request_id = 5; request.text = "tihuandangqianbanbenyigongceshi"; request.input = "eco";
+    const auto long_input = send(request);
+    require(!long_input.model_pending && has(long_input, "替换当前版本以供测试") && !has(long_input, "替换"),
+        "long input must supply complete, high quality paths without waiting for ranking");
 
     request.request_id = 6; request.application_sensitive_input = true;
     require(send(request).text.empty(), "protected input must not request zero candidate");
+    require(fixture.zero_calls == 0, "zero lattice must not dispatch to the ordinary model host");
 
     protocol::Message stop;
     stop.type = protocol::MessageType::shutdown_request;

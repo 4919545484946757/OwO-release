@@ -183,7 +183,7 @@ bool transfer(HANDLE pipe, void* buffer, DWORD count, bool write, std::stop_toke
     return offset == count && !stop.stop_requested();
 }
 std::pair<bool, std::wstring> request(const std::filesystem::path& exe, const std::string& payload,
-                                     std::stop_token stop) {
+                                     std::stop_token stop, bool shortlist_only = false) {
     GUID guid{}; if (FAILED(CoCreateGuid(&guid))) return {false, L"无法创建请求标识"};
     wchar_t id[40]{}; StringFromGUID2(guid, id, 40);
     std::wstring nonce; for (wchar_t c : std::wstring(id)) if (iswxdigit(c)) nonce += c;
@@ -195,7 +195,7 @@ std::pair<bool, std::wstring> request(const std::filesystem::path& exe, const st
     }
     CloseHandle(process.hThread);
     HANDLE pipe = INVALID_HANDLE_VALUE;
-    const auto deadline = GetTickCount64() + 15000;
+    const auto deadline = GetTickCount64() + (shortlist_only ? 3500 : 15000);
     const auto full_name = L"\\\\.\\pipe\\" + name;
     while (!stop.stop_requested() && GetTickCount64() < deadline && WaitForSingleObject(process.hProcess, 0) == WAIT_TIMEOUT) {
         pipe = CreateFileW(full_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
@@ -284,19 +284,25 @@ std::pair<bool, std::wstring> request_zero_candidate(const std::string_view mode
         activation_trace("ZERO_LATTICE_UNAVAILABLE");
         return {};
     }
-    if (!first->model_pending) return {true, decode_utf8(first->text)};
-    request.type = protocol::MessageType::zero_candidate_update_request;
-    request.text.clear();
-    request.context.clear();
-    request.input.clear();
-    const auto deadline = GetTickCount64() + 1100;
-    while (!stop.stop_requested() && GetTickCount64() < deadline) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(35));
-        const auto update = receive(std::chrono::milliseconds(65));
-        if (!update || update->model_pending) continue;
-        if (std::find(first->candidates.begin(), first->candidates.end(), update->text) == first->candidates.end())
-            return {};
-        return {true, decode_utf8(update->text)};
+    if (first->candidates.size() > 1) {
+        const auto host = host_path();
+        if (!host.empty() && !stop.stop_requested()) {
+            // The helper accepts only a bounded lattice and replies with one
+            // candidate. Validate it against the current composition again.
+            std::string payload = "OWORANK1\n" + request.input + '\n' + hex(pinyin) + '\n' + hex(context) + '\n';
+            for (const auto& row : first->candidates) {
+                const auto decoded = decode_utf8(row);
+                if (decoded.empty()) return {true, decode_utf8(first->text)};
+                payload += hex(decoded) + '\n';
+            }
+            auto [ok, ranked] = ::owo::tsf::request(host, payload, stop, true);
+            if (!stop.stop_requested() && ok &&
+                std::ranges::find(first->candidates, encode_utf8(ranked)) != first->candidates.end()) {
+                activation_trace("ZERO_QWEN_RERANKED");
+                return {true, std::move(ranked)};
+            }
+        }
+        if (!stop.stop_requested()) activation_trace("ZERO_QWEN_FALLBACK");
     }
     if (stop.stop_requested()) return {};
     return {true, decode_utf8(first->text)};

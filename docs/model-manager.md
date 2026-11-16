@@ -29,7 +29,7 @@
 
 在「模型管理器」开启「0 号候选」。全拼停顿后，Core 复用拼音切分、词典和用户词频，用有上限的搜索保留不同切分及各段的高分词，形成只包含**完整覆盖输入**的候选格。初排加总路径上的词频对数分，并用拼音匹配、搭配及跨词连贯性修正，作为整句概率的轻量近似。有精确候选时，补全和纠错路径不能把它挤掉。
 
-Core 已加载的本地上下文模型（例如 libime）异步按整句概率重排这份候选名单，普通候选、分页和展开无需等待。模型只能重排现有路径，不生成新文字；不可用、超时或返回无效结果时使用本地首选。没有完整候选时不显示 0 号。无需下载 Qwen 权重，也不调用云端 API。
+已下载的本地 Qwen3-4B 在后台比较 Core 的候选。它只能返回其中一个编号，不能改写文字；没有完整候选时不显示 0 号。未安装、繁忙、超时或模型回复无效时使用 Core 初排首选，不回退到其他模型或云端。普通候选、分页和展开不等待 Qwen，也不改变原有的智能排序。CPU 首次加载可能需要数秒。
 
 | 档位 | 停顿 | 比较上限 | 本机上下文 |
 | --- | ---: | ---: | --- |
@@ -44,7 +44,7 @@ Core 已加载的本地上下文模型（例如 libime）异步按整句概率�
 
 「模型管理器 → 本地模型」仍提供 Qwen3-4B（Q4_K_M，约 2.50 GB）及共享 llama.cpp CPU 运行时，用于离线自由对话。支持 Windows x64 / AVX2；下载可暂停、继续、取消，安装前校验长度和 SHA-256。自定义下载位置不会移动或删除已下载文件。已下载的旧版 Qwen3.5-0.8B 仍可对话或移除，不再提供重新下载。
 
-「调试对话…」的消息及系统提示框支持 OwO 中文输入；关闭窗口即清除对话。开启「复现 0 号候选」时，窗口直接请求 Core，展示候选格、重排前及最终结果，无需安装 Qwen，不收集环境或前文，也不再使用生成提示词。请键入原拼音，或使用 OwO 的原样上屏键（默认 Enter）将拼音送入调试框。
+「调试对话…」的消息及系统提示框支持 OwO 中文输入；关闭窗口即清除对话。开启「复现 0 号候选」时，窗口直接请求 Core，展示候选格、初排、最终结果，以及最终结果来自 Qwen3-4B 还是 Core 初排；不会采集环境或前文。请键入原拼音，或使用 OwO 的原样上屏键（默认 Enter）将拼音送入调试框。
 
 ## 档位
 
@@ -95,7 +95,7 @@ translate | polish | code | generate
 ```
 
 每字段独占一行，末行后有换行。响应为三行 `OWOTEXT1`、`OK` 或 `ERROR`、UTF-8 文本的十六进制。
-旧版 `OWOTEXT1` 的 `zero-*` 操作已拒绝。0 号改用本机 Core 的 `zero_candidate_request` / `zero_candidate_update_request`，以请求 ID 和组合代数核对结果，与普通候选的模型更新通道分离。
+旧版 `OWOTEXT1` 的 `zero-*` 直接生成操作仍被拒绝。0 号通过 `zero_candidate_request` 获取完整候选格，以请求 ID 和组合代数核对结果，再通过独立的 `OWORANK1` 请求本地助手。助手仅连接由其启动并验证身份的本地 llama.cpp 进程；Qwen 的回复被限制为候选编号，TSF 收到结果后再次校验名单和当前组合。
 状态和操作使用固定枚举，不从模型自然语言解析控制指令。协议版本不符、超时、辅助进程退出、格式异常均不覆盖原文。
 请求为单独工作线程，不使用按键候选线程；同一选区最多一个请求。
 
@@ -106,6 +106,8 @@ translate | polish | code | generate
 dotnet run --project tests/settings_center/model_manager_tests.csproj -c Release -- build/settings-publish/win-x64/OwO.Settings.exe
 # 可选真实离线验证：下载固定权重和运行时到临时目录，执行后清理，不读取用户模型。
 dotnet run --project tests/settings_center/model_manager_tests.csproj -c Release -- --verify-local qwen3-4b-q4km
+# 若本机已有 Qwen3-4B，使用公开测试句检查 Core 候选格和真实模型选优。
+dotnet run --project tests/settings_center/model_manager_tests.csproj -c Release -- --verify-live-zero-model
 cmake --build build/windows-release --config Release --target owo_selection_assistant_tests owo_zero_candidate_contract
 ctest --preset windows-release -R zero_candidate_contract
 build/windows-release/Release/owo_selection_assistant_tests.exe build/settings-publish/win-x64/OwO.Settings.exe

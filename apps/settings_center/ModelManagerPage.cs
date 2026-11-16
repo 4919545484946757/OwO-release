@@ -52,8 +52,8 @@ internal sealed partial class ModelManagerPage : UserControl {
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(add, "AddModelApi");
         add.Click += async (_, _) => await EditAsync(null);
         body.Children.Add(Card(Stack(12, ResponsivePair(Stack(4, Heading("API 连接"), _profileCount), add, 380, fitTrailing: true), _profiles)));
-        body.Children.Add(Section("0 号候选", "全拼停顿后，Core 从不同切分的完整候选中选优，再由已加载的本地上下文模型异步重排。普通候选不等待模型。", _zeroSource, _zero, _zeroMode, _zeroHint));
-        body.Children.Add(Section("本地模型", "一键下载 GGUF 权重及共享 llama.cpp CPU 运行时，用于离线调试对话，不参与 0 号候选。", _localRows));
+        body.Children.Add(Section("0 号候选", "全拼停顿后，Core 从不同切分的完整候选中选优，再由本地 Qwen3-4B 异步重排。普通候选不等待模型。", _zeroSource, _zero, _zeroMode, _zeroHint));
+        body.Children.Add(Section("本地模型", "一键下载 Qwen3-4B 权重及共享 llama.cpp CPU 运行时，用于 0 号候选与离线调试对话。", _localRows));
         foreach (var item in new[] { "一档 · 字词与语法", "二档 · 语法与格式", "三档 · 语义优化与扩写" }) _polish.Items.Add(item);
         foreach (var item in new[] { "一档 · 语法修复与注释", "二档 · 逻辑修复与注释", "三档 · 算法优化与注释" }) _code.Items.Add(item);
         body.Children.Add(Heading("功能偏好", 20));
@@ -134,7 +134,10 @@ internal sealed partial class ModelManagerPage : UserControl {
         _loading = true;
         _enabled.IsOn = _value.Enabled; _context.IsOn = _value.IncludeContext;
         _zero.IsOn = _value.ZeroCandidateEnabled;
-        _zeroSource.Text = "来源：本机词库候选格 · 已加载的 Core 上下文排序模型";
+        var qwen = LocalModelStore.Catalog[0];
+        _zeroSource.Text = StoreFor(qwen).Installed(qwen)
+            ? "来源：本机词库候选格 · Qwen3-4B 已安装"
+            : "Qwen3-4B 未就绪。可在下方下载；此时使用本机词库候选格首选。";
         _zeroMode.IsEnabled = _value.ZeroCandidateEnabled;
         _zeroMode.SelectedIndex = _value.ZeroCandidateNoContext ? -1 : _value.ZeroCandidatePerformance ? 1 : 0;
         _zeroHint.Text = (_value.ZeroCandidateNoContext ? "已保留旧设置中的仅拼音模式；选择档位后才会使用前文。\n" : "") +

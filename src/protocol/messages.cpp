@@ -16,7 +16,6 @@ std::string type_name(const MessageType type) {
         case MessageType::candidate_update_request: return "candidate_update_request";
         case MessageType::candidate_update_response: return "candidate_update_response";
         case MessageType::zero_candidate_request: return "zero_candidate_request";
-        case MessageType::zero_candidate_update_request: return "zero_candidate_update_request";
         case MessageType::zero_candidate_response: return "zero_candidate_response";
         case MessageType::candidate_committed: return "candidate_committed";
         case MessageType::user_lexicon_request: return "user_lexicon_request";
@@ -37,7 +36,6 @@ std::optional<MessageType> parse_type(const std::string_view value) {
     if (value == "candidate_update_request") return MessageType::candidate_update_request;
     if (value == "candidate_update_response") return MessageType::candidate_update_response;
     if (value == "zero_candidate_request") return MessageType::zero_candidate_request;
-    if (value == "zero_candidate_update_request") return MessageType::zero_candidate_update_request;
     if (value == "zero_candidate_response") return MessageType::zero_candidate_response;
     if (value == "candidate_committed") return MessageType::candidate_committed;
     if (value == "user_lexicon_request") return MessageType::user_lexicon_request;
@@ -610,8 +608,7 @@ DecodeResult decode_message(const std::string_view json) {
         if (!scheme || (*scheme != "full_pinyin" && *scheme != "exact_code") ||
             (output.message.type != MessageType::candidate_request &&
              output.message.type != MessageType::candidate_committed &&
-             output.message.type != MessageType::zero_candidate_request &&
-             output.message.type != MessageType::zero_candidate_update_request)) goto invalid;
+             output.message.type != MessageType::zero_candidate_request)) goto invalid;
         output.message.input_scheme = *scheme;
     }
     if (!consume(json, offset, "}") || offset != json.size()) goto invalid;
