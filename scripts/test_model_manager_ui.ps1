@@ -50,8 +50,10 @@ try {
         $element = Find-Id $window $id
         Check ($null -ne $element) "Missing model control: $id"
     }
-    Check ($null -ne (Find-Id $window 'DownloadLocalModel-qwen35-08b-q4')) 'Missing local model download.'
-    Invoke (Find-Id $window 'DebugLocalModel-qwen35-08b-q4')
+    Check ($null -ne (Find-Id $window 'DownloadLocalModel-qwen3-4b-q4km')) 'Missing Qwen3-4B download.'
+    Check ($null -ne (Find-Id $window 'LocalModelStoragePicker')) 'Missing local model storage picker.'
+    Check ($null -eq (Find-Id $window 'DownloadLocalModel-qwen35-08b-q4')) 'Legacy model must not be offered for new downloads.'
+    Invoke (Find-Id $window 'DebugLocalModel-qwen3-4b-q4km')
     Start-Sleep -Milliseconds 350
     foreach ($id in @('LocalModelDebugInput','LocalModelDebugSend','LocalModelDebugCandidateMode','LocalModelDebugCopyPrompt')) {
         Check ($null -ne (Find-Id $window $id)) "Missing dialog control: $id"

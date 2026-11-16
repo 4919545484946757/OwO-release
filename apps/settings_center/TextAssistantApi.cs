@@ -96,10 +96,12 @@ internal static class TextAssistantApi {
         var local = zero ? ModelManagerStore.ZeroLocalModel(settings) : null;
         var profile = local is null ? settings.Profiles.Single(p => p.Id == settings.ActiveProfile && p.Enabled) : null;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
-        timeout.CancelAfter(TimeSpan.FromSeconds(local is not null ? (mode == "performance" ? 45 : 32)
+        timeout.CancelAfter(TimeSpan.FromSeconds(local?.Id == LocalModelStore.PreferredId ? (mode == "performance" ? 60 : 45)
+            : local is not null ? (mode == "performance" ? 45 : 32)
             : zero ? Math.Min(settings.TimeoutSeconds, mode == "performance" ? 12 : 8) : settings.TimeoutSeconds));
         using var runtime = local is null || handler is not null ? null : await LocalModelInference.StartAsync(
-            new LocalModelStore(modelRoot ?? ModelManagerStore.DefaultRoot), local, mode == "performance", timeout.Token).ConfigureAwait(false);
+            LocalModelStore.ForModel(modelRoot ?? ModelManagerStore.DefaultRoot, settings.LocalModelStorageParent, local),
+            local, mode == "performance", timeout.Token).ConfigureAwait(false);
         using var normalClient = runtime is null ? new HttpClient(handler ?? new HttpClientHandler { AllowAutoRedirect = false }) {
             Timeout = Timeout.InfiniteTimeSpan
         } : null;

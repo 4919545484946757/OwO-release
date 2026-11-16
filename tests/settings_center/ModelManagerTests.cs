@@ -30,7 +30,7 @@ if (args.Length == 2 && args[0] == "--verify-local") {
     var selected = LocalModelStore.Find(args[1]) ?? throw new ArgumentException("Unknown catalog model.");
     var localTestStore = new LocalModelStore(store.Root);
     try {
-        using var download = new DownloadOperation(selected.Name, default, TimeSpan.FromSeconds(115));
+        using var download = new DownloadOperation(selected.Name, default, TimeSpan.FromMinutes(6));
         await download.RunAsync(token => localTestStore.InstallAsync(selected, download, token));
         var approval = Guid.NewGuid().ToString("N");
         var fixture = new TextAssistantSettings { ZeroCandidateEnabled = true, ZeroCandidateLocalModel = selected.Id,
@@ -134,6 +134,8 @@ try {
     }) await RejectAsync(() => TextAssistantApi.ExecuteAsync(pair.Config, pair.Request, default, noCall), "invalid zero request accepted");
     Check(zeroCalls == 0, "invalid candidates do not reach HTTP");
     var localModel = LocalModelStore.Catalog[0];
+    Check(LocalModelStore.Catalog.Count == 1 && localModel.Id == LocalModelStore.PreferredId &&
+        localModel.Weights.Bytes == 2497280256L, "Qwen3-4B is the sole download and size supports over 2 GiB");
     var localOnly = zero with {
         Profiles = [], ActiveProfile = "", ZeroCandidateLocalModel = localModel.Id,
         ZeroCandidateConsentProfile = ModelManagerStore.LocalConsent(localModel.Id), ZeroCandidatePerformance = false
@@ -141,6 +143,41 @@ try {
     store.Save(localOnly);
     Check(store.Load().ZeroCandidateLocalModel == localModel.Id && File.ReadAllText(zeroGate) == "eco:" + zero.ZeroCandidateApproval,
         "local settings don't require cloud profile or key");
+    if (OperatingSystem.IsWindows()) {
+        var parent = Directory.CreateDirectory(Path.Combine(root, "another-drive-fixture")).FullName;
+        store.Save(localOnly with { LocalModelStorageParent = parent });
+        var alternate = LocalModelStore.ForModel(store.Root, parent, localModel);
+        Check(store.Load().LocalModelStorageParent == parent && LocalModelStore.CanChooseStorage(parent) &&
+            alternate.Root == Path.Combine(parent, "OwO-LocalModels") && alternate.Executable == new LocalModelStore(store.Root).Executable &&
+            LocalModelStore.ForModel(store.Root, parent, LocalModelStore.Legacy).Root == Path.Combine(store.Root, "local"),
+            "4B alternate storage only relocates the new weight, not native runtime or legacy files");
+        Directory.CreateDirectory(alternate.Root);
+        var unverified = localModel with { Weights = localModel.Weights with { Bytes = 4 } };
+        File.WriteAllBytes(alternate.ModelPath(unverified), new byte[4]);
+        Check(!alternate.HasWeights(unverified), "preexisting same-size weights in user-selected folders are not trusted");
+        if (LocalModelStore.Supported) {
+            var runtimeDir = Directory.CreateDirectory(Path.GetDirectoryName(alternate.Executable)!).FullName;
+            File.WriteAllBytes(alternate.Executable, [0]);
+            File.WriteAllText(Path.Combine(runtimeDir, "verified.sha256"), LocalModelStore.Runtime.Sha256);
+            var bytes = "GGUF"u8.ToArray();
+            var fixtureWeight = unverified with { Weights = localModel.Weights with {
+                Bytes = bytes.Length, Sha256 = Convert.ToHexString(SHA256.HashData(bytes))
+            } };
+            using var progress = new DownloadOperation("local model placement fixture", default);
+            await alternate.InstallAsync(fixtureWeight, progress, default,
+                new FakeHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) })));
+            Check(alternate.HasWeights(fixtureWeight) && File.ReadAllBytes(alternate.ModelPath(fixtureWeight)).SequenceEqual(bytes),
+                "hash-verified weights acquire a receipt in shared app storage");
+            File.SetLastWriteTimeUtc(alternate.ModelPath(fixtureWeight), DateTime.UtcNow.AddDays(-1));
+            Check(!alternate.HasWeights(fixtureWeight), "changed file metadata invalidates the existing receipt");
+        }
+        Reject(() => store.Save(localOnly with { LocalModelStorageParent = @"\\server\models" }), "UNC model storage accepted");
+        Reject(() => store.Save(localOnly with { LocalModelStorageParent = "relative" }), "relative model storage accepted");
+    }
+    var oldId = LocalModelStore.Legacy.Id;
+    store.Save(localOnly with { ZeroCandidateLocalModel = oldId, ZeroCandidateConsentProfile = ModelManagerStore.LocalConsent(oldId) });
+    Check(store.Load().ZeroCandidateEnabled && ModelManagerStore.ZeroLocalModel(store.Load())?.Id == oldId,
+        "upgrading does not revoke an existing authorized local model or auto-select a different model");
     Reject(() => store.Save(localOnly with { ZeroCandidateLocalModel = "https://example.invalid" }), "unlisted local model accepted");
     Reject(() => store.Save(localOnly with { ZeroCandidateConsentProfile = profile.Id }), "cloud consent reused for offline backend");
     Check(await TextAssistantApi.ExecuteAsync(localOnly, zeroInput with { Operation = "zero-eco" }, default, new FakeHandler(async request => {

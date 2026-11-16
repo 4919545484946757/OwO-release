@@ -41,7 +41,7 @@ internal sealed class LocalModelInference : IDisposable {
         FileStream? slot = null;
         for (int attempts = 0; slot is null; ++attempts) {
             token.ThrowIfCancellationRequested();
-            try { slot = new FileStream(Path.Combine(store.Root, "inference.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite,
+            try { slot = new FileStream(store.LockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite,
                        FileShare.None, 1, FileOptions.None); }
             catch (IOException) when (attempts < 5) { await Task.Delay(150, token).ConfigureAwait(false); }
             catch (IOException) { throw new ZeroCandidateFailure("local-busy", "另一个本地候选正在生成。"); }

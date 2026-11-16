@@ -7,7 +7,8 @@ namespace OwO_Settings;
 
 internal sealed partial class ModelManagerPage {
     private async Task ShowLocalDebugAsync(LocalModel model) {
-        bool installed = _localModels.Installed(model), closed = false;
+        var localStore = StoreFor(model);
+        bool installed = localStore.Installed(model), closed = false;
         using var lifetime = new CancellationTokenSource();
         CancellationTokenSource? current = null;
         var history = new List<LocalChatTurn>();
@@ -93,13 +94,14 @@ internal sealed partial class ModelManagerPage {
                     var approval = Guid.NewGuid().ToString("N");
                     var settings = new TextAssistantSettings { ZeroCandidateEnabled = true, ZeroCandidateLocalModel = model.Id,
                         ZeroCandidateConsentProfile = ModelManagerStore.LocalConsent(model.Id), ZeroCandidateApproval = approval,
+                        LocalModelStorageParent = _value.LocalModelStorageParent,
                         ZeroCandidatePerformance = _value.ZeroCandidatePerformance };
                     var candidate = await TextAssistantApi.ExecuteAsync(settings,
                         new(settings.ZeroCandidatePerformance ? "zero-performance" : "zero-eco", message, "", "", approval),
                         run.Token, modelRoot: _store.Root, localDebugRawOutput: value => raw = value);
                     if (!closed) AddTurn(message, $"原始回复：{raw ?? candidate}\n校验结果：{candidate}");
                 } else {
-                    var reply = await LocalModelChat.SendAsync(_localModels, model, system.Text, history.ToArray(), message, run.Token);
+                    var reply = await LocalModelChat.SendAsync(localStore, model, system.Text, history.ToArray(), message, run.Token);
                     if (!closed) {
                         history.Add(new(message, reply.Text));
                         if (history.Count > LocalModelChat.MaxTurns) history.RemoveAt(0);

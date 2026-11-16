@@ -15,6 +15,7 @@ internal sealed record TextAssistantSettings {
     public bool IncludeContext { get; init; } = true;
     public bool ZeroCandidateEnabled { get; init; }
     public string ZeroCandidateLocalModel { get; init; } = "";
+    public string LocalModelStorageParent { get; init; } = "";
     public string ZeroCandidateConsentProfile { get; init; } = "";
     public string ZeroCandidateApproval { get; init; } = "";
     public bool ZeroCandidatePerformance { get; init; }
@@ -75,6 +76,8 @@ internal sealed class ModelManagerStore(string root) {
             throw new InvalidOperationException("启用前须配置并选择模型、保存密钥并确认隐私提示。");
         if (value.ZeroCandidateLocalModel is null || (value.ZeroCandidateLocalModel.Length != 0 && LocalModelStore.Find(value.ZeroCandidateLocalModel) is null))
             throw new InvalidOperationException("请选择受支持的本地模型。");
+        if (!LocalModelStore.ValidStorageParent(value.LocalModelStorageParent))
+            throw new InvalidOperationException("本地模型储存目录必须是本机磁盘的绝对路径。");
         if (value.ZeroCandidateEnabled && (ZeroCandidateMode(value) is null || !Guid.TryParseExact(value.ZeroCandidateApproval, "N", out _)))
             throw new InvalidOperationException("启用 0 号候选前须单独授权当前默认模型。");
     }

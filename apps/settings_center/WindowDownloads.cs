@@ -16,9 +16,11 @@ internal sealed class WindowDownloads
         host.Content = new ScrollViewer { Content = _rows, MaxHeight = 180, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             HorizontalScrollMode = ScrollMode.Disabled, HorizontalContentAlignment = HorizontalAlignment.Stretch };
     }
-    internal DownloadOperation Start(string fileName, CancellationToken token) {
+    internal DownloadOperation Start(string fileName, CancellationToken token) => Start(fileName, token, null);
+
+    internal DownloadOperation Start(string fileName, CancellationToken token, TimeSpan? timeout) {
         if (_closed) throw new OperationCanceledException();
-        var task = new DownloadOperation(fileName, token);
+        var task = new DownloadOperation(fileName, token, timeout);
         var row = new DownloadProgressView("FooterDownload" + Guid.NewGuid().ToString("N")); row.Bind(task);
         var ended = false;
         void Changed() => _host.DispatcherQueue.TryEnqueue(() => {

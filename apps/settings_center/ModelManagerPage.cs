@@ -6,7 +6,6 @@ namespace OwO_Settings;
 
 internal sealed partial class ModelManagerPage : UserControl {
     private readonly ModelManagerStore _store;
-    private readonly LocalModelStore _localModels;
     private readonly Func<string, CancellationToken, DownloadOperation> _startDownload;
     private readonly StackPanel _localRows = new() { Spacing = 8 };
     private readonly TextBlock _zeroSource = new() { TextWrapping = TextWrapping.Wrap, Opacity = .75 };
@@ -31,7 +30,7 @@ internal sealed partial class ModelManagerPage : UserControl {
     internal ModelManagerPage(string configPath, Action<string, InfoBarSeverity> notify,
         Func<string, CancellationToken, DownloadOperation> startDownload) {
         _store = new(ModelManagerStore.RootForConfig(configPath)); _notify = notify;
-        _localModels = new(_store.Root); _startDownload = startDownload;
+        _startDownload = startDownload;
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_enabled, "TextAssistantEnabled");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_context, "TextAssistantContext");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_zero, "ZeroCandidateEnabled");
@@ -74,7 +73,7 @@ internal sealed partial class ModelManagerPage : UserControl {
             if (_loading) return;
             if (!_zero.IsOn) { Save(_value with { ZeroCandidateEnabled = false, ZeroCandidateConsentProfile = "", ZeroCandidateApproval = "" }); Apply(); return; }
             if (LocalModelStore.Find(_value.ZeroCandidateLocalModel) is { } local) {
-                if (!_localModels.Installed(local)) { _notify("请先下载并校验本地模型。", InfoBarSeverity.Warning); Apply(); return; }
+                if (!StoreFor(local).Installed(local)) { _notify("请先下载并校验本地模型。", InfoBarSeverity.Warning); Apply(); return; }
                 var confirm = new ContentDialog { XamlRoot = XamlRoot, Title = "启用本地 0 号候选？", PrimaryButtonText = "启用",
                     CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close,
                     Content = Note($"使用 {local.Name} 在本机处理拼音和当前档位允许的上下文。不上传、不会转用云端 API；推理会占用 CPU 和内存。") };
@@ -148,7 +147,7 @@ internal sealed partial class ModelManagerPage : UserControl {
         _zero.IsOn = _value.ZeroCandidateEnabled;
         var local = LocalModelStore.Find(_value.ZeroCandidateLocalModel);
         _zeroSource.Text = local is null ? "当前来源：默认云端 API" : $"当前来源：本地 · {local.Name}";
-        var supports = local is not null ? _localModels.Installed(local)
+        var supports = local is not null ? StoreFor(local).Installed(local)
             : _value.Profiles.Any(p => p.Id == _value.ActiveProfile && p.Enabled && p.SupportsCandidateContext);
         _zeroMode.IsEnabled = supports;
         _zeroMode.SelectedIndex = !supports ? -1 : _value.ZeroCandidatePerformance ? 1 : 0;
@@ -166,15 +165,54 @@ internal sealed partial class ModelManagerPage : UserControl {
             ZeroCandidateConsentProfile = "", ZeroCandidateApproval = "" });
         Apply(); RenderLocalModels();
     }
+    private LocalModelStore StoreFor(LocalModel model) => LocalModelStore.ForModel(_store.Root, _value.LocalModelStorageParent, model);
+    private async Task ChooseLocalStorageAsync() {
+        if (_localBusy) return;
+        try {
+            var picker = new Windows.Storage.Pickers.FolderPicker {
+                SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.ComputerFolder
+            };
+            picker.FileTypeFilter.Add("*");
+            WinRT.Interop.InitializeWithWindow.Initialize(picker,
+                WinRT.Interop.WindowNative.GetWindowHandle(((App)Application.Current).MainWindow));
+            if (await picker.PickSingleFolderAsync() is { } folder) UpdateLocalStorage(folder.Path);
+        } catch { _notify("无法打开目录选择器。", InfoBarSeverity.Warning); }
+    }
+    private void UpdateLocalStorage(string path) {
+        if (_localBusy || string.Equals(_value.LocalModelStorageParent, path, StringComparison.OrdinalIgnoreCase)) return;
+        if (path.Length != 0 && !LocalModelStore.CanChooseStorage(path)) {
+            _notify("请选择本地磁盘上的普通文件夹。", InfoBarSeverity.Warning); return;
+        }
+        var changedActive = _value.ZeroCandidateLocalModel == LocalModelStore.PreferredId;
+        if (Save(_value with { LocalModelStorageParent = path,
+            ZeroCandidateEnabled = !changedActive && _value.ZeroCandidateEnabled,
+            ZeroCandidateConsentProfile = changedActive ? "" : _value.ZeroCandidateConsentProfile,
+            ZeroCandidateApproval = changedActive ? "" : _value.ZeroCandidateApproval })) {
+            Apply(); RenderLocalModels();
+        }
+    }
     private void RenderLocalModels() {
         _localRows.Children.Clear();
         if (!LocalModelStore.Supported) _localRows.Children.Add(Note("本地推理当前支持 Windows x64 和 AVX2 CPU。云端功能不受影响。"));
         var cloud = new Button { Content = "改用默认云端 API", IsEnabled = !_localBusy && _value.ZeroCandidateLocalModel.Length != 0 };
         cloud.Click += (_, _) => SelectZeroModel("");
         _localRows.Children.Add(cloud);
-        foreach (var model in LocalModelStore.Catalog) {
-            bool installed = _localModels.Installed(model), selected = _value.ZeroCandidateLocalModel == model.Id;
-            var status = installed ? (selected ? "已下载 · 当前来源" : "已下载") : $"模型 {model.Weights.Bytes / 1e6:F0} MB · 首次另需约 24 MB 共享运行时";
+        var localRoot = StoreFor(LocalModelStore.Catalog[0]).Root;
+        var folder = new Button { Content = "选择下载目录…", IsEnabled = !_localBusy };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(folder, "LocalModelStoragePicker");
+        folder.Click += async (_, _) => await ChooseLocalStorageAsync();
+        var reset = new Button { Content = "使用默认目录", IsEnabled = !_localBusy && _value.LocalModelStorageParent.Length != 0 };
+        reset.Click += (_, _) => UpdateLocalStorage("");
+        var location = Stack(6, folder, reset); location.Orientation = Orientation.Horizontal;
+        _localRows.Children.Add(Stack(6, Note($"Qwen3-4B 储存目录：{localRoot}\n更改目录不会移动或删除已下载文件。"), location));
+        var legacy = LocalModelStore.Legacy;
+        var models = LocalModelStore.Catalog.AsEnumerable();
+        if (StoreFor(legacy).Installed(legacy) || _value.ZeroCandidateLocalModel == legacy.Id) models = models.Append(legacy);
+        foreach (var model in models) {
+            var modelStore = StoreFor(model);
+            bool installed = modelStore.Installed(model), selected = _value.ZeroCandidateLocalModel == model.Id;
+            var status = installed ? (selected ? "已下载 · 当前来源" : "已下载") :
+                model.Id == legacy.Id ? "旧模型文件未找到，请下载并选用 Qwen3-4B。" : "权重约 2.50 GB · 未安装共享运行时时另需下载约 24 MB";
             var actions = Stack(8); actions.Orientation = Orientation.Horizontal;
             var get = new Button { Content = "一键下载", IsEnabled = LocalModelStore.Supported && !_localBusy };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(get, "DownloadLocalModel-" + model.Id);
@@ -190,12 +228,12 @@ internal sealed partial class ModelManagerPage : UserControl {
                     try {
                         if (_value.ZeroCandidateLocalModel == model.Id && _value.ZeroCandidateEnabled &&
                             !Save(_value with { ZeroCandidateEnabled = false, ZeroCandidateConsentProfile = "", ZeroCandidateApproval = "" })) return;
-                        _localModels.Remove(model); Apply(); RenderLocalModels(); _notify("已移除本地模型。", InfoBarSeverity.Success);
+                        modelStore.Remove(model); Apply(); RenderLocalModels(); _notify("已移除本地模型。", InfoBarSeverity.Success);
                     } catch (IOException) { Apply(); _notify("模型文件正在使用或无法移除，请停止输入后重试。", InfoBarSeverity.Warning); }
                     catch (UnauthorizedAccessException) { Apply(); _notify("当前账户无法移除模型文件。", InfoBarSeverity.Warning); }
                 };
                 actions.Children.Add(use); actions.Children.Add(remove);
-            } else actions.Children.Add(get);
+            } else if (model.Id != legacy.Id) actions.Children.Add(get);
             var debug = new Button { Content = "调试对话…" };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(debug, "DebugLocalModel-" + model.Id);
             debug.Click += async (_, _) => await ShowLocalDebugAsync(model);
@@ -207,7 +245,8 @@ internal sealed partial class ModelManagerPage : UserControl {
         _localBusy = true; RenderLocalModels();
         try {
             using var operation = _startDownload(model.Name, CancellationToken.None);
-            await operation.RunAsync(token => _localModels.InstallAsync(model, operation, token));
+            var store = StoreFor(model);
+            await operation.RunAsync(token => store.InstallAsync(model, operation, token));
         } catch (OperationCanceledException) { }
         catch (Exception error) {
             _notify(error is InvalidOperationException or InvalidDataException ? error.Message : "本地模型下载失败，请检查网络、磁盘空间和访问权限。", InfoBarSeverity.Error);
