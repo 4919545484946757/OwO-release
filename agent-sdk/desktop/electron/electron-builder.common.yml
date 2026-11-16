@@ -1,0 +1,63 @@
+# ADR-003 S4：Electron 打包链（替代旧 Tauri 的 tauri.conf.json bundle 段）
+#
+# 设计要点：
+#   * 渲染层不进 asar —— 由核心服务静态托管 `desktop/web`（随包放在 resources/web），
+#     壳通过 OWO_WEB_UI_DIR 指给核心，避免回落到编译期的源码树绝对路径；
+#   * 核心 owo-agent.exe 与 rg 作为 extraResources 随包（对标旧 Tauri externalBin + resources）；
+#   * NSIS 当前用户安装 + 简体中文（对标旧 Tauri nsis 段）。
+#
+# 前置：`npm run dist` 需要核心已构建（target/release/owo-agent.exe）。
+copyright: Copyright © 2026 OwO Agent SDK Team
+
+directories:
+  buildResources: assets
+
+files:
+  - src/**/*
+  - package.json
+
+asar: true
+
+extraResources:
+  - from: binaries/owobot
+    to: owobot
+  # 核心服务：不直接取 target/release，而是取经 stage-desktop-sidecar.ps1 校验过的
+  # 产物（清残留 + 三元组命名 + 构建身份 commit= 与 SHA-256 核对）。历史上正是
+  # 绕过这一步才出现"安装包里装着上一代 core"的错包；npm run dist 经 predist 自动
+  # 触发 stage，不要手工复制 exe 进 binaries/。
+  - from: binaries/owo-agent.exe
+    to: owo-agent.exe
+    filter:
+      - "**/*"
+  # web 工作台：核心在 `/` 托管它，壳用 OWO_WEB_UI_DIR 指向这里
+  - from: ../web
+    to: web
+    filter:
+      - "**/*"
+  # 内置检索工具（对标旧 Tauri resources 段）
+  - from: ../../tools/rg
+    to: tools/rg
+    filter:
+      - "**/*"
+
+win:
+  target:
+    - nsis
+  icon: assets/icon.ico
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  installerLanguages:
+    - zh_CN
+  language: "2052"
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
+
+# 更新通道：旧 Tauri 的 updater endpoint 是 example.com 占位符（main.rs 有检测），
+# 这里同样留占位——接入真实发布地址前不要声称支持自动更新。
+publish: []

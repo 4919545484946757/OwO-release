@@ -1,0 +1,12 @@
+extends: ./electron-builder.common.yml
+appId: com.owo.agent.owobotdemo
+productName: OwO OwOBot Demo
+
+directories:
+  output: ../../dist/owobot-demo
+
+win:
+  signAndEditExecutable: false
+
+nsis:
+  shortcutName: OwO OwOBot Demo

@@ -57,3 +57,18 @@ $env:OWOBOT_HOME = (Resolve-Path .\agent-sdk\desktop\electron\binaries\owobot).P
 ```
 
 The staging script checks the official Windows x64 Node archive against its pinned SHA-256, builds with the pinned pnpm and lockfile, and publishes a build manifest and the applicable upstream notices. To reuse a local copy of the checked archive and pnpm CLI, set OWOBOT_NODE_ARCHIVE and OWOBOT_PNPM_CLI.
+
+## Build the standalone OwOBot demonstration installer
+
+From the repository root, install the locked desktop dependencies and run the release installer entry point.
+
+```powershell
+npm.cmd --prefix agent-sdk/desktop/electron ci
+& .\agent-sdk\scripts\build-installer.ps1 -OwobotDemo
+```
+
+Find the Windows x64 NSIS installer under `agent-sdk/dist/owobot-demo/`.
+It uses its own application identity and contains the OwO desktop, release core, and pinned OwOBot runtime.
+Use the default installer entry point for the IME-connected OwO desktop.
+The runtime manifest and the core's `--version` identify their source commit.
+For local validation, `-OwobotDemo -Configuration debug` writes a separate installer under `agent-sdk/dist/owobot-demo-debug/`.

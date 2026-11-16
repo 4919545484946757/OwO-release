@@ -2,10 +2,11 @@
 # §6.1.5/§6.2：统一构建门禁——拒绝 dirty 工作树；ORT 原生依赖经 init-dev-env
 # 单一实现解析（不再依赖旧终端遗留的 ORT_LIB_PATH）；cargo 构建输出中出现
 # LNK4098（CRT 静态/动态混用）按发布失败处理，不允许警告带入安装包。
-# 用法：powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1 [-Configuration release|debug]
+# 用法：powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1 [-Configuration release|debug] [-OwobotDemo]
 param(
     [ValidateSet("release", "debug")]
-    [string]$Configuration = "release"
+    [string]$Configuration = "release",
+    [switch]$OwobotDemo
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,11 +15,9 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
 $electronDir = Join-Path $root "desktop\electron"
 $cargo = if ($env:OWO_CARGO) { $env:OWO_CARGO } else { Join-Path $env:USERPROFILE ".cargo\bin\cargo.exe" }
-$npx = if ($env:OWO_NPX) {
-    $env:OWO_NPX
-} else {
-    $npxCommand = Get-Command npx.cmd -ErrorAction SilentlyContinue
-    if ($npxCommand) { $npxCommand.Source } else { "npx.cmd" }
+$builder = Join-Path $electronDir 'node_modules\.bin\electron-builder.cmd'
+if ($OwobotDemo -and -not (Test-Path -LiteralPath $builder -PathType Leaf)) {
+    throw 'Run npm ci in desktop/electron before building the OwOBot demo.'
 }
 
 # §6.1.5/§6.2：门禁（clean tree + ORT 解析）；dirty 覆盖开关：OWO_ALLOW_DIRTY_RELEASE=1。
@@ -43,7 +42,7 @@ if ($Configuration -eq "release") { $configArgs = @("--release") }
 Initialize-CiPath
 $buildLogPath = Join-Path ([IO.Path]::GetTempPath()) ("owo-installer-build-{0}.log" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
 Write-Host "[installer] 构建核心服务（$Configuration，§2.4 strict 档 -j 1）..."
-$buildLog = Invoke-CiCargoCapture -Arguments (@('build', '-p', 'owo-agent-cli') + $configArgs) `
+$buildLog = Invoke-CiCargoCapture -Arguments (@('build', '--locked', '-p', 'owo-agent-cli') + $configArgs) `
     -Cwd $root -TimeoutSec 7200 -HeartbeatSec 30 -Label 'installer-build' `
     -PolicyMode 'strict' -LogFile $buildLogPath -CargoExe $cargo
 if ($global:LASTEXITCODE -ne 0) {
@@ -78,11 +77,21 @@ Write-Host "[installer] sidecar 复制哈希核对通过：$($staged.sha256)"
 # "临时移开 .cargo/config.toml、清空 rustflags"的补丁随之作废——它是为绕开
 # tauri-build 的 static_vcruntime 冲突（/NODEFAULTLIB:LIBCMT 屏蔽 libcmt 导致
 # 成批 LNK2001），Electron 侧不存在该链路。
-$electronDir = Join-Path $root "desktop\electron"
+if ($OwobotDemo) {
+    & (Join-Path $PSScriptRoot 'stage-owobot.ps1')
+    $runtimeManifest = Join-Path $electronDir 'binaries\owobot\owobot-build.json'
+    $runtime = Get-Content -LiteralPath $runtimeManifest -Raw | ConvertFrom-Json
+    $runtimeDirty = ([bool]$runtime.sourceDirty).ToString().ToLowerInvariant()
+    if ($runtime.sourceCommit -notmatch '^[a-f0-9]{40}$' -or
+        $staged.identity -notmatch "commit=$($runtime.sourceCommit) dirty=$runtimeDirty(?:\s|$)") {
+        throw 'The staged core and OwOBot runtime have different source identities.'
+    }
+}
 $buildExitCode = 0
 Push-Location $electronDir
 try {
-    Write-Host "[installer] 打包 NSIS（npm run dist → electron-builder）..."
+    $packageName = if ($OwobotDemo) { 'OwOBot Demo' } else { 'OwO Agent' }
+    Write-Host "[installer] Building the $packageName NSIS installer..."
     # 随包 core 的校验不再在这里单独 stage：npm 的 predist 会自动跑
     # stage-desktop-sidecar.ps1（唯一实现），避免两处实现漂移。
     # ⚠ PowerShell 5.1 陷阱（2026-09-22 实测两次踩到）：顶部设了
@@ -93,8 +102,23 @@ try {
     $savedErrorAction = $ErrorActionPreference
     try {
         $ErrorActionPreference = "Continue"
-        & npm.cmd run dist
-        $buildExitCode = $LASTEXITCODE
+        if ($OwobotDemo) {
+            $signingDiscovery = $env:CSC_IDENTITY_AUTO_DISCOVERY
+            try {
+                $env:CSC_IDENTITY_AUTO_DISCOVERY = 'false'
+                $builderArgs = @('--win', '--x64', '--publish', 'never', '--config', 'electron-builder.owobot-demo.yml')
+                if ($Configuration -eq 'debug') {
+                    $builderArgs += '--config.directories.output=../../dist/owobot-demo-debug'
+                }
+                & $builder @builderArgs
+                $buildExitCode = $LASTEXITCODE
+            } finally {
+                $env:CSC_IDENTITY_AUTO_DISCOVERY = $signingDiscovery
+            }
+        } else {
+            & npm.cmd run dist
+            $buildExitCode = $LASTEXITCODE
+        }
     } finally {
         $ErrorActionPreference = $savedErrorAction
     }
@@ -102,7 +126,10 @@ try {
     Pop-Location
 }
 if ($buildExitCode -ne 0) {
-    throw "NSIS 打包失败（npm run dist exit=$buildExitCode）"
+    throw "NSIS 打包失败（electron-builder exit=$buildExitCode）"
 }
 
-Write-Host "[installer] 完成：dist\electron\"
+$output = if (-not $OwobotDemo) { 'dist\electron' }
+    elseif ($Configuration -eq 'debug') { 'dist\owobot-demo-debug' }
+    else { 'dist\owobot-demo' }
+Write-Host "[installer] Installer built in $output"
