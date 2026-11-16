@@ -41,7 +41,10 @@ if (args.Length == 2 && args[0] == "--verify-local") {
         var second = await TextAssistantApi.ExecuteAsync(fixture, new("zero-eco", "beijing", "", "", approval), default,
             modelRoot: store.Root);
         Check(second == "北京", "local model must generate a second independently chosen spelling");
-        Console.WriteLine($"PASS: verified download and CPU inference {selected.Name} → {result} / {second}");
+        var reported = await TextAssistantApi.ExecuteAsync(fixture, new("zero-eco", "xianzai", "", "", approval, "现在"), default,
+            modelRoot: store.Root);
+        Check(reported == "现在", "wrong reading for xianzai must be replaced by a verified full candidate");
+        Console.WriteLine($"PASS: verified download and CPU inference {selected.Name} → {result} / {second} / {reported}");
     } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     return;
 }
@@ -93,6 +96,8 @@ try {
         !File.Exists(Path.Combine(store.Root, "selection-assistant.enabled")), "separate opt-in and runtime policy");
     var zeroWire = "OWOTEXT1\nzero-pinyin\n" + TextAssistantHost.Encode("nihao") + "\n\n\n" + zero.ZeroCandidateApproval + "\n";
     Check(TextAssistantHost.Parse(zeroWire) == zeroInput, "zero candidate wire has separate authorization");
+    Check(TextAssistantHost.Parse(zeroWire + TextAssistantHost.Encode("你好\n拟好") + "\n") ==
+        zeroInput with { LocalReferences = "你好\n拟好" }, "zero candidate wire accepts an optional local-only shortlist");
     Reject(() => TextAssistantHost.Parse(zeroWire.Replace(zero.ZeroCandidateApproval, "not-an-approval")), "reject malformed runtime approval");
     var withContext = zero with { Profiles = [profile with { SupportsCandidateContext = true }] };
     var eco = withContext with { ZeroCandidatePerformance = false };
@@ -147,6 +152,24 @@ try {
     Check(LocalPinyin.Describe("nihao") == ("ni hao", 2) && LocalPinyin.Describe("xi'an") == ("xi an", 2) &&
         LocalPinyin.Describe("wanan").Count == 0 && LocalPinyin.Describe("wsm").Count == 0 &&
         LocalPinyin.Describe("xian").Count == 0, "standard syllables guide clear full pinyin without constraining ambiguous or incomplete input");
+    Check(LocalPinyin.CanVerify("XIANZAI") && LocalPinyin.Matches("XIANZAI", "现在") &&
+        !LocalPinyin.Matches("xianzai", "在在") && !LocalPinyin.Matches("xianzai", "现"), "verify every character and the entire input");
+    Check(LocalPinyin.Matches("xian", "先") && LocalPinyin.Matches("xian", "西安") &&
+        LocalPinyin.Matches("xi'an", "西安") && !LocalPinyin.Matches("xi'an", "先") &&
+        LocalPinyin.Matches("chongqing", "重庆") && LocalPinyin.Matches("zhong", "重") &&
+        LocalPinyin.Matches("culue", "粗略") && !LocalPinyin.CanVerify("wsm"), "preserve ambiguous splits, manual boundaries, polyphones and partial input");
+    var wrongReading = new TextAssistantInput("zero-pinyin", "xianzai", "", "", zero.ZeroCandidateApproval, "在在\n现在");
+    FakeHandler DuplicateResponse() => new(async request => {
+        Check(!(await request.Content!.ReadAsStringAsync()).Contains("\\u73B0", StringComparison.OrdinalIgnoreCase),
+            "fallback candidates are never included in outgoing requests");
+        return FakeHandler.Json("{\"choices\":[{\"message\":{\"content\":\"在在\"},\"finish_reason\":\"stop\"}]}");
+    });
+    Check(await TextAssistantApi.ExecuteAsync(zero, wrongReading, default, DuplicateResponse()) == "现在",
+        "reject similarly sized off-pronunciation text and use the first verified reference");
+    try {
+        await TextAssistantApi.ExecuteAsync(zero, wrongReading with { LocalReferences = "再在" }, default, DuplicateResponse());
+        throw new Exception("unverified fallback shown");
+    } catch (ZeroCandidateFailure failure) { Check(failure.Code == "pronunciation", "hide zero result when no reference matches"); }
     try {
         await TextAssistantApi.ExecuteAsync(localOnly, zeroInput with { Operation = "zero-eco" }, default, modelRoot: store.Root);
         throw new Exception("missing local model fell through instead of failing locally");

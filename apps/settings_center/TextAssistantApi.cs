@@ -5,7 +5,8 @@ using System.Text.Json;
 
 namespace OwO_Settings;
 
-internal sealed record TextAssistantInput(string Operation, string Selection, string Context, string Application, string Approval = "");
+internal sealed record TextAssistantInput(string Operation, string Selection, string Context, string Application, string Approval = "",
+    string LocalReferences = "");
 internal sealed class ZeroCandidateFailure(string code, string message) : InvalidOperationException(message) {
     internal string Code { get; } = code;
 }
@@ -79,7 +80,8 @@ internal static class TextAssistantApi {
         if (zero && (pinyinLength < 2 || input.Selection.Length > 96 || !input.Selection.All(c => char.IsAsciiLetter(c) || c == '\'') ||
             input.Context.Length > (mode switch { "performance" => 183, "eco" => 16, _ => 0 }) ||
             input.Context.Contains('\0') || (mode != "performance" && input.Application.Length != 0) ||
-            input.Application.Any(c => char.IsControl(c) || c is '/' or '\\' or ':')))
+            input.Application.Any(c => char.IsControl(c) || c is '/' or '\\' or ':') || input.LocalReferences.Length > 146 ||
+            input.LocalReferences.Count(c => c == '\n') > 2))
             throw new ZeroCandidateFailure("input", "0 号候选的数据不符合当前档位限制。");
         if (zero) TextAssistantHost.CheckSensitive(input);
         var local = zero ? ModelManagerStore.ZeroLocalModel(settings) : null;
@@ -166,6 +168,16 @@ internal static class TextAssistantApi {
             if (zero) throw new ZeroCandidateFailure("content", "模型没有返回可用的 0 号候选。");
             throw new InvalidOperationException("模型未返回有效文本，或结果过长；原文未修改。");
         }
-        return zero ? CandidateText(text, pinyinLength) : text;
+        if (!zero) return text;
+        var candidate = CandidateText(text, pinyinLength);
+        if (!LocalPinyin.CanVerify(input.Selection) || LocalPinyin.Matches(input.Selection, candidate)) return candidate;
+
+        // The built-in shortlist arrived over local IPC, never in the HTTP
+        // body. Only a candidate with a complete, exact reading can replace
+        // a model result that did not match the pinyin.
+        foreach (var reference in input.LocalReferences.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            if (reference.Length <= 48 && LocalPinyin.Matches(input.Selection, reference))
+                return CandidateText(reference, pinyinLength);
+        throw new ZeroCandidateFailure("pronunciation", "模型候选的读音与完整拼音不匹配。");
     }
 }

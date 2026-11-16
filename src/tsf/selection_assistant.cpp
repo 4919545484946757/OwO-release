@@ -228,6 +228,7 @@ std::pair<bool, std::wstring> request(const std::filesystem::path& exe, const st
         else if (text == L"zero-error:network") activation_trace("ZERO_MODEL_NETWORK", E_FAIL);
         else if (text == L"zero-error:length") activation_trace("ZERO_MODEL_TRUNCATED", E_FAIL);
         else if (text == L"zero-error:content") activation_trace("ZERO_MODEL_CONTENT", E_FAIL);
+        else if (text == L"zero-error:pronunciation") activation_trace("ZERO_MODEL_PRONUNCIATION", E_FAIL);
         else if (text == L"zero-error:local-not-installed") activation_trace("ZERO_LOCAL_NOT_READY", E_FAIL);
         else if (text == L"zero-error:local-busy") activation_trace("ZERO_LOCAL_BUSY", E_FAIL);
         else if (text == L"zero-error:local-start") activation_trace("ZERO_LOCAL_START_FAILED", E_FAIL);
@@ -265,7 +266,8 @@ std::string read_zero_candidate_mode() {
 }
 
 std::pair<bool, std::wstring> request_zero_candidate(const std::string_view mode,
-    const std::wstring& pinyin, const std::wstring& context, const std::wstring& application, std::stop_token stop) {
+    const std::wstring& pinyin, const std::wstring& context, const std::wstring& application,
+    const std::wstring& references, std::stop_token stop) {
     if (stop.stop_requested()) return {};
     const auto exe = host_path();
     if (exe.empty()) { activation_trace("ZERO_HELPER_MISSING"); return {}; }
@@ -273,8 +275,10 @@ std::pair<bool, std::wstring> request_zero_candidate(const std::string_view mode
     if (code.empty() || (!context.empty() && nearby.empty()) || (!application.empty() && host.empty())) return {};
     const auto delimiter = mode.find(':');
     if (delimiter == mode.npos) return {};
-    return request(exe, "OWOTEXT1\nzero-" + std::string(mode.substr(0, delimiter)) + '\n' + code + '\n' + nearby + '\n' + host + '\n' +
-        std::string(mode.substr(delimiter + 1)) + '\n', stop, true);
+    auto payload = "OWOTEXT1\nzero-" + std::string(mode.substr(0, delimiter)) + '\n' + code + '\n' + nearby + '\n' + host + '\n' +
+        std::string(mode.substr(delimiter + 1)) + '\n';
+    if (!references.empty()) payload += hex(references) + '\n';
+    return request(exe, payload, stop, true);
 }
 } // namespace
 
@@ -420,6 +424,18 @@ void ZeroCandidate::poll() {
         append_ranking_language_context(surroundings, owner_.staged_text());
         append_bounded_language_context(surroundings, {}, 16);
     }
+    std::wstring references;
+    if (!owner_.candidate_request_pending_ && !owner_.candidate_request_failed_ && !owner_.candidate_symbol_preview_ &&
+        owner_.candidate_page_ == 0 && owner_.candidate_consumed_.size() == owner_.candidates_.size()) {
+        unsigned count = 0;
+        for (std::size_t i = 0; i < owner_.candidates_.size() && count < 3; ++i) {
+            const auto& candidate = owner_.candidates_[i];
+            if (owner_.candidate_consumed_[i] != input_.size() || candidate.empty() || candidate.size() > 48 ||
+                candidate.find(L'\n') != std::wstring::npos) continue;
+            if (count++) references.push_back(L'\n');
+            references.append(candidate);
+        }
+    }
     submitted_ = true;
     activation_trace("ZERO_CANDIDATE_REQUESTED");
     next_request_ = now + 1500;
@@ -427,9 +443,9 @@ void ZeroCandidate::poll() {
     job->generation = generation_;
     try {
         worker_ = std::jthread([job, policy = mode_, pinyin = input_, surroundings = std::move(surroundings),
-                application = performance ? application_ : std::wstring{}](std::stop_token stop) {
+                application = performance ? application_ : std::wstring{}, references = std::move(references)](std::stop_token stop) {
             try {
-                auto [ok, result] = request_zero_candidate(policy, pinyin, surroundings, application, stop);
+                auto [ok, result] = request_zero_candidate(policy, pinyin, surroundings, application, references, stop);
                 job->succeeded = ok && !stop.stop_requested() && !result.empty() && result.size() <= 48;
                 if (job->succeeded) job->result = std::move(result);
             } catch (...) { /* A failed model does not disturb normal candidates. */ }
