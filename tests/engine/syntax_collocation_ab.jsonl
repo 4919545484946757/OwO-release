@@ -14,3 +14,11 @@
 {"id":"control-short","input":"nihao","expected":["你好"],"tags":["control"]}
 {"id":"control-long","input":"zhongwuhuijiachifan","expected":["中午回家吃饭"],"tags":["control","long"]}
 {"id":"control-demand","input":"yaoquanbu","expected":["要全部"],"tags":["control"]}
+{"id":"cross-subject-students","input":"xueshengyijingcanjia","expected":["学生已经参加"],"tags":["cross","subject"]}
+{"id":"cross-subject-continued","input":"xueshengzhengzaicanjia","expected":["学生正在参加"],"tags":["cross","subject"]}
+{"id":"cross-object-demonstrative","input":"jiejuezhegewenti","expected":["解决这个问题"],"tags":["cross","object"]}
+{"id":"cross-object-aspect","input":"jiejuelezhegewenti","expected":["解决了这个问题"],"tags":["cross","object"]}
+{"id":"cross-object-modifier","input":"jiejueshijiwenti","expected":["解决实际问题"],"tags":["cross","object"]}
+{"id":"cross-object-linked-modifier","input":"jiejuexianyoudewenti","expected":["解决现有的问题"],"tags":["cross","object"]}
+{"id":"cross-adnominal-topic","input":"zhongyaodeketi","expected":["重要的课题"],"tags":["cross","adnominal"]}
+{"id":"cross-adnominal-city","input":"zhongyaodechengshi","expected":["重要的城市"],"tags":["cross","adnominal"]}

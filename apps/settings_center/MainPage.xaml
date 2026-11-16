@@ -401,7 +401,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="3">
                                             <TextBlock Text="句法搭配（实验）" Style="{StaticResource SettingTitleStyle}"/>
-                                            <TextBlock Text="依据本地中文依存标注，为匹配常见词语搭配的全拼候选小幅加分。默认关闭，不上传输入数据。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                            <TextBlock Text="依据本地搭配库检查主谓、动宾和定中关系，允许跨过合适的修饰成分。默认关闭，不上传输入数据。" Style="{StaticResource SettingDescriptionStyle}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="SyntaxCollocation" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
                                     </Grid>

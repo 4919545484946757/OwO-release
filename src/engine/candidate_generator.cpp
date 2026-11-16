@@ -31,6 +31,7 @@ struct SearchState {
     std::vector<std::size_t> segment_lengths;
     std::int64_t collocation_bonus{};
     std::int64_t syntax_bonus{};
+    syntax_collocations::History syntax_history;
 };
 
 struct OrderedParsePath {
@@ -1673,8 +1674,25 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 entry_scores.reserve(entries.size());
                 for (const auto& entry : entries)
                     entry_scores.push_back(candidate_unigram_score(entry.frequency));
+                // Resolve a dictionary entry's syntax role once per chart span,
+                // even if it extends several surviving beam states.
+                constexpr std::uint16_t unknown_role = 256;
+                std::vector<std::uint16_t> entry_roles;
+                if (syntax_path) entry_roles.resize(entries.size(), unknown_role);
+                const auto entry_role = [&](std::size_t index) {
+                    auto& role = entry_roles[index];
+                    if (role == unknown_role) {
+                        const auto word = std::string_view(entries[index].text);
+                        role = static_cast<std::uint8_t>(word.size() <= 12 && word.size() % 3 == 0
+                            ? syntax_collocations::classify(word) : syntax_collocations::Role::boundary);
+                    }
+                    return static_cast<syntax_collocations::Role>(role);
+                };
                 for (const auto& state : chart[begin]) {
                     if (cancelled && cancelled()) return {};
+                    const auto syntax_context = syntax_path && syntax_queries < syntax_collocations::kMaximumQueries &&
+                            state.syntax_bonus < syntax_collocations::kMaximumPathBonus
+                        ? syntax_collocations::context(state.text, state.syntax_history) : syntax_collocations::Context{};
                     for (std::size_t entry_index = 0; entry_index < entries.size(); ++entry_index) {
                         const auto& entry = entries[entry_index];
                         auto score = state.score + entry_scores[entry_index];
@@ -1697,23 +1715,24 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         }
                         std::int64_t syntax_bonus = 0;
                         if (syntax_path && syntax_queries < syntax_collocations::kMaximumQueries &&
-                            state.syntax_bonus < syntax_collocations::kMaximumPathBonus &&
-                            !state.segment_lengths.empty() && state.segment_lengths.back() <= 4 && reading.size() <= 4 &&
-                            state.previous.size() == state.segment_lengths.back() * 3 &&
+                            !syntax_context.front().word.empty() && reading.size() <= 4 &&
                             entry.text.size() == reading.size() * 3) {
                             const auto room = std::min(syntax_collocations::kMaximumPairBonus,
                                 syntax_collocations::kMaximumPathBonus - state.syntax_bonus);
-                            if (chart[end].size() < beam_width || score + room >= chart[end].front().score) {
+                            if ((chart[end].size() < beam_width || score + room >= chart[end].front().score) &&
+                                !syntax_collocations::has(entry_role(entry_index), syntax_collocations::Role::boundary)) {
                                 const auto started = metrics ? std::chrono::steady_clock::now() :
                                     std::chrono::steady_clock::time_point{};
-                                ++syntax_queries;
-                                syntax_bonus = std::min(room, syntax_collocations::score(state.previous, entry.text));
+                                const auto before = syntax_queries;
+                                const auto match = syntax_collocations::score(syntax_context, entry.text, syntax_queries);
+                                syntax_bonus = std::min(room, match.bonus);
                                 if (metrics) {
                                     metrics->syntax_collocation_ns += static_cast<std::uint64_t>(
                                         std::chrono::duration_cast<std::chrono::nanoseconds>(
                                             std::chrono::steady_clock::now() - started).count());
-                                    ++metrics->syntax_collocation_queries;
+                                    metrics->syntax_collocation_queries += syntax_queries - before;
                                     if (syntax_bonus != 0) ++metrics->syntax_collocation_hits;
+                                    if (syntax_bonus != 0 && match.gap != 0) ++metrics->syntax_cross_word_hits;
                                 }
                                 score += syntax_bonus;
                             }
@@ -1722,6 +1741,10 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                             [&](SearchState& next) {
                                 next.collocation_bonus += collocation;
                                 next.syntax_bonus += syntax_bonus;
+                                if (syntax_path && syntax_queries < syntax_collocations::kMaximumQueries) {
+                                    next.syntax_history = state.syntax_history;
+                                    next.syntax_history.push(entry.text.size(), entry_role(entry_index));
+                                }
                                 next.previous.assign(entry.text);
                                 ++next.segment_count;
                                 next.segment_lengths.push_back(reading.size());

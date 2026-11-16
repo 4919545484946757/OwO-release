@@ -2875,6 +2875,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         {"syntax_collocation_ns", static_cast<std::int64_t>(generation_metrics.syntax_collocation_ns)},
                         {"syntax_collocation_queries", static_cast<std::int64_t>(generation_metrics.syntax_collocation_queries)},
                         {"syntax_collocation_hits", static_cast<std::int64_t>(generation_metrics.syntax_collocation_hits)},
+                        {"syntax_cross_word_hits", static_cast<std::int64_t>(generation_metrics.syntax_cross_word_hits)},
                         {"model_prepare_us", static_cast<std::int64_t>(model_prepare_us)},
                         {"model_prepared", model_metadata_prepared},
                         {"search_us", total_us},
@@ -2905,6 +2906,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         << R"(,"syntax_collocation_ns":)" << generation_metrics.syntax_collocation_ns
                         << R"(,"syntax_collocation_queries":)" << generation_metrics.syntax_collocation_queries
                         << R"(,"syntax_collocation_hits":)" << generation_metrics.syntax_collocation_hits
+                        << R"(,"syntax_cross_word_hits":)" << generation_metrics.syntax_cross_word_hits
                         << R"(,"exact_lookup_cache_hits":)" << generation_metrics.exact_lookup_cache_hits
                         << R"(,"coherence_cache_hits":)" << generation_metrics.coherence_cache_hits
                         << R"(,"total_us":)" << total_us

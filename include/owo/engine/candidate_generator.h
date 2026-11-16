@@ -54,6 +54,7 @@ struct CandidateGenerationMetrics {
     std::uint64_t syntax_collocation_ns{};
     std::uint64_t syntax_collocation_queries{};
     std::uint64_t syntax_collocation_hits{};
+    std::uint64_t syntax_cross_word_hits{};
 };
 
 class CandidateGenerator {

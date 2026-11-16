@@ -29,24 +29,56 @@ std::size_t utf8_character_count(const std::string_view text) {
 int main() {
     {
         using namespace owo::engine;
-        using syntax_collocations::kRecords;
+        using namespace syntax_collocations;
         if (!std::is_sorted(std::begin(kRecords), std::end(kRecords), [](const auto& a, const auto& b) {
                 return std::pair{a.left, a.right} < std::pair{b.left, b.right};
-            }) || syntax_collocations::score("解决", "问题") == 0 ||
-                syntax_collocations::score("问题", "解决") != 0)
+            }) || !std::is_sorted(std::begin(kRoles), std::end(kRoles), [](const auto& a, const auto& b) {
+                return a.word < b.word;
+            }) || dependency("解决", "问题", kAllRelations, 0).bonus == 0 ||
+                dependency("问题", "解决", kAllRelations, 0).bonus != 0)
             return fail("dependency index is not sorted/directional");
+        const auto probe = [](const std::initializer_list<std::string_view> prefix, const std::string_view suffix) {
+            std::string text;
+            History history;
+            for (const auto word : prefix) { text += word; history.push(word.size(), classify(word)); }
+            std::uint32_t queries{};
+            return score(context(text, history), suffix, queries);
+        };
+        const auto subject = probe({"学生", "已经"}, "参加");
+        const auto joined_subject = probe({"学生", "正在"}, "参加");
+        const auto object = probe({"解决", "了", "这个"}, "问题");
+        const auto modifier = probe({"重要", "的"}, "课题");
+        if (!subject.bonus || subject.relation != Relation::subject || subject.gap != 1 ||
+            !joined_subject.bonus || joined_subject.relation != Relation::subject || joined_subject.gap != 1 ||
+            !object.bonus || object.relation != Relation::object || object.gap != 2 ||
+            !modifier.bonus || modifier.relation != Relation::adnominal || modifier.gap != 1)
+            return fail("subject-predicate, verb-object or modifier-noun component failed to match across words");
+        if (probe({"学生", "这个"}, "参加").gap || probe({"解决", "已经"}, "问题").gap ||
+            probe({"解决", "这个", "和"}, "问题").gap || probe({"学生", "，", "已经"}, "参加").gap ||
+            probe({"重要", "了"}, "课题").gap || probe({"问题", "这个"}, "解决").gap ||
+            probe({"解决", "这", "个", "个", "个"}, "问题").gap)
+            return fail("syntax crossed a boundary, an incompatible constituent, or its bounded word window");
         const MemoryLexicon lexicon({{{"jie", "jue"}, "解决", 9800},
-            {{"jie", "jue"}, "解诀", 10000}, {{"wen", "ti"}, "问题", 9500}});
+            {{"jie", "jue"}, "解诀", 10000}, {{"wen", "ti"}, "问题", 9500},
+            {{"zhe", "ge"}, "这个", 10000}, {{"xue", "sheng"}, "学生", 9800},
+            {{"xue", "sheng"}, "学声", 10000}, {{"yi", "jing"}, "已经", 10000},
+            {{"can", "jia"}, "参加", 10000}, {{"zhong", "yao"}, "重要", 9800},
+            {{"zhong", "yao"}, "重药", 10000}, {{"de"}, "的", 10000}, {{"ke", "ti"}, "课题", 10000}});
         const CandidateGenerator generator(lexicon);
-        const auto parsed = FullPinyinSchema{}.parse("jiejuewenti", 16, false);
-        CandidateGenerationMetrics off, on;
-        const auto base = generator.generate(parsed, 16, false, {}, &off);
-        const auto assisted = generator.generate(parsed, 16, false, {}, &on, {}, false, 0, false, 0, 0, false, true);
-        if (base.empty() || base != generator.generate(parsed, 16, false, {}, nullptr, {}, false, 0, true, 0, 0, false, false) ||
-            base.front().text != "解诀问题" || assisted.empty() || assisted.front().text != "解决问题" ||
-            off.syntax_collocation_queries || !on.syntax_collocation_hits ||
-            on.syntax_collocation_queries > syntax_collocations::kMaximumQueries)
-            return fail("syntax toggle did not promote the parsed dependency within its query budget");
+        struct Fixture { std::string_view input, off, on; };
+        for (const auto [input, without, with] : {Fixture{"jiejuezhegewenti", "解诀这个问题", "解决这个问题"},
+                Fixture{"xueshengyijingcanjia", "学声已经参加", "学生已经参加"},
+                Fixture{"zhongyaodeketi", "重药的课题", "重要的课题"}}) {
+            const auto parsed = FullPinyinSchema{}.parse(input, 16, false);
+            CandidateGenerationMetrics off, on;
+            const auto base = generator.generate(parsed, 16, false, {}, &off);
+            const auto assisted = generator.generate(parsed, 16, false, {}, &on, {}, false, 0, false, 0, 0, false, true);
+            if (base.empty() || base != generator.generate(parsed, 16, false, {}, nullptr, {}, false, 0, true, 0, 0, false, false) ||
+                base.front().text != without || assisted.empty() || assisted.front().text != with ||
+                off.syntax_collocation_queries || !on.syntax_collocation_hits || !on.syntax_cross_word_hits ||
+                on.syntax_collocation_queries > syntax_collocations::kMaximumQueries)
+                return fail("syntax toggle did not promote the parsed dependency within its query budget");
+        }
     }
     {
         using namespace owo::engine;

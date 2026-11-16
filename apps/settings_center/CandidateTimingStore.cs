@@ -136,7 +136,7 @@ internal sealed class CandidateTimingStore {
         "partition", "model_enabled", "model_timeout_ms", "base_dictionary", "imported_dictionary", "parse_us",
         "normalization_us", "segmentation_us", "correction_us", "assistance_us", "generation_us", "lookup_us", "sort_us",
         "lookup_count", "beam_transitions", "beam_materialized", "search_us", "layout_us", "cache_hit", "cancelled",
-        "syntax_collocation_ns", "syntax_collocation_queries", "syntax_collocation_hits",
+        "syntax_collocation_ns", "syntax_collocation_queries", "syntax_collocation_hits", "syntax_cross_word_hits",
         "correction_fallback", "parse_paths", "status", "dropped_total", "render_us", "model_prepare_us", "model_prepared"
     };
     internal static bool TryParse(string line, string session, out CandidateTimingEvent? record) {
