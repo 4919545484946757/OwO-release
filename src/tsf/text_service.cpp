@@ -1333,6 +1333,7 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
     if (!chinese_mode_) return false;
     if (is_agent_mode() && (key == VK_RETURN || key == VK_SPACE)) return true;
     if (key >= 'A' && key <= 'Z') return !command_modifier_down();
+    if (zero_candidate_.handles(key)) return true;
     if (symbol_composition_enabled() && has_composition() && !command_modifier_down() &&
         const_cast<TextService*>(this)->composition_symbol_for_key(key).has_value()) return true;
     if (chinese_punctuation_enabled_ && !command_modifier_down() &&
@@ -1603,6 +1604,8 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         has_more_candidates_ = false;
         ++context_generation_;
         queue_candidate_request();
+    } else if (zero_candidate_.handles(key)) {
+        return zero_candidate_.choose(context);
     } else if (symbol_composition_enabled() && has_composition() && !command_modifier_down() &&
                composition_symbol_for_key(key).has_value()) {
         const auto symbol = composition_symbol_for_key(key, true);
@@ -2228,8 +2231,10 @@ SIZE TextService::desired_candidate_window_size() const {
     const std::wstring agent_preview = agent_preview_text();
     const std::wstring reading = agent_preview.empty()
         ? composition_preview() : agent_preview;
+    const auto zero = zero_candidate_.text();
     const float preview_width = candidate_preview_visible() ? kHorizontalPaddingDip * 2.0F +
-        measure_text_width(dwrite_factory_, input_text_format_, reading) +
+        (zero.empty() || !inline_preedit_ || !inline_preedit_->active() ? measure_text_width(dwrite_factory_, input_text_format_, reading) : 0.0F) +
+        (zero.empty() ? 0.0F : zero_candidate_width(zero) + kCandidateGapDip) +
         (unicode_palette_.categories.empty()
              ? 0.0F : kUnicodeEntryWidthDip + kCandidateGapDip) : 0.0F;
     const float candidate_row_width = kHorizontalPaddingDip * 2.0F + candidates_width +
@@ -2993,6 +2998,7 @@ bool TextService::render_candidate_window() {
 
     const bool unicode_entry_visible = !unicode_palette_.categories.empty();
     if (candidate_preview_visible()) {
+    const auto zero = zero_candidate_.text();
     std::wstring reading = segmented_input_.empty() ? input_buffer_ : segmented_input_;
     const std::wstring staged = staged_text();
     const std::wstring agent_preview = agent_preview_text();
@@ -3008,9 +3014,12 @@ bool TextService::render_candidate_window() {
     }
     const std::wstring preview = agent_preview.empty()
         ? composition_preview() : agent_preview;
-    const float preview_right = unicode_entry_visible
+    const float header_right = unicode_entry_visible
         ? size.width - kHorizontalPaddingDip - kUnicodeEntryWidthDip - kCandidateGapDip
         : size.width - kHorizontalPaddingDip;
+    const float zero_width = zero.empty() ? 0.0F : std::min(zero_candidate_width(zero), header_right - kHorizontalPaddingDip);
+    const float preview_right = zero.empty() ? header_right : header_right - zero_width - kCandidateGapDip;
+    if (zero.empty() || !inline_preedit_ || !inline_preedit_->active()) {
     IDWriteTextLayout* preview_layout = nullptr;
     const HRESULT preview_layout_result = dwrite_factory_->CreateTextLayout(
         preview.data(), static_cast<UINT32>(preview.size()), input_text_format_,
@@ -3039,13 +3048,14 @@ bool TextService::render_candidate_window() {
                                          (caret_positions[shown - 1] +
                                           caret_positions[shown]) * 0.5F;
             const float right = shown == preview.size()
-                                    ? size.width - kHorizontalPaddingDip
+                                    ? preview_right
                                     : kHorizontalPaddingDip +
                                           (caret_positions[shown] +
                                            caret_positions[shown + 1]) * 0.5F;
+            if (left >= preview_right) continue;
             hit_regions_.push_back({
                 dip_rect_to_pixels(
-                    D2D1::RectF(left, 0.0F, std::max(left + 1.0F, right),
+                    D2D1::RectF(left, 0.0F, std::min(preview_right, std::max(left + 1.0F, right)),
                                 kHeaderHeightDip), dpi),
                 {HitKind::pinyin_cursor,
                  [this, &staged, &reading, &logical_input, editable_agent_preview,
@@ -3086,8 +3096,8 @@ bool TextService::render_candidate_window() {
                         ? input_cursor_ - 1 : input_cursor_);
             }
             shown_cursor += agent_prefix_length;
-            const float caret_x = kHorizontalPaddingDip +
-                                  caret_positions[std::min(shown_cursor, preview.size())];
+            const float caret_x = std::min(preview_right, kHorizontalPaddingDip +
+                                  caret_positions[std::min(shown_cursor, preview.size())]);
             render_target_->DrawLine(
                 D2D1::Point2F(caret_x, 7.0F),
                 D2D1::Point2F(caret_x, kHeaderHeightDip - 7.0F),
@@ -3100,6 +3110,31 @@ bool TextService::render_candidate_window() {
             D2D1::RectF(kHorizontalPaddingDip, 0.0F,
                         preview_right, kHeaderHeightDip),
             mode_accent_brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    }
+    }
+    if (!zero.empty()) {
+        const HitTarget target{HitKind::zero_candidate, 0};
+        const auto bounds = D2D1::RectF(header_right - zero_width, 5.0F, header_right, kHeaderHeightDip - 5.0F);
+        const D2D1_ROUNDED_RECT pill{bounds, 7.0F, 7.0F};
+        render_target_->FillRoundedRectangle(pill, pressed_target_ == target ? pressed_brush_ :
+            hovered_target_ == target ? hover_brush_ : mode_highlight_brush);
+        render_target_->DrawRoundedRectangle(pill, button_border_brush_, 1.0F);
+        render_target_->DrawTextW(L"0", 1, label_text_format_,
+            D2D1::RectF(bounds.left + 2, bounds.top, bounds.left + 25, bounds.bottom), mode_accent_brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        IDWriteTextLayout* layout = nullptr;
+        const float available = std::max(1.0F, zero_width - 34.0F);
+        if (SUCCEEDED(dwrite_factory_->CreateTextLayout(zero.data(), static_cast<UINT32>(zero.size()), candidate_text_format_,
+                available, bounds.bottom - bounds.top, &layout)) && layout) {
+            IDWriteInlineObject* ellipsis = nullptr;
+            const DWRITE_TRIMMING clipping{DWRITE_TRIMMING_GRANULARITY_CHARACTER, 0, 0};
+            if (SUCCEEDED(dwrite_factory_->CreateEllipsisTrimmingSign(candidate_text_format_, &ellipsis)) && ellipsis) {
+                (void)layout->SetTrimming(&clipping, ellipsis);
+                ellipsis->Release();
+            }
+            render_target_->DrawTextLayout(D2D1::Point2F(bounds.left + 27, bounds.top), layout, text_brush_, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            layout->Release();
+        }
+        hit_regions_.push_back({dip_rect_to_pixels(bounds, dpi), target});
     }
     if (unicode_entry_visible) {
         const HitTarget target{HitKind::unicode_toggle, 0};
@@ -3411,6 +3446,9 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     }
     if (message == WM_TIMER && wparam == kSelectionAssistantTimer && service != nullptr) {
         service->selection_assistant_.poll(); return 0;
+    }
+    if (message == WM_TIMER && wparam == kZeroCandidateTimer && service != nullptr) {
+        service->zero_candidate_.poll(); return 0;
     }
     if (message == WM_TIMER && wparam == kCandidateWindowOrderTimer && service != nullptr) {
         service->maintain_candidate_window_order(); return 0;
@@ -3801,6 +3839,7 @@ LRESULT CALLBACK TextService::scheme_keyboard_proc(int code, WPARAM message, LPA
 void TextService::queue_candidate_request() {
     if (plugin_scheme_selected()) { queue_plugin_compose(); return; }
     schedule_candidate_request(true);
+    zero_candidate_.observe();
 }
 
 bool TextService::symbol_composition_enabled() const noexcept {
@@ -5447,7 +5486,11 @@ bool TextService::has_composition() const noexcept {
 
 bool TextService::candidate_preview_visible() const noexcept {
     return !inline_preedit_ || !inline_preedit_->active() || is_agent_mode() ||
-        unicode_palette_visible_ || alt_code_preview_active_;
+        unicode_palette_visible_ || alt_code_preview_active_ || !zero_candidate_.text().empty();
+}
+
+float TextService::zero_candidate_width(std::wstring_view text) const {
+    return std::clamp(36.0F + measure_text_width(dwrite_factory_, candidate_text_format_, text), 72.0F, 264.0F);
 }
 
 void TextService::sync_inline_preedit() {
@@ -5844,6 +5887,7 @@ void TextService::invoke_hit_target(const HitTarget& target) {
         toggle_unicode_palette();
         return;
     }
+    if (target.kind == HitKind::zero_candidate) { (void)zero_candidate_.choose(); return; }
     if (target.kind == HitKind::unicode_category) {
         if (target.candidate_index < unicode_palette_.categories.size()) {
             unicode_category_index_ = target.candidate_index;
@@ -6110,6 +6154,7 @@ void TextService::clear_composition(bool keep_plugin_session) {
     undo_preview_in_window_ = false;
     cancel_scheme_picker();
     selection_assistant_.cancel();
+    zero_candidate_.cancel();
     agent_trust_pending_ = false;
     agent_trust_context_.Reset();
     agent_trust_window_ = {};

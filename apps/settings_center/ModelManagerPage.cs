@@ -12,6 +12,9 @@ internal sealed class ModelManagerPage : UserControl {
     private readonly TextBlock _profileCount = new() { Opacity = .75, TextWrapping = TextWrapping.Wrap };
     private readonly ToggleSwitch _enabled = new() { Header = "选区大模型功能", MinWidth = 0 };
     private readonly ToggleSwitch _context = new() { Header = "发送局部上下文", MinWidth = 0 };
+    private readonly ToggleSwitch _zero = new() { Header = "启用 0 号候选", MinWidth = 0 };
+    private readonly ScrollNeutralComboBox _zeroMode = new() { Header = "候选生成模式", PlaceholderText = "仅拼音", ItemsSource = new[] { "能效优先", "性能优先" }, MinWidth = 160 };
+    private readonly TextBlock _zeroHint = new() { TextWrapping = TextWrapping.Wrap, Opacity = .75 };
     private readonly TextBox _preferred = new() { Header = "首选语言", MaxLength = 64 };
     private readonly TextBox _secondary = new() { Header = "次选语言", MaxLength = 64 };
     private readonly ScrollNeutralComboBox _polish = new() { Header = "语言润色级别", HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -24,6 +27,8 @@ internal sealed class ModelManagerPage : UserControl {
         _store = new(ModelManagerStore.RootForConfig(configPath)); _notify = notify;
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_enabled, "TextAssistantEnabled");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_context, "TextAssistantContext");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_zero, "ZeroCandidateEnabled");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_zeroMode, "ZeroCandidateMode");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_preferred, "ModelPreferredLanguage");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_secondary, "ModelSecondaryLanguage");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_polish, "ModelPolishLevel");
@@ -40,6 +45,7 @@ internal sealed class ModelManagerPage : UserControl {
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(add, "AddModelApi");
         add.Click += async (_, _) => await EditAsync(null);
         body.Children.Add(Card(Stack(12, ResponsivePair(Stack(4, Heading("API 连接"), _profileCount), add, 380, fitTrailing: true), _profiles)));
+        body.Children.Add(Section("0 号候选", "全拼停顿后异步生成一条候选，显示于拼音预览右侧；普通候选不等待模型。", _zero, _zeroMode, _zeroHint));
         foreach (var item in new[] { "一档 · 字词与语法", "二档 · 语法与格式", "三档 · 语义优化与扩写" }) _polish.Items.Add(item);
         foreach (var item in new[] { "一档 · 语法修复与注释", "二档 · 逻辑修复与注释", "三档 · 算法优化与注释" }) _code.Items.Add(item);
         body.Children.Add(Heading("功能偏好", 20));
@@ -56,6 +62,24 @@ internal sealed class ModelManagerPage : UserControl {
             SaveOptions();
         };
         _context.Toggled += (_, _) => SaveOptions();
+        _zero.Toggled += async (_, _) => {
+            if (_loading) return;
+            if (!_zero.IsOn) { Save(_value with { ZeroCandidateEnabled = false, ZeroCandidateConsentProfile = "", ZeroCandidateApproval = "" }); Apply(); return; }
+            var profile = _value.Profiles.FirstOrDefault(p => p.Id == _value.ActiveProfile && p.Enabled && p.ProtectedKey.Length > 0);
+            if (profile is null) { _notify("请先配置并选择默认模型。", InfoBarSeverity.Warning); Apply(); return; }
+            var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = "启用自动生成 0 号候选？", PrimaryButtonText = "同意并启用",
+                CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close,
+                Content = Note($"全拼输入停顿后会自动把当前拼音发送到 {ModelManagerStore.Endpoint(profile.Endpoint).Host}（{profile.Model}），不必先按确认键。\n\n" +
+                    "支持上下文时：能效优先最多附带 16 个字符的本地上屏前文；性能优先最多附带光标前 128、后 48 个字符及应用程序文件名。数字将脱敏；密码、未验证控件、终端及不符合安全条件的输入不发送。\n\n" +
+                    "第三方可能保存数据或产生 API 费用。结果只作候选，按 0 或点击才会上屏。请勿在输入保密内容时启用。") };
+            if (await ShowDialogAsync(dialog) == ContentDialogResult.Primary && _value.ActiveProfile == profile.Id)
+                Save(_value with { ZeroCandidateEnabled = true, ZeroCandidateConsentProfile = profile.Id, ZeroCandidateApproval = Guid.NewGuid().ToString("N") });
+            Apply();
+        };
+        _zeroMode.SelectionChanged += (_, _) => {
+            if (!_loading && _zeroMode.IsEnabled && _zeroMode.SelectedIndex >= 0)
+                Save(_value with { ZeroCandidatePerformance = _zeroMode.SelectedIndex == 1 });
+        };
         _preferred.LostFocus += (_, _) => SaveOptions(); _secondary.LostFocus += (_, _) => SaveOptions();
         _polish.SelectionChanged += (_, _) => SaveOptions(); _code.SelectionChanged += (_, _) => SaveOptions();
         _timeout.ValueChanged += (_, _) => SaveOptions(); _tokens.ValueChanged += (_, _) => SaveOptions();
@@ -104,6 +128,12 @@ internal sealed class ModelManagerPage : UserControl {
     private void Apply() {
         _loading = true;
         _enabled.IsOn = _value.Enabled; _context.IsOn = _value.IncludeContext;
+        _zero.IsOn = _value.ZeroCandidateEnabled;
+        var supports = _value.Profiles.Any(p => p.Id == _value.ActiveProfile && p.Enabled && p.SupportsCandidateContext);
+        _zeroMode.IsEnabled = supports;
+        _zeroMode.SelectedIndex = !supports ? -1 : _value.ZeroCandidatePerformance ? 1 : 0;
+        _zeroHint.Text = supports ? "能效优先：拼音 + 少量已上屏前文。性能优先：拼音 + 光标附近上下文 + 应用名。"
+            : "默认模型未声明支持上下文，仅使用拼音，不能切换档位。可在对应 API 连接中编辑能力声明。";
         _preferred.Text = _value.PreferredLanguage; _secondary.Text = _value.SecondaryLanguage;
         _polish.SelectedIndex = _value.PolishLevel - 1; _code.SelectedIndex = _value.CodeLevel - 1;
         _timeout.Value = _value.TimeoutSeconds; _tokens.Value = _value.MaxOutputTokens;
@@ -126,7 +156,7 @@ internal sealed class ModelManagerPage : UserControl {
         if (profile is null || profile.ProtectedKey.Length == 0) { _notify("请先添加带密钥的模型并设为默认。", InfoBarSeverity.Warning); return false; }
         var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = "启用选区大模型功能", PrimaryButtonText = "我同意并启用", CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close,
-            Content = Note($"将向 {ModelManagerStore.Endpoint(profile.Endpoint).Host}（模型 {profile.Model}）发送你选中的文字、应用程序名称，以及你允许的局部上下文。第三方可能保存这些内容，按其政策处理并收取 API 费用。\n\n选择功能后结果将直接替换选区；可能改变原意或产生错误代码。不会执行代码或系统操作。Esc 可取消本机请求，但已发送的网络请求及费用不保证可撤回。\n\n只有明确选中文字后按 v、再选择功能才发起请求；正常打字不联网。") };
+            Content = Note($"将向 {ModelManagerStore.Endpoint(profile.Endpoint).Host}（模型 {profile.Model}）发送你选中的文字、应用程序名称，以及你允许的局部上下文。第三方可能保存这些内容，按其政策处理并收取 API 费用。\n\n选择功能后结果将直接替换选区；可能改变原意或产生错误代码。不会执行代码或系统操作。Esc 可取消本机请求，但已发送的网络请求及费用不保证可撤回。\n\n选区功能仅在明确选中文字、按 v 并选择功能后发起请求。0 号候选另行授权。") };
         if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary) return false;
         _value = _value with { PrivacyConsent = true };
         return true;
@@ -142,11 +172,13 @@ internal sealed class ModelManagerPage : UserControl {
             enabled.Toggled += (_, _) => {
                 var disablingActive = profile.Id == _value.ActiveProfile && !enabled.IsOn;
                 Save(_value with { Profiles = _value.Profiles.Select(p => p.Id == profile.Id ? p with { Enabled = enabled.IsOn } : p).ToList(),
-                    Enabled = disablingActive ? false : _value.Enabled, PrivacyConsent = disablingActive ? false : _value.PrivacyConsent });
+                    Enabled = disablingActive ? false : _value.Enabled, PrivacyConsent = disablingActive ? false : _value.PrivacyConsent,
+                    ZeroCandidateEnabled = !disablingActive && _value.ZeroCandidateEnabled,
+                    ZeroCandidateConsentProfile = disablingActive ? "" : _value.ZeroCandidateConsentProfile });
                 Apply(); RenderProfiles();
             };
             var use = new Button { Content = "设为默认", IsEnabled = profile.Enabled && profile.Id != _value.ActiveProfile };
-            use.Click += (_, _) => { if (Save(_value with { ActiveProfile = profile.Id, Enabled = false, PrivacyConsent = false })) { Apply(); RenderProfiles(); } };
+            use.Click += (_, _) => { if (Save(_value with { ActiveProfile = profile.Id, Enabled = false, PrivacyConsent = false, ZeroCandidateEnabled = false, ZeroCandidateConsentProfile = "" })) { Apply(); RenderProfiles(); } };
             var edit = new Button { Content = "编辑" }; edit.Click += async (_, _) => await EditAsync(profile);
             var test = new Button { Content = "测试连接", IsEnabled = profile.Enabled };
             test.Click += async (_, _) => {
@@ -165,7 +197,9 @@ internal sealed class ModelManagerPage : UserControl {
                 var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = "删除模型？", Content = "将删除此模型及本机保存的加密 API 密钥。", PrimaryButtonText = "删除", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close };
                 if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary) return;
                 if (Save(_value with { Profiles = _value.Profiles.Where(p => p.Id != profile.Id).ToList(),
-                    ActiveProfile = _value.ActiveProfile == profile.Id ? "" : _value.ActiveProfile, Enabled = false, PrivacyConsent = false })) { Apply(); RenderProfiles(); }
+                    ActiveProfile = _value.ActiveProfile == profile.Id ? "" : _value.ActiveProfile, Enabled = false, PrivacyConsent = false,
+                    ZeroCandidateEnabled = profile.Id != _value.ActiveProfile && _value.ZeroCandidateEnabled,
+                    ZeroCandidateConsentProfile = profile.Id == _value.ActiveProfile ? "" : _value.ZeroCandidateConsentProfile })) { Apply(); RenderProfiles(); }
             };
             var primary = Stack(8, edit, test); primary.Orientation = Orientation.Horizontal;
             var secondary = Stack(8, use, remove); secondary.Orientation = Orientation.Horizontal;
@@ -183,17 +217,20 @@ internal sealed class ModelManagerPage : UserControl {
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(model, "ModelApiModel");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(key, "ModelApiKey");
         var legacy = new ToggleSwitch { Header = "使用 max_tokens（关闭则使用 max_completion_tokens）", IsOn = existing?.LegacyTokenLimit ?? true };
-        var content = new StackPanel { Spacing = 12 }; content.Children.Add(name); content.Children.Add(endpoint); content.Children.Add(model); content.Children.Add(key); content.Children.Add(legacy);
-        content.Children.Add(Note("不会自动请求网络。修改模型或服务地址会关闭选区功能，重新启用时需要再次确认发送目的地。"));
+        var supportsContext = new ToggleSwitch { Header = "模型支持 0 号候选使用上下文", IsOn = existing?.SupportsCandidateContext ?? false };
+        var content = new StackPanel { Spacing = 12 }; content.Children.Add(name); content.Children.Add(endpoint); content.Children.Add(model); content.Children.Add(key); content.Children.Add(legacy); content.Children.Add(supportsContext);
+        content.Children.Add(Note("保存不会立即联网。编辑默认连接后，0 号候选需要重新授权。"));
         var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = existing is null ? "添加模型 API" : "编辑模型 API", Content = content,
             PrimaryButtonText = "保存", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close };
         dialog.PrimaryButtonClick += (_, e) => {
             try {
                 var encrypted = key.Password.Length == 0 ? existing?.ProtectedKey ?? "" : ModelKeyProtection.Protect(key.Password);
                 if (encrypted.Length == 0) throw new InvalidOperationException("请填写 API 密钥。");
-                var profile = new UserModelProfile(existing?.Id ?? Guid.NewGuid().ToString("N"), name.Text.Trim(), endpoint.Text.Trim(), model.Text.Trim(), encrypted, true, legacy.IsOn);
+                var profile = new UserModelProfile(existing?.Id ?? Guid.NewGuid().ToString("N"), name.Text.Trim(), endpoint.Text.Trim(), model.Text.Trim(), encrypted, true, legacy.IsOn, supportsContext.IsOn);
                 var profiles = _value.Profiles.Where(p => p.Id != profile.Id).Append(profile).ToList();
-                var value = _value with { Profiles = profiles, ActiveProfile = _value.ActiveProfile.Length == 0 ? profile.Id : _value.ActiveProfile, Enabled = false, PrivacyConsent = false };
+                var editsDefault = profile.Id == _value.ActiveProfile;
+                var value = _value with { Profiles = profiles, ActiveProfile = _value.ActiveProfile.Length == 0 ? profile.Id : _value.ActiveProfile, Enabled = false, PrivacyConsent = false,
+                    ZeroCandidateEnabled = !editsDefault && _value.ZeroCandidateEnabled, ZeroCandidateConsentProfile = editsDefault ? "" : _value.ZeroCandidateConsentProfile };
                 ModelManagerStore.Validate(value);
                 if (!Save(value)) { e.Cancel = true; return; }
                 key.Password = ""; Apply(); RenderProfiles();

@@ -639,6 +639,46 @@ struct ExpandedCandidateTestAccess {
         service->candidate_symbol_preview_ = true;
         if (FAILED(service->commit_candidate(combined_editor.Get(), 0)) ||
             combined_editor->doc.text != L"前文一、二" || service->has_composition()) return 101;
+        // A published zero candidate is independent from normal numbered rows.
+        service->foreground_focus_ = true;
+        service->chinese_mode_ = true;
+        service->shortcut_config_.input_scheme = "full_pinyin";
+        service->shortcut_config_.pinyin_preview_location = "candidate";
+        service->input_buffer_ = L"nihao";
+        service->input_cursor_ = 5;
+        service->segmented_input_ = L"ni'hao";
+        service->candidates_ = {L"你好"};
+        service->candidate_consumed_ = {5};
+        service->zero_candidate_.input_ = service->input_buffer_;
+        service->zero_candidate_.composition_generation_ = service->context_generation_;
+        service->zero_candidate_.hide_at_ = GetTickCount64() + 5000;
+        service->zero_candidate_.text_ = L"拟好";
+        const auto size = service->desired_candidate_window_size();
+        service->candidate_present_size_ = size;
+        service->candidate_content_size_ = size;
+        if (!service->render_candidate_window()) return 180;
+        const auto zero_hit = std::find_if(service->hit_regions_.begin(), service->hit_regions_.end(),
+            [](const auto& region) { return region.target.kind == TextService::HitKind::zero_candidate; });
+        const auto ordinary_hit = std::find_if(service->hit_regions_.begin(), service->hit_regions_.end(),
+            [](const auto& region) { return region.target.kind == TextService::HitKind::candidate; });
+        if (zero_hit == service->hit_regions_.end() || ordinary_hit == service->hit_regions_.end() ||
+            zero_hit->bounds.top >= ordinary_hit->bounds.top || service->candidates_.front() != L"你好") return 181;
+        const auto hit = service->hit_test({zero_hit->bounds.left + 2, zero_hit->bounds.top + 2});
+        if (!hit || hit->kind != TextService::HitKind::zero_candidate) return 185;
+        ++service->context_generation_;
+        if (!service->zero_candidate_.text().empty()) return 182;
+        service->zero_candidate_.composition_generation_ = service->context_generation_;
+        service->input_buffer_ += L"m";
+        if (!service->zero_candidate_.text().empty()) return 183;
+        service->input_buffer_ = L"nihao";
+        service->zero_candidate_.hide_at_ = GetTickCount64();
+        if (!service->zero_candidate_.text().empty()) return 184;
+        service->shortcut_config_.separator_shortcut_enabled = false;
+        service->input_buffer_ = L"ni'hao";
+        if (service->zero_candidate_.eligible()) return 186; // Literal quote belongs to symbol composition.
+        service->manual_breaks_ = {2};
+        if (!service->zero_candidate_.eligible()) return 187; // The same character is valid as a manual separator.
+        service->clear_composition();
         return 0;
     }
 };

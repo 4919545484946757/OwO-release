@@ -7,12 +7,16 @@ using System.Text.Json.Serialization;
 namespace OwO_Settings;
 
 internal sealed record UserModelProfile(string Id, string Name, string Endpoint, string Model,
-    string ProtectedKey, bool Enabled = true, bool LegacyTokenLimit = true);
+    string ProtectedKey, bool Enabled = true, bool LegacyTokenLimit = true, bool SupportsCandidateContext = false);
 internal sealed record TextAssistantSettings {
     public int Version { get; init; } = 1;
     public bool Enabled { get; init; }
     public bool PrivacyConsent { get; init; }
     public bool IncludeContext { get; init; } = true;
+    public bool ZeroCandidateEnabled { get; init; }
+    public string ZeroCandidateConsentProfile { get; init; } = "";
+    public string ZeroCandidateApproval { get; init; } = "";
+    public bool ZeroCandidatePerformance { get; init; }
     public string ActiveProfile { get; init; } = "";
     public string PreferredLanguage { get; init; } = "简体中文";
     public string SecondaryLanguage { get; init; } = "英语";
@@ -68,7 +72,18 @@ internal sealed class ModelManagerStore(string root) {
         if (value.Enabled && (!value.PrivacyConsent || !value.Profiles.Any(p =>
             p.Id == value.ActiveProfile && p.Enabled && p.ProtectedKey.Length != 0)))
             throw new InvalidOperationException("启用前须配置并选择模型、保存密钥并确认隐私提示。");
+        if (value.ZeroCandidateEnabled && (ZeroCandidateProfile(value) is null || !Guid.TryParseExact(value.ZeroCandidateApproval, "N", out _)))
+            throw new InvalidOperationException("启用 0 号候选前须单独授权当前默认模型。");
     }
+    internal static UserModelProfile? ZeroCandidateProfile(TextAssistantSettings value) =>
+        value.ZeroCandidateEnabled && value.ActiveProfile == value.ZeroCandidateConsentProfile
+        ? value.Profiles.SingleOrDefault(p => p.Id == value.ActiveProfile && p.Enabled && p.ProtectedKey.Length != 0)
+        : null;
+    internal static string? ZeroCandidateMode(TextAssistantSettings value) => ZeroCandidateProfile(value) switch {
+        null => null,
+        { SupportsCandidateContext: false } => "pinyin",
+        _ => value.ZeroCandidatePerformance ? "performance" : "eco",
+    };
     private static bool ValidText(string? value, int max) => !string.IsNullOrWhiteSpace(value) &&
         value.Length <= max && !value.Any(char.IsControl);
     internal void Save(TextAssistantSettings value) {
@@ -83,6 +98,15 @@ internal sealed class ModelManagerStore(string root) {
         // Native TSF reads only these non-secret gates; the worker revalidates JSON.
         SetGate("selection-assistant.enabled", value.Enabled && value.PrivacyConsent);
         SetGate("context.enabled", value.Enabled && value.PrivacyConsent && value.IncludeContext);
+        var mode = ZeroCandidateMode(value);
+        SetModeGate(mode is null ? null : mode + ":" + value.ZeroCandidateApproval);
+    }
+    private void SetModeGate(string? mode) {
+        var path = Path.Combine(Root, "zero-candidate.mode");
+        if (mode is null) { if (File.Exists(path)) File.Delete(path); return; }
+        var temporary = path + "." + Guid.NewGuid().ToString("N");
+        try { File.WriteAllText(temporary, mode, new UTF8Encoding(false)); File.Move(temporary, path, true); }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
     private void SetGate(string name, bool enabled) {
         var path = Path.Combine(Root, name);

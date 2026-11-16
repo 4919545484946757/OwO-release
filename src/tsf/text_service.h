@@ -15,6 +15,7 @@
 #include "inline_preedit.h"
 #include "candidate_undo.h"
 #include "selection_assistant.h"
+#include "zero_candidate.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -108,6 +109,7 @@ public:
 private:
     friend class LanguageBarItem;
     friend class SelectionAssistant;
+    friend class ZeroCandidate;
 #ifdef OWO_TSF_TEST_ACCESS
     friend struct ExpandedCandidateTestAccess;
     friend struct WubiCommitTestAccess;
@@ -160,6 +162,7 @@ private:
     enum class HitKind : std::uint8_t {
         pinyin_cursor,
         candidate,
+        zero_candidate,
         candidate_page,
         previous_page,
         next_page,
@@ -264,6 +267,7 @@ private:
     [[nodiscard]] std::wstring composition_preview() const;
     void sync_inline_preedit();
     [[nodiscard]] bool candidate_preview_visible() const noexcept;
+    [[nodiscard]] float zero_candidate_width(std::wstring_view text) const;
     Microsoft::WRL::ComPtr<InlinePreedit> inline_preedit_;
     [[nodiscard]] std::size_t composition_cursor() const noexcept;
     void set_composition_cursor(std::size_t cursor);
@@ -574,6 +578,7 @@ private:
     std::deque<PendingRequest> feedback_requests_;
     std::jthread worker_;
     SelectionAssistant selection_assistant_{*this};
+    ZeroCandidate zero_candidate_{*this};
 };
 
 HRESULT create_text_service(REFIID iid, void** object);

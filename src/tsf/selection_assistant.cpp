@@ -2,6 +2,7 @@
 #include "text_service.h"
 #include "owo/config/config_paths.h"
 #include "owo/tsf/input_method_context.h"
+#include "owo/tsf/language_context.h"
 #include <algorithm>
 #include <array>
 #include <filesystem>
@@ -216,6 +217,39 @@ std::pair<bool, std::wstring> request(const std::filesystem::path& exe, const st
     if (text.empty()) text = L"模型返回格式无效，原文未修改";
     return {ok, text};
 }
+std::string read_zero_candidate_mode() {
+    const auto path = models_root() / L"zero-candidate.mode";
+    const HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE | FILE_SHARE_WRITE,
+        nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return {};
+    BY_HANDLE_FILE_INFORMATION info{};
+    char data[48]{}; DWORD read{};
+    const bool ok = GetFileInformationByHandle(file, &info) &&
+        !(info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) &&
+        ReadFile(file, data, sizeof(data), &read, nullptr);
+    CloseHandle(file);
+    if (!ok) return {};
+    const std::string_view value(data, read);
+    const auto delimiter = value.find(':');
+    if (delimiter == value.npos) return {};
+    const auto mode = value.substr(0, delimiter), approval = value.substr(delimiter + 1);
+    if ((mode != "eco" && mode != "performance" && mode != "pinyin") || approval.size() != 32 ||
+        !std::ranges::all_of(approval, [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); })) return {};
+    return std::string(value);
+}
+
+std::pair<bool, std::wstring> request_zero_candidate(const std::string_view mode,
+    const std::wstring& pinyin, const std::wstring& context, const std::wstring& application, std::stop_token stop) {
+    if (stop.stop_requested()) return {};
+    const auto exe = host_path();
+    if (exe.empty()) return {};
+    const auto code = hex(pinyin), nearby = hex(context), host = hex(application);
+    if (code.empty() || (!context.empty() && nearby.empty()) || (!application.empty() && host.empty())) return {};
+    const auto delimiter = mode.find(':');
+    if (delimiter == mode.npos) return {};
+    return request(exe, "OWOTEXT1\nzero-" + std::string(mode.substr(0, delimiter)) + '\n' + code + '\n' + nearby + '\n' + host + '\n' +
+        std::string(mode.substr(delimiter + 1)) + '\n', stop);
+}
 } // namespace
 
 #ifdef OWO_TSF_TEST_ACCESS
@@ -223,6 +257,199 @@ std::pair<bool, std::wstring> test_selection_worker(const wchar_t* executable) {
     return request(executable, "OWOTEXT1\ntranslate\n68656C6C6F\n\n46697874757265\n", {});
 }
 #endif
+
+bool ZeroCandidate::eligible() const noexcept {
+    const auto& input = owner_.input_buffer_;
+    if (!owner_.foreground_focus_ || !owner_.chinese_mode_ || owner_.shortcut_config_.input_scheme != "full_pinyin" ||
+        owner_.is_agent_mode() || owner_.selection_assistant_.active() || owner_.agent_trust_pending_ ||
+        owner_.unicode_palette_visible_ || owner_.alt_code_preview_active_ || input.size() < 2 || input.size() > 96)
+        return false;
+    unsigned letters = 0;
+    const bool apostrophe_is_separator = owner_.apostrophe_is_separator();
+    for (std::size_t i = 0; i < input.size(); ++i) {
+        const auto c = input[i];
+        if ((c >= L'a' && c <= L'z') || (c >= L'A' && c <= L'Z')) ++letters;
+        else if (c != L'\'' || (!apostrophe_is_separator &&
+            !std::binary_search(owner_.manual_breaks_.begin(), owner_.manual_breaks_.end(), i))) return false;
+    }
+    return letters >= 2;
+}
+
+bool ZeroCandidate::refresh_mode(bool force) {
+    const auto now = GetTickCount64();
+    if (!force && now < next_mode_check_) return false;
+    next_mode_check_ = now + 600;
+    auto mode = read_zero_candidate_mode();
+    if (mode_ == mode) return false;
+    mode_ = std::move(mode);
+    return true;
+}
+
+bool ZeroCandidate::read_position(bool first, std::wstring* surroundings) {
+    if (!context_ || !owner_.plugin_context_is_current(context_.Get())) return false;
+    return edit(context_.Get(), owner_.client_id_, false, [&](TfEditCookie cookie) {
+        const auto resolution = resolve_input_context(context_.Get(), cookie);
+        if (resolution.safety != InputMethodContextSafety::allowed || !resolution.focus || !resolution.view) return E_ACCESSDENIED;
+        auto identity = edit_window_identity(resolution);
+        if (!first && identity != window_) return E_ABORT;
+        ComPtr<ITfRange> composition;
+        if (owner_.inline_preedit_ && owner_.inline_preedit_->owns_range(context_.Get())) {
+            if (!owner_.inline_preedit_->range_for_context(context_.Get(), cookie, &composition)) return E_ABORT;
+        } else {
+            TF_SELECTION selection{}; ULONG count{}; BOOL empty{};
+            const auto result = context_->GetSelection(cookie, TF_DEFAULT_SELECTION, 1, &selection, &count);
+            composition.Attach(selection.range);
+            if (FAILED(result) || count != 1 || !composition || selection.style.fInterimChar ||
+                FAILED(composition->IsEmpty(cookie, &empty)) || !empty) return E_ABORT;
+        }
+        ComPtr<ITfRange> start;
+        if (FAILED(composition->Clone(&start)) || FAILED(start->Collapse(cookie, TF_ANCHOR_START))) return E_FAIL;
+        if (first) {
+            (void)start->SetGravity(cookie, TF_GRAVITY_BACKWARD, TF_GRAVITY_BACKWARD);
+            anchor_ = start;
+            window_ = identity;
+        } else {
+            LONG compare{};
+            if (!anchor_ || FAILED(start->CompareStart(cookie, anchor_.Get(), TF_ANCHOR_START, &compare)) || compare) return E_ABORT;
+        }
+        if (!surroundings) return S_OK;
+        const auto side = [&](bool before, LONG limit) {
+            ComPtr<ITfRange> range;
+            LONG moved{}; ULONG count{}; wchar_t buffer[256]{};
+            if (FAILED(composition->Clone(&range)) || FAILED(range->Collapse(cookie, before ? TF_ANCHOR_START : TF_ANCHOR_END))) return std::wstring{};
+            const auto shifted = before ? range->ShiftStart(cookie, -limit, &moved, nullptr) : range->ShiftEnd(cookie, limit, &moved, nullptr);
+            if (FAILED(shifted) || FAILED(range->GetText(cookie, 0, buffer, static_cast<ULONG>(limit * 2), &count)) ||
+                count > static_cast<ULONG>(limit * 2)) return std::wstring{};
+            std::wstring result(buffer, count);
+            if (result.find(L'\0') != std::wstring::npos) return std::wstring{};
+            engine::redact_ranking_numbers(result);
+            if (before) append_bounded_language_context(result, {}, static_cast<std::size_t>(limit));
+            else if (result.size() > static_cast<std::size_t>(limit)) result.resize(limit);
+            if (!result.empty() && result.front() >= 0xdc00 && result.front() <= 0xdfff) result.erase(result.begin());
+            if (!result.empty() && result.back() >= 0xd800 && result.back() <= 0xdbff) result.pop_back();
+            return result;
+        };
+        *surroundings = side(true, 128) + L"\n<光标>\n" + side(false, 48);
+        return S_OK;
+    });
+}
+
+void ZeroCandidate::observe() {
+    if (!owner_.message_window_) return;
+    if (refresh_mode()) invalidate();
+    if (!eligible() || mode_.empty()) { invalidate(); return; }
+    if (input_ == owner_.input_buffer_ && composition_generation_ == owner_.context_generation_) return;
+    cancel();
+    ComPtr<ITfDocumentMgr> document;
+    if (!owner_.thread_manager_ || FAILED(owner_.thread_manager_->GetFocus(&document)) || !document ||
+        FAILED(document->GetTop(&context_)) || !context_ || !read_position(true)) { cancel(); return; }
+    wchar_t executable[32768]{};
+    const auto length = GetModuleFileNameW(nullptr, executable, ARRAYSIZE(executable));
+    if (!length || length >= ARRAYSIZE(executable)) { cancel(); return; }
+    application_ = std::filesystem::path(executable).filename().wstring();
+    std::transform(application_.begin(), application_.end(), application_.begin(), [](wchar_t c) { return static_cast<wchar_t>(towlower(c)); });
+    for (const auto* blocked : {L"windowsterminal.exe", L"cmd.exe", L"powershell.exe", L"pwsh.exe", L"conhost.exe", L"wsl.exe"})
+        if (application_ == blocked) { cancel(); return; }
+    input_ = owner_.input_buffer_;
+    composition_generation_ = owner_.context_generation_;
+    deadline_ = (std::max)(next_request_, GetTickCount64() + (mode_.starts_with("performance:") ? 420 : 750));
+    if (!SetTimer(owner_.message_window_, kZeroCandidateTimer, 90, nullptr)) cancel();
+}
+
+void ZeroCandidate::poll() {
+    if (refresh_mode() || !eligible() || input_ != owner_.input_buffer_ || composition_generation_ != owner_.context_generation_ || mode_.empty() ||
+        !context_ || !owner_.plugin_context_is_current(context_.Get())) { invalidate(); return; }
+    const auto now = GetTickCount64();
+    if (!text_.empty()) {
+        if (now >= hide_at_ || !read_position(false)) invalidate();
+        return;
+    }
+    if (worker_.joinable()) {
+        if (!job_->finished.load(std::memory_order_acquire)) return;
+        worker_.join();
+        auto result = std::exchange(job_, {});
+        if (result->generation == generation_ && result->succeeded && !result->result.empty()) {
+            if (refresh_mode(true) || !read_position(false)) { invalidate(); return; }
+            text_ = std::move(result->result);
+            hide_at_ = now + 20000;
+            SetTimer(owner_.message_window_, kZeroCandidateTimer, 250, nullptr);
+            owner_.update_candidate_window();
+            return;
+        }
+    }
+    if (submitted_) { KillTimer(owner_.message_window_, kZeroCandidateTimer); return; }
+    if (now < deadline_) return;
+    if (refresh_mode(true) || !owner_.candidate_window_ || !IsWindowVisible(owner_.candidate_window_)) {
+        invalidate(); return;
+    }
+    const auto performance = mode_.starts_with("performance:");
+    std::wstring surroundings;
+    if (!read_position(false, performance ? &surroundings : nullptr)) { invalidate(); return; }
+    if (mode_.starts_with("eco:")) {
+        surroundings = owner_.recent_language_context_;
+        append_ranking_language_context(surroundings, owner_.staged_text());
+        append_bounded_language_context(surroundings, {}, 16);
+    }
+    submitted_ = true;
+    next_request_ = now + 1500;
+    auto job = job_ = std::make_shared<Job>();
+    job->generation = generation_;
+    try {
+        worker_ = std::jthread([job, policy = mode_, pinyin = input_, surroundings = std::move(surroundings),
+                application = performance ? application_ : std::wstring{}](std::stop_token stop) {
+            try {
+                auto [ok, result] = request_zero_candidate(policy, pinyin, surroundings, application, stop);
+                job->succeeded = ok && !stop.stop_requested() && !result.empty() && result.size() <= 48;
+                if (job->succeeded) job->result = std::move(result);
+            } catch (...) { /* A failed model does not disturb normal candidates. */ }
+            job->finished.store(true, std::memory_order_release);
+        });
+    } catch (...) { job_.reset(); }
+}
+
+void ZeroCandidate::cancel() noexcept {
+    if (input_.empty() && !context_) return;
+    ++generation_;
+    worker_.request_stop();
+    if (owner_.message_window_) KillTimer(owner_.message_window_, kZeroCandidateTimer);
+    input_.clear(); text_.clear(); application_.clear(); anchor_.Reset(); context_.Reset();
+    window_ = {}; submitted_ = false; hide_at_ = 0;
+}
+
+void ZeroCandidate::invalidate() {
+    const bool was_visible = !text_.empty();
+    cancel();
+    if (was_visible) owner_.update_candidate_window();
+}
+
+std::wstring_view ZeroCandidate::text() const noexcept {
+    return !text_.empty() && eligible() && input_ == owner_.input_buffer_ &&
+        composition_generation_ == owner_.context_generation_ && GetTickCount64() < hide_at_
+        ? std::wstring_view(text_) : std::wstring_view{};
+}
+
+bool ZeroCandidate::handles(WPARAM key) const noexcept {
+    return key == static_cast<WPARAM>(owner_.shortcut_config_.candidate_selection_numpad ? VK_NUMPAD0 : '0') &&
+        GetKeyState(VK_SHIFT) >= 0 && GetKeyState(VK_CONTROL) >= 0 && GetKeyState(VK_MENU) >= 0 &&
+        GetKeyState(VK_LWIN) >= 0 && GetKeyState(VK_RWIN) >= 0 && !text().empty() &&
+        owner_.candidate_window_ && IsWindowVisible(owner_.candidate_window_);
+}
+
+HRESULT ZeroCandidate::choose(ITfContext* expected) {
+    if (refresh_mode(true) || text().empty() || (expected && expected != context_.Get()) || !read_position(false)) {
+        invalidate(); return S_FALSE;
+    }
+    auto context = context_;
+    auto undo_input = owner_.collect_candidate_undo_input();
+    std::optional<CandidateUndoEvidence> undo;
+    auto output = owner_.staged_text() + text_;
+    const auto status = owner_.commit_text(context.Get(), std::move(output), nullptr, undo_input ? &undo : nullptr);
+    if (SUCCEEDED(status)) {
+        owner_.clear_composition();
+        owner_.remember_candidate_undo(context.Get(), std::move(undo_input), std::move(undo));
+    }
+    return status;
+}
 
 SelectionAssistant::~SelectionAssistant() { cancel(); }
 bool SelectionAssistant::test(ITfContext* context, WPARAM key) {

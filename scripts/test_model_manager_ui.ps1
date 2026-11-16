@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([string]$PublishDirectory = '')
+param([string]$PublishDirectory = '', [string]$DotnetExe = '')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
@@ -8,10 +8,15 @@ if (!$PublishDirectory) { $PublishDirectory = Join-Path $root 'build/settings-pu
 $fixture = Join-Path $root ('build/model-manager-ui-' + [Guid]::NewGuid().ToString('N'))
 [void](New-Item -ItemType Directory -Path $fixture)
 $sdk = Join-Path $root 'build/dependencies/dotnet-10.0.403'
+if ($DotnetExe) { $sdk = Split-Path -Parent $DotnetExe }
+else {
+    $DotnetExe = Join-Path $sdk 'dotnet.exe'
+    if (!(Test-Path -LiteralPath $DotnetExe)) { $DotnetExe = 'dotnet' }
+}
 $env:DOTNET_ROOT = $sdk
 $env:PATH = "$sdk;$env:PATH"
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
-& dotnet run --project (Join-Path $root 'tests/settings_center/model_manager_tests.csproj') -c Release --no-restore -- --seed-ui $fixture
+& $DotnetExe run --project (Join-Path $root 'tests/settings_center/model_manager_tests.csproj') -c Release --no-restore -- --seed-ui $fixture
 if ($LASTEXITCODE) { throw 'Cannot seed isolated synthetic model profile.' }
 $env:OWO_CONFIG_PATH = Join-Path $fixture 'config/owo.conf'
 $env:OWO_PLUGIN_STORE_PATH = Join-Path $fixture 'plugins'
@@ -41,12 +46,31 @@ try {
     Check ($null -ne $navigation) 'Model manager navigation missing.'
     $navigation.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Start-Sleep -Milliseconds 500
-    foreach ($id in @('TextAssistantEnabled','TextAssistantContext','ModelPreferredLanguage','ModelSecondaryLanguage','ModelPolishLevel','ModelCodeLevel','AddModelApi')) {
+    foreach ($id in @('TextAssistantEnabled','TextAssistantContext','ZeroCandidateEnabled','ZeroCandidateMode','ModelPreferredLanguage','ModelSecondaryLanguage','ModelPolishLevel','ModelCodeLevel','AddModelApi')) {
         $element = Find-Id $window $id
         Check ($null -ne $element) "Missing model control: $id"
     }
     $enabled = Find-Id $window 'TextAssistantEnabled'
     Check ($enabled.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq [Windows.Automation.ToggleState]::Off) 'Must default disabled.'
+    $zero = Find-Id $window 'ZeroCandidateEnabled'
+    $zeroMode = Find-Id $window 'ZeroCandidateMode'
+    Check (!$zeroMode.Current.IsEnabled) 'Models without context must not switch modes.'
+    $zeroToggle = $zero.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
+    Check ($zeroToggle.Current.ToggleState -eq [Windows.Automation.ToggleState]::Off) 'Zero candidate must default disabled.'
+    $zeroToggle.Toggle()
+    Start-Sleep -Milliseconds 250
+    Check ($null -ne (Find-Name $window '同意并启用')) 'Zero candidate requires separate explicit consent.'
+    Invoke (Find-Name $window '取消')
+    Start-Sleep -Milliseconds 250
+    Check (!(Test-Path -LiteralPath (Join-Path $fixture 'models/zero-candidate.mode'))) 'Cancelling must not allow automatic requests.'
+    $zeroToggle.Toggle()
+    Start-Sleep -Milliseconds 250
+    Invoke (Find-Name $window '同意并启用')
+    Start-Sleep -Milliseconds 250
+    Check ((Get-Content (Join-Path $fixture 'models/zero-candidate.mode') -Raw) -match '^pinyin:[a-f0-9]{32}$') 'Consent must enable pinyin-only mode.'
+    $zeroToggle.Toggle()
+    Start-Sleep -Milliseconds 250
+    Check (!(Test-Path -LiteralPath (Join-Path $fixture 'models/zero-candidate.mode'))) 'Disable must revoke zero candidate authorization.'
     Invoke (Find-Name $window '编辑')
     Start-Sleep -Milliseconds 250
     foreach ($id in @('ModelApiName','ModelApiEndpoint','ModelApiModel','ModelApiKey')) { Check ($null -ne (Find-Id $window $id)) "Profile editor field missing: $id" }

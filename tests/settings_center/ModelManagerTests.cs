@@ -25,6 +25,7 @@ if (args.Length == 2 && args[0] == "--seed-ui") {
 }
 try {
     Check(!store.Load().Enabled, "feature must default off");
+    Check(ModelManagerStore.ZeroCandidateMode(store.Load()) is null, "automatic candidate must default off");
     Check(ModelKeyProtection.Unprotect(profile.ProtectedKey) == key && !profile.ProtectedKey.Contains(key), "DPAPI round trip");
     store.Save(settings);
     Check(File.Exists(Path.Combine(store.Root, "selection-assistant.enabled")), "enable native gate");
@@ -56,6 +57,57 @@ try {
     Reject(() => TextAssistantHost.Decode("FF"), "invalid UTF8");
     Reject(() => TextAssistantHost.CheckSensitive(input with { Selection = "api_key='abcdefghijklmnop123456'" }), "credential filter");
     TextAssistantHost.CheckSensitive(input);
+    var zero = settings with {
+        Enabled = false, PrivacyConsent = false, ZeroCandidateEnabled = true,
+        ZeroCandidateConsentProfile = profile.Id, ZeroCandidateApproval = Guid.NewGuid().ToString("N"),
+        ZeroCandidatePerformance = true
+    };
+    var zeroInput = new TextAssistantInput("zero-pinyin", "nihao", "", "", zero.ZeroCandidateApproval);
+    const string zeroOk = "{\"choices\":[{\"message\":{\"content\":\"你好\"},\"finish_reason\":\"stop\"}]}";
+    var zeroGate = Path.Combine(store.Root, "zero-candidate.mode");
+    Check(ModelManagerStore.ZeroCandidateMode(zero) == "pinyin", "models without context are pinned to pinyin");
+    store.Save(zero);
+    Check(File.ReadAllText(zeroGate) == "pinyin:" + zero.ZeroCandidateApproval &&
+        !File.Exists(Path.Combine(store.Root, "selection-assistant.enabled")), "separate opt-in and runtime policy");
+    var zeroWire = "OWOTEXT1\nzero-pinyin\n" + TextAssistantHost.Encode("nihao") + "\n\n\n" + zero.ZeroCandidateApproval + "\n";
+    Check(TextAssistantHost.Parse(zeroWire) == zeroInput, "zero candidate wire has separate authorization");
+    Reject(() => TextAssistantHost.Parse(zeroWire.Replace(zero.ZeroCandidateApproval, "not-an-approval")), "reject malformed runtime approval");
+    var withContext = zero with { Profiles = [profile with { SupportsCandidateContext = true }] };
+    var eco = withContext with { ZeroCandidatePerformance = false };
+    Check(ModelManagerStore.ZeroCandidateMode(eco) == "eco" && ModelManagerStore.ZeroCandidateMode(withContext) == "performance", "context-capable model offers both modes");
+    FakeHandler CheckCandidateBody(string expectedContext, string expectedApp, int expectedTokens) => new(async request => {
+        using var payload = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+        var item = payload.RootElement;
+        using var user = JsonDocument.Parse(item.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        Check(item.GetProperty("max_tokens").GetInt32() == expectedTokens && user.RootElement.GetProperty("pinyin").GetString() == "nihao" &&
+            user.RootElement.GetProperty("context").GetString() == expectedContext && user.RootElement.GetProperty("application").GetString() == expectedApp &&
+            !item.GetRawText().Contains(zero.ZeroCandidateApproval), "only bounded payload reaches the model");
+        return FakeHandler.Json(zeroOk);
+    });
+    Check(await TextAssistantApi.ExecuteAsync(zero, zeroInput, default, CheckCandidateBody("", "", 64)) == "你好", "pinyin-only result");
+    var ecoInput = zeroInput with { Operation = "zero-eco", Context = "单号１２3⑨" };
+    Check(await TextAssistantApi.ExecuteAsync(eco, ecoInput, default, CheckCandidateBody("单号0", "", 64)) == "你好", "energy mode redact numbers");
+    var perfInput = zeroInput with { Operation = "zero-performance", Context = "前文\n<光标>\n后文", Application = "notepad.exe" };
+    Check(await TextAssistantApi.ExecuteAsync(withContext, perfInput, default, CheckCandidateBody(perfInput.Context, "notepad.exe", 96)) == "你好", "performance mode transmits bounded environment and context");
+    var zeroCalls = 0;
+    var noCall = new FakeHandler(_ => { ++zeroCalls; return Task.FromResult(FakeHandler.Json(zeroOk)); });
+    foreach (var pair in new (TextAssistantSettings Config, TextAssistantInput Request)[] {
+        (zero with { ZeroCandidateEnabled = false }, zeroInput),
+        (zero, zeroInput with { Approval = Guid.NewGuid().ToString("N") }),
+        (zero, zeroInput with { Context = "不该发送" }),
+        (zero, perfInput), (eco, ecoInput with { Context = new string('字', 17) }),
+        (eco, ecoInput with { Application = "notepad.exe" }),
+        (withContext, perfInput with { Application = @"C:\Windows\notepad.exe" }),
+        (withContext, perfInput with { Context = "api_key='abcdefghijklmnop123456'" }),
+        (withContext, perfInput with { Selection = "ni，hao" })
+    }) await RejectAsync(() => TextAssistantApi.ExecuteAsync(pair.Config, pair.Request, default, noCall), "invalid zero request accepted");
+    Check(zeroCalls == 0, "invalid candidates do not reach HTTP");
+    foreach (var invalidOutput in new[] { "hello", "你好。", "你\n好", "超过当前拼音长度" }) {
+        var reply = JsonSerializer.Serialize(new { choices = new[] { new { message = new { content = invalidOutput }, finish_reason = "stop" } } });
+        await RejectAsync(() => TextAssistantApi.ExecuteAsync(zero, zeroInput, default, new FakeHandler(_ => Task.FromResult(FakeHandler.Json(reply)))), "invalid candidate output");
+    }
+    store.Save(zero with { ZeroCandidateEnabled = false, ZeroCandidateConsentProfile = "", ZeroCandidateApproval = "" });
+    Check(!File.Exists(zeroGate), "revoking authorization removes native gate");
     var handler = new FakeHandler(async request => {
         Check(request.RequestUri!.AbsoluteUri == "https://example.invalid/v1/chat/completions", "only configured destination");
         Check(request.Headers.Authorization?.Parameter == key, "key only in authorization");

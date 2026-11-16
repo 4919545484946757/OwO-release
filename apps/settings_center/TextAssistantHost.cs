@@ -15,16 +15,21 @@ internal static class TextAssistantHost {
     internal static string Decode(string value) => Utf8.GetString(Convert.FromHexString(value));
     internal static TextAssistantInput Parse(string wire) {
         var lines = wire.Split('\n');
-        if (lines.Length != 6 || lines[0] != "OWOTEXT1" || lines[5] != "" ||
-            lines[1] is not ("translate" or "polish" or "code" or "generate"))
+        if (lines.Length is not (6 or 7) || lines[0] != "OWOTEXT1" || lines[^1] != "" ||
+            (TextAssistantApi.IsZero(lines[1]) ? lines.Length != 7 || !Guid.TryParseExact(lines[5], "N", out _)
+                : lines.Length != 6 || lines[1] is not ("translate" or "polish" or "code" or "generate")))
             throw new InvalidOperationException("文字助手请求格式错误。");
-        return new(lines[1], Decode(lines[2]), Decode(lines[3]), Decode(lines[4]));
+        return new(lines[1], Decode(lines[2]), Decode(lines[3]), Decode(lines[4]), lines.Length == 7 ? lines[5] : "");
     }
     internal static void CheckSensitive(TextAssistantInput input) {
         if (Regex.IsMatch(input.Selection + "\n" + input.Context,
             @"(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----|\bsk-[a-z0-9_-]{20,}|\b(?:api[_-]?key|password|secret|access[_-]?token)\s*[:=]\s*[""']?[^\s""';,]{8,}",
             RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50)))
             throw new InvalidOperationException("选区或附近文本疑似包含密钥、口令等敏感信息，请移除后重试。原文未修改。");
+        if (TextAssistantApi.IsZero(input.Operation) && Regex.IsMatch(input.Context,
+            @"(?i)\b(?:api[_-]?key|password|secret|access[_-]?token)\s*[:=]",
+            RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50)))
+            throw new InvalidOperationException("附近文本疑似含有凭据，已跳过 0 号候选。");
     }
     internal static async Task RunAsync(string[] args) {
         if (args.Length != 5 || args[1] != "--text-assistant-host" || args[3] != "--parent-pid" ||
@@ -46,8 +51,8 @@ internal static class TextAssistantHost {
             await pipe.ReadExactlyAsync(data, lifetime.Token);
             var request = Parse(Utf8.GetString(data));
             var settings = new ModelManagerStore(ModelManagerStore.DefaultRoot).Load();
-            if (!settings.IncludeContext) request = request with { Context = "" };
-            CheckSensitive(request);
+            if (!TextAssistantApi.IsZero(request.Operation) && !settings.IncludeContext) request = request with { Context = "" };
+            if (!TextAssistantApi.IsZero(request.Operation)) CheckSensitive(request);
             var text = await TextAssistantApi.ExecuteAsync(settings, request, lifetime.Token);
             response = "OWOTEXT1\nOK\n" + Encode(text) + "\n";
         } catch (OperationCanceledException) { response = Error("请求已取消或超时，原文未修改。"); }

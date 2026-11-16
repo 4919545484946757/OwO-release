@@ -73,6 +73,9 @@ public:
     void set_termination_commit(std::optional<std::wstring> text) { termination_commit_ = std::move(text); }
     bool active() const { return composition_ && !failed_; }
     bool owns_range(ITfContext* context) const { return composition_ && context_.Get() == context; }
+    bool range_for_context(ITfContext* context, TfEditCookie cookie, ITfRange** range) const {
+        return allows_selection(context, cookie) && SUCCEEDED(composition_->GetRange(range)) && *range;
+    }
     bool allows_selection(ITfContext* context, TfEditCookie cookie) const {
         if (!owns_range(context)) return false;
         Ptr<ITfRange> range;
