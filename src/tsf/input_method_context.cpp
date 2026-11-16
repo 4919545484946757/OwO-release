@@ -41,13 +41,14 @@ InputContextResolution resolve_input_context(ITfContext* context, TfEditCookie c
     InputContextResolution resolved;
     InputMethodContextFacts facts;
     bool scope_missing = false;
+    bool verified_wrapper_edit = false;
     const auto finish = [&] {
         resolved.safety = evaluate_input_method_context(facts);
         // A missing scope alone is not permission. This narrower fallback is
         // only for a writable TSF selection in the active, same-thread view.
         const auto foreground = edit_foreground_window();
         resolved.ordinary_input = resolved.safety == InputMethodContextSafety::allowed ||
-            (resolved.safety == InputMethodContextSafety::unknown && scope_missing &&
+            (resolved.safety == InputMethodContextSafety::unknown && (scope_missing || verified_wrapper_edit) &&
              facts.status_known && facts.compartments_known && resolved.range_known &&
              resolved.view && resolved.focus && foreground &&
              resolved.process == GetCurrentProcessId() && resolved.thread == GetCurrentThreadId() &&
@@ -158,12 +159,18 @@ InputContextResolution resolve_input_context(ITfContext* context, TfEditCookie c
                     facts.scope_known=accessible.resolution.decision==compatibility::Decision::allowed;
                     if(accessible.resolution.reason==compatibility::Reason::password)facts.sensitive_scope=true;
                     if(accessible.resolution.reason==compatibility::Reason::read_only)facts.read_only=true;
-                    if(accessible.resolution.reason==compatibility::Reason::disabled)facts.disabled=true;
-                    if(accessible.resolution.decision==compatibility::Decision::unknown && compatibility::current_text_verifier){
+                    const bool unresolved_wrapper = accessible.result == S_OK && compatibility::is_unresolved_client_wrapper(
+                        accessible.role, static_cast<DWORD>(accessible.state));
+                    if(accessible.resolution.reason==compatibility::Reason::disabled && !unresolved_wrapper)facts.disabled=true;
+                    // A structural wrapper is not evidence about the real
+                    // editor. Require a positive UIA proof, for typing only.
+                    if (unresolved_wrapper) scope_missing = false;
+                    if((accessible.resolution.decision==compatibility::Decision::unknown || unresolved_wrapper) && compatibility::current_text_verifier){
                         const auto proof=compatibility::current_text_verifier->snapshot(focus.hwndFocus,GetCurrentProcessId(),GetCurrentThreadId());
                         activation_trace("CONTEXT_UIA_METADATA",proof.result,context);
                         resolved.pending_verification=proof.result==E_PENDING;
-                        facts.scope_known=proof.access.decision==compatibility::Decision::allowed;
+                        if (unresolved_wrapper) verified_wrapper_edit = proof.access.decision == compatibility::Decision::allowed;
+                        else facts.scope_known=proof.access.decision==compatibility::Decision::allowed;
                         if(proof.access.reason==compatibility::Reason::password)facts.sensitive_scope=true;
                         if(proof.access.reason==compatibility::Reason::read_only)facts.read_only=true;
                         if(proof.access.reason==compatibility::Reason::disabled)facts.disabled=true;

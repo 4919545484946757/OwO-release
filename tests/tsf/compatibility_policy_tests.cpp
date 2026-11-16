@@ -54,6 +54,16 @@ int main() {
     check(evaluate_accessible_edit(S_OK,role,S_OK,state).reason==Reason::password,"explicit MSAA password overrides unknown role and all fallback providers");
     state.lVal=STATE_SYSTEM_FOCUSED|STATE_SYSTEM_READONLY;
     check(evaluate_accessible_edit(S_OK,role,S_OK,state).reason==Reason::read_only,"explicit MSAA readonly overrides unknown role");
+    role.lVal=ROLE_SYSTEM_CLIENT; state.lVal=STATE_SYSTEM_FOCUSED|STATE_SYSTEM_INVISIBLE|STATE_SYSTEM_FOCUSABLE;
+    check(is_unresolved_client_wrapper(role.lVal,state.lVal) &&
+        evaluate_accessible_edit(S_OK,role,S_OK,state).decision==Decision::denied,
+        "invisible wrapper stays denied unless the TSF caller independently verifies the real editor for typing");
+    for(auto restriction:{STATE_SYSTEM_PROTECTED,STATE_SYSTEM_READONLY,STATE_SYSTEM_UNAVAILABLE}){
+        state.lVal=STATE_SYSTEM_FOCUSED|STATE_SYSTEM_INVISIBLE|restriction;
+        check(!is_unresolved_client_wrapper(role.lVal,state.lVal) &&
+            evaluate_accessible_edit(S_OK,role,S_OK,state).decision==Decision::denied,
+            "client wrapper must retain all explicit safety denials");
+    }
     role.lVal=ROLE_SYSTEM_TEXT; state.lVal=0;
     check(evaluate_accessible_edit(S_OK,role,S_OK,state).decision!=Decision::allowed,"unfocused MSAA text rejected");
     state.vt=VT_EMPTY;

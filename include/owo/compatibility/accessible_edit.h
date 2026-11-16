@@ -7,6 +7,15 @@
 #include "owo/compatibility/ia2/Accessible2.h"
 
 namespace owo::compatibility {
+// XAML can report its invisible native client HWND as focused, while the
+// actual editor is a separate UIA element. Only the structural wrapper is
+// inconclusive; a disabled/read-only/protected edit remains denied.
+[[nodiscard]] inline bool is_unresolved_client_wrapper(LONG role, DWORD flags) noexcept {
+    return role == ROLE_SYSTEM_CLIENT && (flags & STATE_SYSTEM_FOCUSED) &&
+        (flags & (STATE_SYSTEM_INVISIBLE | STATE_SYSTEM_OFFSCREEN)) &&
+        !(flags & (STATE_SYSTEM_UNAVAILABLE | STATE_SYSTEM_READONLY | STATE_SYSTEM_PROTECTED));
+}
+
 // MSAA state is a typed bitmask, not a default inferred from a failed query.
 [[nodiscard]] inline Resolution evaluate_accessible_edit(HRESULT role_result, const VARIANT& role,
                                                         HRESULT state_result, const VARIANT& state) noexcept {

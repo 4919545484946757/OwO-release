@@ -1,12 +1,24 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Windowing;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Graphics;
 
 namespace OwO_Settings;
 
 internal sealed partial class ModelManagerPage {
+    private Window? _debugWindow;
+    private static InputScope DebugTextScope() {
+        var scope = new InputScope();
+        scope.Names.Add(new InputScopeName { NameValue = InputScopeNameValue.Default });
+        return scope;
+    }
+
     private async Task ShowLocalDebugAsync(LocalModel model) {
+        if (_debugWindow is { } existing) { existing.Activate(); return; }
         var localStore = StoreFor(model);
         bool installed = localStore.Installed(model), closed = false;
         using var lifetime = new CancellationTokenSource();
@@ -14,10 +26,10 @@ internal sealed partial class ModelManagerPage {
         var history = new List<LocalChatTurn>();
         var display = new List<LocalChatTurn>();
         var mode = new ToggleSwitch { Header = "复现 0 号候选（只输入拼音）", IsOn = false };
-        var system = new TextBox { Header = "系统提示（可选）", MaxLength = LocalModelChat.MaxSystemLength,
+        var system = new TextBox { Header = "系统提示（可选）", MaxLength = LocalModelChat.MaxSystemLength, InputScope = DebugTextScope(),
             PlaceholderText = "自由对话时使用；留空则不附加系统提示" };
         var input = new TextBox { Header = "消息", PlaceholderText = "输入调试消息…", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
-            MaxLength = LocalModelChat.MaxUserLength, MinHeight = 68, MaxHeight = 100 };
+            MaxLength = LocalModelChat.MaxUserLength, MinHeight = 68, MaxHeight = 100, InputScope = DebugTextScope() };
         var conversation = new TextBlock { Text = "暂无对话", IsTextSelectionEnabled = true, TextWrapping = TextWrapping.Wrap };
         var scroll = new ScrollViewer { Content = conversation, MaxHeight = 180, MinHeight = 75,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
@@ -27,21 +39,38 @@ internal sealed partial class ModelManagerPage {
         var stop = new Button { Content = "停止", IsEnabled = false };
         var clear = new Button { Content = "清空" };
         var copy = new Button { Content = "复制提示词" };
+        var close = new Button { Content = "关闭调试", HorizontalAlignment = HorizontalAlignment.Right };
         var prompt = new Expander { Header = "查看 0 号候选提示词", Content = new ScrollViewer {
             MaxHeight = 120, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             Content = new TextBlock { Text = TextAssistantApi.LocalCandidatePromptPreview, IsTextSelectionEnabled = true, TextWrapping = TextWrapping.Wrap }
         } };
         AutomationProperties.SetAutomationId(send, "LocalModelDebugSend");
         AutomationProperties.SetAutomationId(input, "LocalModelDebugInput");
+        AutomationProperties.SetAutomationId(system, "LocalModelDebugSystemPrompt");
         AutomationProperties.SetAutomationId(mode, "LocalModelDebugCandidateMode");
         AutomationProperties.SetAutomationId(copy, "LocalModelDebugCopyPrompt");
+        AutomationProperties.SetAutomationId(close, "LocalModelDebugClose");
         var buttons = Stack(6, send, stop, clear, copy);
         buttons.Orientation = Orientation.Horizontal;
-        var body = Stack(8, state, mode, prompt, system, scroll, input, buttons);
-        var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = $"本地模型调试 · {model.Name}",
-            CloseButtonText = "关闭", Content = new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } };
-        AutomationProperties.SetAutomationId(dialog, "LocalModelDebugDialog");
-        dialog.Closing += (_, _) => { closed = true; lifetime.Cancel(); };
+        var body = Stack(8, Heading(model.Name, 20), state, mode, prompt, system, scroll, input, buttons, close);
+        body.Margin = new Thickness(24);
+        var view = new ScrollViewer { Content = body, RequestedTheme = ActualTheme, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        AutomationProperties.SetAutomationId(view, "LocalModelDebugDialog");
+        // WinUI's modal popup reports an invisible accessibility wrapper to
+        // TSF. A dedicated WinUI window gives the editor its own input view.
+        var owner = ((App)Application.Current).MainWindow;
+        var window = new Window { Title = "本地模型调试", Content = view, SystemBackdrop = new MicaBackdrop() };
+        _debugWindow = window;
+        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void CloseWithSettings(object sender, WindowEventArgs args) => window.Close();
+        owner.Closed += CloseWithSettings;
+        window.Closed += (_, _) => {
+            closed = true; lifetime.Cancel(); _debugWindow = null;
+            owner.Closed -= CloseWithSettings;
+            done.TrySetResult();
+        };
+        input.Loaded += (_, _) => input.Focus(FocusState.Programmatic);
+        close.Click += (_, _) => window.Close();
 
         void UpdateControls() {
             bool busy = current is not null;
@@ -67,7 +96,7 @@ internal sealed partial class ModelManagerPage {
             ResetHistory();
             input.Text = "";
             input.MaxLength = mode.IsOn ? 96 : LocalModelChat.MaxUserLength;
-            input.PlaceholderText = mode.IsOn ? "例如：xianzai" : "输入调试消息…";
+            input.PlaceholderText = mode.IsOn ? "例如：xianzai（OwO 中按 Enter 保留原拼音）" : "输入调试消息…";
             if (installed) state.Text = mode.IsOn
                 ? "使用实际候选提示、语法约束及读音验证。不读取前文，不使用普通候选补位。"
                 : "文字只交给此本地模型；关闭即清除记录。";
@@ -124,6 +153,13 @@ internal sealed partial class ModelManagerPage {
                 if (!closed) UpdateControls();
             }
         };
-        await ShowDialogAsync(dialog);
+        var area = DisplayArea.GetFromWindowId(owner.AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea;
+        var dpi = XamlRoot?.RasterizationScale ?? 1.0;
+        var width = Math.Min((int)(660 * dpi), area.Width);
+        var height = Math.Min((int)(620 * dpi), area.Height);
+        window.AppWindow.MoveAndResize(new RectInt32(area.X + (area.Width - width) / 2,
+            area.Y + (area.Height - height) / 2, width, height));
+        window.Activate();
+        await done.Task;
     }
 }

@@ -115,7 +115,7 @@ private:
         target.result=automation->GetFocusedElementBuildCache(cache,&element);
         if(FAILED(target.result)||!element)return target;
         auto verified=inspect_uia_text_caret(element.Get(),target.pid,true);
-        if(verified.access.decision==Decision::unknown && verified.result==E_NOINTERFACE){
+        if(verified.access.decision==Decision::unknown){
             const auto focused_edit=inspect_uia_focused_edit(element.Get(),target.pid);
             if(focused_edit.access.decision!=Decision::unknown)verified=focused_edit;
         }
