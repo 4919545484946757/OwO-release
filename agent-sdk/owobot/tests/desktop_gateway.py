@@ -172,6 +172,11 @@ class SelectedModel:
 
     def response(self, messages, tools):
         text = json.dumps(messages, ensure_ascii=False)
+        if "owobot_read_delivery" in tools:
+            assert "OwOBot" in text and "当前项目成员" in text
+            assert "For actual OpenMausBot teamwork" not in text
+            assert "request_credential to create a secure credential request" not in text
+            assert "trigger_info action=events" not in text
         if "owobot_delegate" in tools and self.stop_scenario in text and not self.issued_stop_assignment:
             self.issued_stop_assignment = True
             return self.tool_response("stop-worker", "owobot_delegate", {"recipient": "worker", "task": self.stop_assignment})
