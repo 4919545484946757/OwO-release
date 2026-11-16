@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml.Media;
 
 namespace OwO_Settings;
 
-internal sealed class ModelManagerPage : UserControl {
+internal sealed partial class ModelManagerPage : UserControl {
     private readonly ModelManagerStore _store;
     private readonly LocalModelStore _localModels;
     private readonly Func<string, CancellationToken, DownloadOperation> _startDownload;
@@ -196,7 +196,10 @@ internal sealed class ModelManagerPage : UserControl {
                 };
                 actions.Children.Add(use); actions.Children.Add(remove);
             } else actions.Children.Add(get);
-            _localRows.Children.Add(Card(Stack(6, Heading(model.Name, 16), Note(model.Description + "\n" + status), actions), 12));
+            var debug = new Button { Content = "调试对话…" };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(debug, "DebugLocalModel-" + model.Id);
+            debug.Click += async (_, _) => await ShowLocalDebugAsync(model);
+            _localRows.Children.Add(Card(Stack(6, Heading(model.Name, 16), Note(model.Description + "\n" + status), actions, debug), 12));
         }
     }
     private async Task DownloadLocalAsync(LocalModel model) {

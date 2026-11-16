@@ -44,6 +44,8 @@ if (args.Length == 2 && args[0] == "--verify-local") {
         var reported = await TextAssistantApi.ExecuteAsync(fixture, new("zero-eco", "xianzai", "", "", approval, "现在"), default,
             modelRoot: store.Root);
         Check(reported == "现在", "wrong reading for xianzai must be replaced by a verified full candidate");
+        var chat = await LocalModelChat.SendAsync(localTestStore, selected, "", [], "请用中文说一句问候。", default);
+        Check(chat.Text.Any(c => c is >= '\u3400' and <= '\u9fff'), "real local chat returns Chinese text");
         Console.WriteLine($"PASS: verified download and CPU inference {selected.Name} → {result} / {second} / {reported}");
     } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     return;
@@ -147,6 +149,10 @@ try {
         Check(body.RootElement.GetProperty("model").GetString() == localModel.Id &&
             !body.RootElement.GetProperty("chat_template_kwargs").GetProperty("enable_thinking").GetBoolean() &&
             body.RootElement.GetProperty("grammar").GetString()!.EndsWith("{2}"), "local generation disables reasoning and constrains output");
+        var messages = body.RootElement.GetProperty("messages");
+        Check(messages[0].GetProperty("content").GetString() == TextAssistantApi.LocalCandidateSystemPrompt &&
+            messages[1].GetProperty("content").GetString() == "拼音：ming tian" && messages[5].GetProperty("content").GetString() == "拼音：ni hao",
+            "preview and actual local candidate share the system prompt and examples");
         return FakeHandler.Json(zeroOk);
     })) == "你好", "local-only route uses common candidate validation");
     Check(LocalPinyin.Describe("nihao") == ("ni hao", 2) && LocalPinyin.Describe("xi'an") == ("xi an", 2) &&
@@ -170,6 +176,33 @@ try {
         await TextAssistantApi.ExecuteAsync(zero, wrongReading with { LocalReferences = "再在" }, default, DuplicateResponse());
         throw new Exception("unverified fallback shown");
     } catch (ZeroCandidateFailure failure) { Check(failure.Code == "pronunciation", "hide zero result when no reference matches"); }
+    string? debugRaw = null;
+    try {
+        await TextAssistantApi.ExecuteAsync(localOnly, new("zero-eco", "xianzai", "", "", localOnly.ZeroCandidateApproval),
+            default, DuplicateResponse(), localDebugRawOutput: text => debugRaw = text);
+        throw new Exception("debug reproduced a wrong accepted candidate");
+    } catch (ZeroCandidateFailure failure) {
+        Check(failure.Code == "pronunciation" && debugRaw == "在在", "candidate debugger can show the rejected raw reply without weakening validation");
+    }
+    var chatHistory = new[] { new LocalChatTurn("先前的问题", "先前的回答") };
+    var localReply = await LocalModelChat.SendAsync(new LocalModelStore(store.Root), localModel, "只用中文", chatHistory, "继续", default,
+        new FakeHandler(async request => {
+            Check(request.RequestUri!.IsLoopback, "debug chat only talks to loopback");
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            var messages = body.RootElement.GetProperty("messages");
+            Check(messages.GetArrayLength() == 4 && messages[0].GetProperty("content").GetString() == "只用中文" &&
+                messages[2].GetProperty("role").GetString() == "assistant", "handwritten prompt and prior turns preserved");
+            Check(!body.RootElement.TryGetProperty("tools", out _), "debug chat advertises no tools");
+            return FakeHandler.Json("{\"choices\":[{\"message\":{\"content\":\"本地回复\"},\"finish_reason\":\"length\"}]}");
+        }));
+    Check(localReply == new LocalChatReply("本地回复", true), "debug chat labels truncated text");
+    var longHistory = Enumerable.Repeat(new LocalChatTurn(new string('a', 1200), new string('b', 1200)), 10).ToArray();
+    Check(LocalModelChat.Messages("", longHistory, new string('c', 1000)).Count == 1, "drop whole turns outside debug context budget");
+    using (var aborted = new CancellationTokenSource()) {
+        aborted.Cancel();
+        await RejectAsync(() => LocalModelChat.SendAsync(new LocalModelStore(store.Root), localModel, "", [], "你好", aborted.Token,
+            new FakeHandler(_ => throw new Exception("unexpected send"))), "canceled debug chat must not generate");
+    }
     try {
         await TextAssistantApi.ExecuteAsync(localOnly, zeroInput with { Operation = "zero-eco" }, default, modelRoot: store.Root);
         throw new Exception("missing local model fell through instead of failing locally");

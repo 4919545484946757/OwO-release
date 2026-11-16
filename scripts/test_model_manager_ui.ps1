@@ -51,6 +51,16 @@ try {
         Check ($null -ne $element) "Missing model control: $id"
     }
     Check ($null -ne (Find-Id $window 'DownloadLocalModel-qwen35-08b-q4')) 'Missing local model download.'
+    Invoke (Find-Id $window 'DebugLocalModel-qwen35-08b-q4')
+    Start-Sleep -Milliseconds 350
+    foreach ($id in @('LocalModelDebugInput','LocalModelDebugSend','LocalModelDebugCandidateMode','LocalModelDebugCopyPrompt')) {
+        Check ($null -ne (Find-Id $window $id)) "Missing dialog control: $id"
+    }
+    Check (!(Find-Id $window 'LocalModelDebugSend').Current.IsEnabled) 'No model must not start inference.'
+    $localDialog = Find-Id $window 'LocalModelDebugDialog'
+    Check ($null -ne $localDialog) 'Local model debug dialog did not open.'
+    Invoke (Find-Name $localDialog '关闭')
+    Start-Sleep -Milliseconds 300
     $enabled = Find-Id $window 'TextAssistantEnabled'
     Check ($enabled.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq [Windows.Automation.ToggleState]::Off) 'Must default disabled.'
     $zero = Find-Id $window 'ZeroCandidateEnabled'

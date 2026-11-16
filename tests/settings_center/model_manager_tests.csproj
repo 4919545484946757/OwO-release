@@ -9,6 +9,7 @@
     <Compile Include="../../apps/settings_center/ModelManagerStore.cs" Link="ModelManagerStore.cs"/>
     <Compile Include="../../apps/settings_center/LocalModelStore.cs" Link="LocalModelStore.cs"/>
     <Compile Include="../../apps/settings_center/LocalModelInference.cs" Link="LocalModelInference.cs"/>
+    <Compile Include="../../apps/settings_center/LocalModelChat.cs" Link="LocalModelChat.cs"/>
     <Compile Include="../../apps/settings_center/LocalPinyin.cs" Link="LocalPinyin.cs"/>
     <EmbeddedResource Include="../../include/owo/engine/full_pinyin_syllables.inc" LogicalName="OwO.FullPinyinSyllables"/>
     <EmbeddedResource Include="../../data/zero-candidate-readings.txt" LogicalName="OwO.ZeroPronunciations"/>

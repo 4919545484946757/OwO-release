@@ -35,7 +35,8 @@ internal sealed class LocalModelInference : IDisposable {
         }) { Timeout = Timeout.InfiniteTimeSpan };
     }
 
-    internal static async Task<LocalModelInference> StartAsync(LocalModelStore store, LocalModel model, bool performance, CancellationToken token) {
+    internal static async Task<LocalModelInference> StartAsync(LocalModelStore store, LocalModel model, bool performance, CancellationToken token,
+        bool debug = false) {
         if (!store.Installed(model)) throw new ZeroCandidateFailure("local-not-installed", "本地模型未完成下载或不受此设备支持。");
         FileStream? slot = null;
         for (int attempts = 0; slot is null; ++attempts) {
@@ -63,7 +64,7 @@ internal sealed class LocalModelInference : IDisposable {
                 start.Environment.Remove(key);
             start.Environment["LLAMA_API_KEY"] = secret;
             foreach (var arg in new[] { "-m", store.ModelPath(model), "--host", "127.0.0.1", "--port", port.ToString(),
-                "--alias", model.Id, "-ngl", "0", "-c", performance ? "1024" : "512", "-np", "1",
+                "--alias", model.Id, "-ngl", "0", "-c", debug ? "4096" : performance ? "1024" : "512", "-np", "1",
                 "-t", Math.Clamp(Environment.ProcessorCount / 2, 1, performance ? 4 : 2).ToString(),
                 "--reasoning", "off", "--offline", "--no-ui", "--log-disable", "--no-agent" })
                 start.ArgumentList.Add(arg);
