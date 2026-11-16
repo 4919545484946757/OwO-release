@@ -6,8 +6,27 @@ using System.Text.Json;
 namespace OwO_Settings;
 
 internal sealed record TextAssistantInput(string Operation, string Selection, string Context, string Application, string Approval = "");
+internal sealed class ZeroCandidateFailure(string code, string message) : InvalidOperationException(message) {
+    internal string Code { get; } = code;
+}
 internal static class TextAssistantApi {
     internal static bool IsZero(string operation) => operation is "zero-pinyin" or "zero-eco" or "zero-performance";
+    private static string CandidateText(string text, int pinyinLength) {
+        // Some compatible models wrap a single answer in quotes or add a full
+        // stop despite the prompt. Remove only those decorations; reject prose,
+        // numbers, Markdown and multiline responses rather than extracting text.
+        var candidate = text.Trim();
+        static string StripStop(string value) => value.EndsWith('。') || value.EndsWith('.') ? value[..^1].TrimEnd() : value;
+        candidate = StripStop(candidate);
+        if (candidate.Length >= 2 && (candidate[0], candidate[^1]) is
+            ('“', '”') or ('‘', '’') or ('「', '」') or ('『', '』') or ('"', '"') or ('\'', '\''))
+            candidate = StripStop(candidate[1..^1].Trim());
+        var characters = candidate.EnumerateRunes().Count();
+        if (characters < 1 || characters > Math.Min(24, pinyinLength) || !candidate.EnumerateRunes().All(r => r.Value is
+            (>= 0x3400 and <= 0x9fff) or (>= 0xf900 and <= 0xfaff) or (>= 0x20000 and <= 0x323af)))
+            throw new ZeroCandidateFailure("content", "0 号候选只接受一条简短汉字结果。");
+        return candidate;
+    }
     private static string MaskCandidateNumbers(string context) {
         var output = new StringBuilder(context.Length);
         var inNumber = false;
@@ -50,7 +69,7 @@ internal static class TextAssistantApi {
         var zero = IsZero(input.Operation);
         var mode = zero ? ModelManagerStore.ZeroCandidateMode(settings) : null;
         if (zero && (mode is null || input.Operation != "zero-" + mode || input.Approval != settings.ZeroCandidateApproval))
-            throw new InvalidOperationException("0 号候选未授权或当前档位和模型已变更。");
+            throw new ZeroCandidateFailure("consent", "0 号候选未授权或当前档位和模型已变更。");
         if (!zero && (!settings.Enabled || !settings.PrivacyConsent)) throw new InvalidOperationException("请先在模型管理器启用并确认隐私提示。");
         if (new[] { "windowsterminal.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "conhost.exe", "wsl.exe" }.Contains(input.Application, StringComparer.OrdinalIgnoreCase))
             throw new InvalidOperationException("不在终端或命令执行环境中调用选区文字功能，避免文本被应用作为命令执行。");
@@ -61,7 +80,7 @@ internal static class TextAssistantApi {
             input.Context.Length > (mode switch { "performance" => 183, "eco" => 16, _ => 0 }) ||
             input.Context.Contains('\0') || (mode != "performance" && input.Application.Length != 0) ||
             input.Application.Any(c => char.IsControl(c) || c is '/' or '\\' or ':')))
-            throw new InvalidOperationException("0 号候选的数据不符合当前档位限制。");
+            throw new ZeroCandidateFailure("input", "0 号候选的数据不符合当前档位限制。");
         if (zero) TextAssistantHost.CheckSensitive(input);
         var profile = settings.Profiles.Single(p => p.Id == settings.ActiveProfile && p.Enabled);
         using var client = new HttpClient(handler ?? new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
@@ -79,11 +98,18 @@ internal static class TextAssistantApi {
                     pinyin = input.Selection, context = MaskCandidateNumbers(input.Context), application = input.Application }) :
                     JsonSerializer.Serialize(new { selection = input.Selection, context = settings.IncludeContext ? input.Context : "", application = input.Application }) }
             },
-            [profile.LegacyTokenLimit ? "max_tokens" : "max_completion_tokens"] = zero ? (mode == "performance" ? 96 : 64) : settings.MaxOutputTokens
+            // A compatible provider can count hidden reasoning toward the same
+            // cap. Keep the request bounded but leave room for the actual answer.
+            [profile.LegacyTokenLimit ? "max_tokens" : "max_completion_tokens"] = zero
+                ? Math.Min(settings.MaxOutputTokens, mode == "performance" ? 512 : 256) : settings.MaxOutputTokens
         };
         request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-        if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"模型服务返回 HTTP {(int)response.StatusCode}；请检查地址、模型、额度及密钥。原文未修改。");
+        if (!response.IsSuccessStatusCode) {
+            var messageText = $"模型服务返回 HTTP {(int)response.StatusCode}；请检查地址、模型、额度及密钥。原文未修改。";
+            if (zero) throw new ZeroCandidateFailure("http-" + (int)response.StatusCode, messageText);
+            throw new InvalidOperationException(messageText);
+        }
         if (response.Content.Headers.ContentLength > 512 * 1024) throw new InvalidOperationException("模型响应过大，原文未修改。");
         await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
         using var buffer = new MemoryStream();
@@ -96,21 +122,20 @@ internal static class TextAssistantApi {
         }
         using var json = JsonDocument.Parse(buffer.ToArray());
         var choice = json.RootElement.GetProperty("choices")[0];
-        if (choice.TryGetProperty("finish_reason", out var finish) && finish.GetString() != "stop")
+        if (choice.TryGetProperty("finish_reason", out var finish) && finish.GetString() != "stop") {
+            if (zero) throw new ZeroCandidateFailure(finish.GetString() == "length" ? "length" : "content", "模型未完整返回 0 号候选。");
             throw new InvalidOperationException("模型输出未完整完成或被拒绝，请调整输出上限；原文未修改。");
-        var message = choice.GetProperty("message");
-        if (message.TryGetProperty("tool_calls", out var tools) && tools.ValueKind == JsonValueKind.Array && tools.GetArrayLength() != 0)
-            throw new InvalidOperationException("不接受模型工具调用，原文未修改。");
-        var text = message.GetProperty("content").GetString();
-        if (string.IsNullOrWhiteSpace(text) || text.Length > 16384 || text.Contains('\0'))
-            throw new InvalidOperationException("模型未返回有效文本，或结果过长；原文未修改。");
-        if (zero) {
-            text = text.Trim();
-            var characters = text.EnumerateRunes().Count();
-            if (characters < 1 || characters > Math.Min(24, pinyinLength) || !text.EnumerateRunes().All(r => r.Value is
-                (>= 0x3400 and <= 0x9fff) or (>= 0xf900 and <= 0xfaff) or (>= 0x20000 and <= 0x323af)))
-                throw new InvalidOperationException("0 号候选只接受一条简短汉字结果。");
         }
-        return text;
+        var message = choice.GetProperty("message");
+        if (message.TryGetProperty("tool_calls", out var tools) && tools.ValueKind == JsonValueKind.Array && tools.GetArrayLength() != 0) {
+            if (zero) throw new ZeroCandidateFailure("content", "0 号候选不接受工具调用。");
+            throw new InvalidOperationException("不接受模型工具调用，原文未修改。");
+        }
+        var text = message.GetProperty("content").GetString();
+        if (string.IsNullOrWhiteSpace(text) || text.Length > 16384 || text.Contains('\0')) {
+            if (zero) throw new ZeroCandidateFailure("content", "模型没有返回可用的 0 号候选。");
+            throw new InvalidOperationException("模型未返回有效文本，或结果过长；原文未修改。");
+        }
+        return zero ? CandidateText(text, pinyinLength) : text;
     }
 }

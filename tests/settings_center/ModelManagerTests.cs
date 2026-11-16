@@ -84,11 +84,13 @@ try {
             !item.GetRawText().Contains(zero.ZeroCandidateApproval), "only bounded payload reaches the model");
         return FakeHandler.Json(zeroOk);
     });
-    Check(await TextAssistantApi.ExecuteAsync(zero, zeroInput, default, CheckCandidateBody("", "", 64)) == "你好", "pinyin-only result");
+    Check(await TextAssistantApi.ExecuteAsync(zero, zeroInput, default, CheckCandidateBody("", "", 256)) == "你好", "pinyin-only result");
     var ecoInput = zeroInput with { Operation = "zero-eco", Context = "单号１２3⑨" };
-    Check(await TextAssistantApi.ExecuteAsync(eco, ecoInput, default, CheckCandidateBody("单号0", "", 64)) == "你好", "energy mode redact numbers");
+    Check(await TextAssistantApi.ExecuteAsync(eco, ecoInput, default, CheckCandidateBody("单号0", "", 256)) == "你好", "energy mode redact numbers");
     var perfInput = zeroInput with { Operation = "zero-performance", Context = "前文\n<光标>\n后文", Application = "notepad.exe" };
-    Check(await TextAssistantApi.ExecuteAsync(withContext, perfInput, default, CheckCandidateBody(perfInput.Context, "notepad.exe", 96)) == "你好", "performance mode transmits bounded environment and context");
+    Check(await TextAssistantApi.ExecuteAsync(withContext, perfInput, default, CheckCandidateBody(perfInput.Context, "notepad.exe", 512)) == "你好", "performance mode transmits bounded environment and context");
+    Check(await TextAssistantApi.ExecuteAsync(zero with { MaxOutputTokens = 128 }, zeroInput, default,
+        CheckCandidateBody("", "", 128)) == "你好", "zero candidate respects lower user-defined output limit");
     var zeroCalls = 0;
     var noCall = new FakeHandler(_ => { ++zeroCalls; return Task.FromResult(FakeHandler.Json(zeroOk)); });
     foreach (var pair in new (TextAssistantSettings Config, TextAssistantInput Request)[] {
@@ -102,10 +104,20 @@ try {
         (withContext, perfInput with { Selection = "ni，hao" })
     }) await RejectAsync(() => TextAssistantApi.ExecuteAsync(pair.Config, pair.Request, default, noCall), "invalid zero request accepted");
     Check(zeroCalls == 0, "invalid candidates do not reach HTTP");
-    foreach (var invalidOutput in new[] { "hello", "你好。", "你\n好", "超过当前拼音长度" }) {
+    foreach (var output in new[] { "你好。", "“你好”", "「你好。」", "\"你好\"." }) {
+        var reply = JsonSerializer.Serialize(new { choices = new[] { new { message = new { content = output }, finish_reason = "stop" } } });
+        Check(await TextAssistantApi.ExecuteAsync(zero, zeroInput, default, new FakeHandler(_ => Task.FromResult(FakeHandler.Json(reply)))) == "你好",
+            "strip known single-answer decoration without changing the candidate");
+    }
+    foreach (var invalidOutput in new[] { "hello", "你好。解释", "你\n好", "0. 你好", "`你好`", "超过当前拼音长度" }) {
         var reply = JsonSerializer.Serialize(new { choices = new[] { new { message = new { content = invalidOutput }, finish_reason = "stop" } } });
         await RejectAsync(() => TextAssistantApi.ExecuteAsync(zero, zeroInput, default, new FakeHandler(_ => Task.FromResult(FakeHandler.Json(reply)))), "invalid candidate output");
     }
+    try {
+        const string truncated = "{\"choices\":[{\"message\":{\"content\":\"\"},\"finish_reason\":\"length\"}]}";
+        await TextAssistantApi.ExecuteAsync(zero, zeroInput, default, new FakeHandler(_ => Task.FromResult(FakeHandler.Json(truncated))));
+        throw new Exception("truncated zero response accepted");
+    } catch (ZeroCandidateFailure failure) { Check(failure.Code == "length", "diagnostics distinguish incomplete API output"); }
     store.Save(zero with { ZeroCandidateEnabled = false, ZeroCandidateConsentProfile = "", ZeroCandidateApproval = "" });
     Check(!File.Exists(zeroGate), "revoking authorization removes native gate");
     var handler = new FakeHandler(async request => {
@@ -134,7 +146,7 @@ try {
         cancellation.Cancel();
         await RejectAsync(async () => { await TextAssistantApi.ExecuteAsync(settings, input, cancellation.Token, new FakeHandler(_ => Task.FromResult(FakeHandler.Json("{}")))); }, "cancelled call accepted");
     }
-    if (args.Length == 1) {
+    if (args.Length == 1) foreach (var workerRequest in new[] { wire, zeroWire }) {
         // Real worker IPC, disabled model: no network, no personal profile writes.
         store.Save(settings with { Enabled = false });
         var name = "OwO.TextAssistant." + Guid.NewGuid().ToString("N");
@@ -147,12 +159,16 @@ try {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
             await using var pipe = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
             await pipe.ConnectAsync(timeout.Token);
-            var bytes = Encoding.UTF8.GetBytes(wire); var length = BitConverter.GetBytes(bytes.Length);
+            var bytes = Encoding.UTF8.GetBytes(workerRequest); var length = BitConverter.GetBytes(bytes.Length);
             await pipe.WriteAsync(length, timeout.Token); await pipe.WriteAsync(bytes, timeout.Token);
             await pipe.ReadExactlyAsync(length, timeout.Token);
             var size = BitConverter.ToInt32(length); Check(size is > 0 and < 128 * 1024, "worker response size");
             var reply = new byte[size]; await pipe.ReadExactlyAsync(reply, timeout.Token);
-            Check(Encoding.UTF8.GetString(reply).StartsWith("OWOTEXT1\nERROR\n"), "disabled real worker rejects request");
+            var workerReply = Encoding.UTF8.GetString(reply);
+            Check(workerReply.StartsWith("OWOTEXT1\nERROR\n"), "disabled real worker rejects request");
+            if (workerRequest == zeroWire)
+                Check(workerReply == "OWOTEXT1\nERROR\n" + TextAssistantHost.Encode("zero-error:consent") + "\n",
+                    "real worker reports only the machine-readable zero-candidate failure");
         } finally { if (!worker.WaitForExit(5000)) { worker.Kill(); worker.WaitForExit(); } }
     }
     Console.WriteLine($"PASS: {checks} model manager/privacy/protocol/API checks; mock HTTP only, no paid model requests.");

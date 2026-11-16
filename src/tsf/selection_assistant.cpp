@@ -1,4 +1,5 @@
 #include "selection_assistant.h"
+#include "activation_trace.h"
 #include "text_service.h"
 #include "owo/config/config_paths.h"
 #include "owo/tsf/input_method_context.h"
@@ -172,15 +173,18 @@ bool transfer(HANDLE pipe, void* buffer, DWORD count, bool write, std::stop_toke
     }
     return offset == count && !stop.stop_requested();
 }
-std::pair<bool, std::wstring> request(const std::filesystem::path& exe, const std::string& payload, std::stop_token stop) {
+std::pair<bool, std::wstring> request(const std::filesystem::path& exe, const std::string& payload,
+                                     std::stop_token stop, const bool zero = false) {
     GUID guid{}; if (FAILED(CoCreateGuid(&guid))) return {false, L"无法创建请求标识"};
     wchar_t id[40]{}; StringFromGUID2(guid, id, 40);
     std::wstring nonce; for (wchar_t c : std::wstring(id)) if (iswxdigit(c)) nonce += c;
     const auto name = L"OwO.TextAssistant." + nonce;
     auto command = L"\"" + exe.wstring() + L"\" --text-assistant-host " + name + L" --parent-pid " + std::to_wstring(GetCurrentProcessId());
     STARTUPINFOW startup{sizeof(startup)}; PROCESS_INFORMATION process{};
-    if (!CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, exe.parent_path().c_str(), &startup, &process))
+    if (!CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, exe.parent_path().c_str(), &startup, &process)) {
+        if (zero) activation_trace("ZERO_HELPER_START_FAILED", HRESULT_FROM_WIN32(GetLastError()));
         return {false, L"无法启动模型辅助进程，请更新设置中心"};
+    }
     CloseHandle(process.hThread);
     HANDLE pipe = INVALID_HANDLE_VALUE;
     const auto deadline = GetTickCount64() + 15000;
@@ -212,6 +216,25 @@ std::pair<bool, std::wstring> request(const std::filesystem::path& exe, const st
         }
         CloseHandle(pipe);
     }
+    if (zero && !stop.stop_requested()) {
+        // Never log the response text. Only record fixed, known categories
+        // (and numeric HTTP status) from the authenticated local worker.
+        if (ok) activation_trace("ZERO_MODEL_RETURNED");
+        else if (pipe == INVALID_HANDLE_VALUE) activation_trace("ZERO_HELPER_NO_PIPE", E_FAIL);
+        else if (text == L"zero-error:consent") activation_trace("ZERO_MODEL_CONSENT", E_ACCESSDENIED);
+        else if (text == L"zero-error:input") activation_trace("ZERO_MODEL_INPUT", E_INVALIDARG);
+        else if (text == L"zero-error:sensitive") activation_trace("ZERO_MODEL_SENSITIVE", E_ACCESSDENIED);
+        else if (text == L"zero-error:timeout") activation_trace("ZERO_MODEL_TIMEOUT", HRESULT_FROM_WIN32(ERROR_TIMEOUT));
+        else if (text == L"zero-error:network") activation_trace("ZERO_MODEL_NETWORK", E_FAIL);
+        else if (text == L"zero-error:length") activation_trace("ZERO_MODEL_TRUNCATED", E_FAIL);
+        else if (text == L"zero-error:content") activation_trace("ZERO_MODEL_CONTENT", E_FAIL);
+        else if (text == L"zero-error:payload-or-config") activation_trace("ZERO_MODEL_PAYLOAD_OR_CONFIG", E_FAIL);
+        else if (text.size() == 19 && text.starts_with(L"zero-error:http-") &&
+                 std::all_of(text.begin() + 16, text.end(), [](wchar_t c) { return c >= L'0' && c <= L'9'; })) {
+            const unsigned status = (text[16] - L'0') * 100 + (text[17] - L'0') * 10 + (text[18] - L'0');
+            activation_trace("ZERO_MODEL_HTTP", MAKE_HRESULT(SEVERITY_ERROR, FACILITY_HTTP, status));
+        } else activation_trace("ZERO_WORKER_RESPONSE_FAILED", E_FAIL);
+    }
     if (WaitForSingleObject(process.hProcess, 100) == WAIT_TIMEOUT) TerminateProcess(process.hProcess, 1);
     CloseHandle(process.hProcess);
     if (text.empty()) text = L"模型返回格式无效，原文未修改";
@@ -242,13 +265,13 @@ std::pair<bool, std::wstring> request_zero_candidate(const std::string_view mode
     const std::wstring& pinyin, const std::wstring& context, const std::wstring& application, std::stop_token stop) {
     if (stop.stop_requested()) return {};
     const auto exe = host_path();
-    if (exe.empty()) return {};
+    if (exe.empty()) { activation_trace("ZERO_HELPER_MISSING"); return {}; }
     const auto code = hex(pinyin), nearby = hex(context), host = hex(application);
     if (code.empty() || (!context.empty() && nearby.empty()) || (!application.empty() && host.empty())) return {};
     const auto delimiter = mode.find(':');
     if (delimiter == mode.npos) return {};
     return request(exe, "OWOTEXT1\nzero-" + std::string(mode.substr(0, delimiter)) + '\n' + code + '\n' + nearby + '\n' + host + '\n' +
-        std::string(mode.substr(delimiter + 1)) + '\n', stop);
+        std::string(mode.substr(delimiter + 1)) + '\n', stop, true);
 }
 } // namespace
 
@@ -369,11 +392,15 @@ void ZeroCandidate::poll() {
         worker_.join();
         auto result = std::exchange(job_, {});
         if (result->generation == generation_ && result->succeeded && !result->result.empty()) {
-            if (refresh_mode(true) || !read_position(false)) { invalidate(); return; }
+            if (refresh_mode(true) || !read_position(false)) {
+                activation_trace("ZERO_RESULT_POSITION_CHANGED");
+                invalidate(); return;
+            }
             text_ = std::move(result->result);
             hide_at_ = now + 20000;
             SetTimer(owner_.message_window_, kZeroCandidateTimer, 250, nullptr);
             owner_.update_candidate_window();
+            activation_trace("ZERO_CANDIDATE_PRESENTED");
             return;
         }
     }
@@ -391,6 +418,7 @@ void ZeroCandidate::poll() {
         append_bounded_language_context(surroundings, {}, 16);
     }
     submitted_ = true;
+    activation_trace("ZERO_CANDIDATE_REQUESTED");
     next_request_ = now + 1500;
     auto job = job_ = std::make_shared<Job>();
     job->generation = generation_;
