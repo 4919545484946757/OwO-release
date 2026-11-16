@@ -37,6 +37,20 @@
 
 “测试连接”成功只说明普通模型请求可用。若 0 号候选仍不显示，查看 TSF 诊断日志中的 `ZERO_*` 事件可区分辅助进程、模型超时、HTTP 状态、输出截断、内容格式及焦点改变；这些事件不含拼音、上下文、模型回复或密钥。
 
+## 离线 0 号候选
+
+在「模型管理器 → 本地模型」点击「一键下载」，下载完选「用于 0 号候选」，再启用并确认。本地模式不需要云端模型或 API 密钥。云端选区助手的连接配置不变；本地候选失败时不会自动回退到云端。
+
+| 模型 | 权重下载量 | 来源 |
+| --- | ---: | --- |
+| Qwen3.5-0.8B · Q4_0（推荐先试） | 563 MB | [ggml-org GGUF](https://huggingface.co/ggml-org/Qwen3.5-0.8B-GGUF/blob/main/Qwen3.5-0.8B-Q4_0.gguf)，Apache-2.0 |
+
+首次需额外下载约 24 MB 的 [llama.cpp b11887 Windows CPU 运行时](https://github.com/ggml-org/llama.cpp/releases/tag/b11887)（MIT）。下载走官方发布源，按固定版本校验长度和 SHA-256。下载时可暂停、继续或取消；暂停仅适用于当前设置中心会话，取消或失败不会把半成品设为已安装。权重放在配置目录同级的 `models/local`，可在页面移除。
+
+当前支持 Windows x64 和 AVX2 CPU，不需 Python 或 GPU。每次只运行一路本地生成，功能仍按选定档位取最少上下文；普通候选不等待模型。推理走临时、经身份检查的本机回环连接，关闭请求时回收进程，不传输到公网。较慢的电脑或冷启动时，0 号候选可能稍后显示；可先用较小的 Q4 模型和能效优先档。
+
+4M / 25M 拼音重排器、KenLM 和 RoBERTa 类评分模型不是独立生成器，不列在 0 号候选下载项。Qwen3-0.6B 的官方 Q8 权重虽能离线运行，但未通过整段拼音的实测门槛，也不列入首批。此版不改变普通候选的本地排序。
+
 ## 档位
 
 - 润色一档：不改原意，只完善字词、语法。
@@ -95,6 +109,8 @@ translate | polish | code | generate
 ```powershell
 # 需使用 global.json 对应的 SDK；模型 HTTP 使用模拟处理器，不调用付费 API。
 dotnet run --project tests/settings_center/model_manager_tests.csproj -c Release -- build/settings-publish/win-x64/OwO.Settings.exe
+# 可选真实离线验证：下载固定权重和运行时到临时目录，执行后清理，不读取用户模型。
+dotnet run --project tests/settings_center/model_manager_tests.csproj -c Release -- --verify-local qwen35-08b-q4
 cmake --build build/windows-release --config Release --target owo_selection_assistant_tests
 build/windows-release/Release/owo_selection_assistant_tests.exe build/settings-publish/win-x64/OwO.Settings.exe
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test_model_manager_ui.ps1

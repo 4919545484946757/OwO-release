@@ -109,7 +109,7 @@ public sealed partial class MainPage : Page
         UserLexiconNavigationItem.Content = "词库管理器";
         _hostDictionaries = new DictionaryManager(ShowStatus, _windowDownloads.Start);
         UserLexiconPageHost.Content = _hostDictionaries;
-        ModelManagerPageHost.Content = new ModelManagerPage(_client.ConfigPath, ShowStatus);
+        ModelManagerPageHost.Content = new ModelManagerPage(_client.ConfigPath, ShowStatus, _windowDownloads.Start);
         DiagnosticsPageHost.Content = new CandidateDiagnosticsPage(ShowStatus);
         PluginDiscoveryHost.Content = new PluginDiscoveryView(InstallPluginSourceAsync, () => PluginTabs.SelectedItem = InstalledPluginsTab, ShowStatus, _windowDownloads.Start,
             (Microsoft.UI.Xaml.Style)Resources["PluginCardBackingStyle"]);

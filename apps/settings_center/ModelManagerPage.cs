@@ -6,6 +6,10 @@ namespace OwO_Settings;
 
 internal sealed class ModelManagerPage : UserControl {
     private readonly ModelManagerStore _store;
+    private readonly LocalModelStore _localModels;
+    private readonly Func<string, CancellationToken, DownloadOperation> _startDownload;
+    private readonly StackPanel _localRows = new() { Spacing = 8 };
+    private readonly TextBlock _zeroSource = new() { TextWrapping = TextWrapping.Wrap, Opacity = .75 };
     private readonly Action<string, InfoBarSeverity> _notify;
     private TextAssistantSettings _value;
     private readonly StackPanel _profiles = new() { Spacing = 8 };
@@ -23,8 +27,11 @@ internal sealed class ModelManagerPage : UserControl {
     private readonly NumberBox _tokens = new() { Header = "最大输出 Token 数", Minimum = 128, Maximum = 16384, SmallChange = 128 };
     private bool _loading;
     private bool _dialogOpen;
-    internal ModelManagerPage(string configPath, Action<string, InfoBarSeverity> notify) {
+    private bool _localBusy;
+    internal ModelManagerPage(string configPath, Action<string, InfoBarSeverity> notify,
+        Func<string, CancellationToken, DownloadOperation> startDownload) {
         _store = new(ModelManagerStore.RootForConfig(configPath)); _notify = notify;
+        _localModels = new(_store.Root); _startDownload = startDownload;
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_enabled, "TextAssistantEnabled");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_context, "TextAssistantContext");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_zero, "ZeroCandidateEnabled");
@@ -45,7 +52,8 @@ internal sealed class ModelManagerPage : UserControl {
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(add, "AddModelApi");
         add.Click += async (_, _) => await EditAsync(null);
         body.Children.Add(Card(Stack(12, ResponsivePair(Stack(4, Heading("API 连接"), _profileCount), add, 380, fitTrailing: true), _profiles)));
-        body.Children.Add(Section("0 号候选", "全拼停顿后异步生成一条候选，显示于拼音预览右侧；普通候选不等待模型。", _zero, _zeroMode, _zeroHint));
+        body.Children.Add(Section("0 号候选", "全拼停顿后异步生成一条候选，显示于拼音预览右侧；普通候选不等待模型。", _zeroSource, _zero, _zeroMode, _zeroHint));
+        body.Children.Add(Section("本地模型", "一键下载固定版本的 GGUF 权重与共享 llama.cpp CPU 运行时。下载后可断网使用 0 号候选；选区大模型仍使用云端 API。", _localRows));
         foreach (var item in new[] { "一档 · 字词与语法", "二档 · 语法与格式", "三档 · 语义优化与扩写" }) _polish.Items.Add(item);
         foreach (var item in new[] { "一档 · 语法修复与注释", "二档 · 逻辑修复与注释", "三档 · 算法优化与注释" }) _code.Items.Add(item);
         body.Children.Add(Heading("功能偏好", 20));
@@ -55,7 +63,7 @@ internal sealed class ModelManagerPage : UserControl {
         body.Children.Add(ResponsivePair(
             Section("隐私与传输", "最多发送 8192 字符的选区；可另带同一输入位置附近最多 2048 字符的上下文。密码等安全输入不采集。", _context),
             Section("请求预算", "请求独立于本地 libime 排序。API 密钥按当前 Windows 账户加密，不随配置导出。", _timeout, _tokens), 640));
-        Apply(); RenderProfiles();
+        Apply(); RenderProfiles(); RenderLocalModels();
         _enabled.Toggled += async (_, _) => {
             if (_loading) return;
             if (_enabled.IsOn && !await ConsentAsync()) { Apply(); return; }
@@ -65,6 +73,15 @@ internal sealed class ModelManagerPage : UserControl {
         _zero.Toggled += async (_, _) => {
             if (_loading) return;
             if (!_zero.IsOn) { Save(_value with { ZeroCandidateEnabled = false, ZeroCandidateConsentProfile = "", ZeroCandidateApproval = "" }); Apply(); return; }
+            if (LocalModelStore.Find(_value.ZeroCandidateLocalModel) is { } local) {
+                if (!_localModels.Installed(local)) { _notify("请先下载并校验本地模型。", InfoBarSeverity.Warning); Apply(); return; }
+                var confirm = new ContentDialog { XamlRoot = XamlRoot, Title = "启用本地 0 号候选？", PrimaryButtonText = "启用",
+                    CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close,
+                    Content = Note($"使用 {local.Name} 在本机处理拼音和当前档位允许的上下文。不上传、不会转用云端 API；推理会占用 CPU 和内存。") };
+                if (await ShowDialogAsync(confirm) == ContentDialogResult.Primary && _value.ZeroCandidateLocalModel == local.Id)
+                    Save(_value with { ZeroCandidateEnabled = true, ZeroCandidateConsentProfile = ModelManagerStore.LocalConsent(local.Id), ZeroCandidateApproval = Guid.NewGuid().ToString("N") });
+                Apply(); return;
+            }
             var profile = _value.Profiles.FirstOrDefault(p => p.Id == _value.ActiveProfile && p.Enabled && p.ProtectedKey.Length > 0);
             if (profile is null) { _notify("请先配置并选择默认模型。", InfoBarSeverity.Warning); Apply(); return; }
             var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = "启用自动生成 0 号候选？", PrimaryButtonText = "同意并启用",
@@ -129,15 +146,69 @@ internal sealed class ModelManagerPage : UserControl {
         _loading = true;
         _enabled.IsOn = _value.Enabled; _context.IsOn = _value.IncludeContext;
         _zero.IsOn = _value.ZeroCandidateEnabled;
-        var supports = _value.Profiles.Any(p => p.Id == _value.ActiveProfile && p.Enabled && p.SupportsCandidateContext);
+        var local = LocalModelStore.Find(_value.ZeroCandidateLocalModel);
+        _zeroSource.Text = local is null ? "当前来源：默认云端 API" : $"当前来源：本地 · {local.Name}";
+        var supports = local is not null ? _localModels.Installed(local)
+            : _value.Profiles.Any(p => p.Id == _value.ActiveProfile && p.Enabled && p.SupportsCandidateContext);
         _zeroMode.IsEnabled = supports;
         _zeroMode.SelectedIndex = !supports ? -1 : _value.ZeroCandidatePerformance ? 1 : 0;
         _zeroHint.Text = supports ? "能效优先：拼音 + 少量已上屏前文。性能优先：拼音 + 光标附近上下文 + 应用名。"
+            : local is not null ? "本地模型尚未就绪，请检查下载状态。"
             : "默认模型未声明支持上下文，仅使用拼音，不能切换档位。可在对应 API 连接中编辑能力声明。";
         _preferred.Text = _value.PreferredLanguage; _secondary.Text = _value.SecondaryLanguage;
         _polish.SelectedIndex = _value.PolishLevel - 1; _code.SelectedIndex = _value.CodeLevel - 1;
         _timeout.Value = _value.TimeoutSeconds; _tokens.Value = _value.MaxOutputTokens;
         _loading = false;
+    }
+    private void SelectZeroModel(string id) {
+        if (_value.ZeroCandidateLocalModel == id) return;
+        Save(_value with { ZeroCandidateLocalModel = id, ZeroCandidateEnabled = false,
+            ZeroCandidateConsentProfile = "", ZeroCandidateApproval = "" });
+        Apply(); RenderLocalModels();
+    }
+    private void RenderLocalModels() {
+        _localRows.Children.Clear();
+        if (!LocalModelStore.Supported) _localRows.Children.Add(Note("本地推理当前支持 Windows x64 和 AVX2 CPU。云端功能不受影响。"));
+        var cloud = new Button { Content = "改用默认云端 API", IsEnabled = !_localBusy && _value.ZeroCandidateLocalModel.Length != 0 };
+        cloud.Click += (_, _) => SelectZeroModel("");
+        _localRows.Children.Add(cloud);
+        foreach (var model in LocalModelStore.Catalog) {
+            bool installed = _localModels.Installed(model), selected = _value.ZeroCandidateLocalModel == model.Id;
+            var status = installed ? (selected ? "已下载 · 当前来源" : "已下载") : $"模型 {model.Weights.Bytes / 1e6:F0} MB · 首次另需约 24 MB 共享运行时";
+            var actions = Stack(8); actions.Orientation = Orientation.Horizontal;
+            var get = new Button { Content = "一键下载", IsEnabled = LocalModelStore.Supported && !_localBusy };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(get, "DownloadLocalModel-" + model.Id);
+            get.Click += async (_, _) => await DownloadLocalAsync(model);
+            var use = new Button { Content = selected ? "当前来源" : "用于 0 号候选", IsEnabled = installed && !selected && !_localBusy };
+            use.Click += (_, _) => SelectZeroModel(model.Id);
+            if (installed) {
+                var remove = new Button { Content = "移除模型", IsEnabled = !_localBusy };
+                remove.Click += async (_, _) => {
+                    var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = $"移除 {model.Name}？", Content = "仅删除这份模型权重；共享运行时和 API 配置会保留。",
+                        PrimaryButtonText = "移除", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close };
+                    if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary) return;
+                    try {
+                        if (_value.ZeroCandidateLocalModel == model.Id && _value.ZeroCandidateEnabled &&
+                            !Save(_value with { ZeroCandidateEnabled = false, ZeroCandidateConsentProfile = "", ZeroCandidateApproval = "" })) return;
+                        _localModels.Remove(model); Apply(); RenderLocalModels(); _notify("已移除本地模型。", InfoBarSeverity.Success);
+                    } catch (IOException) { Apply(); _notify("模型文件正在使用或无法移除，请停止输入后重试。", InfoBarSeverity.Warning); }
+                    catch (UnauthorizedAccessException) { Apply(); _notify("当前账户无法移除模型文件。", InfoBarSeverity.Warning); }
+                };
+                actions.Children.Add(use); actions.Children.Add(remove);
+            } else actions.Children.Add(get);
+            _localRows.Children.Add(Card(Stack(6, Heading(model.Name, 16), Note(model.Description + "\n" + status), actions), 12));
+        }
+    }
+    private async Task DownloadLocalAsync(LocalModel model) {
+        if (_localBusy) return;
+        _localBusy = true; RenderLocalModels();
+        try {
+            using var operation = _startDownload(model.Name, CancellationToken.None);
+            await operation.RunAsync(token => _localModels.InstallAsync(model, operation, token));
+        } catch (OperationCanceledException) { }
+        catch (Exception error) {
+            _notify(error is InvalidOperationException or InvalidDataException ? error.Message : "本地模型下载失败，请检查网络、磁盘空间和访问权限。", InfoBarSeverity.Error);
+        } finally { _localBusy = false; Apply(); RenderLocalModels(); }
     }
     private bool Save(TextAssistantSettings value) {
         try { _store.Save(value); _value = value; _notify("模型配置已保存。", InfoBarSeverity.Success); return true; }
@@ -173,12 +244,17 @@ internal sealed class ModelManagerPage : UserControl {
                 var disablingActive = profile.Id == _value.ActiveProfile && !enabled.IsOn;
                 Save(_value with { Profiles = _value.Profiles.Select(p => p.Id == profile.Id ? p with { Enabled = enabled.IsOn } : p).ToList(),
                     Enabled = disablingActive ? false : _value.Enabled, PrivacyConsent = disablingActive ? false : _value.PrivacyConsent,
-                    ZeroCandidateEnabled = !disablingActive && _value.ZeroCandidateEnabled,
-                    ZeroCandidateConsentProfile = disablingActive ? "" : _value.ZeroCandidateConsentProfile });
+                    ZeroCandidateEnabled = (!disablingActive || _value.ZeroCandidateLocalModel.Length != 0) && _value.ZeroCandidateEnabled,
+                    ZeroCandidateConsentProfile = disablingActive && _value.ZeroCandidateLocalModel.Length == 0 ? "" : _value.ZeroCandidateConsentProfile });
                 Apply(); RenderProfiles();
             };
             var use = new Button { Content = "设为默认", IsEnabled = profile.Enabled && profile.Id != _value.ActiveProfile };
-            use.Click += (_, _) => { if (Save(_value with { ActiveProfile = profile.Id, Enabled = false, PrivacyConsent = false, ZeroCandidateEnabled = false, ZeroCandidateConsentProfile = "" })) { Apply(); RenderProfiles(); } };
+            use.Click += (_, _) => {
+                bool localSelected = _value.ZeroCandidateLocalModel.Length != 0;
+                if (Save(_value with { ActiveProfile = profile.Id, Enabled = false, PrivacyConsent = false,
+                    ZeroCandidateEnabled = localSelected && _value.ZeroCandidateEnabled,
+                    ZeroCandidateConsentProfile = localSelected ? _value.ZeroCandidateConsentProfile : "" })) { Apply(); RenderProfiles(); }
+            };
             var edit = new Button { Content = "编辑" }; edit.Click += async (_, _) => await EditAsync(profile);
             var test = new Button { Content = "测试连接", IsEnabled = profile.Enabled };
             test.Click += async (_, _) => {
@@ -198,8 +274,8 @@ internal sealed class ModelManagerPage : UserControl {
                 if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary) return;
                 if (Save(_value with { Profiles = _value.Profiles.Where(p => p.Id != profile.Id).ToList(),
                     ActiveProfile = _value.ActiveProfile == profile.Id ? "" : _value.ActiveProfile, Enabled = false, PrivacyConsent = false,
-                    ZeroCandidateEnabled = profile.Id != _value.ActiveProfile && _value.ZeroCandidateEnabled,
-                    ZeroCandidateConsentProfile = profile.Id == _value.ActiveProfile ? "" : _value.ZeroCandidateConsentProfile })) { Apply(); RenderProfiles(); }
+                    ZeroCandidateEnabled = (profile.Id != _value.ActiveProfile || _value.ZeroCandidateLocalModel.Length != 0) && _value.ZeroCandidateEnabled,
+                    ZeroCandidateConsentProfile = profile.Id == _value.ActiveProfile && _value.ZeroCandidateLocalModel.Length == 0 ? "" : _value.ZeroCandidateConsentProfile })) { Apply(); RenderProfiles(); }
             };
             var primary = Stack(8, edit, test); primary.Orientation = Orientation.Horizontal;
             var secondary = Stack(8, use, remove); secondary.Orientation = Orientation.Horizontal;
@@ -228,7 +304,7 @@ internal sealed class ModelManagerPage : UserControl {
                 if (encrypted.Length == 0) throw new InvalidOperationException("请填写 API 密钥。");
                 var profile = new UserModelProfile(existing?.Id ?? Guid.NewGuid().ToString("N"), name.Text.Trim(), endpoint.Text.Trim(), model.Text.Trim(), encrypted, true, legacy.IsOn, supportsContext.IsOn);
                 var profiles = _value.Profiles.Where(p => p.Id != profile.Id).Append(profile).ToList();
-                var editsDefault = profile.Id == _value.ActiveProfile;
+                var editsDefault = profile.Id == _value.ActiveProfile && _value.ZeroCandidateLocalModel.Length == 0;
                 var value = _value with { Profiles = profiles, ActiveProfile = _value.ActiveProfile.Length == 0 ? profile.Id : _value.ActiveProfile, Enabled = false, PrivacyConsent = false,
                     ZeroCandidateEnabled = !editsDefault && _value.ZeroCandidateEnabled, ZeroCandidateConsentProfile = editsDefault ? "" : _value.ZeroCandidateConsentProfile };
                 ModelManagerStore.Validate(value);

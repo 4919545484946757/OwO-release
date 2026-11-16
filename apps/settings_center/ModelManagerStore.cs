@@ -14,6 +14,7 @@ internal sealed record TextAssistantSettings {
     public bool PrivacyConsent { get; init; }
     public bool IncludeContext { get; init; } = true;
     public bool ZeroCandidateEnabled { get; init; }
+    public string ZeroCandidateLocalModel { get; init; } = "";
     public string ZeroCandidateConsentProfile { get; init; } = "";
     public string ZeroCandidateApproval { get; init; } = "";
     public bool ZeroCandidatePerformance { get; init; }
@@ -72,18 +73,27 @@ internal sealed class ModelManagerStore(string root) {
         if (value.Enabled && (!value.PrivacyConsent || !value.Profiles.Any(p =>
             p.Id == value.ActiveProfile && p.Enabled && p.ProtectedKey.Length != 0)))
             throw new InvalidOperationException("启用前须配置并选择模型、保存密钥并确认隐私提示。");
-        if (value.ZeroCandidateEnabled && (ZeroCandidateProfile(value) is null || !Guid.TryParseExact(value.ZeroCandidateApproval, "N", out _)))
+        if (value.ZeroCandidateLocalModel is null || (value.ZeroCandidateLocalModel.Length != 0 && LocalModelStore.Find(value.ZeroCandidateLocalModel) is null))
+            throw new InvalidOperationException("请选择受支持的本地模型。");
+        if (value.ZeroCandidateEnabled && (ZeroCandidateMode(value) is null || !Guid.TryParseExact(value.ZeroCandidateApproval, "N", out _)))
             throw new InvalidOperationException("启用 0 号候选前须单独授权当前默认模型。");
     }
     internal static UserModelProfile? ZeroCandidateProfile(TextAssistantSettings value) =>
-        value.ZeroCandidateEnabled && value.ActiveProfile == value.ZeroCandidateConsentProfile
+        value.ZeroCandidateEnabled && value.ZeroCandidateLocalModel.Length == 0 && value.ActiveProfile == value.ZeroCandidateConsentProfile
         ? value.Profiles.SingleOrDefault(p => p.Id == value.ActiveProfile && p.Enabled && p.ProtectedKey.Length != 0)
         : null;
-    internal static string? ZeroCandidateMode(TextAssistantSettings value) => ZeroCandidateProfile(value) switch {
-        null => null,
-        { SupportsCandidateContext: false } => "pinyin",
-        _ => value.ZeroCandidatePerformance ? "performance" : "eco",
-    };
+    internal static string LocalConsent(string id) => "local:" + id;
+    internal static LocalModel? ZeroLocalModel(TextAssistantSettings value) =>
+        value.ZeroCandidateEnabled && value.ZeroCandidateConsentProfile == LocalConsent(value.ZeroCandidateLocalModel)
+        ? LocalModelStore.Find(value.ZeroCandidateLocalModel) : null;
+    internal static string? ZeroCandidateMode(TextAssistantSettings value) {
+        if (ZeroLocalModel(value) is not null) return value.ZeroCandidatePerformance ? "performance" : "eco";
+        return ZeroCandidateProfile(value) switch {
+            null => null,
+            { SupportsCandidateContext: false } => "pinyin",
+            _ => value.ZeroCandidatePerformance ? "performance" : "eco",
+        };
+    }
     private static bool ValidText(string? value, int max) => !string.IsNullOrWhiteSpace(value) &&
         value.Length <= max && !value.Any(char.IsControl);
     internal void Save(TextAssistantSettings value) {

@@ -7,6 +7,11 @@
   <ItemGroup>
     <Compile Include="ModelManagerTests.cs"/>
     <Compile Include="../../apps/settings_center/ModelManagerStore.cs" Link="ModelManagerStore.cs"/>
+    <Compile Include="../../apps/settings_center/LocalModelStore.cs" Link="LocalModelStore.cs"/>
+    <Compile Include="../../apps/settings_center/LocalModelInference.cs" Link="LocalModelInference.cs"/>
+    <Compile Include="../../apps/settings_center/LocalPinyin.cs" Link="LocalPinyin.cs"/>
+    <EmbeddedResource Include="../../include/owo/engine/full_pinyin_syllables.inc" LogicalName="OwO.FullPinyinSyllables"/>
+    <Compile Include="../../apps/settings_center/DownloadOperation.cs" Link="DownloadOperation.cs"/>
     <Compile Include="../../apps/settings_center/TextAssistantApi.cs" Link="TextAssistantApi.cs"/>
     <Compile Include="../../apps/settings_center/TextAssistantHost.cs" Link="TextAssistantHost.cs"/>
   </ItemGroup>

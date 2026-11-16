@@ -1,6 +1,9 @@
 using OwO_Settings;
 using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using System.IO.Pipes;
@@ -21,6 +24,25 @@ if (args.Length == 2 && args[0] == "--seed-ui") {
     if (!Path.GetFileName(fixture).StartsWith("model-manager-ui-", StringComparison.Ordinal)) throw new ArgumentException("Use an isolated UI fixture directory.");
     new ModelManagerStore(Path.Combine(fixture, "models")).Save(settings with { Enabled = false, PrivacyConsent = false });
     Console.WriteLine("Seeded synthetic model configuration; no API request.");
+    return;
+}
+if (args.Length == 2 && args[0] == "--verify-local") {
+    var selected = LocalModelStore.Find(args[1]) ?? throw new ArgumentException("Unknown catalog model.");
+    var localTestStore = new LocalModelStore(store.Root);
+    try {
+        using var download = new DownloadOperation(selected.Name, default, TimeSpan.FromSeconds(115));
+        await download.RunAsync(token => localTestStore.InstallAsync(selected, download, token));
+        var approval = Guid.NewGuid().ToString("N");
+        var fixture = new TextAssistantSettings { ZeroCandidateEnabled = true, ZeroCandidateLocalModel = selected.Id,
+            ZeroCandidateConsentProfile = ModelManagerStore.LocalConsent(selected.Id), ZeroCandidateApproval = approval };
+        var result = await TextAssistantApi.ExecuteAsync(fixture, new("zero-eco", "nihao", "", "", approval), default,
+            modelRoot: store.Root);
+        Check(result == "你好", "local model must consume all of nihao, not just the last syllable");
+        var second = await TextAssistantApi.ExecuteAsync(fixture, new("zero-eco", "beijing", "", "", approval), default,
+            modelRoot: store.Root);
+        Check(second == "北京", "local model must generate a second independently chosen spelling");
+        Console.WriteLine($"PASS: verified download and CPU inference {selected.Name} → {result} / {second}");
+    } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     return;
 }
 try {
@@ -104,6 +126,72 @@ try {
         (withContext, perfInput with { Selection = "ni，hao" })
     }) await RejectAsync(() => TextAssistantApi.ExecuteAsync(pair.Config, pair.Request, default, noCall), "invalid zero request accepted");
     Check(zeroCalls == 0, "invalid candidates do not reach HTTP");
+    var localModel = LocalModelStore.Catalog[0];
+    var localOnly = zero with {
+        Profiles = [], ActiveProfile = "", ZeroCandidateLocalModel = localModel.Id,
+        ZeroCandidateConsentProfile = ModelManagerStore.LocalConsent(localModel.Id), ZeroCandidatePerformance = false
+    };
+    store.Save(localOnly);
+    Check(store.Load().ZeroCandidateLocalModel == localModel.Id && File.ReadAllText(zeroGate) == "eco:" + zero.ZeroCandidateApproval,
+        "local settings don't require cloud profile or key");
+    Reject(() => store.Save(localOnly with { ZeroCandidateLocalModel = "https://example.invalid" }), "unlisted local model accepted");
+    Reject(() => store.Save(localOnly with { ZeroCandidateConsentProfile = profile.Id }), "cloud consent reused for offline backend");
+    Check(await TextAssistantApi.ExecuteAsync(localOnly, zeroInput with { Operation = "zero-eco" }, default, new FakeHandler(async request => {
+        Check(request.RequestUri!.AbsoluteUri == "http://127.0.0.1/v1/chat/completions", "local-only route uses a loopback endpoint");
+        using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+        Check(body.RootElement.GetProperty("model").GetString() == localModel.Id &&
+            !body.RootElement.GetProperty("chat_template_kwargs").GetProperty("enable_thinking").GetBoolean() &&
+            body.RootElement.GetProperty("grammar").GetString()!.EndsWith("{2}"), "local generation disables reasoning and constrains output");
+        return FakeHandler.Json(zeroOk);
+    })) == "你好", "local-only route uses common candidate validation");
+    Check(LocalPinyin.Describe("nihao") == ("ni hao", 2) && LocalPinyin.Describe("xi'an") == ("xi an", 2) &&
+        LocalPinyin.Describe("wanan").Count == 0 && LocalPinyin.Describe("wsm").Count == 0 &&
+        LocalPinyin.Describe("xian").Count == 0, "standard syllables guide clear full pinyin without constraining ambiguous or incomplete input");
+    try {
+        await TextAssistantApi.ExecuteAsync(localOnly, zeroInput with { Operation = "zero-eco" }, default, modelRoot: store.Root);
+        throw new Exception("missing local model fell through instead of failing locally");
+    } catch (ZeroCandidateFailure failure) { Check(failure.Code == "local-not-installed", "missing local model has no cloud fallback"); }
+
+    var sample = "test model bytes"u8.ToArray();
+    var fixtureAsset = new ModelAsset("https://huggingface.co/fixture", sample.Length, Convert.ToHexString(SHA256.HashData(sample)));
+    var disallowedRedirect = new HttpResponseMessage(HttpStatusCode.Redirect);
+    disallowedRedirect.Headers.Location = new Uri("https://evil.invalid/model");
+    using var fakeRedirect = new HttpClient(new FakeHandler(_ => Task.FromResult(disallowedRedirect)));
+    using var rejectedDownload = new DownloadOperation("redirect", default);
+    await RejectAsync(() => LocalModelStore.FetchAsync(fakeRedirect, fixtureAsset, Path.Combine(root, "redirect.part"),
+        rejectedDownload, 0, fixtureAsset.Bytes, default), "unsafe download redirect followed");
+    Check(!File.Exists(Path.Combine(root, "redirect.part")), "redirect didn't open any target");
+    using var verifiedDownload = new DownloadOperation("verified", default);
+    using var fakeModel = new HttpClient(new FakeHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(sample) })));
+    var verifiedFile = Path.Combine(root, "verified.part");
+    await LocalModelStore.FetchAsync(fakeModel, fixtureAsset, verifiedFile, verifiedDownload, 0, fixtureAsset.Bytes, default);
+    Check(File.ReadAllBytes(verifiedFile).SequenceEqual(sample) && verifiedDownload.Snapshot.Percent == 100, "verified download reports real progress");
+    await RejectAsync(() => LocalModelStore.FetchAsync(fakeModel, fixtureAsset with { Sha256 = new string('0', 64) },
+        Path.Combine(root, "failed.part"), verifiedDownload, 0, fixtureAsset.Bytes, default), "wrong digest treated as valid");
+    using (var canceled = new CancellationTokenSource()) {
+        canceled.Cancel();
+        await RejectAsync(() => LocalModelStore.FetchAsync(fakeModel, fixtureAsset, Path.Combine(root, "cancelled.part"),
+            verifiedDownload, 0, fixtureAsset.Bytes, canceled.Token), "cancelled download accepted");
+    }
+    var archive = Path.Combine(root, "fixture.zip");
+    using (var zip = ZipFile.Open(archive, ZipArchiveMode.Create))
+        foreach (var name in new[] { "llama-server.exe", "llama.dll", "ggml.dll", "../escape.txt", "unused.exe" }) zip.CreateEntry(name);
+    var unpacked = Directory.CreateDirectory(Path.Combine(root, "unpacked")).FullName;
+    LocalModelStore.UnpackRuntime(archive, unpacked, default);
+    Check(Directory.GetFiles(unpacked).Length == 3 && !File.Exists(Path.Combine(root, "escape.txt")), "runtime extraction keeps only allowlisted file names");
+    if (OperatingSystem.IsWindows()) {
+        var listen = new TcpListener(IPAddress.Loopback, 0);
+        listen.Start();
+        try {
+            var port = ((IPEndPoint)listen.LocalEndpoint).Port;
+            using var outbound = new TcpClient();
+            await outbound.ConnectAsync(IPAddress.Loopback, port);
+            using var inbound = await listen.AcceptTcpClientAsync();
+            int clientPort = ((IPEndPoint)outbound.Client.LocalEndPoint!).Port;
+            Check(LocalModelInference.OwnsConnection(Environment.ProcessId, port, clientPort), "verify the server side of an actual loopback connection");
+            Check(!LocalModelInference.OwnsConnection(int.MaxValue, port, clientPort), "reject a different owner of the loopback connection");
+        } finally { listen.Stop(); }
+    }
     foreach (var output in new[] { "你好。", "“你好”", "「你好。」", "\"你好\"." }) {
         var reply = JsonSerializer.Serialize(new { choices = new[] { new { message = new { content = output }, finish_reason = "stop" } } });
         Check(await TextAssistantApi.ExecuteAsync(zero, zeroInput, default, new FakeHandler(_ => Task.FromResult(FakeHandler.Json(reply)))) == "你好",

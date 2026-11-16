@@ -228,6 +228,9 @@ std::pair<bool, std::wstring> request(const std::filesystem::path& exe, const st
         else if (text == L"zero-error:network") activation_trace("ZERO_MODEL_NETWORK", E_FAIL);
         else if (text == L"zero-error:length") activation_trace("ZERO_MODEL_TRUNCATED", E_FAIL);
         else if (text == L"zero-error:content") activation_trace("ZERO_MODEL_CONTENT", E_FAIL);
+        else if (text == L"zero-error:local-not-installed") activation_trace("ZERO_LOCAL_NOT_READY", E_FAIL);
+        else if (text == L"zero-error:local-busy") activation_trace("ZERO_LOCAL_BUSY", E_FAIL);
+        else if (text == L"zero-error:local-start") activation_trace("ZERO_LOCAL_START_FAILED", E_FAIL);
         else if (text == L"zero-error:payload-or-config") activation_trace("ZERO_MODEL_PAYLOAD_OR_CONFIG", E_FAIL);
         else if (text.size() == 19 && text.starts_with(L"zero-error:http-") &&
                  std::all_of(text.begin() + 16, text.end(), [](wchar_t c) { return c >= L'0' && c <= L'9'; })) {

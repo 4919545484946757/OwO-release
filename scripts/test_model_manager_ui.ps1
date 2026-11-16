@@ -50,6 +50,7 @@ try {
         $element = Find-Id $window $id
         Check ($null -ne $element) "Missing model control: $id"
     }
+    Check ($null -ne (Find-Id $window 'DownloadLocalModel-qwen35-08b-q4')) 'Missing local model download.'
     $enabled = Find-Id $window 'TextAssistantEnabled'
     Check ($enabled.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq [Windows.Automation.ToggleState]::Off) 'Must default disabled.'
     $zero = Find-Id $window 'ZeroCandidateEnabled'
