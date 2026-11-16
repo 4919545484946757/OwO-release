@@ -69,7 +69,8 @@ public:
                                                   std::size_t partition_page_size = 0,
                                                   bool user_completion_enabled = true,
                                                   std::size_t user_completion_max_syllables = 0,
-                                                  std::size_t incomplete_candidate_page_size = 0) const;
+                                                  std::size_t incomplete_candidate_page_size = 0,
+                                                  bool zero_lattice = false) const;
 
 private:
     const Lexicon& lexicon_;

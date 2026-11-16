@@ -15,6 +15,9 @@ std::string type_name(const MessageType type) {
         case MessageType::candidate_response: return "candidate_response";
         case MessageType::candidate_update_request: return "candidate_update_request";
         case MessageType::candidate_update_response: return "candidate_update_response";
+        case MessageType::zero_candidate_request: return "zero_candidate_request";
+        case MessageType::zero_candidate_update_request: return "zero_candidate_update_request";
+        case MessageType::zero_candidate_response: return "zero_candidate_response";
         case MessageType::candidate_committed: return "candidate_committed";
         case MessageType::user_lexicon_request: return "user_lexicon_request";
         case MessageType::user_lexicon_response: return "user_lexicon_response";
@@ -33,6 +36,9 @@ std::optional<MessageType> parse_type(const std::string_view value) {
     if (value == "candidate_response") return MessageType::candidate_response;
     if (value == "candidate_update_request") return MessageType::candidate_update_request;
     if (value == "candidate_update_response") return MessageType::candidate_update_response;
+    if (value == "zero_candidate_request") return MessageType::zero_candidate_request;
+    if (value == "zero_candidate_update_request") return MessageType::zero_candidate_update_request;
+    if (value == "zero_candidate_response") return MessageType::zero_candidate_response;
     if (value == "candidate_committed") return MessageType::candidate_committed;
     if (value == "user_lexicon_request") return MessageType::user_lexicon_request;
     if (value == "user_lexicon_response") return MessageType::user_lexicon_response;
@@ -230,6 +236,8 @@ bool valid_candidate_layout(const Message& message) {
 }
 
 bool valid_feedback_input(const Message& message) {
+    if (message.type == MessageType::zero_candidate_request)
+        return message.input == "pinyin" || message.input == "eco" || message.input == "performance";
     if (message.type != MessageType::candidate_committed &&
         message.type != MessageType::candidate_request)
         return message.input.empty();
@@ -241,6 +249,9 @@ bool valid_feedback_input(const Message& message) {
 }
 
 bool valid_language_context(const Message& message) {
+    if (message.type == MessageType::zero_candidate_request)
+        return message.context.size() <= (message.input == "performance" ? 384U :
+            message.input == "eco" ? 48U : 0U);
     if (message.type != MessageType::candidate_request &&
         message.type != MessageType::candidate_committed)
         return message.context.empty();
@@ -256,11 +267,12 @@ bool valid_candidate_refinement(const Message& message) {
 }
 
 bool valid_application_context(const Message& message) {
-    const bool empty = message.application_context_id.empty() &&
+    const bool fields_empty = message.application_context_id.empty() &&
         message.application_process_id == 0 && message.application_thread_id == 0 &&
         message.application_executable.empty() && message.application_window_class.empty() &&
-        message.application_focus_window_class.empty() &&
-        !message.application_sensitive_input;
+        message.application_focus_window_class.empty();
+    if (message.type == MessageType::zero_candidate_request) return fields_empty;
+    const bool empty = fields_empty && !message.application_sensitive_input;
     if (message.type != MessageType::candidate_committed &&
         message.type != MessageType::agent_context_recorded) return empty;
     if (message.type == MessageType::agent_context_recorded &&
@@ -597,7 +609,9 @@ DecodeResult decode_message(const std::string_view json) {
         const auto scheme = parse_string(json, offset);
         if (!scheme || (*scheme != "full_pinyin" && *scheme != "exact_code") ||
             (output.message.type != MessageType::candidate_request &&
-             output.message.type != MessageType::candidate_committed)) goto invalid;
+             output.message.type != MessageType::candidate_committed &&
+             output.message.type != MessageType::zero_candidate_request &&
+             output.message.type != MessageType::zero_candidate_update_request)) goto invalid;
         output.message.input_scheme = *scheme;
     }
     if (!consume(json, offset, "}") || offset != json.size()) goto invalid;

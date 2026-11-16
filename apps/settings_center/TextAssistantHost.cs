@@ -15,24 +15,18 @@ internal static class TextAssistantHost {
     internal static string Decode(string value) => Utf8.GetString(Convert.FromHexString(value));
     internal static TextAssistantInput Parse(string wire) {
         var lines = wire.Split('\n');
-        if (lines.Length is not (6 or 7 or 8) || lines[0] != "OWOTEXT1" || lines[^1] != "" ||
-            (TextAssistantApi.IsZero(lines[1]) ? lines.Length < 7 || !Guid.TryParseExact(lines[5], "N", out _)
-                : lines.Length != 6 || lines[1] is not ("translate" or "polish" or "code" or "generate")))
+        // Automatic candidate ranking never goes through a text-generation
+        // helper, even if an old TSF DLL remains loaded in a running app.
+        if (lines.Length != 6 || lines[0] != "OWOTEXT1" || lines[^1] != "" ||
+            lines[1] is not ("translate" or "polish" or "code" or "generate"))
             throw new InvalidOperationException("文字助手请求格式错误。");
-        return new(lines[1], Decode(lines[2]), Decode(lines[3]), Decode(lines[4]), lines.Length >= 7 ? lines[5] : "",
-            lines.Length == 8 ? Decode(lines[6]) : "");
+        return new(lines[1], Decode(lines[2]), Decode(lines[3]), Decode(lines[4]));
     }
     internal static void CheckSensitive(TextAssistantInput input) {
         if (Regex.IsMatch(input.Selection + "\n" + input.Context,
             @"(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----|\bsk-[a-z0-9_-]{20,}|\b(?:api[_-]?key|password|secret|access[_-]?token)\s*[:=]\s*[""']?[^\s""';,]{8,}",
-            RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50))) {
-            if (TextAssistantApi.IsZero(input.Operation)) throw new ZeroCandidateFailure("sensitive", "附近文本疑似含有凭据。");
-            throw new InvalidOperationException("选区或附近文本疑似包含密钥、口令等敏感信息，请移除后重试。原文未修改。");
-        }
-        if (TextAssistantApi.IsZero(input.Operation) && Regex.IsMatch(input.Context,
-            @"(?i)\b(?:api[_-]?key|password|secret|access[_-]?token)\s*[:=]",
             RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50)))
-            throw new ZeroCandidateFailure("sensitive", "附近文本疑似含有凭据。");
+            throw new InvalidOperationException("选区或附近文本疑似包含密钥、口令等敏感信息，请移除后重试。原文未修改。");
     }
     internal static async Task RunAsync(string[] args) {
         if (args.Length != 5 || args[1] != "--text-assistant-host" || args[3] != "--parent-pid" ||
@@ -45,7 +39,6 @@ internal static class TextAssistantHost {
         await pipe.WaitForConnectionAsync(lifetime.Token);
         if (!GetNamedPipeClientProcessId(pipe.SafePipeHandle, out var peer) || peer != parent) return;
         string response;
-        bool zero = false;
         try {
             var prefix = new byte[4];
             await pipe.ReadExactlyAsync(prefix, lifetime.Token);
@@ -54,16 +47,13 @@ internal static class TextAssistantHost {
             var data = new byte[count];
             await pipe.ReadExactlyAsync(data, lifetime.Token);
             var request = Parse(Utf8.GetString(data));
-            zero = TextAssistantApi.IsZero(request.Operation);
             var settings = new ModelManagerStore(ModelManagerStore.DefaultRoot).Load();
-            if (!zero && !settings.IncludeContext) request = request with { Context = "" };
-            if (!zero) CheckSensitive(request);
+            if (!settings.IncludeContext) request = request with { Context = "" };
+            CheckSensitive(request);
             var text = await TextAssistantApi.ExecuteAsync(settings, request, lifetime.Token);
             response = "OWOTEXT1\nOK\n" + Encode(text) + "\n";
-        } catch (ZeroCandidateFailure failure) when (zero) { response = ZeroError(failure.Code); }
-          catch (OperationCanceledException) { response = zero ? ZeroError("timeout") : Error("请求已取消或超时，原文未修改。"); }
-          catch (HttpRequestException) { response = zero ? ZeroError("network") : Error("无法连接模型服务，请检查网络及 API 地址。原文未修改。"); }
-          catch (Exception) when (zero) { response = ZeroError("payload-or-config"); }
+        } catch (OperationCanceledException) { response = Error("请求已取消或超时，原文未修改。"); }
+          catch (HttpRequestException) { response = Error("无法连接模型服务，请检查网络及 API 地址。原文未修改。"); }
           catch (InvalidOperationException error) { response = Error(error.Message); }
           catch { response = Error("模型配置、密钥或返回格式无效，原文未修改。"); }
         var bytes = Utf8.GetBytes(response);
@@ -73,6 +63,5 @@ internal static class TextAssistantHost {
         await pipe.WriteAsync(bytes, lifetime.Token);
         await pipe.FlushAsync(lifetime.Token);
     }
-    private static string ZeroError(string code) => Error("zero-error:" + code);
     private static string Error(string text) => "OWOTEXT1\nERROR\n" + Encode(text) + "\n";
 }

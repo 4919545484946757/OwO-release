@@ -1442,6 +1442,17 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
     std::deque<agent::ContextEntry> agent_context_history;
     std::uint64_t agent_context_sequence{};
     LatestModelTaskQueue model_queue;
+    // Keep the stable-composition lane independent of ordinary page ranking.
+    LatestModelTaskQueue zero_model_queue;
+    struct PendingZeroCandidate {
+        std::uint64_t request_id;
+        std::uint64_t generation;
+        std::uint64_t dictionary_generation;
+        std::chrono::steady_clock::time_point expires;
+        std::vector<std::string> shortlist;
+        std::future<model::ModelMessage> future;
+    };
+    std::optional<PendingZeroCandidate> pending_zero;
     struct SymbolRequestState {
         engine::SymbolComposition composition;
         CandidateCacheKey identity;
@@ -1525,6 +1536,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
         if (auxiliary) saved_parse_state = incremental_parse_state;
         std::shared_ptr<SymbolRequestState> symbol_state;
         const auto now = std::chrono::steady_clock::now();
+        if (pending_zero && now > pending_zero->expires + std::chrono::seconds(1)) pending_zero.reset();
         for (auto pending = model_requests.begin(); pending != model_requests.end();) {
             if (now - pending->second.created > std::chrono::seconds(5) &&
                 pending->second.future.wait_for(std::chrono::milliseconds(0)) ==
@@ -1672,7 +1684,89 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 ? runtime_config->user_lexicon_completion_max_syllables : 1U;
             const bool candidate_partition_enabled = runtime_config == nullptr ||
                 runtime_config->candidate_partition_enabled;
-            if (decoded.message.type == protocol::MessageType::shutdown_request) {
+            if (decoded.message.type == protocol::MessageType::zero_candidate_request) {
+                const auto& request = decoded.message;
+                response.type = protocol::MessageType::zero_candidate_response;
+                const auto started = std::chrono::steady_clock::now();
+                const bool performance = request.input == "performance";
+                const auto deadline = started + std::chrono::milliseconds(performance ? 45 : 25);
+                const auto cancelled = [&] { return std::chrono::steady_clock::now() >= deadline; };
+                const auto letter = [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); };
+                if (full_pinyin_scheme && request.request_id != 0 && !request.application_sensitive_input &&
+                    request.text.size() <= 96 && std::count_if(request.text.begin(), request.text.end(), letter) >= 2 &&
+                    (performance || request.input == "eco" || request.input == "pinyin") &&
+                    std::all_of(request.text.begin(), request.text.end(), [&](char c) { return letter(c) || c == '\''; })) {
+                    pending_zero.reset();
+                    auto context = request.context;
+                    engine::redact_ranking_numbers(context);
+                    const auto parsed = full_pinyin_schema.parse(request.text, performance ? 24 : 12,
+                        request.correction_enabled, nullptr, cancelled);
+                    const auto lattice = generator.generate(parsed, performance ? 24 : 12, !context.empty(),
+                        context, nullptr, cancelled, false, 0, false, 0, 0, true);
+                    for (const auto& path : lattice) response.candidates.push_back(path.text);
+                    if (!response.candidates.empty()) response.text = response.candidates.front();
+                    if (model_pipe_name != nullptr && response.candidates.size() > 1) {
+                        model::ModelMessage query;
+                        query.type = model::ModelMessageType::rank_request;
+                        query.request_id = request.request_id;
+                        const auto budget = performance ? 350U : 160U;
+                        query.timeout_ms = budget;
+                        query.input = parsed.normalized_input;
+                        query.context = std::move(context);
+                        query.candidates = response.candidates;
+                        query.status = model::ModelStatus::success;
+                        auto future = zero_model_queue.submit([pipe_name = std::wstring(model_pipe_name),
+                                                               query = std::move(query), budget] {
+                            const auto result = exchange(pipe_name.c_str(), model::encode_model_message(query),
+                                std::chrono::milliseconds(budget + 30));
+                            if (!result.status) return model::ModelMessage{};
+                            auto ranked = model::decode_model_message(result.response);
+                            return ranked.validation ? std::move(ranked.message) : model::ModelMessage{};
+                        });
+                        pending_zero = PendingZeroCandidate{request.request_id, request.context_generation,
+                            learning_generation, started + std::chrono::milliseconds(950), response.candidates,
+                            std::move(future)};
+                        response.model_pending = true;
+                    }
+                }
+                diagnostics::candidate_timing(request.request_id, "core", "zero_lattice", {
+                    {"duration_us", std::chrono::duration_cast<std::chrono::microseconds>(
+                        std::chrono::steady_clock::now() - started).count()},
+                    {"paths", static_cast<std::int64_t>(response.candidates.size())},
+                    {"model_pending", response.model_pending}});
+            } else if (decoded.message.type == protocol::MessageType::zero_candidate_update_request) {
+                const auto& request = decoded.message;
+                response.type = protocol::MessageType::zero_candidate_response;
+                if (pending_zero && pending_zero->request_id == request.request_id &&
+                    pending_zero->generation == request.context_generation) {
+                    if (pending_zero->dictionary_generation != learning_generation) pending_zero.reset();
+                    else {
+                        const bool ready = pending_zero->future.wait_for(std::chrono::milliseconds(0)) ==
+                            std::future_status::ready;
+                        if (!ready && now < pending_zero->expires) {
+                            response.model_pending = true;
+                            return response;
+                        }
+                        response.text = pending_zero->shortlist.front();
+                        bool reranked = false;
+                        if (ready) {
+                            const auto ranked = pending_zero->future.get();
+                            if (ranked.request_id == request.request_id &&
+                                ranked.type == model::ModelMessageType::rank_response &&
+                                ranked.status == model::ModelStatus::success &&
+                                !ranked.candidates.empty() &&
+                                std::find(pending_zero->shortlist.begin(), pending_zero->shortlist.end(),
+                                    ranked.candidates.front()) != pending_zero->shortlist.end()) {
+                                response.text = ranked.candidates.front();
+                                reranked = true;
+                            }
+                        }
+                        diagnostics::candidate_timing(request.request_id, "core", "zero_rank_ready", {
+                            {"reranked", reranked}});
+                        pending_zero.reset();
+                    }
+                }
+            } else if (decoded.message.type == protocol::MessageType::shutdown_request) {
                 std::clog << R"({"process":"core_service","module":"lifecycle","level":"info","event_id":"shutdown_requested"})"
                           << '\n';
                 if (user_frequency != nullptr && unflushed_selections != 0) {

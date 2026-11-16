@@ -913,7 +913,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                     const std::size_t partition_page_size,
                                                     const bool user_completion_enabled,
                                                     const std::size_t user_completion_max_syllables,
-                                                    const std::size_t incomplete_candidate_page_size) const {
+                                                    const std::size_t incomplete_candidate_page_size,
+                                                    const bool zero_lattice) const {
     if (!parsed.valid || limit == 0 || (cancelled && cancelled())) return {};
     // A normal first page needs only page_size + one look-ahead candidate.
     // Keeping a small quality margin avoids the former 32-result floor, which
@@ -2051,7 +2052,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // is not a dictionary word: omit it when any whole word exists, otherwise
     // retain one fallback. This prevents both corpus noise and Beam permutations
     // from filling pages for inputs such as chan+wu or ni+jian.
-    if (partition_page_size == 0)
+    if (partition_page_size == 0 && !zero_lattice)
         limit_two_syllable_full_candidates(full);
     const bool preserve_learned_alternative = partition_page_size != 0 &&
         std::any_of(full.begin(), full.end(), [](const auto& candidate) { return candidate.user_preferred(); });
@@ -2267,7 +2268,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             if (scored_segmentations.size() >= exact_path_limit) break;
         }
     }
-    if (exact_paths_added > 1) {
+    if (exact_paths_added > 1 || zero_lattice) {
         // A high-frequency reading can fill the raw top-N pool with character
         // permutations. Reserve a bounded comparison slice for every exact
         // source reading, including short inputs. Otherwise increasing the
@@ -2282,23 +2283,56 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             readings.emplace_back(candidate.source_segments, 0);
             return readings.back().second;
         };
+        const auto eligible = [zero_lattice](const Candidate& candidate) {
+            return zero_lattice || candidate.match_kind == InputMatchKind::exact;
+        };
         for (std::size_t index = 0; index < full.size(); ++index) {
-            if (coherence_scored[index] && full[index].match_kind == InputMatchKind::exact)
+            if (coherence_scored[index] && eligible(full[index]))
                 ++count_for(full[index]);
         }
         for (std::size_t index = coherence_limit; index < full.size(); ++index) {
             if (cancelled && cancelled()) return {};
             auto& candidate = full[index];
-            if (coherence_scored[index] || candidate.match_kind != InputMatchKind::exact) continue;
+            if (coherence_scored[index] || !eligible(candidate)) continue;
             auto& count = count_for(candidate);
             if (count >= representatives_per_reading) continue;
             apply_cross_boundary_coherence(candidate);
             ++count;
-            if (readings.size() >= exact_paths_added &&
+            if (readings.size() >= (zero_lattice ? 8 : exact_paths_added) &&
                 std::all_of(readings.begin(), readings.end(), [](const auto& item) {
                     return item.second >= representatives_per_reading;
                 })) break;
         }
+    }
+    if (zero_lattice) {
+        // Collect paths from the bounded, scored beam before display pruning.
+        // Assisted input can provide the answer, but cannot displace an exact
+        // reading. Reserve room for distinct readings and then fill by score.
+        const bool has_exact = std::any_of(full.begin(), full.end(), [](const Candidate& row) {
+            return row.match_kind == InputMatchKind::exact;
+        });
+        std::stable_sort(full.begin(), full.end(), score_less);
+        std::vector<std::vector<std::string>> readings;
+        std::vector<std::size_t> selected, reserve;
+        for (std::size_t i = 0; i < full.size(); ++i) {
+            const auto& row = full[i];
+            if ((has_exact && row.match_kind != InputMatchKind::exact) ||
+                row.text.empty() || utf8_character_count(row.text) > 48 ||
+                row.text.find_first_of("\r\n\t") != std::string::npos) continue;
+            if (std::find(readings.begin(), readings.end(), row.source_segments) == readings.end() &&
+                selected.size() < (limit + 1) / 2) {
+                readings.push_back(row.source_segments);
+                selected.push_back(i);
+            } else if (reserve.size() < limit) reserve.push_back(i);
+            if (selected.size() == (limit + 1) / 2 && reserve.size() == limit) break;
+        }
+        const auto extra = std::min(limit - selected.size(), reserve.size());
+        selected.insert(selected.end(), reserve.begin(), reserve.begin() + static_cast<std::ptrdiff_t>(extra));
+        std::sort(selected.begin(), selected.end());
+        std::vector<Candidate> lattice;
+        lattice.reserve(selected.size());
+        for (const auto index : selected) lattice.push_back(std::move(full[index]));
+        return lattice;
     }
     const auto sentence_less = [](const Candidate& left, const Candidate& right) {
         if (left.user_preferred() != right.user_preferred())

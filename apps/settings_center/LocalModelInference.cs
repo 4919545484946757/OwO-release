@@ -8,6 +8,10 @@ using Microsoft.Win32.SafeHandles;
 
 namespace OwO_Settings;
 
+internal sealed class LocalModelFailure(string code, string message) : InvalidOperationException(message) {
+    internal string Code { get; } = code;
+}
+
 internal sealed class LocalModelInference : IDisposable {
     private readonly Process _server;
     private readonly SafeFileHandle _job;
@@ -37,14 +41,14 @@ internal sealed class LocalModelInference : IDisposable {
 
     internal static async Task<LocalModelInference> StartAsync(LocalModelStore store, LocalModel model, bool performance, CancellationToken token,
         bool debug = false) {
-        if (!store.Installed(model)) throw new ZeroCandidateFailure("local-not-installed", "本地模型未完成下载或不受此设备支持。");
+        if (!store.Installed(model)) throw new LocalModelFailure("local-not-installed", "本地模型未完成下载或不受此设备支持。");
         FileStream? slot = null;
         for (int attempts = 0; slot is null; ++attempts) {
             token.ThrowIfCancellationRequested();
             try { slot = new FileStream(store.LockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite,
                        FileShare.None, 1, FileOptions.None); }
             catch (IOException) when (attempts < 5) { await Task.Delay(150, token).ConfigureAwait(false); }
-            catch (IOException) { throw new ZeroCandidateFailure("local-busy", "另一个本地候选正在生成。"); }
+            catch (IOException) { throw new LocalModelFailure("local-busy", "另一个本地模型调试请求正在运行。"); }
         }
         Process? server = null;
         SafeFileHandle? job = null;
@@ -71,7 +75,7 @@ internal sealed class LocalModelInference : IDisposable {
             job = NewJob();
             server = Process.Start(start);
             if (server is null || !AssignProcessToJobObject(job, server.SafeHandle))
-                throw new ZeroCandidateFailure("local-start", "无法启动隔离的本地推理进程。");
+                throw new LocalModelFailure("local-start", "无法启动隔离的本地推理进程。");
             instance = new LocalModelInference(server, job, slot, port, secret);
             job = null; server = null; slot = null;
             await instance.WaitReadyAsync(token).ConfigureAwait(false);
@@ -88,7 +92,7 @@ internal sealed class LocalModelInference : IDisposable {
         var ready = new Uri(Endpoint, "/health");
         while (true) {
             token.ThrowIfCancellationRequested();
-            if (_server.HasExited) throw new ZeroCandidateFailure("local-start", "本地运行时退出，请检查 CPU、运行库和模型文件。");
+            if (_server.HasExited) throw new LocalModelFailure("local-start", "本地运行时退出，请检查 CPU、运行库和模型文件。");
             try {
                 using var request = new HttpRequestMessage(HttpMethod.Get, ready);
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", SessionKey);
@@ -150,7 +154,7 @@ internal sealed class LocalModelInference : IDisposable {
         var limits = new JobLimits { Basic = new BasicLimits { Flags = 0x2000 } }; // KILL_ON_JOB_CLOSE
         if (!job.IsInvalid && SetInformationJobObject(job, 9, ref limits, (uint)Marshal.SizeOf<JobLimits>())) return job;
         job.Dispose();
-        throw new ZeroCandidateFailure("local-start", "无法隔离本地推理进程。");
+        throw new LocalModelFailure("local-start", "无法隔离本地推理进程。");
     }
     [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true, ExactSpelling = true)]
     private static extern SafeFileHandle CreateJobObjectW(IntPtr attributes, string? name);
