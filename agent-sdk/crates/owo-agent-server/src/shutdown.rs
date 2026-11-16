@@ -247,6 +247,7 @@ fn probe_process(pid: u32) -> ProcessProbe {
         fn GetLastError() -> u32;
         fn SetLastError(dw_err_code: u32);
         fn CloseHandle(h_object: WinHandle) -> i32;
+        fn WaitForSingleObject(h_handle: WinHandle, dw_milliseconds: u32) -> u32;
         fn QueryFullProcessImageNameW(
             h_process: WinHandle,
             dw_flags: u32,
@@ -255,10 +256,12 @@ fn probe_process(pid: u32) -> ProcessProbe {
         ) -> i32;
     }
     const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+    const SYNCHRONIZE: u32 = 0x0010_0000;
+    const WAIT_OBJECT_0: u32 = 0;
     const ERROR_ACCESS_DENIED: u32 = 5;
     // `OpenProcess` 成功不保证会重置 last-error，先清零才能可信地解释失败路径。
     unsafe { SetLastError(0) };
-    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, 0, pid) };
     if handle.is_null() {
         // 权限不足 → 存活但身份未知（由调用方决定保守策略）；其余（不存在、
         // 无效参数、错误码未设置）都按"进程已死"处理，绝不阻塞恢复。
@@ -268,6 +271,13 @@ fn probe_process(pid: u32) -> ProcessProbe {
             ProcessProbe::Dead
         };
     }
+    // A terminated process can still be opened while its parent holds a handle.
+    // The process object is signaled on exit, even before the PID is released.
+    if unsafe { WaitForSingleObject(handle, 0) } == WAIT_OBJECT_0 {
+        unsafe { CloseHandle(handle) };
+        return ProcessProbe::Dead;
+    }
+
     const NAME_MAX_LEN: u32 = 1024;
     let mut name_buf = [0u16; NAME_MAX_LEN as usize];
     let mut name_len = NAME_MAX_LEN;
@@ -349,6 +359,19 @@ pub fn recover_force_kill(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn terminated_process_is_dead_even_with_a_retained_handle() {
+        let mut child = std::process::Command::new("cmd.exe")
+            .args(["/d", "/c", "exit", "0"])
+            .spawn()
+            .expect("spawn a short-lived process");
+        let pid = child.id();
+        assert!(child.wait().expect("wait for the child").success());
+        assert!(!process_alive(pid));
+        drop(child);
+    }
 
     #[test]
     fn image_name_matches_only_our_server_binary() {
