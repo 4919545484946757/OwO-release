@@ -41,7 +41,7 @@ internal static class LocalModelChat {
         timeout.CancelAfter(TimeSpan.FromSeconds(75));
         timeout.Token.ThrowIfCancellationRequested();
         using var session = testHandler is null
-            ? await LocalModelInference.StartAsync(store, model, true, timeout.Token, contextTokens: 4096).ConfigureAwait(false) : null;
+            ? await LocalModelInference.StartAsync(store, model, true, timeout.Token, debug: true).ConfigureAwait(false) : null;
         using var fixture = testHandler is null ? null : new HttpClient(testHandler) { Timeout = Timeout.InfiniteTimeSpan };
         var client = session?.Client ?? fixture!;
         using var request = new HttpRequestMessage(HttpMethod.Post, session?.Endpoint ?? new Uri("http://127.0.0.1/v1/chat/completions"));

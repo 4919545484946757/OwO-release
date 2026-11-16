@@ -1672,32 +1672,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 ? runtime_config->user_lexicon_completion_max_syllables : 1U;
             const bool candidate_partition_enabled = runtime_config == nullptr ||
                 runtime_config->candidate_partition_enabled;
-            if (decoded.message.type == protocol::MessageType::zero_candidate_request) {
-                const auto& request = decoded.message;
-                response.type = protocol::MessageType::zero_candidate_response;
-                const auto started = std::chrono::steady_clock::now();
-                const bool performance = request.input == "performance";
-                const auto deadline = started + std::chrono::milliseconds(performance ? 45 : 25);
-                const auto cancelled = [&] { return std::chrono::steady_clock::now() >= deadline; };
-                const auto letter = [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); };
-                if (full_pinyin_scheme && request.request_id != 0 && !request.application_sensitive_input &&
-                    request.text.size() <= 96 && std::count_if(request.text.begin(), request.text.end(), letter) >= 2 &&
-                    (performance || request.input == "eco" || request.input == "pinyin") &&
-                    std::all_of(request.text.begin(), request.text.end(), [&](char c) { return letter(c) || c == '\''; })) {
-                    auto context = request.context;
-                    engine::redact_ranking_numbers(context);
-                    const auto parsed = full_pinyin_schema.parse(request.text, performance ? 24 : 12,
-                        request.correction_enabled, nullptr, cancelled);
-                    const auto lattice = generator.generate(parsed, performance ? 24 : 12, !context.empty(),
-                        context, nullptr, cancelled, false, 0, false, 0, 0, true);
-                    for (const auto& path : lattice) response.candidates.push_back(path.text);
-                    if (!response.candidates.empty()) response.text = response.candidates.front();
-                }
-                diagnostics::candidate_timing(request.request_id, "core", "zero_lattice", {
-                    {"duration_us", std::chrono::duration_cast<std::chrono::microseconds>(
-                        std::chrono::steady_clock::now() - started).count()},
-                    {"paths", static_cast<std::int64_t>(response.candidates.size())}});
-            } else if (decoded.message.type == protocol::MessageType::shutdown_request) {
+            if (decoded.message.type == protocol::MessageType::shutdown_request) {
                 std::clog << R"({"process":"core_service","module":"lifecycle","level":"info","event_id":"shutdown_requested"})"
                           << '\n';
                 if (user_frequency != nullptr && unflushed_selections != 0) {

@@ -2,8 +2,6 @@
 #include "activation_trace.h"
 #include "text_service.h"
 #include "owo/config/config_paths.h"
-#include "owo/ipc/named_pipe.h"
-#include "owo/protocol/messages.h"
 #include "owo/tsf/input_method_context.h"
 #include "owo/tsf/language_context.h"
 #include <algorithm>
@@ -114,26 +112,14 @@ std::optional<Snapshot> capture(ITfContext* context, TfClientId client, bool wit
     });
     return ok ? std::optional<Snapshot>(std::move(snapshot)) : std::nullopt;
 }
-std::string encode_utf8(const std::wstring& text) {
+std::string hex(const std::wstring& text) {
     const int size = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text.data(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
     if (size < 0 || (!text.empty() && size == 0)) return {};
     std::string utf8(size, '\0');
     WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text.data(), static_cast<int>(text.size()), utf8.data(), size, nullptr, nullptr);
-    return utf8;
-}
-std::string hex(const std::wstring& text) {
-    const auto utf8 = encode_utf8(text);
     constexpr char digits[] = "0123456789ABCDEF";
     std::string output; output.reserve(utf8.size() * 2);
     for (const auto byte : utf8) { output += digits[static_cast<unsigned char>(byte) >> 4]; output += digits[byte & 15]; }
-    return output;
-}
-std::wstring decode_utf8(std::string_view bytes) {
-    const int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, bytes.data(), static_cast<int>(bytes.size()), nullptr, 0);
-    if (length <= 0 || length > 16384) return {};
-    std::wstring output(length, L'\0');
-    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, bytes.data(), static_cast<int>(bytes.size()), output.data(), length);
-    if (output.find(L'\0') != std::wstring::npos) return {};
     return output;
 }
 std::wstring unhex(std::string_view text) {
@@ -145,7 +131,12 @@ std::wstring unhex(std::string_view text) {
         if (high < 0 || low < 0) return {};
         bytes += static_cast<char>((high << 4) | low);
     }
-    return decode_utf8(bytes);
+    const int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, bytes.data(), static_cast<int>(bytes.size()), nullptr, 0);
+    if (length <= 0 || length > 16384) return {};
+    std::wstring output(length, L'\0');
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, bytes.data(), static_cast<int>(bytes.size()), output.data(), length);
+    if (output.find(L'\0') != std::wstring::npos) return {};
+    return output;
 }
 std::filesystem::path host_path() {
     HMODULE module{};
@@ -183,7 +174,7 @@ bool transfer(HANDLE pipe, void* buffer, DWORD count, bool write, std::stop_toke
     return offset == count && !stop.stop_requested();
 }
 std::pair<bool, std::wstring> request(const std::filesystem::path& exe, const std::string& payload,
-                                     std::stop_token stop, bool shortlist_only = false) {
+                                     std::stop_token stop, const bool zero = false) {
     GUID guid{}; if (FAILED(CoCreateGuid(&guid))) return {false, L"无法创建请求标识"};
     wchar_t id[40]{}; StringFromGUID2(guid, id, 40);
     std::wstring nonce; for (wchar_t c : std::wstring(id)) if (iswxdigit(c)) nonce += c;
@@ -191,11 +182,12 @@ std::pair<bool, std::wstring> request(const std::filesystem::path& exe, const st
     auto command = L"\"" + exe.wstring() + L"\" --text-assistant-host " + name + L" --parent-pid " + std::to_wstring(GetCurrentProcessId());
     STARTUPINFOW startup{sizeof(startup)}; PROCESS_INFORMATION process{};
     if (!CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, exe.parent_path().c_str(), &startup, &process)) {
+        if (zero) activation_trace("ZERO_HELPER_START_FAILED", HRESULT_FROM_WIN32(GetLastError()));
         return {false, L"无法启动模型辅助进程，请更新设置中心"};
     }
     CloseHandle(process.hThread);
     HANDLE pipe = INVALID_HANDLE_VALUE;
-    const auto deadline = GetTickCount64() + (shortlist_only ? 3500 : 15000);
+    const auto deadline = GetTickCount64() + 15000;
     const auto full_name = L"\\\\.\\pipe\\" + name;
     while (!stop.stop_requested() && GetTickCount64() < deadline && WaitForSingleObject(process.hProcess, 0) == WAIT_TIMEOUT) {
         pipe = CreateFileW(full_name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
@@ -224,6 +216,29 @@ std::pair<bool, std::wstring> request(const std::filesystem::path& exe, const st
         }
         CloseHandle(pipe);
     }
+    if (zero && !stop.stop_requested()) {
+        // Never log the response text. Only record fixed, known categories
+        // (and numeric HTTP status) from the authenticated local worker.
+        if (ok) activation_trace("ZERO_MODEL_RETURNED");
+        else if (pipe == INVALID_HANDLE_VALUE) activation_trace("ZERO_HELPER_NO_PIPE", E_FAIL);
+        else if (text == L"zero-error:consent") activation_trace("ZERO_MODEL_CONSENT", E_ACCESSDENIED);
+        else if (text == L"zero-error:input") activation_trace("ZERO_MODEL_INPUT", E_INVALIDARG);
+        else if (text == L"zero-error:sensitive") activation_trace("ZERO_MODEL_SENSITIVE", E_ACCESSDENIED);
+        else if (text == L"zero-error:timeout") activation_trace("ZERO_MODEL_TIMEOUT", HRESULT_FROM_WIN32(ERROR_TIMEOUT));
+        else if (text == L"zero-error:network") activation_trace("ZERO_MODEL_NETWORK", E_FAIL);
+        else if (text == L"zero-error:length") activation_trace("ZERO_MODEL_TRUNCATED", E_FAIL);
+        else if (text == L"zero-error:content") activation_trace("ZERO_MODEL_CONTENT", E_FAIL);
+        else if (text == L"zero-error:pronunciation") activation_trace("ZERO_MODEL_PRONUNCIATION", E_FAIL);
+        else if (text == L"zero-error:local-not-installed") activation_trace("ZERO_LOCAL_NOT_READY", E_FAIL);
+        else if (text == L"zero-error:local-busy") activation_trace("ZERO_LOCAL_BUSY", E_FAIL);
+        else if (text == L"zero-error:local-start") activation_trace("ZERO_LOCAL_START_FAILED", E_FAIL);
+        else if (text == L"zero-error:payload-or-config") activation_trace("ZERO_MODEL_PAYLOAD_OR_CONFIG", E_FAIL);
+        else if (text.size() == 19 && text.starts_with(L"zero-error:http-") &&
+                 std::all_of(text.begin() + 16, text.end(), [](wchar_t c) { return c >= L'0' && c <= L'9'; })) {
+            const unsigned status = (text[16] - L'0') * 100 + (text[17] - L'0') * 10 + (text[18] - L'0');
+            activation_trace("ZERO_MODEL_HTTP", MAKE_HRESULT(SEVERITY_ERROR, FACILITY_HTTP, status));
+        } else activation_trace("ZERO_WORKER_RESPONSE_FAILED", E_FAIL);
+    }
     if (WaitForSingleObject(process.hProcess, 100) == WAIT_TIMEOUT) TerminateProcess(process.hProcess, 1);
     CloseHandle(process.hProcess);
     if (text.empty()) text = L"模型返回格式无效，原文未修改";
@@ -242,11 +257,6 @@ std::string read_zero_candidate_mode() {
     CloseHandle(file);
     if (!ok) return {};
     const std::string_view value(data, read);
-    // Only the new TSF interprets lattice markers; old versions cannot use
-    // them to send a composition to their text-generation helper.
-    if (value == "lattice-eco") return "eco:";
-    if (value == "lattice-performance") return "performance:";
-    if (value == "lattice-pinyin") return "pinyin:";
     const auto delimiter = value.find(':');
     if (delimiter == value.npos) return {};
     const auto mode = value.substr(0, delimiter), approval = value.substr(delimiter + 1);
@@ -256,56 +266,19 @@ std::string read_zero_candidate_mode() {
 }
 
 std::pair<bool, std::wstring> request_zero_candidate(const std::string_view mode,
-    const std::wstring& pinyin, const std::wstring& context, const bool correction,
-    const std::uint64_t generation, std::stop_token stop) {
+    const std::wstring& pinyin, const std::wstring& context, const std::wstring& application,
+    const std::wstring& references, std::stop_token stop) {
     if (stop.stop_requested()) return {};
-    static std::atomic<std::uint32_t> sequence{0};
-    protocol::Message request;
-    request.type = protocol::MessageType::zero_candidate_request;
-    request.request_id = (static_cast<std::uint64_t>(GetCurrentProcessId()) << 32) | ++sequence;
-    request.context_generation = generation;
-    request.input_scheme = "full_pinyin";
-    request.text = encode_utf8(pinyin);
-    request.input = mode.substr(0, mode.find(':'));
-    request.context = encode_utf8(context);
-    request.correction_enabled = correction;
-    const auto receive = [&](const auto wait) -> std::optional<protocol::Message> {
-        if (stop.stop_requested()) return std::nullopt;
-        const auto exchanged = ipc::exchange(ipc::kCorePipeName, protocol::encode_message(request), wait);
-        if (!exchanged.status) return std::nullopt;
-        auto result = protocol::decode_message(exchanged.response);
-        if (!result.validation || result.message.type != protocol::MessageType::zero_candidate_response ||
-            result.message.request_id != request.request_id || result.message.context_generation != generation)
-            return std::nullopt;
-        return std::move(result.message);
-    };
-    const auto first = receive(std::chrono::milliseconds(180));
-    if (!first || first->text.empty() || stop.stop_requested()) {
-        activation_trace("ZERO_LATTICE_UNAVAILABLE");
-        return {};
-    }
-    if (first->candidates.size() > 1) {
-        const auto host = host_path();
-        if (!host.empty() && !stop.stop_requested()) {
-            // The helper accepts only a bounded lattice and replies with one
-            // candidate. Validate it against the current composition again.
-            std::string payload = "OWORANK1\n" + request.input + '\n' + hex(pinyin) + '\n' + hex(context) + '\n';
-            for (const auto& row : first->candidates) {
-                const auto decoded = decode_utf8(row);
-                if (decoded.empty()) return {true, decode_utf8(first->text)};
-                payload += hex(decoded) + '\n';
-            }
-            auto [ok, ranked] = ::owo::tsf::request(host, payload, stop, true);
-            if (!stop.stop_requested() && ok &&
-                std::ranges::find(first->candidates, encode_utf8(ranked)) != first->candidates.end()) {
-                activation_trace("ZERO_QWEN_RERANKED");
-                return {true, std::move(ranked)};
-            }
-        }
-        if (!stop.stop_requested()) activation_trace("ZERO_QWEN_FALLBACK");
-    }
-    if (stop.stop_requested()) return {};
-    return {true, decode_utf8(first->text)};
+    const auto exe = host_path();
+    if (exe.empty()) { activation_trace("ZERO_HELPER_MISSING"); return {}; }
+    const auto code = hex(pinyin), nearby = hex(context), host = hex(application);
+    if (code.empty() || (!context.empty() && nearby.empty()) || (!application.empty() && host.empty())) return {};
+    const auto delimiter = mode.find(':');
+    if (delimiter == mode.npos) return {};
+    auto payload = "OWOTEXT1\nzero-" + std::string(mode.substr(0, delimiter)) + '\n' + code + '\n' + nearby + '\n' + host + '\n' +
+        std::string(mode.substr(delimiter + 1)) + '\n';
+    if (!references.empty()) payload += hex(references) + '\n';
+    return request(exe, payload, stop, true);
 }
 } // namespace
 
@@ -370,24 +343,23 @@ bool ZeroCandidate::read_position(bool first, std::wstring* surroundings) {
             if (!anchor_ || FAILED(start->CompareStart(cookie, anchor_.Get(), TF_ANCHOR_START, &compare)) || compare) return E_ABORT;
         }
         if (!surroundings) return S_OK;
-        const auto preceding = [&](const LONG limit) {
+        const auto side = [&](bool before, LONG limit) {
             ComPtr<ITfRange> range;
             LONG moved{}; ULONG count{}; wchar_t buffer[256]{};
-            if (FAILED(start->Clone(&range)) || FAILED(range->ShiftStart(cookie, -limit, &moved, nullptr)) ||
-                FAILED(range->GetText(cookie, 0, buffer, static_cast<ULONG>(limit * 2), &count)) ||
+            if (FAILED(composition->Clone(&range)) || FAILED(range->Collapse(cookie, before ? TF_ANCHOR_START : TF_ANCHOR_END))) return std::wstring{};
+            const auto shifted = before ? range->ShiftStart(cookie, -limit, &moved, nullptr) : range->ShiftEnd(cookie, limit, &moved, nullptr);
+            if (FAILED(shifted) || FAILED(range->GetText(cookie, 0, buffer, static_cast<ULONG>(limit * 2), &count)) ||
                 count > static_cast<ULONG>(limit * 2)) return std::wstring{};
             std::wstring result(buffer, count);
             if (result.find(L'\0') != std::wstring::npos) return std::wstring{};
-            std::erase_if(result, [](wchar_t c) { return c < L' ' && c != L'\n' && c != L'\r' && c != L'\t'; });
             engine::redact_ranking_numbers(result);
-            append_bounded_language_context(result, {}, static_cast<std::size_t>(limit));
+            if (before) append_bounded_language_context(result, {}, static_cast<std::size_t>(limit));
+            else if (result.size() > static_cast<std::size_t>(limit)) result.resize(limit);
             if (!result.empty() && result.front() >= 0xdc00 && result.front() <= 0xdfff) result.erase(result.begin());
             if (!result.empty() && result.back() >= 0xd800 && result.back() <= 0xdbff) result.pop_back();
             return result;
         };
-        // The loaded sequence model consumes the text before the insertion
-        // point. Do not include unrelated text to the right or window identity.
-        *surroundings = preceding(128);
+        *surroundings = side(true, 128) + L"\n<光标>\n" + side(false, 48);
         return S_OK;
     });
 }
@@ -452,16 +424,28 @@ void ZeroCandidate::poll() {
         append_ranking_language_context(surroundings, owner_.staged_text());
         append_bounded_language_context(surroundings, {}, 16);
     }
+    std::wstring references;
+    if (!owner_.candidate_request_pending_ && !owner_.candidate_request_failed_ && !owner_.candidate_symbol_preview_ &&
+        owner_.candidate_page_ == 0 && owner_.candidate_consumed_.size() == owner_.candidates_.size()) {
+        unsigned count = 0;
+        for (std::size_t i = 0; i < owner_.candidates_.size() && count < 3; ++i) {
+            const auto& candidate = owner_.candidates_[i];
+            if (owner_.candidate_consumed_[i] != input_.size() || candidate.empty() || candidate.size() > 48 ||
+                candidate.find(L'\n') != std::wstring::npos) continue;
+            if (count++) references.push_back(L'\n');
+            references.append(candidate);
+        }
+    }
     submitted_ = true;
     activation_trace("ZERO_CANDIDATE_REQUESTED");
-    next_request_ = now + 650;
+    next_request_ = now + 1500;
     auto job = job_ = std::make_shared<Job>();
     job->generation = generation_;
     try {
         worker_ = std::jthread([job, policy = mode_, pinyin = input_, surroundings = std::move(surroundings),
-                correction = owner_.correction_enabled_, generation = composition_generation_](std::stop_token stop) {
+                application = performance ? application_ : std::wstring{}, references = std::move(references)](std::stop_token stop) {
             try {
-                auto [ok, result] = request_zero_candidate(policy, pinyin, surroundings, correction, generation, stop);
+                auto [ok, result] = request_zero_candidate(policy, pinyin, surroundings, application, references, stop);
                 job->succeeded = ok && !stop.stop_requested() && !result.empty() && result.size() <= 48;
                 if (job->succeeded) job->result = std::move(result);
             } catch (...) { /* A failed model does not disturb normal candidates. */ }

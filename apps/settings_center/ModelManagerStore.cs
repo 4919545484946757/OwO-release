@@ -19,8 +19,6 @@ internal sealed record TextAssistantSettings {
     public string ZeroCandidateConsentProfile { get; init; } = "";
     public string ZeroCandidateApproval { get; init; } = "";
     public bool ZeroCandidatePerformance { get; init; }
-    public bool ZeroCandidateCoreRanking { get; init; }
-    public bool ZeroCandidateNoContext { get; init; }
     public string ActiveProfile { get; init; } = "";
     public string PreferredLanguage { get; init; } = "简体中文";
     public string SecondaryLanguage { get; init; } = "英语";
@@ -80,8 +78,7 @@ internal sealed class ModelManagerStore(string root) {
             throw new InvalidOperationException("请选择受支持的本地模型。");
         if (!LocalModelStore.ValidStorageParent(value.LocalModelStorageParent))
             throw new InvalidOperationException("本地模型储存目录必须是本机磁盘的绝对路径。");
-        if (value.ZeroCandidateEnabled && !value.ZeroCandidateCoreRanking &&
-            (ZeroCandidateMode(value) is null || !Guid.TryParseExact(value.ZeroCandidateApproval, "N", out _)))
+        if (value.ZeroCandidateEnabled && (ZeroCandidateMode(value) is null || !Guid.TryParseExact(value.ZeroCandidateApproval, "N", out _)))
             throw new InvalidOperationException("启用 0 号候选前须单独授权当前默认模型。");
     }
     internal static UserModelProfile? ZeroCandidateProfile(TextAssistantSettings value) =>
@@ -93,9 +90,6 @@ internal sealed class ModelManagerStore(string root) {
         value.ZeroCandidateEnabled && value.ZeroCandidateConsentProfile == LocalConsent(value.ZeroCandidateLocalModel)
         ? LocalModelStore.Find(value.ZeroCandidateLocalModel) : null;
     internal static string? ZeroCandidateMode(TextAssistantSettings value) {
-        if (value.ZeroCandidateCoreRanking)
-            return !value.ZeroCandidateEnabled ? null : value.ZeroCandidateNoContext ? "pinyin" :
-                value.ZeroCandidatePerformance ? "performance" : "eco";
         if (ZeroLocalModel(value) is not null) return value.ZeroCandidatePerformance ? "performance" : "eco";
         return ZeroCandidateProfile(value) switch {
             null => null,
@@ -103,16 +97,10 @@ internal sealed class ModelManagerStore(string root) {
             _ => value.ZeroCandidatePerformance ? "performance" : "eco",
         };
     }
-    internal static TextAssistantSettings UseCoreRanking(TextAssistantSettings value) =>
-        value.ZeroCandidateCoreRanking ? value : value with {
-            ZeroCandidateCoreRanking = true, ZeroCandidateNoContext = ZeroCandidateMode(value) == "pinyin",
-            ZeroCandidateConsentProfile = "", ZeroCandidateApproval = ""
-        };
     private static bool ValidText(string? value, int max) => !string.IsNullOrWhiteSpace(value) &&
         value.Length <= max && !value.Any(char.IsControl);
     internal void Save(TextAssistantSettings value) {
         Validate(value);
-        value = UseCoreRanking(value);
         Directory.CreateDirectory(Root);
         var path = Path.Combine(Root, "profiles.json");
         var temp = path + "." + Guid.NewGuid().ToString("N");
@@ -124,7 +112,7 @@ internal sealed class ModelManagerStore(string root) {
         SetGate("selection-assistant.enabled", value.Enabled && value.PrivacyConsent);
         SetGate("context.enabled", value.Enabled && value.PrivacyConsent && value.IncludeContext);
         var mode = ZeroCandidateMode(value);
-        SetModeGate(mode is null ? null : "lattice-" + mode);
+        SetModeGate(mode is null ? null : mode + ":" + value.ZeroCandidateApproval);
     }
     private void SetModeGate(string? mode) {
         var path = Path.Combine(Root, "zero-candidate.mode");

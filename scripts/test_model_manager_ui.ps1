@@ -137,7 +137,7 @@ try {
                 Where-Object { $null -ne (Find-Id $_ 'LocalModelDebugInput') } | Select-Object -First 1
     } while (!$debugWindow -and [DateTime]::UtcNow -lt $debugDeadline)
     Check ($null -ne $debugWindow) 'Local model debug window did not open.'
-    foreach ($id in @('LocalModelDebugInput','LocalModelDebugSystemPrompt','LocalModelDebugSend','LocalModelDebugCandidateMode')) {
+    foreach ($id in @('LocalModelDebugInput','LocalModelDebugSystemPrompt','LocalModelDebugSend','LocalModelDebugCandidateMode','LocalModelDebugCopyPrompt')) {
         Check ($null -ne (Find-Id $debugWindow $id)) "Missing dialog control: $id"
     }
     Check (!(Find-Id $debugWindow 'LocalModelDebugSend').Current.IsEnabled) 'No model must not start inference.'
@@ -153,21 +153,20 @@ try {
     Check ($enabled.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq [Windows.Automation.ToggleState]::Off) 'Must default disabled.'
     $zero = Find-Id $window 'ZeroCandidateEnabled'
     $zeroMode = Find-Id $window 'ZeroCandidateMode'
-    Check (!$zeroMode.Current.IsEnabled) 'Modes remain disabled while zero candidate is off.'
+    Check (!$zeroMode.Current.IsEnabled) 'Models without context must not switch modes.'
     $zeroToggle = $zero.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
     Check ($zeroToggle.Current.ToggleState -eq [Windows.Automation.ToggleState]::Off) 'Zero candidate must default disabled.'
     $zeroToggle.Toggle()
     Start-Sleep -Milliseconds 250
-    Check ($null -ne (Find-Name $window '启用')) 'Zero candidate requires separate explicit opt-in.'
+    Check ($null -ne (Find-Name $window '同意并启用')) 'Zero candidate requires separate explicit consent.'
     Invoke (Find-Name $window '取消')
     Start-Sleep -Milliseconds 250
     Check (!(Test-Path -LiteralPath (Join-Path $fixture 'models/zero-candidate.mode'))) 'Cancelling must not allow automatic requests.'
     $zeroToggle.Toggle()
     Start-Sleep -Milliseconds 250
-    Invoke (Find-Name $window '启用')
+    Invoke (Find-Name $window '同意并启用')
     Start-Sleep -Milliseconds 250
-    Check ((Get-Content (Join-Path $fixture 'models/zero-candidate.mode') -Raw) -eq 'lattice-eco') 'Consent must enable local energy mode.'
-    Check ($zeroMode.Current.IsEnabled) 'Core ranking modes do not depend on the linked API.'
+    Check ((Get-Content (Join-Path $fixture 'models/zero-candidate.mode') -Raw) -match '^pinyin:[a-f0-9]{32}$') 'Consent must enable pinyin-only mode.'
     $zeroToggle.Toggle()
     Start-Sleep -Milliseconds 250
     Check (!(Test-Path -LiteralPath (Join-Path $fixture 'models/zero-candidate.mode'))) 'Disable must revoke zero candidate authorization.'

@@ -23,8 +23,6 @@ enum class MessageType {
     candidate_response,
     candidate_update_request,
     candidate_update_response,
-    zero_candidate_request,
-    zero_candidate_response,
     candidate_committed,
     user_lexicon_request,
     user_lexicon_response,

@@ -32,51 +32,25 @@ if (args.Length == 2 && args[0] == "--verify-local") {
     try {
         using var download = new DownloadOperation(selected.Name, default, TimeSpan.FromMinutes(6));
         await download.RunAsync(token => localTestStore.InstallAsync(selected, download, token));
+        var approval = Guid.NewGuid().ToString("N");
+        var fixture = new TextAssistantSettings { ZeroCandidateEnabled = true, ZeroCandidateLocalModel = selected.Id,
+            ZeroCandidateConsentProfile = ModelManagerStore.LocalConsent(selected.Id), ZeroCandidateApproval = approval };
+        var result = await TextAssistantApi.ExecuteAsync(fixture, new("zero-eco", "nihao", "", "", approval), default,
+            modelRoot: store.Root);
+        Check(result == "你好", "local model must consume all of nihao, not just the last syllable");
+        var second = await TextAssistantApi.ExecuteAsync(fixture, new("zero-eco", "beijing", "", "", approval), default,
+            modelRoot: store.Root);
+        Check(second == "北京", "local model must generate a second independently chosen spelling");
+        var reported = await TextAssistantApi.ExecuteAsync(fixture, new("zero-eco", "xianzai", "", "", approval, "现在"), default,
+            modelRoot: store.Root);
+        Check(reported == "现在", "wrong reading for xianzai must be replaced by a verified full candidate");
         var chat = await LocalModelChat.SendAsync(localTestStore, selected, "", [], "请用中文说一句问候。", default);
         Check(chat.Text.Any(c => c is >= '\u3400' and <= '\u9fff'), "real local chat returns Chinese text");
-        Console.WriteLine($"PASS: verified download and CPU debug chat for {selected.Name}");
+        Console.WriteLine($"PASS: verified download and CPU inference {selected.Name} → {result} / {second} / {reported}");
     } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     return;
 }
-const string targetPinyin = "tihuandangqianbanbenyigongceshi";
-const string targetText = "替换当前版本以供测试";
-if (args.Length == 1 && args[0] == "--verify-live-zero-model") {
-    var installed = new ModelManagerStore(ModelManagerStore.DefaultRoot);
-    var clock = Stopwatch.StartNew();
-    var result = await ZeroModelReranker.RankAsync(installed, installed.Load(),
-        new("eco", targetPinyin, "",
-            ["替换当前版本一共测试", "替换当前版本一公测试", targetText, "替换当前版本义工测试"]), default);
-    Check(result == targetText, $"Qwen3-4B did not choose the expected phrase: {result}");
-    Console.WriteLine($"PASS: Qwen3-4B selected {result} ({clock.Elapsed.TotalSeconds:F1}s)");
-    clock.Restart();
-    var live = await ZeroCandidateDebug.ProbeAsync(targetPinyin, false, installed, installed.Load(), default);
-    Check(live.Paths.Contains(targetText) && live.QwenApplied && live.Final == targetText,
-        $"Live lattice did not produce the expected Qwen3-4B winner: {live.Final}");
-    Console.WriteLine($"PASS: {live.Paths.Length} live lattice paths → Qwen3-4B → {live.Final} ({clock.Elapsed.TotalSeconds:F1}s)");
-    return;
-}
 try {
-    var rankInput = new ZeroRankInput("eco", targetPinyin, "", ["替换当前版本一共测试", targetText]);
-    var rankWire = "OWORANK1\neco\n" + TextAssistantHost.Encode(targetPinyin) + "\n\n" +
-        string.Join("\n", rankInput.Candidates.Select(TextAssistantHost.Encode)) + "\n";
-    Check(ZeroModelReranker.Parse(rankWire).Candidates.SequenceEqual(rankInput.Candidates), "rank wire preserves a bounded lattice");
-    Reject(() => ZeroModelReranker.Parse(rankWire.Replace("eco", "cloud")), "rank must not accept a cloud mode");
-    Reject(() => ZeroModelReranker.Parse(rankWire.Replace(TextAssistantHost.Encode(rankInput.Candidates[0]),
-        TextAssistantHost.Encode(targetText))), "rank must reject duplicate rows");
-    Check(await ZeroModelReranker.RankAsync(store, settings, rankInput, default, new FakeHandler(async request => {
-        using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
-        var data = body.RootElement;
-        Check(request.RequestUri!.IsLoopback && data.GetProperty("model").GetString() == "qwen3-4b-q4km", "only local Qwen3-4B");
-        Check(data.GetProperty("grammar").GetString() == "root ::= \"A\" | \"B\"" &&
-            !data.GetProperty("chat_template_kwargs").GetProperty("enable_thinking").GetBoolean(), "only shortlist IDs, no reasoning");
-        return FakeHandler.Json("{\"choices\":[{\"message\":{\"content\":\"B\"},\"finish_reason\":\"stop\"}]}");
-    })) == targetText, "selection must use the ranked member, not the initial winner");
-    foreach (var invalid in new[] { "在在", "C", "AB", "B: " + targetText }) {
-        await RejectAsync(() => ZeroModelReranker.RankAsync(store, settings, rankInput, default,
-            new FakeHandler(_ => Task.FromResult(FakeHandler.Json(JsonSerializer.Serialize(new {
-                choices = new[] { new { message = new { content = invalid }, finish_reason = "stop" } }
-            }))))), "rank must reject free text and invalid IDs");
-    }
     Check(!store.Load().Enabled, "feature must default off");
     Check(ModelManagerStore.ZeroCandidateMode(store.Load()) is null, "automatic candidate must default off");
     Check(ModelKeyProtection.Unprotect(profile.ProtectedKey) == key && !profile.ProtectedKey.Contains(key), "DPAPI round trip");
@@ -115,23 +89,50 @@ try {
         ZeroCandidateConsentProfile = profile.Id, ZeroCandidateApproval = Guid.NewGuid().ToString("N"),
         ZeroCandidatePerformance = true
     };
+    var zeroInput = new TextAssistantInput("zero-pinyin", "nihao", "", "", zero.ZeroCandidateApproval);
+    const string zeroOk = "{\"choices\":[{\"message\":{\"content\":\"你好\"},\"finish_reason\":\"stop\"}]}";
     var zeroGate = Path.Combine(store.Root, "zero-candidate.mode");
     Check(ModelManagerStore.ZeroCandidateMode(zero) == "pinyin", "models without context are pinned to pinyin");
-    File.WriteAllText(Path.Combine(store.Root, "profiles.json"), JsonSerializer.Serialize(zero));
+    store.Save(zero);
+    Check(File.ReadAllText(zeroGate) == "pinyin:" + zero.ZeroCandidateApproval &&
+        !File.Exists(Path.Combine(store.Root, "selection-assistant.enabled")), "separate opt-in and runtime policy");
     var zeroWire = "OWOTEXT1\nzero-pinyin\n" + TextAssistantHost.Encode("nihao") + "\n\n\n" + zero.ZeroCandidateApproval + "\n";
-    Reject(() => TextAssistantHost.Parse(zeroWire), "retired wire operation cannot call the generation helper");
-    var migrated = ModelManagerStore.UseCoreRanking(store.Load());
-    Check(migrated.ZeroCandidateEnabled && migrated.ZeroCandidateNoContext && migrated.ZeroCandidateApproval.Length == 0,
-        "old pinyin-only opt-in migrates without widening context");
-    store.Save(migrated);
-    Check(File.ReadAllText(zeroGate) == "lattice-pinyin" &&
-        !File.Exists(Path.Combine(store.Root, "selection-assistant.enabled")),
-        "old TSF cannot consume the new lattice marker, and selection assistance stays disabled");
-    var energy = migrated with { Profiles = [], ActiveProfile = "", ZeroCandidateNoContext = false, ZeroCandidatePerformance = false };
-    store.Save(energy);
-    Check(File.ReadAllText(zeroGate) == "lattice-eco", "local ranking does not require any API profile");
-    store.Save(energy with { ZeroCandidatePerformance = true });
-    Check(File.ReadAllText(zeroGate) == "lattice-performance", "performance mode persists independently of API");
+    Check(TextAssistantHost.Parse(zeroWire) == zeroInput, "zero candidate wire has separate authorization");
+    Check(TextAssistantHost.Parse(zeroWire + TextAssistantHost.Encode("你好\n拟好") + "\n") ==
+        zeroInput with { LocalReferences = "你好\n拟好" }, "zero candidate wire accepts an optional local-only shortlist");
+    Reject(() => TextAssistantHost.Parse(zeroWire.Replace(zero.ZeroCandidateApproval, "not-an-approval")), "reject malformed runtime approval");
+    var withContext = zero with { Profiles = [profile with { SupportsCandidateContext = true }] };
+    var eco = withContext with { ZeroCandidatePerformance = false };
+    Check(ModelManagerStore.ZeroCandidateMode(eco) == "eco" && ModelManagerStore.ZeroCandidateMode(withContext) == "performance", "context-capable model offers both modes");
+    FakeHandler CheckCandidateBody(string expectedContext, string expectedApp, int expectedTokens) => new(async request => {
+        using var payload = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+        var item = payload.RootElement;
+        using var user = JsonDocument.Parse(item.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        Check(item.GetProperty("max_tokens").GetInt32() == expectedTokens && user.RootElement.GetProperty("pinyin").GetString() == "nihao" &&
+            user.RootElement.GetProperty("context").GetString() == expectedContext && user.RootElement.GetProperty("application").GetString() == expectedApp &&
+            !item.GetRawText().Contains(zero.ZeroCandidateApproval), "only bounded payload reaches the model");
+        return FakeHandler.Json(zeroOk);
+    });
+    Check(await TextAssistantApi.ExecuteAsync(zero, zeroInput, default, CheckCandidateBody("", "", 256)) == "你好", "pinyin-only result");
+    var ecoInput = zeroInput with { Operation = "zero-eco", Context = "单号１２3⑨" };
+    Check(await TextAssistantApi.ExecuteAsync(eco, ecoInput, default, CheckCandidateBody("单号0", "", 256)) == "你好", "energy mode redact numbers");
+    var perfInput = zeroInput with { Operation = "zero-performance", Context = "前文\n<光标>\n后文", Application = "notepad.exe" };
+    Check(await TextAssistantApi.ExecuteAsync(withContext, perfInput, default, CheckCandidateBody(perfInput.Context, "notepad.exe", 512)) == "你好", "performance mode transmits bounded environment and context");
+    Check(await TextAssistantApi.ExecuteAsync(zero with { MaxOutputTokens = 128 }, zeroInput, default,
+        CheckCandidateBody("", "", 128)) == "你好", "zero candidate respects lower user-defined output limit");
+    var zeroCalls = 0;
+    var noCall = new FakeHandler(_ => { ++zeroCalls; return Task.FromResult(FakeHandler.Json(zeroOk)); });
+    foreach (var pair in new (TextAssistantSettings Config, TextAssistantInput Request)[] {
+        (zero with { ZeroCandidateEnabled = false }, zeroInput),
+        (zero, zeroInput with { Approval = Guid.NewGuid().ToString("N") }),
+        (zero, zeroInput with { Context = "不该发送" }),
+        (zero, perfInput), (eco, ecoInput with { Context = new string('字', 17) }),
+        (eco, ecoInput with { Application = "notepad.exe" }),
+        (withContext, perfInput with { Application = @"C:\Windows\notepad.exe" }),
+        (withContext, perfInput with { Context = "api_key='abcdefghijklmnop123456'" }),
+        (withContext, perfInput with { Selection = "ni，hao" })
+    }) await RejectAsync(() => TextAssistantApi.ExecuteAsync(pair.Config, pair.Request, default, noCall), "invalid zero request accepted");
+    Check(zeroCalls == 0, "invalid candidates do not reach HTTP");
     var localModel = LocalModelStore.Catalog[0];
     Check(LocalModelStore.Catalog.Count == 1 && localModel.Id == LocalModelStore.PreferredId &&
         localModel.Weights.Bytes == 2497280256L, "Qwen3-4B is the sole download and size supports over 2 GiB");
@@ -140,7 +141,7 @@ try {
         ZeroCandidateConsentProfile = ModelManagerStore.LocalConsent(localModel.Id), ZeroCandidatePerformance = false
     };
     store.Save(localOnly);
-    Check(store.Load().ZeroCandidateLocalModel == localModel.Id && File.ReadAllText(zeroGate) == "lattice-eco",
+    Check(store.Load().ZeroCandidateLocalModel == localModel.Id && File.ReadAllText(zeroGate) == "eco:" + zero.ZeroCandidateApproval,
         "local settings don't require cloud profile or key");
     if (OperatingSystem.IsWindows()) {
         var parent = Directory.CreateDirectory(Path.Combine(root, "another-drive-fixture")).FullName;
@@ -175,11 +176,51 @@ try {
     }
     var oldId = LocalModelStore.Legacy.Id;
     store.Save(localOnly with { ZeroCandidateLocalModel = oldId, ZeroCandidateConsentProfile = ModelManagerStore.LocalConsent(oldId) });
-    Check(store.Load().ZeroCandidateEnabled && store.Load().ZeroCandidateLocalModel == oldId,
-        "migration keeps 0 enabled and retains its old model ID for local debugging");
+    Check(store.Load().ZeroCandidateEnabled && ModelManagerStore.ZeroLocalModel(store.Load())?.Id == oldId,
+        "upgrading does not revoke an existing authorized local model or auto-select a different model");
     Reject(() => store.Save(localOnly with { ZeroCandidateLocalModel = "https://example.invalid" }), "unlisted local model accepted");
-    Check(ModelManagerStore.UseCoreRanking(store.Load()).ZeroCandidateEnabled &&
-        !ModelManagerStore.UseCoreRanking(store.Load()).ZeroCandidateNoContext, "authorized offline setting migrates with its prior context scope");
+    Reject(() => store.Save(localOnly with { ZeroCandidateConsentProfile = profile.Id }), "cloud consent reused for offline backend");
+    Check(await TextAssistantApi.ExecuteAsync(localOnly, zeroInput with { Operation = "zero-eco" }, default, new FakeHandler(async request => {
+        Check(request.RequestUri!.AbsoluteUri == "http://127.0.0.1/v1/chat/completions", "local-only route uses a loopback endpoint");
+        using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+        Check(body.RootElement.GetProperty("model").GetString() == localModel.Id &&
+            !body.RootElement.GetProperty("chat_template_kwargs").GetProperty("enable_thinking").GetBoolean() &&
+            body.RootElement.GetProperty("grammar").GetString()!.EndsWith("{2}"), "local generation disables reasoning and constrains output");
+        var messages = body.RootElement.GetProperty("messages");
+        Check(messages[0].GetProperty("content").GetString() == TextAssistantApi.LocalCandidateSystemPrompt &&
+            messages[1].GetProperty("content").GetString() == "拼音：ming tian" && messages[5].GetProperty("content").GetString() == "拼音：ni hao",
+            "preview and actual local candidate share the system prompt and examples");
+        return FakeHandler.Json(zeroOk);
+    })) == "你好", "local-only route uses common candidate validation");
+    Check(LocalPinyin.Describe("nihao") == ("ni hao", 2) && LocalPinyin.Describe("xi'an") == ("xi an", 2) &&
+        LocalPinyin.Describe("wanan").Count == 0 && LocalPinyin.Describe("wsm").Count == 0 &&
+        LocalPinyin.Describe("xian").Count == 0, "standard syllables guide clear full pinyin without constraining ambiguous or incomplete input");
+    Check(LocalPinyin.CanVerify("XIANZAI") && LocalPinyin.Matches("XIANZAI", "现在") &&
+        !LocalPinyin.Matches("xianzai", "在在") && !LocalPinyin.Matches("xianzai", "现"), "verify every character and the entire input");
+    Check(LocalPinyin.Matches("xian", "先") && LocalPinyin.Matches("xian", "西安") &&
+        LocalPinyin.Matches("xi'an", "西安") && !LocalPinyin.Matches("xi'an", "先") &&
+        LocalPinyin.Matches("chongqing", "重庆") && LocalPinyin.Matches("zhong", "重") &&
+        LocalPinyin.Matches("culue", "粗略") && !LocalPinyin.CanVerify("wsm"), "preserve ambiguous splits, manual boundaries, polyphones and partial input");
+    var wrongReading = new TextAssistantInput("zero-pinyin", "xianzai", "", "", zero.ZeroCandidateApproval, "在在\n现在");
+    FakeHandler DuplicateResponse() => new(async request => {
+        Check(!(await request.Content!.ReadAsStringAsync()).Contains("\\u73B0", StringComparison.OrdinalIgnoreCase),
+            "fallback candidates are never included in outgoing requests");
+        return FakeHandler.Json("{\"choices\":[{\"message\":{\"content\":\"在在\"},\"finish_reason\":\"stop\"}]}");
+    });
+    Check(await TextAssistantApi.ExecuteAsync(zero, wrongReading, default, DuplicateResponse()) == "现在",
+        "reject similarly sized off-pronunciation text and use the first verified reference");
+    try {
+        await TextAssistantApi.ExecuteAsync(zero, wrongReading with { LocalReferences = "再在" }, default, DuplicateResponse());
+        throw new Exception("unverified fallback shown");
+    } catch (ZeroCandidateFailure failure) { Check(failure.Code == "pronunciation", "hide zero result when no reference matches"); }
+    string? debugRaw = null;
+    try {
+        await TextAssistantApi.ExecuteAsync(localOnly, new("zero-eco", "xianzai", "", "", localOnly.ZeroCandidateApproval),
+            default, DuplicateResponse(), localDebugRawOutput: text => debugRaw = text);
+        throw new Exception("debug reproduced a wrong accepted candidate");
+    } catch (ZeroCandidateFailure failure) {
+        Check(failure.Code == "pronunciation" && debugRaw == "在在", "candidate debugger can show the rejected raw reply without weakening validation");
+    }
     var chatHistory = new[] { new LocalChatTurn("先前的问题", "先前的回答") };
     var localReply = await LocalModelChat.SendAsync(new LocalModelStore(store.Root), localModel, "只用中文", chatHistory, "继续", default,
         new FakeHandler(async request => {
@@ -199,6 +240,10 @@ try {
         await RejectAsync(() => LocalModelChat.SendAsync(new LocalModelStore(store.Root), localModel, "", [], "你好", aborted.Token,
             new FakeHandler(_ => throw new Exception("unexpected send"))), "canceled debug chat must not generate");
     }
+    try {
+        await TextAssistantApi.ExecuteAsync(localOnly, zeroInput with { Operation = "zero-eco" }, default, modelRoot: store.Root);
+        throw new Exception("missing local model fell through instead of failing locally");
+    } catch (ZeroCandidateFailure failure) { Check(failure.Code == "local-not-installed", "missing local model has no cloud fallback"); }
 
     var sample = "test model bytes"u8.ToArray();
     var fixtureAsset = new ModelAsset("https://huggingface.co/fixture", sample.Length, Convert.ToHexString(SHA256.HashData(sample)));
@@ -240,7 +285,21 @@ try {
             Check(!LocalModelInference.OwnsConnection(int.MaxValue, port, clientPort), "reject a different owner of the loopback connection");
         } finally { listen.Stop(); }
     }
-    store.Save(energy with { ZeroCandidateEnabled = false });
+    foreach (var output in new[] { "你好。", "“你好”", "「你好。」", "\"你好\"." }) {
+        var reply = JsonSerializer.Serialize(new { choices = new[] { new { message = new { content = output }, finish_reason = "stop" } } });
+        Check(await TextAssistantApi.ExecuteAsync(zero, zeroInput, default, new FakeHandler(_ => Task.FromResult(FakeHandler.Json(reply)))) == "你好",
+            "strip known single-answer decoration without changing the candidate");
+    }
+    foreach (var invalidOutput in new[] { "hello", "你好。解释", "你\n好", "0. 你好", "`你好`", "超过当前拼音长度" }) {
+        var reply = JsonSerializer.Serialize(new { choices = new[] { new { message = new { content = invalidOutput }, finish_reason = "stop" } } });
+        await RejectAsync(() => TextAssistantApi.ExecuteAsync(zero, zeroInput, default, new FakeHandler(_ => Task.FromResult(FakeHandler.Json(reply)))), "invalid candidate output");
+    }
+    try {
+        const string truncated = "{\"choices\":[{\"message\":{\"content\":\"\"},\"finish_reason\":\"length\"}]}";
+        await TextAssistantApi.ExecuteAsync(zero, zeroInput, default, new FakeHandler(_ => Task.FromResult(FakeHandler.Json(truncated))));
+        throw new Exception("truncated zero response accepted");
+    } catch (ZeroCandidateFailure failure) { Check(failure.Code == "length", "diagnostics distinguish incomplete API output"); }
+    store.Save(zero with { ZeroCandidateEnabled = false, ZeroCandidateConsentProfile = "", ZeroCandidateApproval = "" });
     Check(!File.Exists(zeroGate), "revoking authorization removes native gate");
     var handler = new FakeHandler(async request => {
         Check(request.RequestUri!.AbsoluteUri == "https://example.invalid/v1/chat/completions", "only configured destination");
@@ -268,7 +327,7 @@ try {
         cancellation.Cancel();
         await RejectAsync(async () => { await TextAssistantApi.ExecuteAsync(settings, input, cancellation.Token, new FakeHandler(_ => Task.FromResult(FakeHandler.Json("{}")))); }, "cancelled call accepted");
     }
-    if (args.Length == 1) foreach (var workerRequest in new[] { wire, zeroWire, rankWire }) {
+    if (args.Length == 1) foreach (var workerRequest in new[] { wire, zeroWire }) {
         // Real worker IPC, disabled model: no network, no personal profile writes.
         store.Save(settings with { Enabled = false });
         var name = "OwO.TextAssistant." + Guid.NewGuid().ToString("N");
@@ -289,11 +348,8 @@ try {
             var workerReply = Encoding.UTF8.GetString(reply);
             Check(workerReply.StartsWith("OWOTEXT1\nERROR\n"), "disabled real worker rejects request");
             if (workerRequest == zeroWire)
-                Check(workerReply == "OWOTEXT1\nERROR\n" + TextAssistantHost.Encode("文字助手请求格式错误。") + "\n",
-                    "real worker rejects retired transport before executing any model request");
-            if (workerRequest == rankWire)
-                Check(workerReply == "OWOTEXT1\nERROR\n" + TextAssistantHost.Encode("0 号候选未启用或档位已变更。") + "\n",
-                    "real worker requires a live zero-candidate opt-in");
+                Check(workerReply == "OWOTEXT1\nERROR\n" + TextAssistantHost.Encode("zero-error:consent") + "\n",
+                    "real worker reports only the machine-readable zero-candidate failure");
         } finally { if (!worker.WaitForExit(5000)) { worker.Kill(); worker.WaitForExit(); } }
     }
     Console.WriteLine($"PASS: {checks} model manager/privacy/protocol/API checks; mock HTTP only, no paid model requests.");
