@@ -6,3 +6,6 @@
 {"id":"subdue-these-robbers","input":"zhifuzhexiejiefei","expected":["制服这些劫匪"],"tags":["same-reading","verb-object","nonadjacent"]}
 {"id":"subdue-those-thugs","input":"zhifunaxiedaitu","expected":["制服那些歹徒"],"tags":["same-reading","verb-object","nonadjacent"]}
 {"id":"pay-these-fees","input":"zhifuzhexiefeiyong","expected":["支付这些费用"],"tags":["control","verb-object","nonadjacent"]}
+{"id":"pay-these-robbers-bill","input":"zhifuzhexiejiefeidezhangdan","expected":["支付这些劫匪的账单"],"tags":["same-reading","verb-object","possessive"]}
+{"id":"pay-robbers-bill","input":"zhifujiefeidezhangdan","expected":["支付劫匪的账单"],"tags":["same-reading","verb-object","possessive"]}
+{"id":"pay-these-students-bill","input":"zhifuzhexiexueshengdezhangdan","expected":["支付这些学生的账单"],"tags":["verb-object","possessive"]}

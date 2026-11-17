@@ -56,7 +56,8 @@ int main(int argc, char** argv) {
         model.boundary_bonus("甲", "乙丙丁") != 0) return 3;
     const MemoryLexicon lexicon({{{"jia", "yi"}, "甲乙", 700}, {{"jia", "yi"}, "甲以", 1600},
         {{"bing", "ding"}, "丙丁", 1800}, {{"zhe", "xie"}, "这些", 1800},
-        {{"le"}, "了", 1800}, {{"yin", "ci"}, "因此", 1800}});
+        {{"le"}, "了", 1800}, {{"yin", "ci"}, "因此", 1800},
+        {{"de"}, "的", 1800}, {{"zhang", "dan"}, "账单", 1800}});
     const CandidateGenerator generator(lexicon);
     const auto parsed = FullPinyinSchema{}.parse("jiayibingding", 16, false);
     CandidateGenerationMetrics metrics;
@@ -68,19 +69,24 @@ int main(int argc, char** argv) {
         metrics.lmdg_queries > RimeLmdg::kMaximumQueries) return 4;
     // The fixture covers the endpoint pair only. A syntactic bridge can
     // carry it across modifiers without changing the original output text.
-    const auto bridge = [&](const std::string_view input, const std::string_view expected, const bool should_cross) {
+    const auto bridge = [&](const std::string_view input, const std::string_view expected, const bool should_cross,
+                            const bool should_finish_with_bonus = true) {
         const auto parsed = FullPinyinSchema{}.parse(input, 16, false);
         CandidateGenerationMetrics metrics;
         const auto assisted = generator.generate(parsed, 16, false, {}, &metrics, {}, false, 7,
             true, 0, 0, false, false, &model);
         return !assisted.empty() && assisted.front().text == expected &&
             (!!metrics.lmdg_cross_word_hits == should_cross) &&
+            (should_finish_with_bonus || !assisted.front().lmdg_bonus) &&
             assisted.front().consumed_input_bytes == input.size() &&
             metrics.lmdg_queries <= RimeLmdg::kMaximumQueries;
     };
     if (!bridge("jiayizhexiebingding", "甲乙这些丙丁", true) ||
         !bridge("jiayilezhexiebingding", "甲乙了这些丙丁", true) ||
-        !bridge("jiayiyincibingding", "甲以因此丙丁", false)) return 8;
+        !bridge("jiayiyincibingding", "甲以因此丙丁", false) ||
+        !bridge("jiayizhexiebingdingde", "甲乙这些丙丁的", true) ||
+        !bridge("jiayizhexiebingdingdezhangdan", "甲以这些丙丁的账单", true, false) ||
+        !bridge("jiayibingdingdezhangdan", "甲以丙丁的账单", false, false)) return 8;
     (void)model.load(directory / "intentionally-not-a-model.gram");
     if (model.ready() || model.boundary_bonus("甲乙", "丙丁")) return 5;
     // The header/root opens, but a malicious interior child reference cannot
@@ -98,5 +104,9 @@ int main(int argc, char** argv) {
     if (!model.load(path).empty() || model.boundary_bonus("甲乙", "这些") != 5000 ||
         !bridge("jiayizhexie", "甲乙这些", false) ||
         !bridge("jiayizhexiebingding", "甲以这些丙丁", false)) return 9;
+    (void)model.load(directory / "intentionally-not-a-model.gram");
+    write(path, fixture({0xb5, 0x32, 0x8e, 0x59, 0xcd, 0x26, 0x93, 0x55})); // 甲乙账单
+    if (!model.load(path).empty() || model.boundary_bonus("甲乙", "账单") != 5000 ||
+        !bridge("jiayizhexiebingdingdezhangdan", "甲乙这些丙丁的账单", true)) return 10;
     std::cout << "Rime grammar mapping, bounds, and adjacent/cross-word in-beam score contract passed.\n";
 }

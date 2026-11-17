@@ -71,18 +71,26 @@ inline constexpr RelationMask kAllRelations = 0x7f;
 // Accept intervening words only if they can be assigned to the construction.
 // For V–O parse [aspect particles] [quantifier/modifier phrases]; a
 // bare noun or verb inside this gap may only be a modifier if followed by 的.
-[[nodiscard]] inline RelationMask gap_relations(const std::span<const Role> roles) noexcept {
+[[nodiscard]] inline RelationMask gap_relations(const std::span<const Role> roles,
+                                                const bool allow_unclassified_possessor = false) noexcept {
     if (roles.empty()) return kAllRelations;
     bool subject = true;
     bool adnominal = has(roles.front(), Role::link);
     bool before_np = true, within_np = false, needs_link = false;
-    for (const auto role : roles) {
-        if (role == Role::none || has(role, Role::boundary)) return 0;
+    for (std::size_t i = 0; i < roles.size(); ++i) {
+        const auto role = roles[i];
+        // LMDG may back up a possessive structure missing from the small
+        // POS table. Only treat an unknown word as a modifier directly before
+        // an overt nominal linker; an arbitrary unknown gap still stops it.
+        const bool unclassified_possessor = allow_unclassified_possessor && role == Role::none &&
+            i + 1 < roles.size() && has(roles[i + 1], Role::link);
+        if ((role == Role::none && !unclassified_possessor) || has(role, Role::boundary)) return 0;
         subject &= has(role, Role::predicate_support);
         const auto next_before_np = before_np && has(role, Role::aspect);
         const auto next_within_np = ((before_np || within_np) && has(role, Role::quantity | Role::adjective)) ||
             (needs_link && has(role, Role::link));
-        needs_link = (before_np || within_np) && has(role, Role::nominal | Role::adjective | Role::verb);
+        needs_link = (before_np || within_np) &&
+            (unclassified_possessor || has(role, Role::nominal | Role::adjective | Role::verb));
         before_np = next_before_np;
         within_np = next_within_np;
     }
@@ -130,15 +138,19 @@ struct History {
 struct Anchor { std::string_view word; RelationMask allowed{}; Role role{}; };
 using Context = std::array<Anchor, kWindow>;
 
-[[nodiscard]] inline Context context(std::string_view text, const History& history) noexcept {
+[[nodiscard]] inline Context context(std::string_view text, const History& history,
+                                     const bool allow_unclassified_possessor = false) noexcept {
     Context result{};
     std::array<Role, kWindow - 1> gap{};
     for (std::size_t distance = 0; distance < kWindow; ++distance) {
         const auto [bytes, role] = history.tokens[distance];
         if (bytes == 0 || bytes > text.size()) break;
-        result[distance] = {text.substr(text.size() - bytes), gap_relations(std::span(gap).last(distance)), role};
+        result[distance] = {text.substr(text.size() - bytes),
+            gap_relations(std::span(gap).last(distance), allow_unclassified_possessor), role};
         text.remove_suffix(bytes);
-        if (distance == kWindow - 1 || role == Role::none) break;
+        if (distance == kWindow - 1) break;
+        if (role == Role::none && (!allow_unclassified_possessor || distance == 0 ||
+                !has(history.tokens[distance - 1].role, Role::link))) break;
         gap[kWindow - 2 - distance] = role;
     }
     return result;
