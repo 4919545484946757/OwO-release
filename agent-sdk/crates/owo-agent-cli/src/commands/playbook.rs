@@ -86,6 +86,9 @@ pub(crate) enum PlaybookAction {
         /// 覆盖已存在的文件
         #[arg(long)]
         force: bool,
+        /// 从已有剧本派生（保留步骤与判据，改 id/name）
+        #[arg(long)]
+        from: Option<PathBuf>,
     },
     /// 归档当前运行状态（快照到 `<剧本>.runs/<标记>.json`）
     Archive {
@@ -127,7 +130,12 @@ pub(crate) fn run_playbook_cmd(args: PlaybookArgs) -> Result<(), Box<dyn std::er
         } => record(&file, &step, pass, fail, skip, run.as_deref(), args.json),
         PlaybookAction::Reset { file, run } => reset(&file, run.as_deref(), args.json),
         PlaybookAction::List { dir } => list(&dir, args.json),
-        PlaybookAction::Init { id, out, force } => init(&id, out.as_deref(), force, args.json),
+        PlaybookAction::Init {
+            id,
+            out,
+            force,
+            from,
+        } => init(&id, out.as_deref(), force, from.as_deref(), args.json),
         PlaybookAction::Archive {
             file,
             marker,
@@ -1037,6 +1045,7 @@ fn init(
     id: &str,
     out: Option<&Path>,
     force: bool,
+    from: Option<&Path>,
     json: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     validate_playbook_id(id).map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
@@ -1052,7 +1061,36 @@ fn init(
                 .map_err(|error| format!("创建目录失败（{}）：{error}", parent.display()))?;
         }
     }
-    let playbook = skeleton(id);
+    let mut playbook = match from {
+        Some(source) => {
+            let base = load(source)?;
+            let issues = base.validate();
+            if !issues.is_empty() {
+                return Err(format!(
+                    "来源剧本不合法（{} 个问题）：{}",
+                    issues.len(),
+                    source.display()
+                )
+                .into());
+            }
+            let source_name = source
+                .file_stem()
+                .map(|value| value.to_string_lossy().into_owned())
+                .unwrap_or_else(|| base.id.clone());
+            Playbook {
+                id: id.to_string(),
+                name: id.to_string(),
+                description: format!("基于 {source_name}：{}", base.description),
+                steps: base.steps,
+            }
+        }
+        None => skeleton(id),
+    };
+    playbook.id = id.to_string();
+    let issues = playbook.validate();
+    if !issues.is_empty() {
+        return Err(format!("生成的剧本不合法（{} 个问题）", issues.len()).into());
+    }
     let content = serde_json::to_string_pretty(&playbook)?;
     std::fs::write(&path, content)
         .map_err(|error| format!("写入失败（{}）：{error}", path.display()))?;
@@ -1064,10 +1102,15 @@ fn init(
                 "id": playbook.id,
                 "path": path.to_string_lossy(),
                 "steps": playbook.steps.len(),
+                "from": from.map(|value| value.to_string_lossy().into_owned()),
             })
         );
     } else {
-        println!("已生成剧本骨架：{}", path.display());
+        println!(
+            "已生成剧本：{}（{} 步）",
+            path.display(),
+            playbook.steps.len()
+        );
         println!("下一步：用 `owo-agent playbook validate` 校验，再按需补 command 与判据");
     }
     Ok(())
@@ -1459,18 +1502,46 @@ mod tests {
     }
 
     #[test]
+    fn init_from_existing_playbook_keeps_steps_and_renames() {
+        let dir = scratch("init-from");
+        let source = dir.join("source.json");
+        std::fs::write(
+            &source,
+            r#"{"id":"source","name":"源剧本","description":"原始说明","steps":[
+                {"id":"a","title":"A"},
+                {"id":"b","title":"B","depends_on":["a"]}
+            ]}"#,
+        )
+        .unwrap();
+        let target = dir.join("target.json");
+        init("target", Some(&target), false, Some(&source), false).unwrap();
+        let playbook = load(&target).unwrap();
+        assert_eq!(playbook.id, "target");
+        assert_eq!(playbook.name, "target");
+        assert_eq!(playbook.steps.len(), 2);
+        assert_eq!(playbook.steps[1].depends_on, vec!["a".to_string()]);
+        assert!(
+            playbook.description.contains("基于 source"),
+            "{}",
+            playbook.description
+        );
+        assert!(playbook.validate().is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn init_writes_valid_skeleton_and_refuses_overwrite() {
         let dir = scratch("init");
         let path = dir.join("playbooks").join("demo.json");
-        init("demo", Some(&path), false, false).unwrap();
+        init("demo", Some(&path), false, None, false).unwrap();
         let playbook = load(&path).unwrap();
         assert_eq!(playbook.id, "demo");
         assert!(playbook.validate().is_empty(), "{:?}", playbook.validate());
         assert_eq!(playbook.steps.len(), 3);
 
         // 默认不覆盖；--force 可以。
-        assert!(init("demo", Some(&path), false, false).is_err());
-        init("demo", Some(&path), true, false).unwrap();
+        assert!(init("demo", Some(&path), false, None, false).is_err());
+        init("demo", Some(&path), true, None, false).unwrap();
 
         // id 约束。
         assert!(validate_playbook_id("Bad").is_err());

@@ -93,6 +93,8 @@ owo-agent playbook list --json
 # 生成骨架（默认 playbooks/<id>.json；--force 覆盖）
 owo-agent playbook init my-flow
 owo-agent playbook init my-flow --out playbooks/my-flow.json --force
+# 从已有剧本派生（保留步骤/判据/命令，改 id 与 name）
+owo-agent playbook init review2 --from playbooks/code-review.json
 
 # 归档与历史（同一剧本多次运行可对比）
 owo-agent playbook archive playbooks/code-review.json --marker 2026-11-18-a   # 中途快照；完成时会自动留档 complete-<时间戳>
