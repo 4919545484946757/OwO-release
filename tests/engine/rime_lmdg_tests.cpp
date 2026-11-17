@@ -57,7 +57,8 @@ int main(int argc, char** argv) {
     const MemoryLexicon lexicon({{{"jia", "yi"}, "甲乙", 700}, {{"jia", "yi"}, "甲以", 1600},
         {{"bing", "ding"}, "丙丁", 1800}, {{"zhe", "xie"}, "这些", 1800},
         {{"le"}, "了", 1800}, {{"yin", "ci"}, "因此", 1800},
-        {{"de"}, "的", 1800}, {{"zhang", "dan"}, "账单", 1800}});
+        {{"de"}, "的", 1800}, {{"zhang", "dan"}, "账单", 1800},
+        {{"chu", "li"}, "处理", 700}, {{"chu", "li"}, "处里", 1600}});
     const CandidateGenerator generator(lexicon);
     const auto parsed = FullPinyinSchema{}.parse("jiayibingding", 16, false);
     CandidateGenerationMetrics metrics;
@@ -108,5 +109,11 @@ int main(int argc, char** argv) {
     write(path, fixture({0xb5, 0x32, 0x8e, 0x59, 0xcd, 0x26, 0x93, 0x55})); // 甲乙账单
     if (!model.load(path).empty() || model.boundary_bonus("甲乙", "账单") != 5000 ||
         !bridge("jiayizhexiebingdingdezhangdan", "甲乙这些丙丁的账单", true)) return 10;
+    (void)model.load(directory / "intentionally-not-a-model.gram");
+    write(path, fixture({0x99, 0x04, 0xb4, 0x06, 0x8e, 0x19, 0x8e, 0x01})); // 处理丙丁
+    // After 的, a backed-up inner verb–object relation can still modify a
+    // noun even when the model lacks a verb–noun link for the outer head.
+    if (!model.load(path).empty() || model.boundary_bonus("处理", "丙丁") != 5000 ||
+        !bridge("chulizhexiebingdingdezhangdan", "处理这些丙丁的账单", true)) return 11;
     std::cout << "Rime grammar mapping, bounds, and adjacent/cross-word in-beam score contract passed.\n";
 }

@@ -36,6 +36,8 @@ struct SearchState {
     // A tentative object may instead be the possessor in [X 的 Y].
     std::int64_t lmdg_object_bonus{};
     std::int64_t lmdg_held_object_bonus{};
+    // An independently licensed predicate+object can also be a relative clause.
+    std::int64_t lmdg_relative_bonus{};
     syntax_collocations::History syntax_history;
 };
 
@@ -1759,7 +1761,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         // Apply n-gram evidence on dictionary transitions, before
                         // either the beam or the visible sentence quota can prune them.
                         auto lmdg_total = state.lmdg_bonus;
-                        std::int64_t lmdg_object_bonus = 0, held_object_bonus = 0;
+                        std::int64_t lmdg_object_bonus = 0, held_object_bonus = 0, relative_bonus = 0;
+                        std::int64_t qualified_relative = 0;
                         using namespace syntax_collocations;
                         const auto can_be_nominal = [](const Role role) {
                             return role == Role::none || has(role, Role::nominal);
@@ -1771,9 +1774,13 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 // unresolved. A sentence-final linker may instead nominalize X.
                                 held_object_bonus = state.lmdg_object_bonus;
                                 lmdg_total -= held_object_bonus;
+                                // 的, unlike possessive 之, also links a modifying clause.
+                                if (entry.text == "的") relative_bonus = state.lmdg_relative_bonus;
                             }
-                            if (state.lmdg_held_object_bonus && !can_be_nominal(role))
-                                lmdg_total += state.lmdg_held_object_bonus;
+                            if (state.lmdg_held_object_bonus) {
+                                if (can_be_nominal(role)) qualified_relative = state.lmdg_relative_bonus;
+                                else lmdg_total += state.lmdg_held_object_bonus;
+                            }
                             score += lmdg_total - state.lmdg_bonus;
                         }
                         if (lmdg_budget && reading.size() >= 2 && reading.size() <= 4 &&
@@ -1781,6 +1788,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                             lmdg_queries < RimeLmdg::kMaximumQueries && lmdg_time < kLmdgTimeBudget) {
                             const auto room = RimeLmdg::kMaximumPathBonus - lmdg_total;
                             if (room > 0 && (chart[end].size() < beam_width || score + room >= chart[end].front().score)) {
+                                constexpr std::int64_t kMinimumVerbObjectBonus = 1'800;
                                 std::int64_t lmdg_bonus = 0;
                                 const auto probe = [&](const std::string_view left) {
                                     if (left.size() < 6 || left.size() > 12 || left.size() + entry.text.size() > 18 ||
@@ -1808,15 +1816,20 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                     if (end == path.syllables.size() || role != Role::quantity)
                                         lmdg_bonus = std::min(room, probe(state.previous));
                                     const auto left_role = lmdg_context.front().role;
-                                    if (lmdg_bonus >= RimeLmdg::kConfirmedSentenceBonus &&
-                                        (left_role == Role::none || has(left_role, Role::verb)) &&
-                                        can_be_nominal(role)) lmdg_object_bonus = lmdg_bonus;
+                                    if (can_be_nominal(role)) {
+                                        if (has(left_role, Role::verb) && lmdg_bonus >= kMinimumVerbObjectBonus)
+                                            relative_bonus = lmdg_bonus;
+                                        if (relative_bonus || (left_role == Role::none &&
+                                            lmdg_bonus >= RimeLmdg::kConfirmedSentenceBonus))
+                                            lmdg_object_bonus = lmdg_bonus;
+                                    }
                                 }
                                 // The n-gram is contiguous corpus evidence for the two endpoints,
                                 // not a parser. Only project it over a syntactically licensed
                                 // object gap (e.g. a determiner, classifier, or aspect particle).
                                 // Unknown endpoints are allowed only with a strong corpus attestation.
                                 std::int64_t best_cross = 0;
+                                bool best_cross_can_be_relative = false;
                                 for (std::size_t gap = 1; gap < lmdg_context.size() && lmdg_bonus < room; ++gap) {
                                     const auto& anchor = lmdg_context[gap];
                                     if (anchor.word.empty()) break;
@@ -1824,27 +1837,40 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                         (anchor.role != Role::none && !has(anchor.role, Role::verb))) continue;
                                     if (!can_be_nominal(entry_role(entry_index))) break;
                                     const auto attestation = probe(anchor.word);
-                                    // An overt nominal linker already fixes the structure, so
-                                    // a known verb needs less corpus evidence for the new head.
-                                    const bool overt_possessive = gap >= 2 && has(lmdg_context.front().role, Role::link) &&
-                                        has(anchor.role, Role::verb);
-                                    constexpr std::int64_t kMinimumOvertHeadBonus = 1'800;
-                                    const auto minimum = overt_possessive ? kMinimumOvertHeadBonus :
-                                        RimeLmdg::kConfirmedSentenceBonus;
+                                    // Known verb POS plus a licensed gap is independent
+                                    // evidence; unknown predicates still require a strong hit.
+                                    const bool known_verb = has(anchor.role, Role::verb);
+                                    const bool overt_possessive = gap >= 2 && has(lmdg_context.front().role, Role::link);
+                                    const auto minimum = known_verb ? kMinimumVerbObjectBonus : RimeLmdg::kConfirmedSentenceBonus;
                                     if (attestation < minimum) continue;
-                                    const auto projected = overt_possessive ? attestation :
+                                    const auto projected = known_verb && overt_possessive ? attestation :
                                         attestation * 85 / 100 - 250 * static_cast<std::int64_t>(gap - 1);
-                                    best_cross = std::max(best_cross, projected);
+                                    if (projected > best_cross ||
+                                        (projected == best_cross && known_verb)) {
+                                        best_cross = projected;
+                                        best_cross_can_be_relative = known_verb;
+                                    }
                                 }
                                 if (best_cross) {
                                     const auto added = std::min(room - lmdg_bonus, best_cross);
                                     lmdg_bonus += added;
                                     lmdg_object_bonus += added;
+                                    if (best_cross_can_be_relative) relative_bonus += added;
                                     if (metrics && added) ++metrics->lmdg_cross_word_hits;
                                 }
                                 score += lmdg_bonus;
                                 lmdg_total += lmdg_bonus;
                             }
+                        }
+                        // Do not sum incompatible analyses: keep the better
+                        // of [V X] 的 Y and V [X 的 Y] for this output path.
+                        if (qualified_relative > lmdg_object_bonus && lmdg_total < RimeLmdg::kMaximumPathBonus) {
+                            const auto relative_gain = std::min(RimeLmdg::kMaximumPathBonus - lmdg_total,
+                                qualified_relative - lmdg_object_bonus);
+                            score += relative_gain;
+                            lmdg_total += relative_gain;
+                            lmdg_object_bonus = 0;
+                            relative_bonus = 0;
                         }
                         append_successor(chart[end], beam_width, state, entry.text, score, 0,
                             [&](SearchState& next) {
@@ -1853,6 +1879,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 next.lmdg_bonus = lmdg_total;
                                 next.lmdg_object_bonus = lmdg_object_bonus;
                                 next.lmdg_held_object_bonus = held_object_bonus;
+                                next.lmdg_relative_bonus = relative_bonus;
                                 if ((syntax_path && syntax_queries < syntax_collocations::kMaximumQueries) ||
                                     (lmdg_path && lmdg_queries < RimeLmdg::kMaximumQueries && lmdg_time < kLmdgTimeBudget)) {
                                     next.syntax_history = state.syntax_history;

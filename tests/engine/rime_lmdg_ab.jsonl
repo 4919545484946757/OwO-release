@@ -9,3 +9,6 @@
 {"id":"pay-these-robbers-bill","input":"zhifuzhexiejiefeidezhangdan","expected":["支付这些劫匪的账单"],"tags":["same-reading","verb-object","possessive"]}
 {"id":"pay-robbers-bill","input":"zhifujiefeidezhangdan","expected":["支付劫匪的账单"],"tags":["same-reading","verb-object","possessive"]}
 {"id":"pay-these-students-bill","input":"zhifuzhexiexueshengdezhangdan","expected":["支付这些学生的账单"],"tags":["verb-object","possessive"]}
+{"id":"robbers-who-paid-these-bills","input":"zhifuzhexiezhangdandejiefei","expected":["支付这些账单的劫匪"],"tags":["same-reading","verb-object","relative-clause"]}
+{"id":"robbers-who-paid-the-bill","input":"zhifuzhangdandejiefei","expected":["支付账单的劫匪"],"tags":["same-reading","verb-object","relative-clause"]}
+{"id":"students-who-paid-these-fees","input":"zhifuzhexiefeiyongdexuesheng","expected":["支付这些费用的学生"],"tags":["verb-object","relative-clause"]}
