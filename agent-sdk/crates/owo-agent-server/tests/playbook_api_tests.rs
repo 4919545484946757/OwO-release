@@ -225,6 +225,32 @@ async fn record_writes_state_and_advances() {
 }
 
 #[tokio::test]
+async fn status_reports_step_warnings() {
+    let (state, _temp) = test_state();
+    let dir = state.workspace.join("playbooks");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("risky.json"),
+        r#"{"id":"risky","name":"危险","steps":[
+            {"id":"w","title":"清理","kind":"check","acceptance":"exit 0","command":"rm -rf build"}
+        ]}"#,
+    )
+    .unwrap();
+    let router = playbook_api::router(state);
+    let (status, body) = call(
+        &router,
+        "GET",
+        "/playbooks/status?file=playbooks%2Frisky.json",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let warnings = body["steps"][0]["warnings"].as_array().unwrap();
+    assert_eq!(warnings.len(), 1, "{body}");
+    assert!(warnings[0].as_str().unwrap().contains("rm -rf"), "{body}");
+}
+
+#[tokio::test]
 async fn history_lists_archives_with_step_states() {
     let (state, _temp) = test_state();
     let workspace = state.workspace.clone();

@@ -161,6 +161,11 @@
           '" aria-label="复制步骤 ' + esc(step.id) + ' 的命令">复制</button>' +
           "<span>（由 Agent 的 playbook_check 执行）</span></div>"
         : "";
+      var warnings = (step.warnings || [])
+        .map(function (message) {
+          return '<div class="hint owo-pb-warn">⚠ ' + esc(message) + "</div>";
+        })
+        .join("");
       return (
         '<div class="owo-pb-step owo-pb-' + esc(step.state) + '">' +
         '<div class="owo-pb-step-head"><span class="owo-pb-mark">' + mark(step.state) +
@@ -169,6 +174,7 @@
         (step.note ? '<div class="hint">' + esc(step.note) + "</div>" : "") +
         (step.attempts ? '<div class="hint">已尝试 ' + step.attempts + " 次</div>" : "") +
         command +
+        warnings +
         action +
         "</div>"
       );

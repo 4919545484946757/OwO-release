@@ -270,6 +270,12 @@ async fn status(
         .iter()
         .map(|step| {
             let (state, note) = state_label(&run, &playbook, &step.id);
+            let warnings: Vec<String> = playbook
+                .risk_warnings()
+                .into_iter()
+                .filter(|warning| warning.step.as_deref() == Some(step.id.as_str()))
+                .map(|warning| warning.message)
+                .collect();
             json!({
                 "id": step.id,
                 "title": step.title,
@@ -278,6 +284,7 @@ async fn status(
                 "note": note,
                 "attempts": run.attempts(&step.id),
                 "command": step.command,
+                "warnings": warnings,
             })
         })
         .collect();
