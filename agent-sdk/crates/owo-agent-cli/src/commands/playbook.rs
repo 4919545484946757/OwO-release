@@ -65,6 +65,12 @@ pub(crate) enum PlaybookAction {
         #[arg(long)]
         run: Option<PathBuf>,
     },
+    /// 列出一个目录下的全部剧本与各自进度（默认 `playbooks/`）
+    List {
+        /// 剧本目录（默认 `playbooks`）
+        #[arg(default_value = "playbooks")]
+        dir: PathBuf,
+    },
 }
 
 pub(crate) fn run_playbook_cmd(args: PlaybookArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -82,6 +88,7 @@ pub(crate) fn run_playbook_cmd(args: PlaybookArgs) -> Result<(), Box<dyn std::er
             run,
         } => record(&file, &step, pass, fail, skip, run.as_deref(), args.json),
         PlaybookAction::Reset { file, run } => reset(&file, run.as_deref(), args.json),
+        PlaybookAction::List { dir } => list(&dir, args.json),
     }
 }
 
@@ -586,6 +593,148 @@ fn record(
     Ok(())
 }
 
+/// 目录里的一份剧本 + 其当前进度（`None` = 状态文件不存在）。
+struct ListedPlaybook {
+    path: PathBuf,
+    playbook: Option<Playbook>,
+    issues: Vec<PlaybookIssue>,
+    run: Option<PlaybookRun>,
+}
+
+/// 扫描目录：只认 `*.json`，排除 `*.state.json`；按 id（或文件名）排序。
+fn collect_playbooks(dir: &Path) -> Result<Vec<ListedPlaybook>, Box<dyn std::error::Error>> {
+    let entries = std::fs::read_dir(dir)
+        .map_err(|error| format!("读取剧本目录失败（{}）：{error}", dir.display()))?;
+    let mut listed: Vec<ListedPlaybook> = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let is_json = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| value.eq_ignore_ascii_case("json"));
+        let name = path
+            .file_name()
+            .map(|value| value.to_string_lossy().into_owned());
+        if !is_json
+            || name
+                .as_deref()
+                .is_some_and(|value| value.ends_with(".state.json"))
+        {
+            continue;
+        }
+        match load(&path) {
+            Ok(playbook) => {
+                let issues = playbook.validate();
+                let run = if issues.is_empty() {
+                    load_run(&path, None).ok().map(|loaded| loaded.run)
+                } else {
+                    None
+                };
+                listed.push(ListedPlaybook {
+                    path,
+                    playbook: Some(playbook),
+                    issues,
+                    run,
+                });
+            }
+            Err(error) => listed.push(ListedPlaybook {
+                path,
+                playbook: None,
+                issues: vec![PlaybookIssue {
+                    code: "playbook_unreadable",
+                    step: None,
+                    message: error.to_string(),
+                }],
+                run: None,
+            }),
+        }
+    }
+    listed.sort_by(|left, right| {
+        let left_id = left
+            .playbook
+            .as_ref()
+            .map(|playbook| playbook.id.clone())
+            .unwrap_or_else(|| left.path.to_string_lossy().into_owned());
+        let right_id = right
+            .playbook
+            .as_ref()
+            .map(|playbook| playbook.id.clone())
+            .unwrap_or_else(|| right.path.to_string_lossy().into_owned());
+        left_id.cmp(&right_id)
+    });
+    Ok(listed)
+}
+
+fn list(dir: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let listed = collect_playbooks(dir)?;
+    if json {
+        let items: Vec<serde_json::Value> = listed
+            .iter()
+            .map(|item| {
+                let mut value = serde_json::json!({
+                    "path": item.path.to_string_lossy(),
+                    "ok": item.playbook.is_some() && item.issues.is_empty(),
+                    "issues": issues_json(&item.issues),
+                });
+                if let Some(playbook) = &item.playbook {
+                    value["id"] = serde_json::json!(playbook.id);
+                    value["name"] = serde_json::json!(playbook.name);
+                    value["steps"] = serde_json::json!(playbook.steps.len());
+                }
+                if let Some(run) = &item.run {
+                    let playbook = item.playbook.as_ref().expect("run 只在有剧本时读取");
+                    value["progress"] = progress_json(playbook, run);
+                    value["next"] =
+                        serde_json::json!(run.next_ready(playbook).map(|step| step.id.clone()));
+                }
+                value
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::json!({ "ok": true, "dir": dir.to_string_lossy(), "playbooks": items })
+        );
+        return Ok(());
+    }
+    println!("剧本目录：{}（{} 个）", dir.display(), listed.len());
+    if listed.is_empty() {
+        println!("  （没有剧本；用 `owo-agent playbook validate <文件>` 开始）");
+        return Ok(());
+    }
+    for item in &listed {
+        match &item.playbook {
+            Some(playbook) if item.issues.is_empty() => {
+                let progress = item
+                    .run
+                    .as_ref()
+                    .map(|run| run.summary(playbook))
+                    .unwrap_or_else(|| format!("0/{}（未开始）", playbook.steps.len()));
+                println!(
+                    "  {:<20} {:<12} {} · {}",
+                    playbook.id,
+                    playbook.name,
+                    playbook.steps.len().to_string() + " 步",
+                    progress
+                );
+            }
+            _ => {
+                println!(
+                    "  {:<20} 不合法（{} 个问题）",
+                    item.path
+                        .file_stem()
+                        .map(|value| value.to_string_lossy().into_owned())
+                        .unwrap_or_default(),
+                    item.issues.len()
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
 fn reset(
     file: &Path,
     run_path: Option<&Path>,
@@ -645,6 +794,47 @@ mod tests {
         )
         .unwrap();
         file
+    }
+
+    #[test]
+    fn list_scans_json_playbooks_and_reports_progress() {
+        let dir = scratch("list");
+        let file = write_playbook(&dir);
+        let mut run = load_run(&file, None).unwrap().run;
+        run.record_pass("a", "证据");
+        save_run(&default_run_path(&file), &run).unwrap();
+
+        std::fs::write(
+            dir.join("broken.json"),
+            r#"{"id":"broken","name":"坏","steps":[]}"#,
+        )
+        .unwrap();
+        std::fs::write(dir.join("notes.txt"), "忽略").unwrap();
+
+        let listed = collect_playbooks(&dir).unwrap();
+        // 只认 .json 且排除 *.state.json：broken + demo 两个。
+        assert_eq!(
+            listed.len(),
+            2,
+            "{:?}",
+            listed.iter().map(|i| &i.path).collect::<Vec<_>>()
+        );
+        let demo = listed
+            .iter()
+            .find(|item| item.path.file_name().unwrap() == "demo.json")
+            .expect("demo 应在列表里");
+        assert!(demo.issues.is_empty());
+        let run = demo.run.as_ref().expect("demo 有状态文件");
+        assert_eq!(run.progress(demo.playbook.as_ref().unwrap()).passed, 1);
+
+        let broken = listed
+            .iter()
+            .find(|item| item.path.file_name().unwrap() == "broken.json")
+            .expect("broken 应在列表里");
+        assert!(!broken.issues.is_empty());
+        assert!(broken.run.is_none());
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -83,7 +83,11 @@ owo-agent playbook record playbooks/code-review.json build --fail "cargo check: 
 owo-agent playbook status playbooks/code-review.json
 owo-agent playbook reset  playbooks/code-review.json        # 清空重来
 
-# 机器可读（status / next / record / reset 都支持）
+# 目录总览：每个剧本的步骤数与进度（默认 playbooks/）
+owo-agent playbook list
+owo-agent playbook list --json
+
+# 机器可读（status / next / record / reset / list 都支持）
 owo-agent playbook status --json playbooks/code-review.json
 ```
 
