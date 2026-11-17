@@ -1424,16 +1424,27 @@ fn resolve_archive_alias(file: &Path, marker: &str) -> Result<String, String> {
 }
 
 /// 对比两次归档：哪一步变了、哪一步退化。
+/// diff 的选择器：`current` = 当前状态文件；其余走归档别名/标记。
+fn load_diff_side(
+    file: &Path,
+    selector: &str,
+    playbook: &Playbook,
+) -> Result<(String, PlaybookRun), String> {
+    if selector.trim().eq_ignore_ascii_case("current") {
+        let loaded = load_run(file, None).map_err(|error| error.to_string())?;
+        return Ok(("current".to_string(), loaded.run));
+    }
+    let marker = resolve_archive_alias(file, selector)?;
+    let run = load_archive(file, &marker, playbook)?;
+    Ok((marker, run))
+}
+
 fn diff(file: &Path, from: &str, to: &str, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     let playbook = load(file)?;
     ensure_valid(&playbook)?;
-    let from = resolve_archive_alias(file, from)
+    let (from, from_run) = load_diff_side(file, from, &playbook)
         .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
-    let to = resolve_archive_alias(file, to)
-        .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
-    let from_run = load_archive(file, &from, &playbook)
-        .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
-    let to_run = load_archive(file, &to, &playbook)
+    let (to, to_run) = load_diff_side(file, to, &playbook)
         .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
     let (value, regressions) = diff_runs(&playbook, &from_run, &to_run);
     if json {
@@ -1521,6 +1532,39 @@ mod tests {
             .to_string();
         assert!(last.contains("\"phase\":\"end\""), "{last}");
         assert!(last.contains("human-cli"), "{last}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn diff_accepts_current_as_a_side() {
+        let dir = scratch("diff-current");
+        let file = write_playbook(&dir);
+        let playbook = load(&file).unwrap();
+        // 归档 v1：a 通过；当前状态：b 失败。
+        let mut archived = PlaybookRun::new(&playbook);
+        archived.record_pass("a", "ok");
+        let runs = runs_dir(&file);
+        std::fs::create_dir_all(&runs).unwrap();
+        std::fs::write(
+            runs.join("run-1.json"),
+            serde_json::to_string(&archived).unwrap(),
+        )
+        .unwrap();
+        let mut current = PlaybookRun::new(&playbook);
+        current.record_fail("b", "boom");
+        save_run(&default_run_path(&file), &current).unwrap();
+
+        let (label, run) = load_diff_side(&file, "current", &playbook).unwrap();
+        assert_eq!(label, "current");
+        assert_eq!(run.attempts("b"), 1);
+        let (label, run) = load_diff_side(&file, "latest", &playbook).unwrap();
+        assert_eq!(label, "run-1");
+        assert!(matches!(
+            run.states.get("a"),
+            Some(StepState::Passed { .. })
+        ));
+        let (value, _) = diff_runs(&playbook, &run, &current);
+        assert_eq!(value["progress"]["to"]["failed"], 1);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
