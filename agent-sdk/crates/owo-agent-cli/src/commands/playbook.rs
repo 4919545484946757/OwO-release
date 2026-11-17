@@ -627,6 +627,13 @@ fn next(
                     "detail": step.detail,
                     "acceptance": step.acceptance,
                     "depends_on": step.depends_on,
+                    "warnings": loaded
+                        .playbook
+                        .risk_warnings()
+                        .into_iter()
+                        .filter(|warning| warning.step.as_deref() == Some(step.id.as_str()))
+                        .map(|warning| warning.message)
+                        .collect::<Vec<_>>(),
                 })),
                 "blocked": blocked,
                 "progress": progress_json(&loaded.playbook, &loaded.run),
@@ -647,6 +654,14 @@ fn next(
             }
             if !step.acceptance.is_empty() {
                 println!("  判据：{}", step.acceptance);
+            }
+            for warning in loaded
+                .playbook
+                .risk_warnings()
+                .iter()
+                .filter(|warning| warning.step.as_deref() == Some(step.id.as_str()))
+            {
+                println!("  提示：{}", warning.message);
             }
             println!("进度：{}", loaded.run.summary(&loaded.playbook));
         }
