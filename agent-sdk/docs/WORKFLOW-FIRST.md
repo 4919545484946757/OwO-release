@@ -33,7 +33,7 @@
 
 | 层 | 已有实现 | 说明 |
 |---|---|---|
-| 模板 | `owo_agent_protocol::TeamTemplate` + `core::user_workflow` | 角色 DAG、写范围、验收断言、评审/健康检查；CLI `owo-agent workflow` 全链路 |
+| 模板 | `owo_agent_contracts::playbook`（本轮新增）+ `TeamTemplate` + `core::user_workflow` | 单 Agent 的领域套路（步骤/判据/依赖）与新剧本引擎；团队角色 DAG 走 `TeamTemplate`；CLI `owo-agent playbook` 校验与预览 |
 | 运行 | `core::goal`（GoalRunner/GoalRunState/StepRecord） | 计划→步骤→尝试→验收收据、critic、黑板、持久化 |
 | 推进 | **本轮新增** `owo_agent_contracts::goal_progress` | 纯策略：按"进度有没有动"决定下一步 |
 | 入口 | CLI `/goal`（daemon + local） | 每轮一回合，宿主状态作为进度信号 |

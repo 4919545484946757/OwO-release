@@ -80,6 +80,8 @@ enum Commands {
     Trust(commands::trust::TrustArgs),
     /// 用户自定义多 Agent 工作流（团队模板的用户/社区通道：校验/CRUD/AI 草稿/社区包）
     Workflow(commands::workflow::WorkflowArgs),
+    /// 任务剧本：校验/预览按域定义的任务流程（新增功能，不影响既有命令）
+    Playbook(commands::playbook::PlaybookArgs),
     /// 逐 hunk 审阅工作区改动（G13：列出 hunk，按序号接受/拒绝）
     Review(commands::review::ReviewArgs),
     /// 列出会话（对标 Codex `codex resume` 选择器；标出 --continue 会选中的会话）
@@ -152,6 +154,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Worker(args)) => run_async(commands::worker::run_worker_cmd(args))?,
         Some(Commands::Trust(args)) => commands::trust::run_trust_cmd(args, cli.output)?,
         Some(Commands::Workflow(args)) => commands::workflow::run_workflow_cmd(args)?,
+        Some(Commands::Playbook(args)) => commands::playbook::run_playbook_cmd(args)?,
         Some(Commands::Review(args)) => commands::review::run_review_cmd(args)?,
         Some(Commands::Sessions(args)) => commands::sessions::run_sessions_cmd(args)?,
         Some(Commands::Symbols(args)) => commands::symbols::run_symbols_cmd(args)?,

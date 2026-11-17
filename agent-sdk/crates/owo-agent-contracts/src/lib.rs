@@ -46,6 +46,7 @@ pub mod computer_task;
 pub mod context;
 pub mod goal_progress;
 pub mod plan;
+pub mod playbook;
 pub mod skill;
 pub mod skill_health;
 
@@ -55,5 +56,6 @@ pub use computer_task::*;
 pub use context::*;
 pub use goal_progress::*;
 pub use plan::*;
+pub use playbook::*;
 pub use skill::*;
 pub use skill_health::*;

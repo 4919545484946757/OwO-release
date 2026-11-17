@@ -129,7 +129,9 @@ pub mod workswarm;
 // `crate::plan::*`（workswarm / goal）与 `owo_agent_core::Plan / SkillRegistry / ...`
 // （server / cli / 多个集成测试）等既有路径全部继续有效。
 // ---------------------------------------------------------------------------
-pub use owo_agent_contracts::{computer_task, context, goal_progress, plan, skill, skill_health};
+pub use owo_agent_contracts::{
+    computer_task, context, goal_progress, plan, playbook, skill, skill_health,
+};
 
 // ---------------------------------------------------------------------------
 // 编排内核（M9）兼容层：project_space_store / team_benefit / workswarm_output

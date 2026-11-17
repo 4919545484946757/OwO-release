@@ -1,0 +1,46 @@
+{
+  "id": "release-check",
+  "name": "发布前检查",
+  "description": "打包/发布前的固定检查：工作树干净 → 构建 → 冒烟 → 发布说明 → 人工签核。",
+  "steps": [
+    {
+      "id": "clean",
+      "title": "工作树干净",
+      "kind": "check",
+      "detail": "确认没有未提交改动与未跟踪的构建产物。",
+      "acceptance": "git status --short 为空"
+    },
+    {
+      "id": "build",
+      "title": "release 构建",
+      "kind": "check",
+      "detail": "按资源红线用 -j 1 构建 release。",
+      "acceptance": "构建命令 exit 0",
+      "depends_on": ["clean"]
+    },
+    {
+      "id": "smoke",
+      "title": "冒烟验证",
+      "kind": "check",
+      "detail": "运行冒烟脚本，确认核心路径可用。",
+      "acceptance": "冒烟脚本 exit 0",
+      "depends_on": ["build"]
+    },
+    {
+      "id": "notes",
+      "title": "整理发布说明",
+      "kind": "model",
+      "detail": "按用户可见改动整理变更摘要，标注已知问题。",
+      "acceptance": "变更摘要覆盖所有用户可见改动",
+      "depends_on": ["build"]
+    },
+    {
+      "id": "signoff",
+      "title": "人工签核",
+      "kind": "human",
+      "detail": "负责人检查清单与说明后确认发布。",
+      "acceptance": "负责人确认发布",
+      "depends_on": ["smoke", "notes"]
+    }
+  ]
+}

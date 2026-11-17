@@ -1,0 +1,96 @@
+# 任务剧本（Playbook）：按域定义工作流
+
+> 状态：定义层与进度状态机已落地（2026-11-18）；执行驱动是下一步。
+> 代码：`crates/owo-agent-contracts/src/playbook.rs`、`crates/owo-agent-cli/src/commands/playbook.rs`
+
+## 1. 它解决什么
+
+固定的任务套路（代码评审、发布前检查、周报、数据核对）不该每次让模型重新想一遍。
+剧本把「这类任务怎么做」写成文件：**步骤 + 依赖 + 完成判据 + 步骤类型**，执行时按
+进度推进，而不是从零规划。
+
+与现有编排资产的分工（互不替代）：
+
+| 资产 | 管什么 | 不做什么 |
+|---|---|---|
+| `TeamTemplate` / `workflow` | 多 Agent 团队：谁做、写哪里、角色 DAG | 单 Agent 的固定步骤套路 |
+| `goal` / `GoalRunner` | 一次性目标的计划与验收 | 可复用的领域套路 |
+| **Playbook（本模块）** | 单 Agent 的领域步骤顺序与判据 | 不执行命令、不调度 Agent、不碰工作区 |
+
+## 2. 文件格式
+
+```json
+{
+  "id": "release-check",
+  "name": "发布前检查",
+  "description": "……",
+  "steps": [
+    { "id": "clean", "title": "工作树干净", "kind": "check", "acceptance": "git status --short 为空" },
+    { "id": "build", "title": "release 构建", "kind": "check", "acceptance": "构建命令 exit 0", "depends_on": ["clean"] },
+    { "id": "notes", "title": "整理发布说明", "kind": "model", "acceptance": "覆盖所有用户可见改动", "depends_on": ["build"] },
+    { "id": "signoff", "title": "人工签核", "kind": "human", "acceptance": "负责人确认", "depends_on": ["notes"] }
+  ]
+}
+```
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| `id` / `name` | ✅ | 剧本标识与人读名称 |
+| `description` | ❌ | 用途说明 |
+| `steps[].id` / `title` | ✅ | 步骤标识（剧本内唯一）与标题 |
+| `steps[].kind` | ❌ | `model`（默认，需要模型回合）/ `check`（确定性校验）/ `human`（人工确认） |
+| `steps[].acceptance` | `check` 必填 | 完成判据；`check` 无判据无从判定，直接判非法 |
+| `steps[].depends_on` | ❌ | 前置步骤 id；必须已通过才允许开始 |
+| `steps[].detail` | ❌ | 给执行者的上下文 |
+
+校验规则（`Playbook::validate`）：id/name 非空、至少一步、≤64 步、步骤 id 唯一、
+依赖存在、禁止自依赖、无环；未知依赖**不会**被误报成环（两者分开报告）。
+
+示例：`playbooks/code-review.json`、`playbooks/release-check.json`。
+
+## 3. 进度状态机
+
+`PlaybookRun` 记录每步状态（可序列化持久化）：
+
+```text
+Pending ──pass──► Passed { evidence }
+   │  └──fail──► Failed { reason, attempts }   （可重试，attempts 累计）
+   └──skip─────► Skipped { reason }
+```
+
+派生规则：
+
+- `next_ready()`：按**定义顺序**返回第一个 Pending 且前置全部 Passed 的步骤；
+- `is_blocked()`：依赖链上出现 Failed/Skipped → 本步永久阻塞（需要人处理前置）；
+- `progress()`：`total / passed / failed / skipped / pending / blocked` + 完成百分比；
+- `is_complete()`：只有 passed + skipped 覆盖全部步骤才算完成（**失败与阻塞不算完成**）。
+
+这些规则是纯函数，不依赖时间与 IO；`marker` 字段留给调用方写时间戳/批次号。
+
+## 4. CLI
+
+```powershell
+# 校验（结构/依赖/环/大小）；不合法 → 退出码 1
+owo-agent playbook validate playbooks/code-review.json
+
+# 打印拓扑序 + 判据 + 下一步（不执行）
+owo-agent playbook plan playbooks/release-check.json
+
+# 机器可读
+owo-agent playbook plan --json playbooks/code-review.json
+```
+
+## 5. 安全边界
+
+- 本模块**不执行任何命令**：`check` 步骤的 `acceptance` 只是文本判据，真正执行必须由
+  宿主经 Tool Host（权限/审批/审计/沙箱一个都不能绕）。
+- 输入按上限截断（步骤数、单步文本长度由 schema 控制），不做递归解释。
+- 文件读取容忍 UTF-8 BOM（Windows 编辑器常见），不改变内容语义。
+
+## 6. 下一步
+
+1. **执行驱动**：`playbook run` 按 `next_ready()` 推进；`check` 步骤经 Tool Host 执行并
+   记录证据，`model` 步骤走一次 Agent 回合，`human` 步骤挂审批；
+2. **运行记录**：`PlaybookRun` 落盘到 `<data>/playbooks/runs/`，支持中断续跑；
+3. **与 `/advance` 协同**：`/advance` 负责"按进度不空转"，剧本负责"按什么顺序做"；
+4. **桌面面板**：剧本列表 + 运行进度（见 `docs/UI-SURFACING.md` 的 surfacing 清单）。
