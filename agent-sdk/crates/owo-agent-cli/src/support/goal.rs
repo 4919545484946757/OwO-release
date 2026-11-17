@@ -31,6 +31,110 @@ pub(crate) enum AdvanceMode {
     Progress,
 }
 
+// ---------------------------------------------------------------------------
+// `/advance --playbook`：剧本状态读取与提示词（只读；记录由模型经工具完成）
+// ---------------------------------------------------------------------------
+
+/// 剧本状态文件：与剧本同目录的 `<stem>.state.json`（与 CLI/API 同一约定）。
+pub(crate) fn playbook_state_path(file: &std::path::Path) -> std::path::PathBuf {
+    file.with_extension("state.json")
+}
+
+/// 读取剧本与当前运行状态（状态文件缺失 = 新运行）。路径必须在工作区内。
+pub(crate) fn load_playbook_run(
+    workspace: &std::path::Path,
+    file: &std::path::Path,
+) -> Result<
+    (
+        owo_agent_core::playbook::Playbook,
+        owo_agent_core::playbook::PlaybookRun,
+    ),
+    String,
+> {
+    let base = workspace
+        .canonicalize()
+        .unwrap_or_else(|_| workspace.to_path_buf());
+    let candidate = if file.is_absolute() {
+        file.to_path_buf()
+    } else {
+        base.join(file)
+    };
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|error| format!("剧本不存在或不可读（{}）：{error}", file.display()))?;
+    if !canonical.starts_with(&base) {
+        return Err(format!("剧本路径越出工作区：{}", file.display()));
+    }
+    let content = std::fs::read_to_string(&canonical)
+        .map_err(|error| format!("读取剧本失败（{}）：{error}", canonical.display()))?;
+    let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+    let playbook: owo_agent_core::playbook::Playbook =
+        serde_json::from_str(content).map_err(|error| format!("剧本不是合法 JSON：{error}"))?;
+    let issues = playbook.validate();
+    if !issues.is_empty() {
+        return Err(format!(
+            "剧本不合法（{} 个问题）：先运行 playbook validate",
+            issues.len()
+        ));
+    }
+    let state_path = playbook_state_path(&canonical);
+    let run = if state_path.exists() {
+        let state = std::fs::read_to_string(&state_path)
+            .map_err(|error| format!("读取状态文件失败：{error}"))?;
+        let state = state.strip_prefix('\u{feff}').unwrap_or(&state);
+        let run: owo_agent_core::playbook::PlaybookRun = serde_json::from_str(state)
+            .map_err(|error| format!("状态文件不是合法 JSON：{error}"))?;
+        if run.playbook_id != playbook.id {
+            return Err(format!(
+                "状态文件属于另一个剧本（{} ≠ {}）",
+                run.playbook_id, playbook.id
+            ));
+        }
+        run
+    } else {
+        owo_agent_core::playbook::PlaybookRun::new(&playbook)
+    };
+    Ok((playbook, run))
+}
+
+/// 剧本推进的提示块：当前步骤 + 判据 + 命令 + 进度。
+pub(crate) fn playbook_prompt(
+    playbook: &owo_agent_core::playbook::Playbook,
+    run: &owo_agent_core::playbook::PlaybookRun,
+    step: &owo_agent_core::playbook::PlaybookStep,
+) -> String {
+    let kind = match step.kind {
+        owo_agent_core::playbook::StepKind::Model => "model",
+        owo_agent_core::playbook::StepKind::Check => "check",
+        owo_agent_core::playbook::StepKind::Human => "human",
+    };
+    let mut prompt = format!(
+        "【剧本推进】剧本：{}（{}）· 进度 {}\n当前步骤：{} — {}（{kind}）",
+        playbook.name,
+        playbook.id,
+        run.summary(playbook),
+        step.id,
+        step.title
+    );
+    if !step.detail.is_empty() {
+        prompt.push_str(&format!("\n说明：{}", step.detail));
+    }
+    if !step.acceptance.is_empty() {
+        prompt.push_str(&format!("\n完成判据：{}", step.acceptance));
+    }
+    if !step.command.is_empty() {
+        prompt.push_str(&format!(
+            "\n命令：{}（check 步骤用 playbook_check 执行，不要手工改状态）",
+            step.command
+        ));
+    }
+    prompt.push_str(
+        "\n要求：本轮只推进这一步；完成后用 playbook_record（或 playbook_check）记录结果，\
+         不要跳步。剧本全部步骤通过后，再检查整体目标是否完成。",
+    );
+    prompt
+}
+
 /// 推进循环的下一步。
 pub(crate) enum GoalStep {
     /// 继续下一轮（可带一条提示）。

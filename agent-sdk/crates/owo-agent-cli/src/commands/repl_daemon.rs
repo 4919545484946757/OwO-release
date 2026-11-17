@@ -1059,6 +1059,22 @@ impl DaemonRepl {
         mode: crate::support::AdvanceMode,
     ) -> Result<(), Box<dyn std::error::Error>> {
         use crate::support::{goal_max_iterations, GoalState};
+        // 工作流增强：`/advance --playbook <文件>` 按剧本逐步推进（只读剧本状态，
+        // 记录由模型经 playbook_* 工具完成）。它不改变 `/goal` 与 `/advance` 的既有分支。
+        if mode == crate::support::AdvanceMode::Progress {
+            if let Some(rest) = arg.strip_prefix("--playbook ") {
+                let raw = rest.trim();
+                if raw.is_empty() {
+                    println!(
+                        "用法：/advance --playbook <剧本文件>（先 `owo-agent playbook validate`）"
+                    );
+                    return Ok(());
+                }
+                return self
+                    .start_playbook_advance(std::path::PathBuf::from(raw))
+                    .await;
+            }
+        }
         match arg {
             "" | "status" => {
                 match &self.goal {
@@ -1120,7 +1136,7 @@ impl DaemonRepl {
                     mode,
                 });
                 println!("{}", format!("接管目标：{objective}").green());
-                self.run_goal_loop(&objective, mode).await
+                self.run_goal_loop(&objective, mode, None).await
             }
             objective => {
                 let max = goal_max_iterations();
@@ -1139,8 +1155,79 @@ impl DaemonRepl {
                     format!("目标已设定：{objective}").green(),
                     crate::support::goal_iteration_label(max)
                 );
-                self.run_goal_loop(objective, mode).await
+                self.run_goal_loop(objective, mode, None).await
             }
+        }
+    }
+
+    /// `/advance --playbook <文件>`：按剧本逐步推进。
+    ///
+    /// 宿主只读取剧本状态决定"下一步/是否完成"，记录由模型经 `playbook_*` 工具完成；
+    /// 因此必须先启用可选工具组（`tool_capabilities.playbooks`）。
+    async fn start_playbook_advance(
+        &mut self,
+        file: std::path::PathBuf,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::support::{goal_max_iterations, GoalState};
+        let settings = owo_agent_core::Settings::load(&self.workspace);
+        if !settings.tool_capabilities.playbooks {
+            println!(
+                "{}",
+                "剧本工具未启用：在 <workspace>/settings.json 设置 \
+                 \"tool_capabilities\": {\"playbooks\": true} 并重启核心后再试"
+                    .yellow()
+            );
+            return Ok(());
+        }
+        let (playbook, run) = match crate::support::load_playbook_run(&self.workspace, &file) {
+            Ok(loaded) => loaded,
+            Err(error) => {
+                println!("{}", format!("剧本不可用：{error}").red());
+                return Ok(());
+            }
+        };
+        if run.is_complete(&playbook) {
+            println!(
+                "{}",
+                format!("剧本已完成：{}（{}）", playbook.name, playbook.id).green()
+            );
+            return Ok(());
+        }
+        if let Some(step) = run.next_ready(&playbook) {
+            let objective = format!(
+                "按剧本推进：{}（{}）· 下一步 {}",
+                playbook.name, playbook.id, step.id
+            );
+            self.goal = Some(GoalState {
+                objective: objective.clone(),
+                iterations: 0,
+                done: false,
+                progress: Default::default(),
+                mode: crate::support::AdvanceMode::Progress,
+            });
+            self.current_session().await?;
+            self.persist_goal("set", Some(&objective)).await;
+            println!(
+                "{}（轮次上限：{}；/goal clear 停止）",
+                format!("目标已设定：{objective}").green(),
+                crate::support::goal_iteration_label(goal_max_iterations())
+            );
+            self.run_goal_loop(
+                &objective,
+                crate::support::AdvanceMode::Progress,
+                Some(&file),
+            )
+            .await
+        } else {
+            println!(
+                "{}",
+                format!(
+                    "剧本没有可执行步骤（前置失败/跳过导致阻塞）：{}",
+                    run.summary(&playbook)
+                )
+                .yellow()
+            );
+            Ok(())
         }
     }
 
@@ -1153,6 +1240,7 @@ impl DaemonRepl {
         &mut self,
         objective: &str,
         mode: crate::support::AdvanceMode,
+        playbook: Option<&std::path::Path>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         use crate::support::{
             goal_continue_prompt, goal_first_prompt, goal_max_iterations, GoalStep,
@@ -1178,13 +1266,57 @@ impl DaemonRepl {
                 break;
             }
             let iteration = goal.iterations + 1;
-            let prompt = if iteration == 1 {
+            let mut prompt = if iteration == 1 {
                 goal_first_prompt(objective)
             } else if let Some(status) = previous_status {
                 crate::support::goal_continue_prompt_after_status(objective, iteration, status)
             } else {
                 goal_continue_prompt(objective, iteration)
             };
+            // 剧本模式：宿主按剧本状态决定这一步做什么；完成也由宿主判定。
+            if let Some(path) = playbook {
+                match crate::support::load_playbook_run(&self.workspace, path) {
+                    Ok((playbook_def, run)) => {
+                        if run.is_complete(&playbook_def) {
+                            if let Some(goal) = self.goal.as_mut() {
+                                goal.done = true;
+                            }
+                            self.persist_goal("done", None).await;
+                            println!(
+                                "{} 剧本已完成（{}）",
+                                "✓".green(),
+                                run.summary(&playbook_def)
+                            );
+                            break;
+                        }
+                        match run.next_ready(&playbook_def) {
+                            Some(step) => {
+                                prompt.push_str("\n\n");
+                                prompt.push_str(&crate::support::playbook_prompt(
+                                    &playbook_def,
+                                    &run,
+                                    step,
+                                ));
+                            }
+                            None => {
+                                println!(
+                                    "{}",
+                                    format!(
+                                        "剧本没有可执行步骤（前置失败/跳过导致阻塞）：{}",
+                                        run.summary(&playbook_def)
+                                    )
+                                    .yellow()
+                                );
+                                break;
+                            }
+                        }
+                    }
+                    Err(error) => {
+                        println!("{}", format!("读取剧本状态失败：{error}").red());
+                        break;
+                    }
+                }
+            }
             let limit = crate::support::goal_iteration_label(max);
             println!("{}", format!("── 目标推进 {iteration}/{limit} ──").bold());
             let turn = self.run_turn_capture(&prompt).await?;
@@ -1193,7 +1325,8 @@ impl DaemonRepl {
             }
             // 与既有实现保持同一持久化顺序：先记 advance，接受后再记 done。
             self.persist_goal("advance", None).await;
-            let accepted = crate::support::goal_claim_is_accepted(&turn);
+            // 剧本模式下完成由宿主读取剧本状态判定；模型自报完成不作数。
+            let accepted = crate::support::goal_claim_is_accepted(&turn) && playbook.is_none();
             let step = match self.goal.as_mut() {
                 Some(goal) => {
                     goal.progress.iterations = iteration as u32;
@@ -1206,6 +1339,27 @@ impl DaemonRepl {
                     goal.done = true;
                 }
                 self.persist_goal("done", None).await;
+            }
+            // 剧本模式下，完成以宿主读取到的剧本状态为准（模型的 GOAL_DONE 不作数）。
+            if playbook.is_some() {
+                if let Some(path) = playbook {
+                    if let Ok((playbook_def, run)) =
+                        crate::support::load_playbook_run(&self.workspace, path)
+                    {
+                        if run.is_complete(&playbook_def) {
+                            if let Some(goal) = self.goal.as_mut() {
+                                goal.done = true;
+                            }
+                            self.persist_goal("done", None).await;
+                            println!(
+                                "{} 剧本已完成（{}）",
+                                "✓".green(),
+                                run.summary(&playbook_def)
+                            );
+                            break;
+                        }
+                    }
+                }
             }
             match step {
                 GoalStep::Done => {

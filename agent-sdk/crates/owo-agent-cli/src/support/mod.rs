@@ -1127,6 +1127,59 @@ mod repl_completion_tests {
         assert_eq!(stops, 1, "第三次连续失败应停止");
     }
 
+    /// `/advance --playbook`：只读剧本状态 + 提示词内容。
+    #[test]
+    fn playbook_advance_reads_state_and_builds_step_prompt() {
+        let workspace =
+            std::env::temp_dir().join(format!("owo-playbook-advance-{}", uuid::Uuid::new_v4()));
+        let playbooks = workspace.join("playbooks");
+        std::fs::create_dir_all(&playbooks).unwrap();
+        std::fs::write(
+            playbooks.join("demo.json"),
+            r#"{"id":"demo","name":"演示剧本","steps":[
+                {"id":"a","title":"第一步","acceptance":"列出改动"},
+                {"id":"b","title":"第二步","kind":"check","acceptance":"exit 0","command":"echo ok","depends_on":["a"]}
+            ]}"#,
+        )
+        .unwrap();
+
+        let file = std::path::Path::new("playbooks/demo.json");
+        let (playbook, run) = super::load_playbook_run(&workspace, file).expect("应能读取剧本");
+        assert_eq!(playbook.id, "demo");
+        assert_eq!(run.summary(&playbook), "0/2（0%）");
+        let first = run.next_ready(&playbook).expect("a 可执行");
+        let prompt = super::playbook_prompt(&playbook, &run, first);
+        assert!(prompt.contains("演示剧本"), "{prompt}");
+        assert!(prompt.contains("a — 第一步"), "{prompt}");
+        assert!(prompt.contains("列出改动"), "{prompt}");
+
+        // 状态文件推进后：下一步是 check，提示里带命令与 playbook_check 指引。
+        std::fs::write(
+            super::playbook_state_path(&workspace.join(file)),
+            r#"{"playbook_id":"demo","states":{"a":{"state":"passed","evidence":"ok"}}}"#,
+        )
+        .unwrap();
+        let (playbook, run) = super::load_playbook_run(&workspace, file).unwrap();
+        let next = run.next_ready(&playbook).expect("b 可执行");
+        let prompt = super::playbook_prompt(&playbook, &run, next);
+        assert!(prompt.contains("echo ok"), "{prompt}");
+        assert!(prompt.contains("playbook_check"), "{prompt}");
+        assert!(prompt.contains("1/2（50%）"), "{prompt}");
+
+        // 越界路径与非法剧本被拒。
+        assert!(super::load_playbook_run(&workspace, std::path::Path::new("../x.json")).is_err());
+        std::fs::write(
+            playbooks.join("bad.json"),
+            r#"{"id":"bad","name":"坏","steps":[]}"#,
+        )
+        .unwrap();
+        let error =
+            super::load_playbook_run(&workspace, std::path::Path::new("playbooks/bad.json"))
+                .unwrap_err();
+        assert!(error.contains("不合法"), "{error}");
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
     #[test]
     fn goal_continuation_explains_host_rejection() {
         let prompt = super::goal_continue_prompt_after_status(

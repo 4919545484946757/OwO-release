@@ -130,14 +130,33 @@ owo-agent playbook status --json playbooks/code-review.json
 安全边界：路径经会话工作区约束（越界拒绝）；读取上限 256 KB、备注上限 2000 字符；
 `playbook_record` 的副作用登记为 Write，照常走审批。
 
-## 6. 安全边界
+## 6. 与 `/advance` 协同（剧本驱动的自主推进）
+
+```text
+/advance --playbook playbooks/code-review.json
+```
+
+前提：工具组已启用（`tool_capabilities.playbooks: true`，见 §5）。
+
+行为：
+
+- 宿主每轮读取剧本状态，把**当前步骤（id/标题/判据/命令）与进度**拼进推进提示；
+- 模型只推进这一步，并用 `playbook_check` / `playbook_run` / `playbook_record` 记录；
+- **完成由宿主按剧本状态判定**（不是模型自报）：全部步骤 passed/skipped 才结束；
+- 某个步骤失败导致下游阻塞且没有可执行步骤时，循环停下并说明；
+- 失败/停滞仍走 `/advance` 的推进策略（有界重试 + 停滞检测）。
+
+这样"按什么顺序做"由剧本决定，"不空转"由推进策略决定，两者互不越界；
+`/goal` 不受影响。
+
+## 7. 安全边界
 
 - 本模块**不执行任何命令**：`check` 步骤的 `acceptance` 只是文本判据，真正执行必须由
   宿主经 Tool Host（权限/审批/审计/沙箱一个都不能绕）。
 - 输入按上限截断（步骤数、单步文本长度由 schema 控制），不做递归解释。
 - 文件读取容忍 UTF-8 BOM（Windows 编辑器常见），不改变内容语义。
 
-## 7. HTTP 面（桌面面板后端）
+## 8. HTTP 面（桌面面板后端）
 
 只读写**工作区内**剧本与其同目录状态文件，不执行命令：
 
@@ -159,7 +178,7 @@ owo-agent playbook status --json playbooks/code-review.json
 「自动化 → 任务剧本」。列表显示进度与下一步；展开后逐步展示状态/命令，并提供
 通过/失败/跳过记录（命令执行仍由 Agent 的 `playbook_check` 完成，面板不提供执行入口）。
 
-## 8. 下一步
+## 9. 下一步
 
 1. **执行驱动**：`playbook run` 按 `next_ready()` 推进；`check` 步骤经 Tool Host 执行并
    记录证据，`model` 步骤走一次 Agent 回合，`human` 步骤挂审批；

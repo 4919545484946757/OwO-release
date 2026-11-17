@@ -190,7 +190,7 @@ fn print_help() {
     println!("  /approvals [clear]  查看/清除本会话「总是允许」的工具（--local）");
     println!("  /compact            立即压缩会话历史（省 token）");
     println!("  /goal [目标|status|clear]  目标模式：未完成时持续自动推进，模型标记完成才停");
-    println!("  /advance [目标|status|clear|run]  按进度推进（额外功能）：有界重试 + 停滞检测，不影响 /goal");
+    println!("  /advance [目标|status|clear|run]  按进度推进（额外功能）：有界重试 + 停滞检测，不影响 /goal；/advance --playbook <文件> 按剧本推进");
     println!("  /todo               查看会话任务清单（todo 工具维护）");
     println!("  /review [提示]      发起一次「审查工作区改动」的回合");
     println!("  /mention <路径>     展示文件引用信息（字节/行数）");
