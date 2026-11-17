@@ -302,10 +302,7 @@ internal sealed class DictionaryManager : UserControl
         host.Children.Add(menu);
         // An overlay draws inside the existing card bounds without changing
         // layout, intercepting input or inheriting the button's hover stroke.
-        host.Children.Add(new Border {
-            BorderBrush = operationBrush, BorderThickness = new Thickness(3),
-            CornerRadius = new CornerRadius(10), IsHitTestVisible = false,
-        });
+        host.Children.Add(DictionaryCardLayout.CreateOutline());
         view.Menu = menu;
         host.SizeChanged += (_, e) => {
             // An expanded navigation pane can leave a very narrow content

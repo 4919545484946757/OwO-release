@@ -13,14 +13,23 @@
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#EDEDED"/>
+                    <SolidColorBrush x:Key="DictionaryCardOutlineBrush" Color="#28000000"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#232639"/>
+                    <SolidColorBrush x:Key="DictionaryCardOutlineBrush" Color="#78000000"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}"/>
+                    <SolidColorBrush x:Key="DictionaryCardOutlineBrush" Color="#78000000"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
+            <Style x:Key="DictionaryCardOutlineStyle" TargetType="Border">
+                <Setter Property="BorderBrush" Value="{ThemeResource DictionaryCardOutlineBrush}"/>
+                <Setter Property="BorderThickness" Value="3"/>
+                <Setter Property="CornerRadius" Value="10"/>
+                <Setter Property="IsHitTestVisible" Value="False"/>
+            </Style>
             <Style x:Key="OwOSettingsCardStyle" TargetType="Border">
                 <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
                 <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>

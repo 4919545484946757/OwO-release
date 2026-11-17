@@ -9,6 +9,11 @@ internal static class DictionaryCardLayout
 {
     internal const double PreferredWidth = 210;
     internal const double Height = 228;
+
+    internal static Border CreateOutline() => new() {
+        Style = (Style)Application.Current.Resources["DictionaryCardOutlineStyle"],
+    };
+
     internal static void Arrange(Grid grid) {
         var width = double.IsNaN(grid.Width) ? grid.ActualWidth : grid.Width;
         if (!double.IsFinite(width) || width < 0) return;

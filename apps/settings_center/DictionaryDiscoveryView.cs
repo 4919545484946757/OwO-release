@@ -165,7 +165,7 @@ internal sealed class DictionaryDiscoveryView : UserControl
             host.Children.Add(new Border { Height = 64, VerticalAlignment = VerticalAlignment.Bottom, Margin = new(3, 0, 3, 3), CornerRadius = new(0, 0, 7, 7), Background = brush, Child = download });
             var flyout = new MenuFlyout(); var entry = new MenuFlyoutItem { Text = "详情与许可", Icon = new SymbolIcon(Symbol.Document) }; entry.Click += async (_, _) => await DetailsAsync(); flyout.Items.Add(entry);
             var menu = new Button { Content = new FontIcon { Glyph = "\uE712", FontSize = 16, IsTextScaleFactorEnabled = false }, Flyout = flyout, Padding = new(0), Width = 32, Height = 32, MinWidth = 0, MinHeight = 0, HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new(8) };
-            host.Children.Add(menu); host.Children.Add(new Border { BorderBrush = brush, BorderThickness = new(3), CornerRadius = new(10), IsHitTestVisible = false });
+            host.Children.Add(menu); host.Children.Add(DictionaryCardLayout.CreateOutline());
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(host, "OnlineDictionaryCard_" + item.Source.Id + "_" + item.Name);
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, item.Title);
             ToolTipService.SetToolTip(card, item.Title + "\n" + item.Name);
