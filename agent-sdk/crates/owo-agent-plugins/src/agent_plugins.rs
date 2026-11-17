@@ -574,6 +574,127 @@ pub fn scan_agent_plugin_for_risks(root: &Path, allowlist_domains: &[String]) ->
 }
 
 // ---------------------------------------------------------------------------
+// 可选签名层（OwO 扩展，非规范强制）：`plugin.sig.json`
+// ---------------------------------------------------------------------------
+
+/// 规范包签名文件名（包根）。
+pub const AGENT_PLUGIN_SIGNATURE_FILE: &str = "plugin.sig.json";
+
+/// 规范包的可选签名（detached，覆盖整个包内容）。
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AgentPluginPackageSignature {
+    /// 当前仅 `ed25519`。
+    pub algorithm: String,
+    /// 公钥（base64，32 字节）。
+    pub public_key: String,
+    /// 签名（base64，64 字节）。
+    pub signature: String,
+}
+
+/// 包摘要：按相对路径排序，对「相对路径 \0 文件 sha256 \n」整体再做 sha256。
+///
+/// 排除签名文件本身、隐藏目录（如 `.git`）与符号链接，保证"签名覆盖可移植内容"。
+pub fn agent_plugin_package_digest(root: &Path) -> Result<[u8; 32], String> {
+    use sha2::{Digest, Sha256};
+    let root = std::fs::canonicalize(root)
+        .map_err(|error| format!("包目录不可用（{}）：{error}", root.display()))?;
+    let mut files: Vec<String> = Vec::new();
+    let mut pending = vec![root.clone()];
+    while let Some(directory) = pending.pop() {
+        let entries = std::fs::read_dir(&directory)
+            .map_err(|error| format!("读取目录失败（{}）：{error}", directory.display()))?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(metadata) = std::fs::symlink_metadata(&path) else {
+                continue;
+            };
+            if metadata.file_type().is_symlink() {
+                continue;
+            }
+            let name = path
+                .file_name()
+                .map(|value| value.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            if metadata.is_dir() {
+                if name.starts_with('.') {
+                    continue;
+                }
+                pending.push(path);
+            } else if name != AGENT_PLUGIN_SIGNATURE_FILE {
+                let relative = path
+                    .strip_prefix(&root)
+                    .map(|value| value.to_string_lossy().replace('\\', "/"))
+                    .unwrap_or_default();
+                files.push(relative);
+            }
+        }
+    }
+    files.sort();
+    let mut outer = Sha256::new();
+    for relative in files {
+        let path = root.join(&relative);
+        let content = std::fs::read(&path)
+            .map_err(|error| format!("读取文件失败（{}）：{error}", path.display()))?;
+        let mut inner = Sha256::new();
+        inner.update(&content);
+        outer.update(relative.as_bytes());
+        outer.update(b"\0");
+        outer.update(inner.finalize());
+        outer.update(b"\n");
+    }
+    Ok(outer.finalize().into())
+}
+
+/// 读取包根的可选签名文件；不存在返回 `Ok(None)`。
+pub fn load_agent_plugin_signature(
+    root: &Path,
+) -> Result<Option<AgentPluginPackageSignature>, String> {
+    let path = root.join(AGENT_PLUGIN_SIGNATURE_FILE);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let content =
+        std::fs::read_to_string(&path).map_err(|error| format!("读取签名文件失败：{error}"))?;
+    let signature: AgentPluginPackageSignature = serde_json::from_str(&content)
+        .map_err(|error| format!("签名文件不是合法 JSON：{error}"))?;
+    Ok(Some(signature))
+}
+
+/// 校验规范包签名：内容摘要 + Ed25519 验签。
+pub fn verify_agent_plugin_signature(
+    root: &Path,
+    signature: &AgentPluginPackageSignature,
+) -> Result<(), String> {
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    use std::convert::TryInto;
+
+    if signature.algorithm.to_lowercase() != "ed25519" {
+        return Err(format!("不支持的签名算法：{}", signature.algorithm));
+    }
+    let public_key = base64::Engine::decode(
+        &base64::engine::general_purpose::STANDARD,
+        &signature.public_key,
+    )
+    .map_err(|error| format!("公钥 base64 非法：{error}"))?;
+    let signature_bytes = base64::Engine::decode(
+        &base64::engine::general_purpose::STANDARD,
+        &signature.signature,
+    )
+    .map_err(|error| format!("签名 base64 非法：{error}"))?;
+    let key: VerifyingKey = public_key
+        .as_slice()
+        .try_into()
+        .map_err(|_| "公钥长度非法（需 32 字节）".to_string())?;
+    let sig: Signature = signature_bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| "签名长度非法（需 64 字节）".to_string())?;
+    let digest = agent_plugin_package_digest(root)?;
+    key.verify(&digest, &sig)
+        .map_err(|_| "规范包签名校验失败（内容可能被篡改）".to_string())
+}
+
+// ---------------------------------------------------------------------------
 // 技能
 // ---------------------------------------------------------------------------
 

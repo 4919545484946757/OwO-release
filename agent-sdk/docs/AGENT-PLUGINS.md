@@ -56,14 +56,14 @@
   整体不是对象」是非致命的。
 - 规范包**可经市场安装与更新**（`/plugins/market/install|update|verify|scan` 识别
   `plugin.json`，走同一套前置风险扫描、安装审计与旧版备份）；**吊销列表对规范包同样
-  生效**（按包名 + 版本，`*` = 全部版本）。签名仍只覆盖历史 `manifest.json` 格式，
-  规范包按未签名包处理——规范包定位是「可移植」，签名是 OwO 自己的治理增强。
+  生效**（按包名 + 版本，`*` = 全部版本）。规范包另有**可选签名层**（见 §3）：存在则
+  必须通过，缺失按未签名包处理（审计留痕），签名是 OwO 自己的治理增强。
 
 ## 3. 包长什么样
-
 ```text
 owo-demo-kit/
 ├── plugin.json          # 必填：$schema + name
+├── plugin.sig.json      # 可选：ed25519 签名（覆盖包内容，OwO 扩展）
 ├── skills/
 │   └── demo-kit/
 │       ├── SKILL.md     # 必填：YAML frontmatter（name/description）
@@ -71,6 +71,10 @@ owo-demo-kit/
 │       └── references/  # 可选
 └── mcp.json             # 可选：stdio / streamable-http / sse
 ```
+
+**可选签名**：`plugin.sig.json` = `{"algorithm":"ed25519","public_key":"<b64>","signature":"<b64>"}`，
+签名对象是**包摘要**——按相对路径排序，对「路径 \0 文件 sha256 \n」整体再做 sha256，
+排除签名文件本身、隐藏目录与符号链接。签名存在即必须通过，缺失按未签名包处理。
 
 随包示例：`plugins/owo-demo-kit/`（一个技能 + 一个 stdio 服务器，Python 标准库实现）。
 

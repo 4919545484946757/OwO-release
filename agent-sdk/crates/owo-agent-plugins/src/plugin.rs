@@ -785,8 +785,8 @@ impl PluginManager {
     /// * 静态扫描只扫可执行内容（技能 `scripts/`、`servers/`、脚本后缀）。
     fn verify_agent_plugin_dir(&self, plugin_dir: &Path) -> Result<PluginInstallReport, String> {
         use crate::agent_plugins::{
-            load_agent_plugin, scan_agent_plugin_for_risks, DiagnosticLevel,
-            AGENT_PLUGINS_SPEC_VERSION,
+            load_agent_plugin, load_agent_plugin_signature, scan_agent_plugin_for_risks,
+            verify_agent_plugin_signature, DiagnosticLevel, AGENT_PLUGINS_SPEC_VERSION,
         };
 
         let mut audit = Vec::new();
@@ -804,6 +804,16 @@ impl PluginManager {
                 "插件 {} {} 已被吊销，拒绝加载",
                 manifest.id, manifest.version
             ));
+        }
+        // 可选签名层（plugin.sig.json）：存在即必须通过，缺失按未签名包处理（审计留痕）。
+        match load_agent_plugin_signature(plugin_dir) {
+            Ok(Some(signature)) => {
+                verify_agent_plugin_signature(plugin_dir, &signature)
+                    .map_err(|error| format!("规范包签名无效：{error}"))?;
+                audit.push("规范包签名校验通过（ed25519，覆盖包内容）".to_string());
+            }
+            Ok(None) => audit.push("规范包未签名（可选层，按未签名包处理）".to_string()),
+            Err(error) => return Err(format!("规范包签名文件无效：{error}")),
         }
         audit.push(format!(
             "Agent Plugins {AGENT_PLUGINS_SPEC_VERSION} 包：{} v{}（skills={} mcp_servers={} hooks={}）",
