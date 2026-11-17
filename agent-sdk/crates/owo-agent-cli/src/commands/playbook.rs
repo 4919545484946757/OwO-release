@@ -1253,7 +1253,11 @@ fn history(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or_default();
         let run = std::fs::read_to_string(&path)
             .ok()
-            .and_then(|content| serde_json::from_str::<PlaybookRun>(&content).ok())
+            .and_then(|content| {
+                // 容忍 UTF-8 BOM（Windows 编辑器保存的归档）。
+                let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+                serde_json::from_str::<PlaybookRun>(content).ok()
+            })
             .filter(|run| run.playbook_id == playbook.id);
         runs.push((marker, run));
     }
@@ -1314,21 +1318,29 @@ fn diff_runs(
     for step in &playbook.steps {
         let before = step_state_label(from, &step.id);
         let after = step_state_label(to, &step.id);
-        if before == after {
+        let kind_before = from.failure_kind(&step.id);
+        let kind_after = to.failure_kind(&step.id);
+        // 状态没变但失败分类变了，也要出现在对比里。
+        if before == after && kind_before == kind_after {
             continue;
         }
         let regression = before == "passed" && after != "passed";
         if regression {
             regressions += 1;
         }
-        changed.push(serde_json::json!({
+        let mut entry = serde_json::json!({
             "id": step.id,
             "from": before,
             "to": after,
             "regression": regression,
             "attempts_from": from.attempts(&step.id),
             "attempts_to": to.attempts(&step.id),
-        }));
+        });
+        if kind_before.is_some() || kind_after.is_some() {
+            entry["failure_kind_from"] = serde_json::json!(kind_before);
+            entry["failure_kind_to"] = serde_json::json!(kind_after);
+        }
+        changed.push(entry);
     }
     (
         serde_json::json!({
@@ -1348,7 +1360,8 @@ fn load_archive(file: &Path, marker: &str, playbook: &Playbook) -> Result<Playbo
     let path = runs_dir(file).join(format!("{marker}.json"));
     let content = std::fs::read_to_string(&path)
         .map_err(|error| format!("读取归档失败（{}）：{error}", path.display()))?;
-    let run: PlaybookRun = serde_json::from_str(&content)
+    let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+    let run: PlaybookRun = serde_json::from_str(content)
         .map_err(|error| format!("归档不是合法 JSON（{}）：{error}", path.display()))?;
     if run.playbook_id != playbook.id {
         return Err(format!(
@@ -1427,8 +1440,15 @@ fn diff(file: &Path, from: &str, to: &str, json: bool) -> Result<(), Box<dyn std
         let before = step["from"].as_str().unwrap_or("?");
         let after = step["to"].as_str().unwrap_or("?");
         let regression = step["regression"].as_bool().unwrap_or(false);
+        let kind_before = step["failure_kind_from"].as_str().unwrap_or("-");
+        let kind_after = step["failure_kind_to"].as_str().unwrap_or("-");
+        let kinds = if kind_before != "-" || kind_after != "-" {
+            format!("（失败类型 {kind_before} → {kind_after}）")
+        } else {
+            String::new()
+        };
         println!(
-            "  {id:<16} {before} → {after}{}",
+            "  {id:<16} {before} → {after}{}{kinds}",
             if regression { "（退化）" } else { "" }
         );
     }
@@ -1532,6 +1552,16 @@ mod tests {
             .any(|step| step["id"] == "b" && step["to"] == "failed"));
         assert_eq!(value["progress"]["from"]["passed"], 1);
         assert_eq!(value["progress"]["to"]["failed"], 1);
+
+        // 失败分类变化也进入对比（timeout → exit_nonzero）。
+        let mut before_kind = PlaybookRun::new(&playbook);
+        before_kind.record_fail_kind("b", "超时", Some("timeout"));
+        let mut after_kind = PlaybookRun::new(&playbook);
+        after_kind.record_fail_kind("b", "exit 1", Some("exit_nonzero"));
+        let (value, _) = diff_runs(&playbook, &before_kind, &after_kind);
+        let step = &value["changed"][0];
+        assert_eq!(step["failure_kind_from"], "timeout");
+        assert_eq!(step["failure_kind_to"], "exit_nonzero");
 
         let _ = std::fs::remove_dir_all(&dir);
     }

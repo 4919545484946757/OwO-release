@@ -326,7 +326,11 @@ async fn history(
                 .unwrap_or_default();
             let Some(run) = std::fs::read_to_string(&path)
                 .ok()
-                .and_then(|content| serde_json::from_str::<PlaybookRun>(&content).ok())
+                .and_then(|content| {
+                    // 容忍 UTF-8 BOM（Windows 编辑器保存的归档）。
+                    let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+                    serde_json::from_str::<PlaybookRun>(content).ok()
+                })
                 .filter(|run| run.playbook_id == playbook.id)
             else {
                 continue;
