@@ -158,7 +158,8 @@ owo-agent playbook status --json playbooks/code-review.json
 - 模型只推进这一步，并用 `playbook_check` / `playbook_run` / `playbook_record` 记录；
 - **完成由宿主按剧本状态判定**（不是模型自报）：全部步骤 passed/skipped 才结束；
 - 某个步骤失败导致下游阻塞且没有可执行步骤时，循环停下并说明；
-- 失败/停滞仍走 `/advance` 的推进策略（有界重试 + 停滞检测）。
+- 失败/停滞仍走 `/advance` 的推进策略（有界重试 + 停滞检测）；
+- `/goal status` 会额外显示剧本整体进度与下一步（仅 `--playbook` 会话内）。
 
 这样"按什么顺序做"由剧本决定，"不空转"由推进策略决定，两者互不越界；
 `/goal` 不受影响。

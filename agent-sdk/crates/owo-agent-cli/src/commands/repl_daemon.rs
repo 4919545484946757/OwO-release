@@ -55,6 +55,7 @@ pub(crate) async fn run(
             || matches!(permissions, crate::ui_output::PermissionsProfile::Trusted),
         abort: Arc::new(AtomicBool::new(false)),
         goal: None,
+        goal_playbook: None,
         hinted_goal: None,
         team_id: None,
     };
@@ -84,6 +85,8 @@ struct DaemonRepl {
     no_approval: bool,
     abort: Arc<AtomicBool>,
     goal: Option<crate::support::GoalState>,
+    /// `/advance --playbook` 的剧本文件（会话内；status 时读进度与下一步）。
+    goal_playbook: Option<PathBuf>,
     /// 已提示过的"模型登记目标"（同一目标只提示一次）。
     hinted_goal: Option<String>,
     /// 当前团队（`/team` 目标；status/steer/diff 缺省作用于它）。
@@ -1089,6 +1092,20 @@ impl DaemonRepl {
                         if goal.mode == crate::support::AdvanceMode::Progress {
                             println!("  {}", crate::support::goal_progress_line(&goal.progress));
                         }
+                        if let Some(path) = &self.goal_playbook {
+                            match crate::support::load_playbook_run(&self.workspace, path) {
+                                Ok((playbook, run)) => println!(
+                                    "  剧本：{}（{}）· {} · 下一步 {}",
+                                    playbook.name,
+                                    playbook.id,
+                                    run.summary(&playbook),
+                                    run.next_ready(&playbook)
+                                        .map(|step| step.id.as_str())
+                                        .unwrap_or("已完成")
+                                ),
+                                Err(error) => println!("  剧本状态不可用：{error}"),
+                            }
+                        }
                     }
                     None => println!("（未设定目标；用法：/goal <目标描述>）"),
                 }
@@ -1096,6 +1113,7 @@ impl DaemonRepl {
             }
             "clear" | "stop" => {
                 self.goal = None;
+                self.goal_playbook = None;
                 self.persist_goal("clear", None).await;
                 println!("{}", "已清除目标".green());
                 Ok(())
@@ -1198,6 +1216,7 @@ impl DaemonRepl {
                 "按剧本推进：{}（{}）· 下一步 {}",
                 playbook.name, playbook.id, step.id
             );
+            self.goal_playbook = Some(file.clone());
             self.goal = Some(GoalState {
                 objective: objective.clone(),
                 iterations: 0,
