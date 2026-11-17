@@ -93,7 +93,7 @@ public partial class App : Application
             try {
                 var page = new UninstallPage(ValueOf("--uninstall-root"), ValueOf("--uninstall-workspace"), preview, window.Close);
                 window.Content = page;
-                UninstallTitleBar.Bind(window, page);
+                WindowTitleBarAppearance.Bind(window, page);
                 window.AppWindow.Closing += (_, closing) => { if (page.Busy) closing.Cancel = true; };
                 window.Activate();
                 if (verify) {

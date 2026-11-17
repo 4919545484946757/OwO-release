@@ -18,7 +18,8 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TitleBar x:Name="AppTitleBar" Title="OwO 输入法设置" />
+        <TitleBar x:Name="AppTitleBar" Title="OwO 输入法设置"
+                  Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
 
         <Frame x:Name="RootFrame" Grid.Row="1" />
     </Grid>

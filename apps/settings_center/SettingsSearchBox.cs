@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Automation.Provider;
 using Microsoft.UI.Xaml.Controls;
@@ -193,6 +194,25 @@ public sealed partial class MainPage
         Check(logo.Visibility == Visibility.Visible && root.RequestedTheme == next && logo.ActualTheme == next &&
               SettingsUiPreferences.Load(UiPreferencesPath).SettingsTheme == _settingsThemeMode && LogoAppearance.Mode == previousLogo,
               "clickable Logo toggles and persists the window theme without changing the logo preference");
+        var highContrast = new AccessibilitySettings().HighContrast;
+        var titleBar = ((App)Application.Current).MainWindow.AppWindow.TitleBar;
+        foreach (var (index, expectedTheme, expectedAlpha) in new[] {
+            (1, Microsoft.UI.Windowing.TitleBarTheme.Light, 40),
+            (2, Microsoft.UI.Windowing.TitleBarTheme.Dark, 120)
+        }) {
+            _settingsThemeSelector.SelectedIndex = index;
+            await Task.Delay(140);
+            var footer = VisualDescendants(UserLexiconPageHost).OfType<Border>()
+                .FirstOrDefault(border => AutomationProperties.GetAutomationId(border) == "DictionaryCardActions_base");
+            var outline = (footer?.Parent as Grid)?.Children.OfType<Border>()
+                .FirstOrDefault(border => !border.IsHitTestVisible && border.BorderThickness.Left == 3);
+            var alpha = highContrast ? 120 : expectedAlpha;
+            Check(footer?.Background is SolidColorBrush fill && outline?.BorderBrush is SolidColorBrush stroke &&
+                  fill.Color.A == alpha && fill.Color == stroke.Color &&
+                  (!Microsoft.UI.Windowing.AppWindowTitleBar.IsCustomizationSupported() ||
+                   titleBar.PreferredTheme == (highContrast ? Microsoft.UI.Windowing.TitleBarTheme.UseDefaultAppMode : expectedTheme)),
+                  $"dictionary footer, outline and native title bar track the {expectedTheme} settings theme");
+        }
         _settingsThemeSelector.SelectedIndex = 0;
         Check(root.RequestedTheme == ElementTheme.Default && SettingsUiPreferences.Load(UiPreferencesPath).SettingsTheme == "system",
               "general settings restore the system theme");

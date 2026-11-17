@@ -24,6 +24,7 @@ $start.UseShellExecute = $false
 $start.WorkingDirectory = [IO.Path]::GetDirectoryName($path)
 $start.EnvironmentVariables['OWO_CONFIG_PATH'] = Join-Path $config 'owo.conf'
 $start.EnvironmentVariables['OWO_PLUGIN_STORE_PATH'] = $plugins
+$start.EnvironmentVariables['OWO_DICTIONARY_STORE_PATH'] = Join-Path $fixture 'dictionaries'
 $start.EnvironmentVariables['OWO_SEARCH_TEST_REPORT'] = $report
 $process = [Diagnostics.Process]::Start($start)
 try {
@@ -33,7 +34,7 @@ try {
     }
     $checks = if (Test-Path -LiteralPath $report) { @(Get-Content -LiteralPath $report -Encoding UTF8) } else { @() }
     $checks | Write-Output
-    if ($process.ExitCode -ne 0 -or @($checks | Where-Object { $_ -like 'PASS *' }).Count -ne 15) {
+    if ($process.ExitCode -ne 0 -or @($checks | Where-Object { $_ -like 'PASS *' }).Count -ne 17) {
         throw "Settings search verification failed: $report"
     }
     Write-Output "PASS: isolated settings search. Report: $report"

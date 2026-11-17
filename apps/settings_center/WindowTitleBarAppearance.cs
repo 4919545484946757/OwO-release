@@ -5,7 +5,9 @@ using Windows.UI.ViewManagement;
 
 namespace OwO_Settings;
 
-internal static class UninstallTitleBar
+// Native caption buttons have their own theme. A per-window XAML theme does
+// not automatically update the glyphs or the system hover/pressed palette.
+internal static class WindowTitleBarAppearance
 {
     internal static void Bind(Window window, FrameworkElement root)
     {

@@ -14,6 +14,11 @@ internal static class DictionaryCardLayout
         Style = (Style)Application.Current.Resources["DictionaryCardOutlineStyle"],
     };
 
+    internal static Border CreateFooter(UIElement action) => new() {
+        Style = (Style)Application.Current.Resources["DictionaryCardFooterStyle"],
+        Child = action,
+    };
+
     internal static void Arrange(Grid grid) {
         var width = double.IsNaN(grid.Width) ? grid.ActualWidth : grid.Width;
         if (!double.IsFinite(width) || width < 0) return;

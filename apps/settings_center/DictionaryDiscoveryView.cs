@@ -161,8 +161,7 @@ internal sealed class DictionaryDiscoveryView : UserControl
             var card = new Button { Content = content, Padding = new Thickness(16, 16, 16, 72), CornerRadius = new(10), BorderThickness = new(0), MinWidth = 0, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Top };
             card.Click += async (_, _) => await DetailsAsync();
             var host = new Grid { Height = DictionaryCardLayout.Height }; host.Children.Add(card);
-            var brush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(120, 0, 0, 0));
-            host.Children.Add(new Border { Height = 64, VerticalAlignment = VerticalAlignment.Bottom, Margin = new(3, 0, 3, 3), CornerRadius = new(0, 0, 7, 7), Background = brush, Child = download });
+            host.Children.Add(DictionaryCardLayout.CreateFooter(download));
             var flyout = new MenuFlyout(); var entry = new MenuFlyoutItem { Text = "详情与许可", Icon = new SymbolIcon(Symbol.Document) }; entry.Click += async (_, _) => await DetailsAsync(); flyout.Items.Add(entry);
             var menu = new Button { Content = new FontIcon { Glyph = "\uE712", FontSize = 16, IsTextScaleFactorEnabled = false }, Flyout = flyout, Padding = new(0), Width = 32, Height = 32, MinWidth = 0, MinHeight = 0, HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new(8) };
             host.Children.Add(menu); host.Children.Add(DictionaryCardLayout.CreateOutline());

@@ -25,9 +25,12 @@ public sealed partial class MainWindow : Window
         SetTitleBar(AppTitleBar);
 
         LogoAppearance.Initialize();
-        if (App.InstallPackageRoot is null && Content is FrameworkElement root) {
-            try { root.RequestedTheme = MainPage.SettingsElementTheme(SettingsUiPreferences.Load(SettingsUiPreferences.DefaultPath).SettingsTheme); }
-            catch (Exception error) { App.LogStage("Settings theme preference fallback: " + error.Message); }
+        if (Content is FrameworkElement root) {
+            if (App.InstallPackageRoot is null) {
+                try { root.RequestedTheme = MainPage.SettingsElementTheme(SettingsUiPreferences.Load(SettingsUiPreferences.DefaultPath).SettingsTheme); }
+                catch (Exception error) { App.LogStage("Settings theme preference fallback: " + error.Message); }
+            }
+            WindowTitleBarAppearance.Bind(this, root);
         }
         LogoAppearance.BindWindow(this, AppTitleBar, showTitleBarIcon: App.InstallPackageRoot is not null);
 

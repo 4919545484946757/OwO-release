@@ -249,8 +249,6 @@ internal sealed class DictionaryManager : UserControl
         var descriptionText = new TextBlock { Text = description, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.Wrap, Opacity = 0.75 };
         var stateText = new TextBlock { Text = state, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.7 };
         body.Children.Add(title); body.Children.Add(descriptionText); body.Children.Add(stateText);
-        var operationBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-            Windows.UI.Color.FromArgb(120, 0, 0, 0));
         var card = new Button { Content = body, Padding = new Thickness(16, 16, 16, 72),
             CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(0), MinWidth = 0,
             HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch,
@@ -274,12 +272,7 @@ internal sealed class DictionaryManager : UserControl
         };
         // Tint only the footer background, not the switch or its status text.
         // Keep it a sibling of the navigation button so toggling never opens details.
-        var actions = new Border {
-            Height = 64, VerticalAlignment = VerticalAlignment.Bottom,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            Margin = new Thickness(3, 0, 3, 3), CornerRadius = new CornerRadius(0, 0, 7, 7),
-            Background = operationBrush, Child = toggle,
-        };
+        var actions = DictionaryCardLayout.CreateFooter(toggle);
         AutomationProperties.SetAutomationId(actions, "DictionaryCardActions_" + id);
         host.Children.Add(actions);
         var flyout = new MenuFlyout();
