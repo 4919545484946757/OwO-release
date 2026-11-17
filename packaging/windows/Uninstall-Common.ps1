@@ -25,7 +25,7 @@ function Assert-OwOPlainPath([string]$Path) {
 function Get-OwOUninstallTarget([string]$ExpectedRoot = '') {
     $entry = Get-ItemProperty -LiteralPath $script:OwOUninstallKey -ErrorAction SilentlyContinue
     $registered = if ($null -ne $entry) { [string]$entry.InstallLocation } else { '' }
-    $fallback = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs\OwO\InputMethod\0.3.2'
+    $fallback = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs\OwO\InputMethod\0.3.3'
     $root = [IO.Path]::GetFullPath($(if ($registered) { $registered } else { $fallback })).TrimEnd('\')
     Assert-OwOPlainPath $root
     if ($root.Length -le 3 -or ($ExpectedRoot -and -not $root.Equals(

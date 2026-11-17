@@ -5,6 +5,7 @@ OwO Input Method is distributed under GPL-3.0-only. The binary package also cont
 - libime 1.1.15 and the OwO C ABI bridge — LGPL-2.1-or-later.
 - Fcitx5Utils 5.1.20 — LGPL-2.1-or-later.
 - Chinese language model `zh_CN.lm`, official Fcitx release asset dated 2026-08-04.
+- Chinese-GSDSimp r2.17 derived dependency and word-role tables — CC BY-SA 4.0. Attribution, source, and modifications are documented in `LICENSES/Chinese-GSDSimp-CC-BY-SA-4.0.md`.
 - libc++ 22.1.8 — Apache-2.0 WITH LLVM-exception.
 - zstd 1.5.7 — BSD-3-Clause.
 - libiconv 1.19 and gettext runtime 1.0 — LGPL/GPL family licenses included verbatim.
