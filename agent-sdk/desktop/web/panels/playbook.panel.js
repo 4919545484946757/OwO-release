@@ -125,6 +125,7 @@
           : "") +
         (progress.blocked ? '<span class="owo-pb-chip owo-pb-warn">阻塞 ' + progress.blocked + "</span>" : "") +
         (progress.failed ? '<span class="owo-pb-chip owo-pb-bad">失败 ' + progress.failed + "</span>" : "") +
+        (progress.complete ? '<span class="owo-pb-chip">已完成</span>' : "") +
         "</div>" +
         issueHtml +
         '<div class="owo-pb-detail" hidden></div>' +

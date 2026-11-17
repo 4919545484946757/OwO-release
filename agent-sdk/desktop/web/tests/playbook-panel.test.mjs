@@ -98,6 +98,8 @@ test("card() escapes names and surfaces warnings/next", () => {
   assert.match(html, /结构化评审/);
   assert.match(html, /data-pb-archive="playbooks\/code-review\.json"/);
   assert.match(html, /data-pb-reset="playbooks\/code-review\.json"/);
+  const done = panel._test.card({ ...listPayload.playbooks[0], progress: { ...listPayload.playbooks[0].progress, complete: true } });
+  assert.match(done, /已完成/);
 });
 
 test("stepRow() renders warnings and hides actions for passed steps", () => {
