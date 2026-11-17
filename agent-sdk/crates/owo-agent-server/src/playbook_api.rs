@@ -285,6 +285,7 @@ async fn status(
                 "note": note,
                 "attempts": run.attempts(&step.id),
                 "failure_kind": run.failure_kind(&step.id),
+                "max_attempts": step.max_attempts,
                 "command": step.command,
                 "warnings": warnings,
             })

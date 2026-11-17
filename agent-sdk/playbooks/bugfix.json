@@ -25,6 +25,7 @@
       "detail": "跑受影响范围或全量测试，退出码即结论。",
       "acceptance": "测试命令 exit 0",
       "command": "cargo test --locked",
+      "max_attempts": 2,
       "depends_on": ["fix"]
     },
     {

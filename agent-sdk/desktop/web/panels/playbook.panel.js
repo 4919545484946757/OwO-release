@@ -172,6 +172,13 @@
       var failureKind = step.failure_kind
         ? '<div class="hint">失败类型：<code>' + esc(step.failure_kind) + "</code></div>"
         : "";
+      var retryBudget = step.max_attempts
+        ? '<div class="hint">重试上限：' +
+          esc(step.max_attempts) +
+          " 次（已失败 " +
+          esc(step.attempts || 0) +
+          " 次）</div>"
+        : "";
       return (
         '<div class="owo-pb-step owo-pb-' + esc(step.state) + '">' +
         '<div class="owo-pb-step-head"><span class="owo-pb-mark">' + mark(step.state) +
@@ -180,6 +187,7 @@
         (step.note ? '<div class="hint">' + esc(step.note) + "</div>" : "") +
         (step.attempts ? '<div class="hint">已尝试 ' + step.attempts + " 次</div>" : "") +
         failureKind +
+        retryBudget +
         command +
         warnings +
         action +
