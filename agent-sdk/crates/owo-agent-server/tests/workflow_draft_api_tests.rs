@@ -729,7 +729,7 @@ async fn verify_outcome_is_written_back_and_fed_into_next_evidence() {
     let (status, verified) = call(
         &fixture.state,
         "POST",
-        &format!("/teams"),
+        "/teams",
         Some(
             &json!({
                 "objective": "基线目标",

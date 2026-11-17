@@ -136,7 +136,26 @@ owo-agent playbook status --json playbooks/code-review.json
 - 输入按上限截断（步骤数、单步文本长度由 schema 控制），不做递归解释。
 - 文件读取容忍 UTF-8 BOM（Windows 编辑器常见），不改变内容语义。
 
-## 7. 下一步
+## 7. HTTP 面（桌面面板后端）
+
+只读写**工作区内**剧本与其同目录状态文件，不执行命令：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/playbooks` | 工作区 `playbooks/` 目录总览（含进度与 `next`；非法条目带 `issues` 不中断） |
+| GET | `/playbooks/status?file=` | 单个剧本逐步状态（`file` 为工作区内相对路径） |
+| POST | `/playbooks/record` | `{file, step, outcome: pass\|fail\|skip, note}`，写 `<剧本>.state.json` |
+
+契约已同步：`crates/owo-agent-server/src/openapi.json`、`clients/ts/openapi.json`、
+`clients/ts/src/schema.d.ts`，并由 `route_contract_tests` 校验可达与一致性。
+依赖注入测试见 `crates/owo-agent-server/tests/playbook_api_tests.rs`。
+
+**路径安全**：只接受工作区内相对路径；绝对路径、`..` 逃逸、`*.state.json` 与非 `*.json`
+一律 400。
+
+桌面「任务剧本」面板（第七轮列表 + 本轮 API 的渲染层）是下一步。
+
+## 8. 下一步
 
 1. **执行驱动**：`playbook run` 按 `next_ready()` 推进；`check` 步骤经 Tool Host 执行并
    记录证据，`model` 步骤走一次 Agent 回合，`human` 步骤挂审批；

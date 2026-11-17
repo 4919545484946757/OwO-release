@@ -348,6 +348,8 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .with_state(state.clone())
         .merge(notes_api::router(state.clone()))
         .merge(plugin_market_api::router(state.clone()))
+        // 任务剧本：列表/单剧本状态/记录（只读写工作区内剧本与状态文件，不执行命令）。
+        .merge(playbook_api::router(state.clone()))
         .merge(workflow_api::router(state.clone()))
         .merge(goal_api::router(state.clone()))
         .merge(sse::router(state.clone()))

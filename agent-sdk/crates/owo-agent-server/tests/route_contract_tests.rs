@@ -2480,6 +2480,7 @@ async fn mutation_routes_publish_exactly_one_domain_invalidate() {
             "desktop_observation": false,
             "desktop_control": false,
             "browser": false,
+            "playbooks": false,
         }),
         "旧/默认工作区不得隐式启用可选工具能力"
     );

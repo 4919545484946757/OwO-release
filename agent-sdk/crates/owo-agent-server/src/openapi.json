@@ -11132,6 +11132,86 @@
           }
         }
       }
+    },
+    "/playbooks": {
+      "get": {
+        "operationId": "playbookList",
+        "responses": {
+          "200": {
+            "description": "workspace playbooks with progress"
+          }
+        }
+      }
+    },
+    "/playbooks/status": {
+      "get": {
+        "operationId": "playbookStatus",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "single playbook progress"
+          },
+          "400": {
+            "description": "invalid path or playbook"
+          }
+        }
+      }
+    },
+    "/playbooks/record": {
+      "post": {
+        "operationId": "playbookRecord",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "step",
+                  "outcome"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  },
+                  "step": {
+                    "type": "string"
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "pass",
+                      "fail",
+                      "skip"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "recorded progress"
+          },
+          "400": {
+            "description": "invalid request"
+          }
+        }
+      }
     }
   },
   "security": [

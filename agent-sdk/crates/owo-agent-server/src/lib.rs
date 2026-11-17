@@ -65,6 +65,7 @@ mod observability_api;
 mod openapi;
 mod ops_api;
 mod perception_api;
+mod playbook_api;
 mod plugin_api;
 mod plugin_market_api;
 pub mod product_eval_api;
