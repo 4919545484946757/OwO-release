@@ -96,21 +96,51 @@ impl PlaybookIssue {
 }
 
 /// `check` 命令里值得提醒的高风险片段（只提示，不阻断；执行仍经宿主审批）。
-const RISKY_COMMAND_PATTERNS: &[&str] = &[
-    "rm -rf",
-    "rm -fr",
-    "del /f",
-    "del /s",
-    "format ",
-    "remove-item -recurse -force",
-    "curl | sh",
-    "curl | bash",
-    "wget | sh",
-    "wget | bash",
-    "mkfs",
-    "shutdown ",
-    "reboot ",
-    "> /dev/sd",
+const RISKY_COMMAND_PATTERNS: &[(&str, &str)] = &[
+    (
+        "rm -rf",
+        "先 `ls`/`git status` 确认目标，优先用可回滚的备份或显式文件列表",
+    ),
+    (
+        "rm -fr",
+        "先 `ls`/`git status` 确认目标，优先用可回滚的备份或显式文件列表",
+    ),
+    (
+        "del /f",
+        "先列出目标文件，确认后再删；优先移到回收站便于恢复",
+    ),
+    (
+        "del /s",
+        "先列出目标文件，确认后再删；优先移到回收站便于恢复",
+    ),
+    (
+        "format ",
+        "格式化不应出现在可自动执行的剧本里，改为人工磁盘操作",
+    ),
+    (
+        "remove-item -recurse -force",
+        "先确认路径并备份；批量删除优先显式列举目标",
+    ),
+    (
+        "curl | sh",
+        "先下载到文件、校验哈希/签名后再执行，避免管道直通",
+    ),
+    (
+        "curl | bash",
+        "先下载到文件、校验哈希/签名后再执行，避免管道直通",
+    ),
+    (
+        "wget | sh",
+        "先下载到文件、校验哈希/签名后再执行，避免管道直通",
+    ),
+    (
+        "wget | bash",
+        "先下载到文件、校验哈希/签名后再执行，避免管道直通",
+    ),
+    ("mkfs", "文件系统操作不应出现在可自动执行的剧本里"),
+    ("shutdown ", "关机/重启不应出现在可自动执行的剧本里"),
+    ("reboot ", "关机/重启不应出现在可自动执行的剧本里"),
+    ("> /dev/sd", "不要直接写块设备；改为写文件并显式指定目标"),
 ];
 
 impl Playbook {
@@ -125,13 +155,13 @@ impl Playbook {
                 continue;
             }
             let command = step.command.to_ascii_lowercase();
-            for pattern in RISKY_COMMAND_PATTERNS {
+            for (pattern, suggestion) in RISKY_COMMAND_PATTERNS {
                 if command.contains(pattern) {
                     warnings.push(PlaybookIssue::new(
                         "check_command_risky",
                         Some(&step.id),
                         format!(
-                            "步骤 `{}` 的命令含高风险片段 `{pattern}`：执行前请确认可回滚，优先改成只读校验",
+                            "步骤 `{}` 的命令含高风险片段 `{pattern}`：{suggestion}（执行前仍需审批）",
                             step.id
                         ),
                     ));

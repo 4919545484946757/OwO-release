@@ -168,8 +168,8 @@ owo-agent playbook status --json playbooks/code-review.json
 - 本模块**不执行任何命令**：`check` 步骤的 `acceptance` 只是文本判据，真正执行必须由
   宿主经 Tool Host（权限/审批/审计/沙箱一个都不能绕）。
 - `validate` 对 `check` 命令做**风险提示**（`rm -rf`、`curl | sh`、`mkfs` 等
-  `check_command_risky`）：默认不阻断，`--strict` 才视为失败；列表/面板也会显示
-  "高风险命令 N 条"。提示不是授权，执行前仍需审批。
+  `check_command_risky`）：**附替代建议**，默认不阻断，`--strict` 才视为失败；
+  列表/面板也会显示"高风险命令 N 条"。提示不是授权，执行前仍需审批。
 - 输入按上限截断（步骤数、单步文本长度由 schema 控制），不做递归解释。
 - 文件读取容忍 UTF-8 BOM（Windows 编辑器常见），不改变内容语义。
 
