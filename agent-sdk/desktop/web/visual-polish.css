@@ -526,3 +526,17 @@ body.panel-open #panelRoot > section[data-panel] { border: 0; border-radius: 0; 
   flex: 1 1 180px; min-width: 120px; border: 1px solid var(--border-strong);
   border-radius: 8px; padding: 5px 8px; font: inherit; background: var(--surface); color: var(--text);
 }
+
+.owo-pb-cmd { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.owo-pb-copy {
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+  border-radius: 6px; padding: 1px 8px; font: inherit; cursor: pointer;
+}
+.owo-pb-copy:hover { background: var(--accent-soft); }
+.owo-pb-error.owo-pb-ok { color: var(--green); }
+.owo-pb-panel button:focus-visible,
+.owo-pb-panel input:focus-visible,
+.owo-pb-panel summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

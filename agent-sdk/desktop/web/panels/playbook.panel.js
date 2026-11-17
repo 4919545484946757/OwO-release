@@ -104,7 +104,9 @@
         '<article class="owo-pb-card" data-path="' + esc(item.path) + '">' +
         '<div class="owo-pb-card-head"><div><b>' + esc(item.name || item.id || "未命名") + "</b>" +
         '<div class="sub">' + esc(item.id || "") + " · " + esc(item.steps || 0) + " 步 · " +
-        esc(summary) + "</div></div>" +
+        esc(summary) + "</div>" +
+        (item.description ? '<div class="hint">' + esc(item.description) + "</div>" : "") +
+        "</div>" +
         '<button type="button" class="owo-pb-toggle" data-pb-toggle="' + esc(item.path) + '">' +
         (expanded ? "收起" : "打开") + "</button></div>" +
         bar(progress) +
@@ -151,7 +153,10 @@
           "</div>";
       }
       var command = step.command
-        ? '<div class="hint">命令：<code>' + esc(step.command) + "</code>（由 Agent 的 playbook_check 执行）</div>"
+        ? '<div class="hint owo-pb-cmd">命令：<code>' + esc(step.command) + "</code>" +
+          '<button type="button" class="owo-pb-copy" data-pb-copy="' + esc(step.command) +
+          '" aria-label="复制步骤 ' + esc(step.id) + ' 的命令">复制</button>' +
+          "<span>（由 Agent 的 playbook_check 执行）</span></div>"
         : "";
       return (
         '<div class="owo-pb-step owo-pb-' + esc(step.state) + '">' +
@@ -179,10 +184,15 @@
     }
 
     function showError(root, message) {
+      notify(root, message, false);
+    }
+
+    function notify(root, message, ok) {
       var box = root.querySelector(".owo-pb-error");
       if (!box) return;
       box.hidden = !message;
       box.textContent = message || "";
+      if (box.classList) box.classList.toggle("owo-pb-ok", Boolean(ok));
     }
 
     function toggle(root, path) {
@@ -252,6 +262,23 @@
             recordButton.getAttribute("data-pb-record"),
             recordButton.getAttribute("data-pb-outcome")
           );
+          return;
+        }
+        var copyButton = target.closest("[data-pb-copy]");
+        if (copyButton) {
+          var command = copyButton.getAttribute("data-pb-copy") || "";
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(command).then(
+              function () {
+                notify(root, "已复制命令：" + command, true);
+              },
+              function () {
+                notify(root, "复制失败，请手动选择命令", false);
+              }
+            );
+          } else {
+            notify(root, "当前环境不支持剪贴板，请手动选择命令", false);
+          }
         }
       });
     }

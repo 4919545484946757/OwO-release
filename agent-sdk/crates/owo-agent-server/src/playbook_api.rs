@@ -208,6 +208,7 @@ async fn list(State(state): State<std::sync::Arc<owo_agent_server::AppState>>) -
                 Ok(run) => playbooks.push(json!({
                     "id": playbook.id,
                     "name": playbook.name,
+                    "description": playbook.description,
                     "path": display,
                     "steps": playbook.steps.len(),
                     "ok": true,
@@ -218,6 +219,7 @@ async fn list(State(state): State<std::sync::Arc<owo_agent_server::AppState>>) -
                 Err(error) => playbooks.push(json!({
                     "id": playbook.id,
                     "name": playbook.name,
+                    "description": playbook.description,
                     "path": display,
                     "steps": playbook.steps.len(),
                     "ok": false,
@@ -281,6 +283,7 @@ async fn status(
         "ok": true,
         "id": playbook.id,
         "name": playbook.name,
+        "description": playbook.description,
         "path": file.to_string_lossy(),
         "state_file": state_path(&file).to_string_lossy(),
         "progress": progress_json(&playbook, &run),
