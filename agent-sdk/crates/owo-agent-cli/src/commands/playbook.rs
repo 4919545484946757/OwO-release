@@ -545,8 +545,16 @@ fn state_label(run: &PlaybookRun, playbook: &Playbook, step_id: &str) -> (&'stat
     match run.states.get(step_id).unwrap_or(&StepState::Pending) {
         StepState::Passed { evidence } => ("✔", format!("通过：{evidence}")),
         StepState::Failed {
-            reason, attempts, ..
-        } => ("✘", format!("失败 {attempts} 次：{reason}")),
+            reason,
+            attempts,
+            kind,
+        } => {
+            let kind = kind
+                .as_deref()
+                .map(|kind| format!("（{kind}）"))
+                .unwrap_or_default();
+            ("✘", format!("失败 {attempts} 次{kind}：{reason}"))
+        }
         StepState::Skipped { reason } => ("⊘", format!("跳过：{reason}")),
         StepState::Pending => {
             if run.is_blocked(playbook, step_id) {
@@ -731,6 +739,15 @@ fn next(
                 .filter(|warning| warning.step.as_deref() == Some(step.id.as_str()))
             {
                 println!("  提示：{}", warning.message);
+            }
+            if let Some(kind) = loaded.run.failure_kind(&step.id) {
+                println!(
+                    "  上次失败类型：{kind}（已失败 {} 次，重试上限 {}）",
+                    loaded.run.attempts(&step.id),
+                    step.max_attempts
+                        .map(|limit| limit.to_string())
+                        .unwrap_or_else(|| "不限".to_string())
+                );
             }
             println!("进度：{}", loaded.run.summary(&loaded.playbook));
         }
