@@ -54,9 +54,10 @@
 - OAuth / 凭据引用：规范本身不定义，留给客户端；当前 HTTP 服务器不做授权发现。
 - `extensions` 里**非对象**的成员值按 §5.2 判为 schema 违规（致命）；只有「`extensions`
   整体不是对象」是非致命的。
-- 规范包**可经市场安装**（`/plugins/market/install|verify|scan` 识别 `plugin.json`，
-  走同一套前置风险扫描与安装审计）；签名与吊销仍只覆盖历史 `manifest.json` 格式，
-  规范包按未签名包处理——这是刻意的：规范包定位是「可移植」，签名是 OwO 自己的治理增强。
+- 规范包**可经市场安装与更新**（`/plugins/market/install|update|verify|scan` 识别
+  `plugin.json`，走同一套前置风险扫描、安装审计与旧版备份）；签名与吊销仍只覆盖历史
+  `manifest.json` 格式，规范包按未签名包处理——这是刻意的：规范包定位是「可移植」，
+  签名是 OwO 自己的治理增强。
 
 ## 3. 包长什么样
 

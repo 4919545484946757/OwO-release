@@ -207,6 +207,45 @@ async fn install_accepts_agent_plugin_normative_package() {
     assert_eq!(body["report"]["id"], "pkg-demo", "{body}");
 }
 
+#[tokio::test]
+async fn update_accepts_agent_plugin_normative_package() {
+    let (state, temp) = test_state();
+    let package = write_agent_plugin(&temp.path().join("ws"), "agent-pkg");
+    let (status, body) = call(
+        &router(state.clone()),
+        request(
+            "POST",
+            "/plugins/market/install",
+            Some(r#"{"dir":"agent-pkg"}"#),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // 同目录升到 1.1.0 后走 update：应备份旧版并替换。
+    let manifest = serde_json::to_string_pretty(&json!({
+        "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+        "name": "pkg-demo",
+        "version": "1.1.0",
+        "description": "规范包示例（更新）"
+    }))
+    .unwrap();
+    std::fs::write(package.join("plugin.json"), manifest).unwrap();
+    let (status, body) = call(
+        &router(state),
+        request(
+            "POST",
+            "/plugins/market/update",
+            Some(r#"{"id":"pkg-demo","dir":"agent-pkg"}"#),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["report"]["version"], "1.1.0", "{body}");
+    let backups = temp.path().join("plugins").join("backups");
+    assert!(backups.is_dir(), "旧版应备份到 backups/");
+}
+
 // ---------- 目录 / seed / versions ----------
 
 #[tokio::test]
