@@ -225,6 +225,49 @@ async fn record_writes_state_and_advances() {
 }
 
 #[tokio::test]
+async fn reset_snapshots_then_clears_progress() {
+    let (state, _temp) = test_state();
+    let workspace = state.workspace.clone();
+    write_playbook(&workspace, "demo", "");
+    let router = playbook_api::router(state);
+
+    let (status, _) = call(
+        &router,
+        "POST",
+        "/playbooks/record",
+        Some(r#"{"file":"playbooks/demo.json","step":"a","outcome":"pass","note":"ok"}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = call(
+        &router,
+        "POST",
+        "/playbooks/reset",
+        Some(r#"{"file":"playbooks/demo.json"}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let marker = body["snapshot"].as_str().unwrap();
+    assert!(marker.starts_with("reset-"), "{body}");
+    assert!(!workspace.join("playbooks/demo.state.json").exists());
+    assert!(workspace
+        .join("playbooks/demo.runs")
+        .join(format!("{marker}.json"))
+        .exists());
+
+    // 再重置：已经没有状态，返回 400。
+    let (status, _) = call(
+        &router,
+        "POST",
+        "/playbooks/reset",
+        Some(r#"{"file":"playbooks/demo.json"}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn init_creates_skeleton_and_rejects_bad_input() {
     let (state, _temp) = test_state();
     let workspace = state.workspace.clone();

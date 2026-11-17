@@ -11300,6 +11300,37 @@
           }
         }
       }
+    },
+    "/playbooks/reset": {
+      "post": {
+        "operationId": "playbookReset",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "snapshot taken and progress reset"
+          },
+          "400": {
+            "description": "no state to reset"
+          }
+        }
+      }
     }
   },
   "security": [

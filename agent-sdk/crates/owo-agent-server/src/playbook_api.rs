@@ -26,6 +26,7 @@ pub fn router(state: std::sync::Arc<owo_agent_server::AppState>) -> axum::Router
         .route("/playbooks/record", axum::routing::post(record))
         .route("/playbooks/archive", axum::routing::post(archive))
         .route("/playbooks/init", axum::routing::post(init))
+        .route("/playbooks/reset", axum::routing::post(reset))
         .with_state(state)
 }
 
@@ -537,6 +538,63 @@ async fn init(
         "id": id,
         "path": format!("playbooks/{id}.json"),
         "steps": 3,
+    })))
+}
+
+#[derive(Deserialize)]
+struct ResetRequest {
+    file: String,
+}
+
+/// POST /playbooks/reset {file}：重置进度。
+///
+/// 破坏性操作的安全网：删除前先把手头状态快照到 `<剧本>.runs/reset-<时间戳>.json`，
+/// 同时清除派发日志（否则"结果未知"会一直挡着重跑）。
+async fn reset(
+    State(state): State<std::sync::Arc<owo_agent_server::AppState>>,
+    Json(request): Json<ResetRequest>,
+) -> ApiResult {
+    let file = resolve_in_workspace(&state.workspace, &request.file)
+        .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+    let playbook = load_playbook(&file).map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+    let state_file = state_path(&file);
+    if !state_file.exists() {
+        return Err(err(StatusCode::BAD_REQUEST, "还没有运行状态，无需重置"));
+    }
+    let millis = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis())
+        .unwrap_or(0);
+    let marker = format!("reset-{millis}");
+    let dir = file.with_extension("runs");
+    std::fs::create_dir_all(&dir).map_err(|error| {
+        err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("创建归档目录失败：{error}"),
+        )
+    })?;
+    let snapshot = dir.join(format!("{marker}.json"));
+    std::fs::copy(&state_file, &snapshot).map_err(|error| {
+        err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("保存快照失败：{error}"),
+        )
+    })?;
+    std::fs::remove_file(&state_file).map_err(|error| {
+        err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("删除状态失败：{error}"),
+        )
+    })?;
+    let journal = file.with_extension("journal.jsonl");
+    if journal.exists() {
+        let _ = std::fs::remove_file(&journal);
+    }
+    Ok(Json(json!({
+        "ok": true,
+        "id": playbook.id,
+        "snapshot": marker,
+        "state_file": state_file.to_string_lossy(),
     })))
 }
 

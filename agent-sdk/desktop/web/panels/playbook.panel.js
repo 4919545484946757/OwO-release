@@ -114,6 +114,8 @@
         '<div class="owo-pb-card-actions">' +
         '<button type="button" class="owo-pb-archive" data-pb-archive="' + esc(item.path) +
         '" title="把当前进度保存为历史快照">保存快照</button>' +
+        '<button type="button" class="owo-pb-reset" data-pb-reset="' + esc(item.path) +
+        '" title="先保存快照，再清空进度">重置</button>' +
         '<button type="button" class="owo-pb-toggle" data-pb-toggle="' + esc(item.path) + '">' +
         (expanded ? "收起" : "打开") + "</button></div></div>" +
         bar(progress) +
@@ -423,6 +425,18 @@
         });
     }
 
+    /// 重置进度：服务端会先保存 `reset-<时间戳>` 快照再清空状态与派发日志。
+    function resetProgress(root, path) {
+      return post("/playbooks/reset", { file: path })
+        .then(function (data) {
+          notify(root, "已重置，快照：" + (data.snapshot || ""), true);
+          return refresh(root);
+        })
+        .catch(function (error) {
+          showError(root, "重置失败：" + friendly(error));
+        });
+    }
+
     function record(root, path, step, outcome) {
       var cardEl = root.querySelector('.owo-pb-card[data-path="' + cssEscape(path) + '"]');
       var input = cardEl
@@ -485,6 +499,19 @@
         var archiveButton = target.closest("[data-pb-archive]");
         if (archiveButton) {
           archiveSnapshot(root, archiveButton.getAttribute("data-pb-archive"));
+          return;
+        }
+        var resetButton = target.closest("[data-pb-reset]");
+        if (resetButton) {
+          var resetCard = resetButton.closest(".owo-pb-card");
+          if (!resetCard) return;
+          if (resetCard.getAttribute("data-reset-armed") === "1") {
+            resetProgress(root, resetCard.getAttribute("data-path"));
+          } else {
+            resetCard.setAttribute("data-reset-armed", "1");
+            resetButton.textContent = "确认重置？";
+            notify(root, "再次点击「确认重置？」：会先保存快照再清空进度", false);
+          }
           return;
         }
         var compareButton = target.closest("[data-pb-compare]");

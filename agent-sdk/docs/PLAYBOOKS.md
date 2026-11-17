@@ -212,6 +212,8 @@ owo-agent playbook status --json playbooks/code-review.json
 | GET | `/playbooks/status?file=` | 单个剧本逐步状态（`file` 为工作区内相对路径） |
 | GET | `/playbooks/history?file=` | 归档列表（含每步状态，前端可本地对比两次运行） |
 | POST | `/playbooks/archive` | `{file, marker?}`：把当前状态快照到 `<剧本>.runs/`（面板「保存快照」；默认 `ui-<时间戳>`） |
+| POST | `/playbooks/init` | `{id}`：在工作区 `playbooks/` 新建三步骨架（面板「新建剧本」）；重名/非法 id 400 |
+| POST | `/playbooks/reset` | `{file}`：先保存 `reset-<时间戳>` 快照，再清空状态与派发日志（面板「重置」，二次确认） |
 | POST | `/playbooks/record` | `{file, step, outcome: pass\|fail\|skip, note}`，写 `<剧本>.state.json` |
 
 契约已同步：`crates/owo-agent-server/src/openapi.json`、`clients/ts/openapi.json`、
@@ -224,7 +226,7 @@ owo-agent playbook status --json playbooks/code-review.json
 
 桌面「任务剧本」面板（`desktop/web/panels/playbook.panel.js`）已接入：工作台
 「自动化 → 任务剧本」。列表显示进度与下一步；展开后逐步展示状态/命令，并提供
-通过/失败/跳过记录、新建剧本、保存快照、点击历史行做「该归档 → 当前」的逐步对比（含失败类型变化）
+通过/失败/跳过记录、新建剧本、保存快照、重置进度（二次确认 + 自动快照）、点击历史行做「该归档 → 当前」的逐步对比（含失败类型变化）
 （命令执行仍由 Agent 的 `playbook_check` 完成，面板不提供执行入口）。
 
 ## 9. 下一步

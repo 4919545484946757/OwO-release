@@ -26,7 +26,7 @@
 - `/advance --playbook`：宿主按剧本推进，完成由宿主判定；提示含重试预算与上次失败类型。
 - HTTP：`GET /playbooks`、`GET /playbooks/status`、`GET /playbooks/history`、
   `POST /playbooks/record`、`POST /playbooks/archive`。
-- 桌面「任务剧本」面板：新建剧本、进度、逐步记录、命令复制、保存快照、历史对比、风险与失败类型。
+- 桌面「任务剧本」面板：新建剧本、进度、逐步记录、命令复制、保存快照、重置进度（二次确认 + 自动快照）、历史对比、风险与失败类型。
 - 模板：code-review / release-check / bugfix / weekly-report；目录批量校验。
 
 **耐久语义**

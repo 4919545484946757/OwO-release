@@ -4990,6 +4990,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/playbooks/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["playbookReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -14235,6 +14251,37 @@ export interface operations {
                 content?: never;
             };
             /** @description invalid or duplicate id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    playbookReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description snapshot taken and progress reset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description no state to reset */
             400: {
                 headers: {
                     [name: string]: unknown;
