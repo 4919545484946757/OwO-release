@@ -47,7 +47,9 @@
 校验规则（`Playbook::validate`）：id/name 非空、至少一步、≤64 步、步骤 id 唯一、
 依赖存在、禁止自依赖、无环；未知依赖**不会**被误报成环（两者分开报告）。
 
-示例：`playbooks/code-review.json`、`playbooks/release-check.json`。
+示例：`playbooks/code-review.json`、`playbooks/release-check.json`、
+`playbooks/bugfix.json`（先复现再修的缺陷流程）、`playbooks/weekly-report.json`
+（周报整理）。需要新剧本时用 `playbook init <id>` 生成骨架。
 
 ## 3. 进度状态机
 
@@ -88,7 +90,11 @@ owo-agent playbook reset  playbooks/code-review.json        # 清空重来
 owo-agent playbook list
 owo-agent playbook list --json
 
-# 机器可读（status / next / record / reset / list 都支持）
+# 生成骨架（默认 playbooks/<id>.json；--force 覆盖）
+owo-agent playbook init my-flow
+owo-agent playbook init my-flow --out playbooks/my-flow.json --force
+
+# 机器可读（status / next / record / reset / list / init 都支持）
 owo-agent playbook status --json playbooks/code-review.json
 ```
 

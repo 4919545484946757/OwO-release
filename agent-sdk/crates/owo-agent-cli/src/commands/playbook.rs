@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use clap::{Args, Subcommand};
 use owo_agent_core::playbook::{
-    Playbook, PlaybookIssue, PlaybookRun, StepKind, StepState, MAX_PLAYBOOK_STEPS,
+    Playbook, PlaybookIssue, PlaybookRun, PlaybookStep, StepKind, StepState, MAX_PLAYBOOK_STEPS,
 };
 
 #[derive(Args)]
@@ -71,6 +71,17 @@ pub(crate) enum PlaybookAction {
         #[arg(default_value = "playbooks")]
         dir: PathBuf,
     },
+    /// 生成一份剧本骨架（默认写 `playbooks/<id>.json`）
+    Init {
+        /// 剧本 id（小写字母/数字/连字符）
+        id: String,
+        /// 输出路径（默认 `playbooks/<id>.json`）
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// 覆盖已存在的文件
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 pub(crate) fn run_playbook_cmd(args: PlaybookArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -89,6 +100,7 @@ pub(crate) fn run_playbook_cmd(args: PlaybookArgs) -> Result<(), Box<dyn std::er
         } => record(&file, &step, pass, fail, skip, run.as_deref(), args.json),
         PlaybookAction::Reset { file, run } => reset(&file, run.as_deref(), args.json),
         PlaybookAction::List { dir } => list(&dir, args.json),
+        PlaybookAction::Init { id, out, force } => init(&id, out.as_deref(), force, args.json),
     }
 }
 
@@ -775,6 +787,111 @@ fn reset(
     Ok(())
 }
 
+/// 剧本 id 约束：1–64 字符、小写字母/数字/连字符、首尾字母数字。
+fn validate_playbook_id(id: &str) -> Result<(), String> {
+    if id.is_empty() || id.chars().count() > 64 {
+        return Err("剧本 id 长度必须在 1–64 之间".to_string());
+    }
+    if !id.chars().all(|character| {
+        character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
+    }) {
+        return Err("剧本 id 只允许小写字母、数字与连字符".to_string());
+    }
+    let first = id.chars().next().unwrap_or(' ');
+    let last = id.chars().last().unwrap_or(' ');
+    if !first.is_ascii_alphanumeric() || !last.is_ascii_alphanumeric() {
+        return Err("剧本 id 必须以字母或数字开头/结尾".to_string());
+    }
+    Ok(())
+}
+
+/// 骨架：plan(model) → check(check，命令留空=人工判定) → deliver(human)。
+fn skeleton(id: &str) -> Playbook {
+    let step =
+        |id: &str, title: &str, kind: StepKind, detail: &str, acceptance: &str, dep: &[&str]| {
+            PlaybookStep {
+                id: id.to_string(),
+                title: title.to_string(),
+                detail: detail.to_string(),
+                acceptance: acceptance.to_string(),
+                command: String::new(),
+                depends_on: dep.iter().map(|value| value.to_string()).collect(),
+                kind,
+            }
+        };
+    Playbook {
+        id: id.to_string(),
+        name: id.to_string(),
+        description: "TODO：说明这类任务的输入、产出与边界".to_string(),
+        steps: vec![
+            step(
+                "plan",
+                "确认任务范围",
+                StepKind::Model,
+                "读输入、确认产出与不做的事。",
+                "列出输入、产出与不做的事",
+                &[],
+            ),
+            step(
+                "check",
+                "可自动校验的检查",
+                StepKind::Check,
+                "能写成一条「退出码即结论」的命令就填 command；留空则人工判定。",
+                "TODO：写可判定的判据",
+                &["plan"],
+            ),
+            step(
+                "deliver",
+                "评审与交付",
+                StepKind::Human,
+                "汇总证据，交给人工确认。",
+                "人工确认结果",
+                &["check"],
+            ),
+        ],
+    }
+}
+
+fn init(
+    id: &str,
+    out: Option<&Path>,
+    force: bool,
+    json: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    validate_playbook_id(id).map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
+    let path = out
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("playbooks").join(format!("{id}.json")));
+    if path.exists() && !force {
+        return Err(format!("{} 已存在（用 --force 覆盖）", path.display()).into());
+    }
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)
+                .map_err(|error| format!("创建目录失败（{}）：{error}", parent.display()))?;
+        }
+    }
+    let playbook = skeleton(id);
+    let content = serde_json::to_string_pretty(&playbook)?;
+    std::fs::write(&path, content)
+        .map_err(|error| format!("写入失败（{}）：{error}", path.display()))?;
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "ok": true,
+                "id": playbook.id,
+                "path": path.to_string_lossy(),
+                "steps": playbook.steps.len(),
+            })
+        );
+    } else {
+        println!("已生成剧本骨架：{}", path.display());
+        println!("下一步：用 `owo-agent playbook validate` 校验，再按需补 command 与判据");
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -798,6 +915,29 @@ mod tests {
         )
         .unwrap();
         file
+    }
+
+    #[test]
+    fn init_writes_valid_skeleton_and_refuses_overwrite() {
+        let dir = scratch("init");
+        let path = dir.join("playbooks").join("demo.json");
+        init("demo", Some(&path), false, false).unwrap();
+        let playbook = load(&path).unwrap();
+        assert_eq!(playbook.id, "demo");
+        assert!(playbook.validate().is_empty(), "{:?}", playbook.validate());
+        assert_eq!(playbook.steps.len(), 3);
+
+        // 默认不覆盖；--force 可以。
+        assert!(init("demo", Some(&path), false, false).is_err());
+        init("demo", Some(&path), true, false).unwrap();
+
+        // id 约束。
+        assert!(validate_playbook_id("Bad").is_err());
+        assert!(validate_playbook_id("-lead").is_err());
+        assert!(validate_playbook_id("a b").is_err());
+        assert!(validate_playbook_id("ok-2").is_ok());
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

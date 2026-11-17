@@ -1,0 +1,39 @@
+{
+  "id": "bugfix",
+  "name": "缺陷修复",
+  "description": "先复现再修：写出能复现的用例 → 修复 → 全量测试通过 → 人工确认。verify 由宿主跑测试，不需要模型回合。",
+  "steps": [
+    {
+      "id": "reproduce",
+      "title": "复现缺陷",
+      "kind": "model",
+      "detail": "写出能稳定复现的最小用例（先红），记录触发条件与影响范围。",
+      "acceptance": "有用例能稳定复现（红），并写清触发条件"
+    },
+    {
+      "id": "fix",
+      "title": "实现修复",
+      "kind": "model",
+      "detail": "最小改动修复；不要顺手重构无关代码。",
+      "acceptance": "改动只覆盖缺陷范围，附原因说明",
+      "depends_on": ["reproduce"]
+    },
+    {
+      "id": "verify",
+      "title": "运行测试",
+      "kind": "check",
+      "detail": "跑受影响范围或全量测试，退出码即结论。",
+      "acceptance": "测试命令 exit 0",
+      "command": "cargo test --locked",
+      "depends_on": ["fix"]
+    },
+    {
+      "id": "summarize",
+      "title": "复盘与交付",
+      "kind": "human",
+      "detail": "汇总根因、修复与验证证据，交人工确认。",
+      "acceptance": "人工确认修复与证据",
+      "depends_on": ["verify"]
+    }
+  ]
+}
