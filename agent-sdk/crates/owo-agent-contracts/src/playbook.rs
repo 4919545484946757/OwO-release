@@ -95,7 +95,52 @@ impl PlaybookIssue {
     }
 }
 
+/// `check` 命令里值得提醒的高风险片段（只提示，不阻断；执行仍经宿主审批）。
+const RISKY_COMMAND_PATTERNS: &[&str] = &[
+    "rm -rf",
+    "rm -fr",
+    "del /f",
+    "del /s",
+    "format ",
+    "remove-item -recurse -force",
+    "curl | sh",
+    "curl | bash",
+    "wget | sh",
+    "wget | bash",
+    "mkfs",
+    "shutdown ",
+    "reboot ",
+    "> /dev/sd",
+];
+
 impl Playbook {
+    /// 命令风险提示：`check` 步骤内嵌破坏性命令时给出 warning（不是 fatal）。
+    ///
+    /// 这些命令本身**仍可执行**——是否执行由 Tool Host 的权限/审批决定；这里只是让
+    /// 剧本作者在 `validate` 时看见"这段会在审批通过后真的跑"。
+    pub fn risk_warnings(&self) -> Vec<PlaybookIssue> {
+        let mut warnings = Vec::new();
+        for step in &self.steps {
+            if step.command.trim().is_empty() {
+                continue;
+            }
+            let command = step.command.to_ascii_lowercase();
+            for pattern in RISKY_COMMAND_PATTERNS {
+                if command.contains(pattern) {
+                    warnings.push(PlaybookIssue::new(
+                        "check_command_risky",
+                        Some(&step.id),
+                        format!(
+                            "步骤 `{}` 的命令含高风险片段 `{pattern}`：执行前请确认可回滚，优先改成只读校验",
+                            step.id
+                        ),
+                    ));
+                }
+            }
+        }
+        warnings
+    }
+
     /// 校验结构：必填、id 唯一、依赖存在、无环、步骤数上限。
     pub fn validate(&self) -> Vec<PlaybookIssue> {
         let mut issues = Vec::new();
@@ -585,6 +630,24 @@ mod tests {
             .next_ready(&playbook)
             .map(|step| step.id != "ship")
             .unwrap_or(false));
+    }
+
+    #[test]
+    fn risky_check_commands_are_reported_as_warnings() {
+        let mut base = playbook();
+        base.steps[1].command = "rm -rf build && echo done".to_string();
+        let warnings = base.risk_warnings();
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(warnings[0].code, "check_command_risky");
+        assert_eq!(warnings[0].step.as_deref(), Some("check"));
+
+        // 安全命令与空命令不产生提示。
+        let mut safe = playbook();
+        safe.steps[1].command = "cargo test --locked".to_string();
+        assert!(safe.risk_warnings().is_empty());
+        let mut empty = playbook();
+        empty.steps[1].command = String::new();
+        assert!(empty.risk_warnings().is_empty());
     }
 
     #[test]

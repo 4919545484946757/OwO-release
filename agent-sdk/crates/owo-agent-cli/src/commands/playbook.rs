@@ -26,8 +26,12 @@ pub(crate) struct PlaybookArgs {
 
 #[derive(Subcommand)]
 pub(crate) enum PlaybookAction {
-    /// 校验剧本文件（结构/依赖/环/大小）
-    Validate { file: PathBuf },
+    /// 校验剧本文件或目录（结构/依赖/环/大小；--strict 把风险提示也当失败）
+    Validate {
+        file: PathBuf,
+        #[arg(long)]
+        strict: bool,
+    },
     /// 打印执行顺序与依赖（不执行）
     Plan { file: PathBuf },
     /// 查看运行进度（没有状态文件时显示初始进度）
@@ -109,7 +113,7 @@ pub(crate) enum PlaybookAction {
 
 pub(crate) fn run_playbook_cmd(args: PlaybookArgs) -> Result<(), Box<dyn std::error::Error>> {
     match args.action {
-        PlaybookAction::Validate { file } => validate(&file, args.json),
+        PlaybookAction::Validate { file, strict } => validate(&file, args.json, strict),
         PlaybookAction::Plan { file } => plan(&file, args.json),
         PlaybookAction::Status { file, run } => status(&file, run.as_deref(), args.json),
         PlaybookAction::Next { file, run } => next(&file, run.as_deref(), args.json),
@@ -165,16 +169,27 @@ fn issues_json(issues: &[PlaybookIssue]) -> Vec<serde_json::Value> {
         .collect()
 }
 
-fn validate(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn validate(file: &Path, json: bool, strict: bool) -> Result<(), Box<dyn std::error::Error>> {
     // 目录 = 一次校验全部剧本（CI/提交前用）。
     if file.is_dir() {
         let listed = collect_playbooks(file)?;
         let mut failed = 0usize;
         let mut items: Vec<serde_json::Value> = Vec::new();
         for item in &listed {
-            let ok = item.playbook.is_some() && item.issues.is_empty();
+            let warnings = item
+                .playbook
+                .as_ref()
+                .map(|playbook| playbook.risk_warnings())
+                .unwrap_or_default();
+            let mut ok = item.playbook.is_some() && item.issues.is_empty();
+            if strict && !warnings.is_empty() {
+                ok = false;
+            }
             if !ok {
                 failed += 1;
+            }
+            for warning in &warnings {
+                println!("  提示  [{}] {}", warning.code, warning.message);
             }
             items.push(serde_json::json!({
                 "path": item.path.to_string_lossy(),
@@ -227,19 +242,25 @@ fn validate(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     }
     let playbook = load(file)?;
     let issues = playbook.validate();
+    let warnings = playbook.risk_warnings();
+    let failed = !issues.is_empty() || (strict && !warnings.is_empty());
     if json {
         println!(
             "{}",
             serde_json::json!({
-                "ok": issues.is_empty(),
+                "ok": !failed,
                 "id": playbook.id,
                 "name": playbook.name,
                 "steps": playbook.steps.len(),
                 "max_steps": MAX_PLAYBOOK_STEPS,
                 "issues": issues_json(&issues),
+                "warnings": issues_json(&warnings),
             })
         );
-    } else if issues.is_empty() {
+        if failed {
+            std::process::exit(1);
+        }
+    } else if !failed {
         println!(
             "剧本通过：{}（{}）· {} 步",
             playbook.name,
@@ -254,18 +275,29 @@ fn validate(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
                 step.title
             );
         }
+        for warning in &warnings {
+            println!("  提示  [{}] {}", warning.code, warning.message);
+        }
     } else {
         println!(
-            "剧本不通过：{}（{}）· {} 个问题",
+            "剧本不通过：{}（{}）· {} 个问题{}",
             playbook.name,
             playbook.id,
-            issues.len()
+            issues.len(),
+            if strict && issues.is_empty() {
+                "（--strict：风险提示视为失败）"
+            } else {
+                ""
+            }
         );
         for issue in &issues {
             match &issue.step {
                 Some(step) => println!("  [{}] {}：{}", issue.code, step, issue.message),
                 None => println!("  [{}] {}", issue.code, issue.message),
             }
+        }
+        for warning in &warnings {
+            println!("  提示  [{}] {}", warning.code, warning.message);
         }
         std::process::exit(1);
     }
