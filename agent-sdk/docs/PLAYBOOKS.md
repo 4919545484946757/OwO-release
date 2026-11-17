@@ -76,8 +76,30 @@ owo-agent playbook validate playbooks/code-review.json
 # 打印拓扑序 + 判据 + 下一步（不执行）
 owo-agent playbook plan playbooks/release-check.json
 
-# 机器可读
-owo-agent playbook plan --json playbooks/code-review.json
+# 进度闭环（不执行任何命令，只记录结果）
+owo-agent playbook next   playbooks/code-review.json        # 首次会创建状态文件
+owo-agent playbook record playbooks/code-review.json scope --pass "看了 12 个文件"
+owo-agent playbook record playbooks/code-review.json build --fail "cargo check: E0308"
+owo-agent playbook status playbooks/code-review.json
+owo-agent playbook reset  playbooks/code-review.json        # 清空重来
+
+# 机器可读（status / next / record / reset 都支持）
+owo-agent playbook status --json playbooks/code-review.json
+```
+
+运行状态默认写在与剧本同目录的 `<剧本名>.state.json`（示例目录已用 `.gitignore`
+排除 `*.state.json`）；用 `--run <路径>` 可以改写到别处（例如数据目录）。
+
+状态文件就是 `PlaybookRun` 的 JSON，任何客户端都能读写同一份进度：
+
+```json
+{
+  "playbook_id": "code-review",
+  "states": {
+    "scope": { "state": "passed", "evidence": "看了 12 个文件" },
+    "build": { "state": "failed", "reason": "cargo check: E0308", "attempts": 1 }
+  }
+}
 ```
 
 ## 5. 安全边界

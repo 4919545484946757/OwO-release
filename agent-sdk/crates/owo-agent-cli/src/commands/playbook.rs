@@ -1,14 +1,17 @@
-//! `owo-agent playbook`：任务剧本的离线工具（校验 / 执行顺序预览）。
+//! `owo-agent playbook`：任务剧本的离线工具（校验 / 顺序预览 / 进度记录）。
 //!
-//! 纯读取 + 纯计算：不启动 Daemon、不执行剧本里的命令、不写工作区。
-//! 执行由后续的宿主驱动完成（Check 步骤经 Tool Host），本命令只回答两件事：
-//! 「这份剧本合法吗」「按什么顺序做」。
+//! 纯读取 + 纯计算 + 本地状态文件：不启动 Daemon、不执行剧本里的命令。
+//! 执行由宿主完成（Check 步骤经 Tool Host），本命令负责回答：
+//! 「这份剧本合法吗」「按什么顺序做」「下一步是什么」「这一步记什么结果」。
+//!
+//! 运行状态落在剧本旁边的 `<剧本名>.state.json`（可用 `--run` 指定），
+//! 格式就是 `PlaybookRun` 的 serde 形态：任何客户端都能读写同一份进度。
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::{Args, Subcommand};
 use owo_agent_core::playbook::{
-    Playbook, PlaybookIssue, PlaybookRun, StepKind, MAX_PLAYBOOK_STEPS,
+    Playbook, PlaybookIssue, PlaybookRun, StepKind, StepState, MAX_PLAYBOOK_STEPS,
 };
 
 #[derive(Args)]
@@ -26,16 +29,63 @@ pub(crate) enum PlaybookAction {
     Validate { file: PathBuf },
     /// 打印执行顺序与依赖（不执行）
     Plan { file: PathBuf },
+    /// 查看运行进度（没有状态文件时显示初始进度）
+    Status {
+        file: PathBuf,
+        /// 状态文件路径（默认 `<剧本名>.state.json`）
+        #[arg(long)]
+        run: Option<PathBuf>,
+    },
+    /// 显示下一个可执行步骤（不存在状态文件时创建）
+    Next {
+        file: PathBuf,
+        #[arg(long)]
+        run: Option<PathBuf>,
+    },
+    /// 记录一步的结果（pass/fail/skip 三选一）
+    Record {
+        file: PathBuf,
+        /// 步骤 id
+        step: String,
+        /// 通过（附证据）
+        #[arg(long)]
+        pass: Option<String>,
+        /// 失败（附原因；重复失败会累计尝试次数）
+        #[arg(long)]
+        fail: Option<String>,
+        /// 跳过（附原因；下游会被阻塞）
+        #[arg(long)]
+        skip: Option<String>,
+        #[arg(long)]
+        run: Option<PathBuf>,
+    },
+    /// 删除运行状态（下一次 next 重新开始）
+    Reset {
+        file: PathBuf,
+        #[arg(long)]
+        run: Option<PathBuf>,
+    },
 }
 
 pub(crate) fn run_playbook_cmd(args: PlaybookArgs) -> Result<(), Box<dyn std::error::Error>> {
     match args.action {
         PlaybookAction::Validate { file } => validate(&file, args.json),
         PlaybookAction::Plan { file } => plan(&file, args.json),
+        PlaybookAction::Status { file, run } => status(&file, run.as_deref(), args.json),
+        PlaybookAction::Next { file, run } => next(&file, run.as_deref(), args.json),
+        PlaybookAction::Record {
+            file,
+            step,
+            pass,
+            fail,
+            skip,
+            run,
+        } => record(&file, &step, pass, fail, skip, run.as_deref(), args.json),
+        PlaybookAction::Reset { file, run } => reset(&file, run.as_deref(), args.json),
     }
 }
 
-fn load(file: &PathBuf) -> Result<Playbook, Box<dyn std::error::Error>> {
+fn load(file: &Path) -> Result<Playbook, Box<dyn std::error::Error>> {
     let content = std::fs::read_to_string(file)
         .map_err(|error| format!("读取剧本失败（{}）：{error}", file.display()))?;
     // Windows 编辑器常带 UTF-8 BOM：它是文件头，不是 JSON 内容。
@@ -66,7 +116,7 @@ fn issues_json(issues: &[PlaybookIssue]) -> Vec<serde_json::Value> {
         .collect()
 }
 
-fn validate(file: &PathBuf, json: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn validate(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     let playbook = load(file)?;
     let issues = playbook.validate();
     if json {
@@ -114,7 +164,7 @@ fn validate(file: &PathBuf, json: bool) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
-fn plan(file: &PathBuf, json: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn plan(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     let playbook = load(file)?;
     let issues = playbook.validate();
     if !issues.is_empty() {
@@ -208,14 +258,465 @@ fn plan(file: &PathBuf, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// 运行进度：状态文件读写（格式 = PlaybookRun 的 serde 形态）
+// ---------------------------------------------------------------------------
+
+/// 默认状态文件：与剧本同目录的 `<stem>.state.json`。
+fn default_run_path(file: &Path) -> PathBuf {
+    file.with_extension("state.json")
+}
+
+#[derive(Debug)]
+struct LoadedRun {
+    playbook: Playbook,
+    run: PlaybookRun,
+    path: PathBuf,
+    existed: bool,
+}
+
+fn ensure_valid(playbook: &Playbook) -> Result<(), Box<dyn std::error::Error>> {
+    let issues = playbook.validate();
+    if issues.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "剧本不合法（{} 个问题），先运行 `owo-agent playbook validate <文件>` 查看",
+        issues.len()
+    )
+    .into())
+}
+
+fn load_run(file: &Path, run_path: Option<&Path>) -> Result<LoadedRun, Box<dyn std::error::Error>> {
+    let playbook = load(file)?;
+    ensure_valid(&playbook)?;
+    let path = run_path
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| default_run_path(file));
+    if path.exists() {
+        let content = std::fs::read_to_string(&path)
+            .map_err(|error| format!("读取状态文件失败（{}）：{error}", path.display()))?;
+        let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+        let run: PlaybookRun = serde_json::from_str(content)
+            .map_err(|error| format!("状态文件不是合法 JSON（{}）：{error}", path.display()))?;
+        if run.playbook_id != playbook.id {
+            return Err(format!(
+                "状态文件属于另一个剧本（{} ≠ {}）：换 --run 或先删除 {}",
+                run.playbook_id,
+                playbook.id,
+                path.display()
+            )
+            .into());
+        }
+        Ok(LoadedRun {
+            playbook,
+            run,
+            path,
+            existed: true,
+        })
+    } else {
+        Ok(LoadedRun {
+            run: PlaybookRun::new(&playbook),
+            playbook,
+            path,
+            existed: false,
+        })
+    }
+}
+
+/// 原子写：先写临时文件再 rename，避免半截 JSON 让进度不可读。
+fn save_run(path: &Path, run: &PlaybookRun) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)
+                .map_err(|error| format!("创建状态目录失败（{}）：{error}", parent.display()))?;
+        }
+    }
+    let json = serde_json::to_string_pretty(run)?;
+    let file_name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "playbook.state.json".to_string());
+    let temporary = path.with_file_name(format!("{file_name}.tmp"));
+    std::fs::write(&temporary, json)
+        .map_err(|error| format!("写状态文件失败（{}）：{error}", temporary.display()))?;
+    std::fs::rename(&temporary, path)
+        .map_err(|error| format!("替换状态文件失败（{}）：{error}", path.display()))?;
+    Ok(())
+}
+
+fn state_label(run: &PlaybookRun, playbook: &Playbook, step_id: &str) -> (&'static str, String) {
+    match run.states.get(step_id).unwrap_or(&StepState::Pending) {
+        StepState::Passed { evidence } => ("✔", format!("通过：{evidence}")),
+        StepState::Failed { reason, attempts } => ("✘", format!("失败 {attempts} 次：{reason}")),
+        StepState::Skipped { reason } => ("⊘", format!("跳过：{reason}")),
+        StepState::Pending => {
+            if run.is_blocked(playbook, step_id) {
+                ("○", "阻塞（前置未通过）".to_string())
+            } else {
+                ("○", "待执行".to_string())
+            }
+        }
+    }
+}
+
+fn progress_json(playbook: &Playbook, run: &PlaybookRun) -> serde_json::Value {
+    let progress = run.progress(playbook);
+    serde_json::json!({
+        "total": progress.total,
+        "passed": progress.passed,
+        "failed": progress.failed,
+        "skipped": progress.skipped,
+        "pending": progress.pending,
+        "blocked": progress.blocked,
+        "percent": progress.percent(),
+        "summary": run.summary(playbook),
+        "complete": run.is_complete(playbook),
+    })
+}
+
+fn status(
+    file: &Path,
+    run_path: Option<&Path>,
+    json: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let loaded = load_run(file, run_path)?;
+    let next = loaded
+        .run
+        .next_ready(&loaded.playbook)
+        .map(|step| step.id.clone());
+    if json {
+        let steps: Vec<serde_json::Value> = loaded
+            .playbook
+            .steps
+            .iter()
+            .map(|step| {
+                let (mark, note) = state_label(&loaded.run, &loaded.playbook, &step.id);
+                serde_json::json!({
+                    "id": step.id,
+                    "title": step.title,
+                    "kind": kind_label(step.kind),
+                    "mark": mark,
+                    "note": note,
+                    "attempts": loaded.run.attempts(&step.id),
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::json!({
+                "ok": true,
+                "id": loaded.playbook.id,
+                "name": loaded.playbook.name,
+                "state_file": loaded.path.to_string_lossy(),
+                "exists": loaded.existed,
+                "progress": progress_json(&loaded.playbook, &loaded.run),
+                "next": next,
+                "steps": steps,
+            })
+        );
+    } else {
+        println!(
+            "剧本：{}（{}）· 进度 {}",
+            loaded.playbook.name,
+            loaded.playbook.id,
+            loaded.run.summary(&loaded.playbook)
+        );
+        println!(
+            "状态文件：{}（{}）",
+            loaded.path.display(),
+            if loaded.existed {
+                "已存在"
+            } else {
+                "尚未创建"
+            }
+        );
+        for step in &loaded.playbook.steps {
+            let (mark, note) = state_label(&loaded.run, &loaded.playbook, &step.id);
+            println!(
+                "  {mark} {:<16} {:<6} {}（{}）",
+                step.id,
+                kind_label(step.kind),
+                step.title,
+                note
+            );
+        }
+        match next {
+            Some(id) => println!("下一步：{id}"),
+            None if loaded.run.is_complete(&loaded.playbook) => println!("已全部完成"),
+            None => println!("没有可执行步骤：前置失败/跳过导致阻塞"),
+        }
+    }
+    Ok(())
+}
+
+fn next(
+    file: &Path,
+    run_path: Option<&Path>,
+    json: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut loaded = load_run(file, run_path)?;
+    if !loaded.existed {
+        // 首次 next 即落盘：让后续 record 有稳定的状态文件。
+        save_run(&loaded.path, &loaded.run)?;
+        loaded.existed = true;
+    }
+    let next_step = loaded.run.next_ready(&loaded.playbook).cloned();
+    let blocked: Vec<String> = loaded
+        .playbook
+        .steps
+        .iter()
+        .filter(|step| loaded.run.is_blocked(&loaded.playbook, &step.id))
+        .map(|step| step.id.clone())
+        .collect();
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "ok": true,
+                "id": loaded.playbook.id,
+                "state_file": loaded.path.to_string_lossy(),
+                "next": next_step.as_ref().map(|step| serde_json::json!({
+                    "id": step.id,
+                    "title": step.title,
+                    "kind": kind_label(step.kind),
+                    "detail": step.detail,
+                    "acceptance": step.acceptance,
+                    "depends_on": step.depends_on,
+                })),
+                "blocked": blocked,
+                "progress": progress_json(&loaded.playbook, &loaded.run),
+            })
+        );
+        return Ok(());
+    }
+    match next_step {
+        Some(step) => {
+            println!(
+                "下一步：{}（{}）· {}",
+                step.id,
+                step.title,
+                kind_label(step.kind)
+            );
+            if !step.detail.is_empty() {
+                println!("  说明：{}", step.detail);
+            }
+            if !step.acceptance.is_empty() {
+                println!("  判据：{}", step.acceptance);
+            }
+            println!("进度：{}", loaded.run.summary(&loaded.playbook));
+        }
+        None if loaded.run.is_complete(&loaded.playbook) => {
+            println!("已全部完成（{}）", loaded.run.summary(&loaded.playbook));
+        }
+        None => {
+            println!(
+                "没有可执行步骤：阻塞 {}（{}）",
+                blocked.join("、"),
+                loaded.run.summary(&loaded.playbook)
+            );
+        }
+    }
+    Ok(())
+}
+
+fn record(
+    file: &Path,
+    step_id: &str,
+    pass: Option<String>,
+    fail: Option<String>,
+    skip: Option<String>,
+    run_path: Option<&Path>,
+    json: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let outcomes = [pass.is_some(), fail.is_some(), skip.is_some()];
+    if outcomes.iter().filter(|present| **present).count() != 1 {
+        return Err("必须且只能指定 --pass / --fail / --skip 之一".into());
+    }
+    let mut loaded = load_run(file, run_path)?;
+    if !loaded.playbook.steps.iter().any(|step| step.id == step_id) {
+        return Err(format!("剧本里没有步骤 `{step_id}`").into());
+    }
+    let (state_text, attempts) = if let Some(evidence) = pass {
+        loaded.run.record_pass(step_id, evidence);
+        ("pass", loaded.run.attempts(step_id))
+    } else if let Some(reason) = fail {
+        loaded.run.record_fail(step_id, reason);
+        ("fail", loaded.run.attempts(step_id))
+    } else {
+        loaded.run.record_skip(step_id, skip.unwrap_or_default());
+        ("skip", 0)
+    };
+    save_run(&loaded.path, &loaded.run)?;
+    let next_id = loaded
+        .run
+        .next_ready(&loaded.playbook)
+        .map(|step| step.id.clone());
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "ok": true,
+                "id": loaded.playbook.id,
+                "step": step_id,
+                "state": state_text,
+                "attempts": attempts,
+                "progress": progress_json(&loaded.playbook, &loaded.run),
+                "next": next_id,
+                "state_file": loaded.path.to_string_lossy(),
+            })
+        );
+        return Ok(());
+    }
+    println!(
+        "已记录：{} → {}（{}）",
+        step_id,
+        match state_text {
+            "pass" => "通过",
+            "fail" => "失败",
+            _ => "跳过",
+        },
+        loaded.run.summary(&loaded.playbook)
+    );
+    match next_id {
+        Some(id) => println!("下一步：{id}"),
+        None if loaded.run.is_complete(&loaded.playbook) => println!("已全部完成"),
+        None => println!("没有可执行步骤：前置失败/跳过导致阻塞"),
+    }
+    Ok(())
+}
+
+fn reset(
+    file: &Path,
+    run_path: Option<&Path>,
+    json: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // 重置不解析既有状态（状态文件可能已损坏，正好用它清掉）。
+    let playbook = load(file)?;
+    ensure_valid(&playbook)?;
+    let path = run_path
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| default_run_path(file));
+    let removed = if path.exists() {
+        std::fs::remove_file(&path)
+            .map_err(|error| format!("删除状态文件失败（{}）：{error}", path.display()))?;
+        true
+    } else {
+        false
+    };
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "ok": true,
+                "id": playbook.id,
+                "state_file": path.to_string_lossy(),
+                "removed": removed,
+            })
+        );
+    } else if removed {
+        println!("已重置：{}", path.display());
+    } else {
+        println!("没有可重置的状态文件：{}", path.display());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
+    fn scratch(label: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("owo-playbook-{label}-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn write_playbook(dir: &Path) -> PathBuf {
+        let file = dir.join("demo.json");
+        std::fs::write(
+            &file,
+            r#"{"id":"demo","name":"演示","steps":[
+                {"id":"a","title":"A"},
+                {"id":"b","title":"B","depends_on":["a"]},
+                {"id":"c","title":"C","depends_on":["b"]}
+            ]}"#,
+        )
+        .unwrap();
+        file
+    }
 
     #[test]
     fn kind_labels_are_stable_for_scripts() {
         assert_eq!(kind_label(StepKind::Model), "model");
         assert_eq!(kind_label(StepKind::Check), "check");
         assert_eq!(kind_label(StepKind::Human), "human");
+    }
+
+    #[test]
+    fn default_state_file_lives_next_to_the_playbook() {
+        assert_eq!(
+            default_run_path(Path::new("playbooks/code-review.json")),
+            PathBuf::from("playbooks/code-review.state.json")
+        );
+    }
+
+    #[test]
+    fn record_persists_and_advances_the_progress() {
+        let dir = scratch("record");
+        let file = write_playbook(&dir);
+
+        let mut loaded = load_run(&file, None).unwrap();
+        assert!(!loaded.existed);
+        assert_eq!(loaded.run.next_ready(&loaded.playbook).unwrap().id, "a");
+
+        loaded.run.record_pass("a", "证据 A");
+        save_run(&loaded.path, &loaded.run).unwrap();
+        assert!(loaded.path.exists());
+
+        // 重新载入：状态与尝试次数都在。
+        let mut reloaded = load_run(&file, None).unwrap();
+        assert!(reloaded.existed);
+        assert_eq!(reloaded.run.next_ready(&reloaded.playbook).unwrap().id, "b");
+        reloaded.run.record_fail("b", "第一次失败");
+        reloaded.run.record_fail("b", "第二次失败");
+        save_run(&reloaded.path, &reloaded.run).unwrap();
+        let again = load_run(&file, None).unwrap();
+        assert_eq!(again.run.attempts("b"), 2);
+        assert!(again.run.is_blocked(&again.playbook, "c"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn state_file_for_another_playbook_is_rejected() {
+        let dir = scratch("mismatch");
+        let file = write_playbook(&dir);
+        let run_path = dir.join("other.state.json");
+        let mut foreign = PlaybookRun::new(&load(&file).unwrap());
+        foreign.playbook_id = "another".to_string();
+        save_run(&run_path, &foreign).unwrap();
+        let error = load_run(&file, Some(&run_path)).unwrap_err();
+        assert!(error.to_string().contains("另一个剧本"), "{error}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn atomic_save_leaves_valid_json_and_no_temp_file() {
+        let dir = scratch("atomic");
+        let file = write_playbook(&dir);
+        let loaded = load_run(&file, None).unwrap();
+        save_run(&loaded.path, &loaded.run).unwrap();
+        let content = std::fs::read_to_string(&loaded.path).unwrap();
+        let parsed: PlaybookRun = serde_json::from_str(&content).unwrap();
+        assert_eq!(parsed.playbook_id, "demo");
+        let leftovers: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(leftovers.is_empty(), "不应残留临时文件");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

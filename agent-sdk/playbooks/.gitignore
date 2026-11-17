@@ -1,0 +1,3 @@
+# 运行状态文件（由 `owo-agent playbook next/record` 生成）
+*.state.json
+*.state.json.tmp
