@@ -138,6 +138,14 @@ test("compareRows() lists transitions and flags regressions", () => {
   const escaped = panel._test.compareRows({ "<x>": "passed" }, { steps: { "<x>": "pending" } });
   assert.doesNotMatch(escaped, /<x>/);
   assert.match(escaped, /&lt;x&gt;/);
+
+  // 状态未变、失败类型变化也要显示。
+  const kinds = panel._test.compareRows(
+    { a: "failed" },
+    { steps: { a: "failed" }, step_kinds: { a: "timeout" } },
+    { a: "exit_nonzero" }
+  );
+  assert.match(kinds, /失败类型 timeout → exit_nonzero/);
 });
 
 test("mount fetches the list and renders cards", async () => {

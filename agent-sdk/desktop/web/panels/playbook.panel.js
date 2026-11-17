@@ -200,8 +200,10 @@
       if (!box) return;
       var steps = (data && data.steps) || [];
       cardEl.__pbSteps = {};
+      cardEl.__pbStepKinds = {};
       steps.forEach(function (step) {
         cardEl.__pbSteps[step.id] = step.state;
+        if (step.failure_kind) cardEl.__pbStepKinds[step.id] = step.failure_kind;
       });
       box.hidden = false;
       box.innerHTML =
@@ -213,18 +215,24 @@
     }
 
     /// 纯渲染：某次归档 vs 当前状态的逐步差异。
-    function compareRows(currentSteps, run) {
+    function compareRows(currentSteps, run, currentKinds) {
       var current = currentSteps || {};
+      var kindsNow = currentKinds || {};
       var archiveSteps = (run && run.steps) || {};
+      var archiveKinds = (run && run.step_kinds) || {};
       var changes = [];
       Object.keys(archiveSteps).forEach(function (stepId) {
         var before = archiveSteps[stepId];
         var after = current[stepId] || "pending";
-        if (before === after) return;
+        var kindBefore = archiveKinds[stepId];
+        var kindAfter = kindsNow[stepId];
+        if (before === after && kindBefore === kindAfter) return;
         changes.push({
           id: stepId,
           from: before,
           to: after,
+          kindFrom: kindBefore,
+          kindTo: kindAfter,
           regression: before === "passed" && after !== "passed",
         });
       });
@@ -238,6 +246,15 @@
         '<div class="owo-pb-compare-list">' +
         changes
           .map(function (item) {
+            var kindText = "";
+            if (item.kindFrom || item.kindTo) {
+              kindText =
+                '<span class="sub">失败类型 ' +
+                esc(item.kindFrom || "-") +
+                " → " +
+                esc(item.kindTo || "-") +
+                "</span>";
+            }
             return (
               '<div class="owo-pb-compare-row' +
               (item.regression ? " owo-pb-bad" : "") +
@@ -248,6 +265,7 @@
               " → " +
               esc(item.to) +
               "</span>" +
+              kindText +
               (item.regression ? '<span class="owo-pb-chip owo-pb-bad">退化</span>' : "") +
               "</div>"
             );
@@ -325,7 +343,7 @@
         '<div class="owo-pb-detail-head"><span class="sub">' +
         esc(marker) +
         " → 当前</span></div>" +
-        compareRows(cardEl.__pbSteps, run);
+        compareRows(cardEl.__pbSteps, run, cardEl.__pbStepKinds);
     }
 
     function showError(root, message) {

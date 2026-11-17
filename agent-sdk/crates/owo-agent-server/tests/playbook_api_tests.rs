@@ -366,7 +366,7 @@ async fn history_lists_archives_with_step_states() {
     .unwrap();
     std::fs::write(
         runs.join("run-2.json"),
-        r#"{"playbook_id":"demo","states":{"b":{"state":"failed","reason":"boom","attempts":1}}}"#,
+        r#"{"playbook_id":"demo","states":{"b":{"state":"failed","reason":"boom","attempts":1,"kind":"exit_nonzero"}}}"#,
     )
     .unwrap();
 
@@ -382,6 +382,7 @@ async fn history_lists_archives_with_step_states() {
     assert_eq!(body["count"], 2, "{body}");
     assert_eq!(body["runs"][0]["marker"], "run-2");
     assert_eq!(body["runs"][0]["steps"]["b"], "failed");
+    assert_eq!(body["runs"][0]["step_kinds"]["b"], "exit_nonzero", "{body}");
     assert_eq!(body["runs"][1]["steps"]["a"], "passed");
     // 未知剧本 → 400
     let (status, _) = call(

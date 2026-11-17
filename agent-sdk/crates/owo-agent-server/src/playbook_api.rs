@@ -336,15 +336,20 @@ async fn history(
                 continue;
             };
             let mut steps = serde_json::Map::new();
+            let mut step_kinds = serde_json::Map::new();
             for step in &playbook.steps {
                 let (label, _note) = state_label(&run, &playbook, &step.id);
                 steps.insert(step.id.clone(), json!(label));
+                if let Some(kind) = run.failure_kind(&step.id) {
+                    step_kinds.insert(step.id.clone(), json!(kind));
+                }
             }
             runs.push(json!({
                 "marker": marker,
                 "progress": progress_json(&playbook, &run),
                 "complete": run.is_complete(&playbook),
                 "steps": steps,
+                "step_kinds": step_kinds,
             }));
         }
     }
