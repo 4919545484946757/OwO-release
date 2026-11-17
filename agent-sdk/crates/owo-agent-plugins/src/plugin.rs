@@ -34,6 +34,10 @@ pub struct PluginManifest {
     /// 与历史单服务器字段 `mcp` 并存，统一由 [`PluginManifest::all_mcp_servers`] 遍历。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mcp_servers: Vec<McpServerConfig>,
+    /// Agent Plugins 包贡献的 hooks（扩展命名空间 `com.owo.agent`）。
+    /// 历史 `manifest.json` 没有这个概念（`serde(skip)`）：解析历史格式时恒为空。
+    #[serde(skip)]
+    pub hooks: Vec<crate::agent_plugins::AgentPluginHook>,
     /// 要求的最低 App 版本（如 "0.5.8"；None 表示不限制）。
     #[serde(default)]
     pub min_app_version: Option<String>,
@@ -168,6 +172,7 @@ pub fn agent_plugin_to_manifest(
                 config
             })
             .collect(),
+        hooks: loaded.hooks.clone(),
         min_app_version: None,
         entry: None,
         network_allowlist: Vec::new(),
@@ -1231,6 +1236,7 @@ mod tests {
             network_allowlist: Vec::new(),
             signature: None,
             mcp_servers: Vec::new(),
+            hooks: Vec::new(),
             mcp: Some(McpServerConfig {
                 name: "ignored".to_string(),
                 transport: "stdio".to_string(),
@@ -1263,6 +1269,7 @@ mod tests {
             network_allowlist: Vec::new(),
             signature: None,
             mcp_servers: Vec::new(),
+            hooks: Vec::new(),
             mcp: None,
         };
         assert!(plugin_mcp_config(&manifest_path, &bare).is_none());

@@ -57,6 +57,12 @@ pub(super) async fn plugins_list(State(state): State<Arc<AppState>>) -> Json<Val
                     "args": mcp.args,
                     "url": mcp.url,
                 })).collect::<Vec<_>>(),
+                // 插件注入的 hooks：事件/匹配器可见（透明性），命令路径不外泄。
+                "hooks": manifest.hooks.iter().map(|hook| json!({
+                    "event": hook.event,
+                    "matcher": hook.matcher,
+                    "fail_mode": hook.fail_mode,
+                })).collect::<Vec<_>>(),
                 "format": if path.file_name().and_then(|name| name.to_str())
                     == Some(owo_agent_core::agent_plugins::AGENT_PLUGINS_MANIFEST_FILE) {
                     "agent-plugins-1.0.0"

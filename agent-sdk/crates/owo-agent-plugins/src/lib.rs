@@ -36,9 +36,9 @@ pub mod plugin;
 pub use agent_plugins::{
     collect_agent_plugin_code, is_agent_plugin_dir, load_agent_plugin, scan_agent_plugin_for_risks,
     validate_mcp_url, validate_plugin_name, AgentMcpServer, AgentMcpTransport, AgentPluginAuthor,
-    AgentPluginError, AgentPluginManifest, AgentSkill, DiagnosticLevel, LoadedAgentPlugin,
-    PluginDiagnostic, AGENT_PLUGINS_MANIFEST_SCHEMA, AGENT_PLUGINS_MCP_SCHEMA,
-    AGENT_PLUGINS_SPEC_VERSION,
+    AgentPluginError, AgentPluginHook, AgentPluginManifest, AgentSkill, DiagnosticLevel,
+    LoadedAgentPlugin, PluginDiagnostic, AGENT_PLUGINS_MANIFEST_SCHEMA, AGENT_PLUGINS_MCP_SCHEMA,
+    AGENT_PLUGINS_SPEC_VERSION, MAX_PLUGIN_HOOKS, OWO_EXTENSION_NAMESPACE, PLUGIN_HOOK_EVENTS,
 };
 pub use plugin::{
     agent_plugin_to_manifest, discover_plugins, discover_plugins_with_report, plugin_mcp_config,

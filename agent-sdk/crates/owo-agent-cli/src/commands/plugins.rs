@@ -69,6 +69,16 @@ fn validate_agent_plugin(dir: &std::path::Path) -> Result<(), Box<dyn std::error
                         .unwrap_or(server.config.command.as_str())
                 );
             }
+            println!("  hooks {} 条：", loaded.hooks.len());
+            for hook in &loaded.hooks {
+                println!(
+                    "    {}（matcher={}，fail_mode={}）← {}",
+                    hook.event,
+                    hook.matcher.as_deref().unwrap_or("*"),
+                    hook.fail_mode.as_deref().unwrap_or("open"),
+                    hook.script.display()
+                );
+            }
             let warnings: Vec<_> = loaded
                 .diagnostics
                 .iter()
@@ -146,13 +156,14 @@ pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Err
                     "owo-manifest"
                 };
                 println!(
-                    "  {} v{}（{}）[{}][{}] 服务器 {} 个{}",
+                    "  {} v{}（{}）[{}][{}] 服务器 {} 个 / hooks {} 条{}",
                     manifest.id,
                     manifest.version,
                     manifest.name,
                     format,
                     risk,
                     manifest.all_mcp_servers().count(),
+                    manifest.hooks.len(),
                     if risks.is_empty() {
                         String::new()
                     } else {

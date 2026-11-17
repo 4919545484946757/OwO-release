@@ -685,6 +685,107 @@ fn risk_scan_ignores_manifest_metadata_but_flags_code() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
+// ---------------------------------------------------------------------------
+// 客户端扩展：hooks 贡献点
+// ---------------------------------------------------------------------------
+
+fn hook_manifest(name: &str, hooks_json: &str) -> String {
+    let mut extra = String::from(",\"extensions\":{\"com.owo.agent\":{\"hooks\":");
+    extra.push_str(hooks_json);
+    extra.push_str("}}");
+    manifest_json(name, &extra)
+}
+
+fn hook_plugin(label: &str, hooks_json: &str) -> PathBuf {
+    let root = scratch(label);
+    write(
+        &root.join("plugin.json"),
+        &hook_manifest("hook-plugin", hooks_json),
+    );
+    write(&root.join("hooks/guard.cmd"), "@exit /b 0\r\n");
+    root
+}
+
+#[test]
+fn hooks_are_loaded_from_the_extension_namespace() {
+    let root = hook_plugin(
+        "hooks",
+        r#"[{"event":"pre_tool_use","matcher":"desktop_*","command":"./hooks/guard.cmd","args":["--strict"]}]"#,
+    );
+    let loaded = load_agent_plugin(&root, None).expect("hooks 包应加载");
+    assert_eq!(loaded.hooks.len(), 1);
+    let hook = &loaded.hooks[0];
+    assert_eq!(hook.event, "pre_tool_use");
+    assert_eq!(hook.matcher.as_deref(), Some("desktop_*"));
+    assert_eq!(hook.args, vec!["--strict"]);
+    let canonical = std::fs::canonicalize(root.join("hooks/guard.cmd")).unwrap();
+    assert_eq!(hook.script, canonical);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn hooks_from_the_extension_directory_are_merged() {
+    let root = hook_plugin("hooks-dir", "[]");
+    write(
+        &root.join("com.owo.agent/hooks.json"),
+        r#"[{"event":"stop","command":"${PLUGIN_ROOT}/hooks/guard.cmd"}]"#,
+    );
+    let loaded = load_agent_plugin(&root, None).expect("扩展目录 hooks 应加载");
+    assert_eq!(loaded.hooks.len(), 1);
+    assert_eq!(loaded.hooks[0].event, "stop");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn bare_or_escaping_hook_commands_are_rejected() {
+    let root = hook_plugin(
+        "hooks-bad-command",
+        r#"[{"event":"stop","command":"python evil.py"},{"event":"stop","command":"../outside.cmd"},{"event":"stop","command":"./hooks/missing.cmd"}]"#,
+    );
+    let loaded = load_agent_plugin(&root, None).expect("包本身仍应加载");
+    assert!(loaded.hooks.is_empty());
+    assert_eq!(
+        loaded
+            .diagnostics
+            .iter()
+            .filter(|item| item.code == "plugin_hook_skipped")
+            .count(),
+        3
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn unknown_hook_event_and_bad_args_are_rejected() {
+    let root = hook_plugin(
+        "hooks-bad-fields",
+        r#"[{"event":"before_everything","command":"./hooks/guard.cmd"},{"event":"stop","command":"./hooks/guard.cmd","args":["a\"b"]},{"event":"stop","command":"./hooks/guard.cmd","fail_mode":"sometimes"}]"#,
+    );
+    let loaded = load_agent_plugin(&root, None).expect("包本身仍应加载");
+    assert!(loaded.hooks.is_empty());
+    assert_eq!(
+        loaded
+            .diagnostics
+            .iter()
+            .filter(|item| item.code == "plugin_hook_skipped")
+            .count(),
+        3
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn hook_count_is_capped() {
+    let entries: Vec<String> = (0..(owo_agent_plugins::MAX_PLUGIN_HOOKS + 3))
+        .map(|_| r#"{"event":"stop","command":"./hooks/guard.cmd"}"#.to_string())
+        .collect();
+    let root = hook_plugin("hooks-cap", &format!("[{}]", entries.join(",")));
+    let loaded = load_agent_plugin(&root, None).expect("包本身仍应加载");
+    assert_eq!(loaded.hooks.len(), owo_agent_plugins::MAX_PLUGIN_HOOKS);
+    assert!(has_code(&loaded.diagnostics, "plugin_hooks_truncated"));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 #[test]
 fn diagnostic_codes_stay_stable_per_component() {
     let root = scratch("codes");

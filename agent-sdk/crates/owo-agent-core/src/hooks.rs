@@ -72,6 +72,9 @@ pub struct HookConfig {
     /// 或 `closed`（把 hook 当安全闸：任一失败都阻断并说明原因，审查 N1 第 6 条）。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fail_mode: Option<String>,
+    /// 来源标签（`plugin:<name>`）：插件贡献的 hook 可追溯；settings.json 里的为 None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 impl HookConfig {
@@ -82,6 +85,57 @@ impl HookConfig {
             .map(|mode| mode.trim().eq_ignore_ascii_case("closed"))
             .unwrap_or(false)
     }
+
+    /// 来源标签（诊断/审计用；宿主设置为 `settings`）。
+    pub fn source_label(&self) -> &str {
+        self.source.as_deref().unwrap_or("settings")
+    }
+}
+
+/// 把 Agent Plugins 包贡献的 hooks 映射为宿主 hook 配置。
+///
+/// 脚本按扩展名选解释器（`.ps1` → powershell、`.py` → python、`.js/.mjs/.cjs` → node，
+/// 其余按可执行文件直接跑），参数统一加双引号；含引号/换行的参数在加载期已被拒绝。
+pub fn plugin_hook_configs(
+    plugin_name: &str,
+    hooks: &[owo_agent_plugins::agent_plugins::AgentPluginHook],
+) -> Vec<HookConfig> {
+    hooks
+        .iter()
+        .map(|hook| HookConfig {
+            event: hook.event.clone(),
+            matcher: hook.matcher.clone(),
+            command: plugin_hook_command(&hook.script, &hook.args),
+            fail_mode: hook.fail_mode.clone(),
+            source: Some(format!("plugin:{plugin_name}")),
+        })
+        .collect()
+}
+
+fn plugin_hook_command(script: &std::path::Path, args: &[String]) -> String {
+    let quoted_script = format!("\"{}\"", script.display());
+    let extension = script
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let mut command = match extension.as_str() {
+        "ps1" => format!("powershell -NoProfile -ExecutionPolicy Bypass -File {quoted_script}"),
+        "py" => format!("python {quoted_script}"),
+        "js" | "mjs" | "cjs" => format!("node {quoted_script}"),
+        _ => quoted_script,
+    };
+    for argument in args {
+        // 双保险：加载期已拒绝，公共 API 调用方也可能直接构造。
+        if argument.contains('"') || argument.contains(['\n', '\r']) {
+            continue;
+        }
+        command.push(' ');
+        command.push('"');
+        command.push_str(argument);
+        command.push('"');
+    }
+    command
 }
 
 /// hooks 执行结果。
@@ -174,8 +228,13 @@ async fn run_one(config: &HookConfig, payload: &Value) -> HookOutcome {
     let body = serde_json::to_string(payload).unwrap_or_else(|_| "{}".to_string());
     #[cfg(target_os = "windows")]
     let mut command = {
+        use std::os::windows::process::CommandExt;
         let mut command = tokio::process::Command::new("cmd");
-        command.arg("/C").arg(&config.command);
+        // `raw_arg` 而不是 `arg`：hook 命令是**一整条** cmd 命令行，必须原样传递。
+        // 用 `arg` 时 Windows 会给含引号的参数再套一层转义，`"C:\a\b.cmd"` 变成
+        // `\"C:\a\b.cmd\"`，cmd 报「不是内部或外部命令」（含空格的脚本路径必踩）。
+        command.as_std_mut().raw_arg("/C");
+        command.as_std_mut().raw_arg(&config.command);
         command
     };
     #[cfg(not(target_os = "windows"))]
@@ -217,7 +276,11 @@ async fn run_one(config: &HookConfig, payload: &Value) -> HookOutcome {
     match output.status.code() {
         Some(0) => HookOutcome::Proceed,
         Some(2) => HookOutcome::Blocked(if stderr.is_empty() {
-            format!("hook 阻断（exit 2）：{}", config.command)
+            format!(
+                "hook 阻断（exit 2）[{}]：{}",
+                config.source_label(),
+                config.command
+            )
         } else {
             stderr
         }),
@@ -244,6 +307,7 @@ mod tests {
             matcher: matcher.map(str::to_string),
             command: command.to_string(),
             fail_mode: None,
+            source: None,
         }
     }
 
@@ -253,7 +317,100 @@ mod tests {
             matcher: None,
             command: command.to_string(),
             fail_mode: Some("closed".to_string()),
+            source: None,
         }
+    }
+
+    /// 插件侧事件名是跨 crate 的契约：这里锁死两边同一组（改一边必须改另一边）。
+    #[test]
+    fn plugin_hook_events_match_core_events() {
+        let core_events = [
+            HookEvent::PreToolUse,
+            HookEvent::PostToolUse,
+            HookEvent::UserPromptSubmit,
+            HookEvent::Stop,
+            HookEvent::PreCompact,
+        ]
+        .map(|event| event.as_str());
+        for event in owo_agent_plugins::PLUGIN_HOOK_EVENTS {
+            assert!(
+                core_events.contains(event),
+                "插件事件 `{event}` 在 core 里不存在"
+            );
+        }
+        assert_eq!(
+            core_events.len(),
+            owo_agent_plugins::PLUGIN_HOOK_EVENTS.len(),
+            "core 新增事件后必须同步插件白名单"
+        );
+    }
+
+    #[test]
+    fn plugin_hook_configs_wrap_scripts_and_tag_source() {
+        use owo_agent_plugins::agent_plugins::AgentPluginHook;
+        let hooks = vec![
+            AgentPluginHook {
+                event: "pre_tool_use".to_string(),
+                matcher: Some("desktop_*".to_string()),
+                script: std::path::PathBuf::from(r"C:\plugins\demo\hooks\guard.ps1"),
+                args: vec!["--strict".to_string()],
+                fail_mode: Some("closed".to_string()),
+            },
+            AgentPluginHook {
+                event: "stop".to_string(),
+                matcher: None,
+                script: std::path::PathBuf::from(r"C:\plugins\demo\hooks\notify.py"),
+                args: Vec::new(),
+                fail_mode: None,
+            },
+        ];
+        let configs = plugin_hook_configs("demo", &hooks);
+        assert_eq!(configs.len(), 2);
+        assert!(
+            configs[0]
+                .command
+                .starts_with("powershell -NoProfile -ExecutionPolicy Bypass -File \""),
+            "{}",
+            configs[0].command
+        );
+        assert!(configs[0].command.ends_with("--strict\""));
+        assert_eq!(configs[0].source_label(), "plugin:demo");
+        assert!(configs[0].fail_closed());
+        assert!(configs[1].command.starts_with("python \""));
+        assert_eq!(configs[1].source_label(), "plugin:demo");
+        // 宿主设置里的 hook 没有 source，标签回落为 settings。
+        assert_eq!(config("stop", None, "echo hi").source_label(), "settings");
+    }
+
+    #[tokio::test]
+    #[cfg(windows)]
+    async fn plugin_hook_blocks_and_surfaces_stderr() {
+        use owo_agent_plugins::agent_plugins::AgentPluginHook;
+        let dir = std::env::temp_dir().join(format!("owo-plugin-hook-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let script = dir.join("block.cmd");
+        std::fs::write(&script, "@echo plugin-says-no 1>&2\r\n@exit /b 2\r\n").unwrap();
+        let configs = plugin_hook_configs(
+            "demo",
+            &[AgentPluginHook {
+                event: "pre_tool_use".to_string(),
+                matcher: None,
+                script,
+                args: Vec::new(),
+                fail_mode: Some("closed".to_string()),
+            }],
+        );
+        let manager = HookManager::from_configs(&configs);
+        let outcome = manager
+            .run(HookEvent::PreToolUse, &json!({ "tool": "write_file" }))
+            .await;
+        match outcome {
+            HookOutcome::Blocked(message) => {
+                assert!(message.contains("plugin-says-no"), "{message}");
+            }
+            other => panic!("插件 hook 应阻断：{other:?}"),
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

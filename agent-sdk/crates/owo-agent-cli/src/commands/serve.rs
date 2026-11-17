@@ -115,6 +115,18 @@ pub(crate) async fn run_serve(args: ServeArgs) -> Result<(), Box<dyn std::error:
         root.clone(),
         workspace.clone(),
     ));
+    // 插件贡献的 hooks（Agent Plugins `com.owo.agent` 命名空间）：与 settings hooks
+    // 合并后交给 Agent；AppState 分开保存两半，设置页热重灌不会清掉插件来源。
+    let plugin_hooks: Vec<_> = plugins
+        .iter()
+        .flat_map(|(_, manifest)| {
+            owo_agent_core::hooks::plugin_hook_configs(&manifest.id, &manifest.hooks)
+        })
+        .collect();
+    if !plugin_hooks.is_empty() {
+        tracing::info!("插件 hooks 已接入：{} 条", plugin_hooks.len());
+        state.install_plugin_hooks(plugin_hooks);
+    }
     // R8：强杀恢复——陈旧 pid 文件清理；检测到存活实例则显式拒绝双开。
     //
     // R10（2026-09-22 桌面端"连不上"根因）：桌面壳换工作区/换提供商时会先请旧核心

@@ -46,7 +46,8 @@
 | §7.2.1 URL：绝对 http(s)、无 userinfo/fragment、非回环必须 HTTPS | ✅ | `validate_mcp_url` |
 | §7.2.2 条目级失败只跳过自己 | ✅ | `invalid_server_is_skipped_without_losing_siblings` |
 | §8 扩展命名空间 | ✅ 原样保留在 `manifest.extensions`，不解释内容 | `extension_namespaces_are_preserved_verbatim` |
-| 客户端扩展顶层目录（`com.example.client/`） | ⛔ 不赋予语义（规范允许客户端只做清单侧） | — |
+| §8 客户端扩展：**hooks 贡献点** | ✅ `com.owo.agent` 命名空间（清单内 `hooks` 数组与 `com.owo.agent/hooks.json` 两个来源） | `hooks_are_loaded_from_the_extension_namespace` |
+| 客户端扩展顶层目录（其他命名空间） | ⛔ 不赋予语义（规范允许客户端只做清单侧） | — |
 
 **未实现（明确取舍）**：
 
@@ -82,9 +83,11 @@ plugins/<pkg>/plugin.json 存在
         4. 读 mcp.json（顶层闭模式、版本一致）
              → 逐服务器校验并映射为 McpServerConfig
              → 条目级失败只跳过自己
-        5. 产出 LoadedAgentPlugin { manifest, skills, servers, diagnostics }
+        5. 读 com.owo.agent 扩展命名空间（清单内 hooks + 扩展目录 hooks.json）
+        6. 产出 LoadedAgentPlugin { manifest, skills, servers, hooks, diagnostics }
     → agent_plugin_to_manifest() 转成宿主内部 PluginManifest
     → 既有链路：信任门 → 合并 MCP 配置 → 沙箱门卫 → 连接/注册工具
+    → hooks：与 settings hooks 合并（AppState 分开保存两半）
 ```
 
 服务器名带上插件名（`<plugin>/<server>`），因此两个插件声明同名 server 不会互相顶替工具
@@ -99,9 +102,60 @@ plugins/<pkg>/plugin.json 存在
 | `skill_invalid` / `skill_escape` / `skill_unreadable` | warning | 该技能被跳过 |
 | `mcp_disabled` | warning | 该插件的 MCP 组件整体禁用（配置级问题） |
 | `mcp_server_skipped` | warning | 该服务器条目被跳过（条目级问题） |
+| `plugin_hook_skipped` | warning | 该 hook 条目被跳过（裸命令/越界/未知事件/坏参数） |
+| `plugin_hooks_truncated` | warning | hook 数超过上限，超出部分忽略 |
+| `plugin_hooks_not_array` / `plugin_hooks_file_invalid` | warning | hooks 数据形状不对，已忽略 |
 | `manifest_*` / `plugin_name_invalid` | error | 插件被拒绝（`AgentPluginError.code`） |
 
-## 5. 验收
+## 5. 插件贡献 hooks（客户端扩展）
+
+规范 §8 允许客户端用反向域名命名空间放自己的扩展数据。OwO 用 `com.owo.agent` 让
+插件包声明**生命周期钩子**——这是"插件不仅能加工具，还能加行为"的落点：
+
+```json
+{
+  "extensions": {
+    "com.owo.agent": {
+      "hooks": [
+        { "event": "pre_tool_use", "matcher": "desktop_*", "command": "./hooks/guard.cmd", "args": ["--strict"], "fail_mode": "closed" },
+        { "event": "user_prompt_submit", "command": "${PLUGIN_ROOT}/hooks/guard.cmd" }
+      ]
+    }
+  }
+}
+```
+
+等价写法：包根 `com.owo.agent/hooks.json`（同样是一个数组），两个来源会合并。
+`plugins/owo-demo-kit/com.owo.agent/hooks.example.json` 是**不会被加载**的示例（文件名不是
+`hooks.json`），需要时改名即可。
+
+### 字段与约束
+
+| 字段 | 必填 | 约束 |
+|---|---|---|
+| `event` | ✅ | `pre_tool_use` / `post_tool_use` / `user_prompt_submit` / `stop` / `pre_compact`（与 core `HookEvent` 由测试锁死同步） |
+| `command` | ✅ | **必须是包内脚本**：`./x` 或 `${PLUGIN_ROOT}/x`；裸命令与越界路径一律拒绝（不能借 PATH 执行包外程序） |
+| `args` | ❌ | 字符串数组；`${PLUGIN_ROOT}`/`${PLUGIN_DATA}` 会展开；含引号/换行的参数拒绝 |
+| `matcher` | ❌ | 工具名通配（`*` / `desktop_*`）；无工具上下文的事件恒匹配 |
+| `fail_mode` | ❌ | `open`（缺省）/ `closed`（失败即阻断） |
+
+脚本按扩展名选解释器：`.ps1` → `powershell -NoProfile -ExecutionPolicy Bypass -File`，
+`.py` → `python`，`.js/.mjs/.cjs` → `node`，其余按可执行文件直接运行。单包最多
+`MAX_PLUGIN_HOOKS`（32）条，超出部分忽略并记 `plugin_hooks_truncated`。
+
+### 与宿主 hooks 的关系
+
+- 与 `settings.json` 的 hooks **同一执行器**：stdin 收事件 JSON、exit 2 = 阻断、10s 超时。
+- 来源可追溯：插件 hook 的 `source` 为 `plugin:<包名>`，阻断消息里带该标签；设置页的
+  hook 来源为 `settings`。
+- 两半分开存放（`AppState::HookSources`）：设置页热重灌只替换 settings 那一半，
+  **不会静默清掉插件 hooks**；撤销工作区信任会同时清空两半。
+- 信任边界不放松：工作区未信任时插件根本不加载；插件 hooks 与插件 MCP 子进程同级，
+  都属于"配置即代码"，需要显式信任。
+- 已知边界：桌面端"禁用插件"目前只隐藏工具前缀，**已装载的 hooks 要重启 Daemon 才失效**
+  （与插件 MCP 子进程同一生命周期策略：不在运行中的进程里热拔代码）。
+
+## 6. 验收
 
 ```powershell
 # 规范层契约测试（28 条；含随包示例的持续回归）
@@ -119,7 +173,7 @@ cargo run -p owo-agent-cli -- plugin --workspace . catalog
 `plugin check/verify` 遇到 `plugin.json` 会自动走规范校验；`plugin validate` 是该入口的
 显式别名。
 
-## 6. 与历史格式的关系
+## 7. 与历史格式的关系
 
 | | 历史 `manifest.json` | Agent Plugins `plugin.json` |
 |---|---|---|
@@ -132,7 +186,7 @@ cargo run -p owo-agent-cli -- plugin --workspace . catalog
 两种格式可以并存：同一目录里 `plugin.json` 优先；不同目录互不影响。宿主侧统一用
 `PluginManifest::all_mcp_servers()` / `plugin_mcp_configs()` 取服务器，调用方不必区分格式。
 
-## 7. 安全边界
+## 8. 安全边界
 
 - 规范包**不绕过**任何既有闸门：工作区未信任不加载插件；MCP 子进程仍经 SandboxManager
   授权并挂 Job 对象；工具调用仍走 Tool Host 的权限判定与审计。

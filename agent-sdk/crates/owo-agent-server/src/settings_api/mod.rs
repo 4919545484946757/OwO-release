@@ -665,11 +665,8 @@ pub(super) async fn settings_update(
         .agent
         .apply_policy_settings(settings.read_only, &settings.deny_commands);
     // A2-1：hooks 随设置热重灌（空数组 = 清空，避免「文件删了进程还在跑」）。
-    state
-        .agent
-        .set_hooks(owo_agent_core::hooks::HookManager::from_configs(
-            &settings.hooks,
-        ));
+    // 插件来源的 hooks 单独保存，这里只替换 settings 那一半。
+    state.install_settings_hooks(&settings.hooks);
     // §5.3 档位从 settings 恢复（read_only=true 时以只读档为准）。
     if !settings.read_only {
         if let Some(profile) = settings

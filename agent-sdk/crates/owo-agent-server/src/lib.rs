@@ -138,6 +138,23 @@ use tower_http::services::ServeDir;
 
 /// §5.4 待审批请求：request_id → (oneshot，PermissionRequest 副本)。
 /// 副本用于响应时按 scope 生成临时授权（Grant）。
+/// hooks 的两个来源：设置页热重灌与插件加载各自只更新一半，合并结果统一交给 Agent。
+#[derive(Debug, Default, Clone)]
+pub struct HookSources {
+    /// `settings.json` 的 `hooks`。
+    pub settings: Vec<owo_agent_core::hooks::HookConfig>,
+    /// 插件包 `com.owo.agent` 命名空间贡献的 hooks。
+    pub plugins: Vec<owo_agent_core::hooks::HookConfig>,
+}
+
+impl HookSources {
+    /// 合并顺序：settings 在前、插件在后（宿主配置优先执行，便于先拦截）。
+    pub fn merged(&self) -> Vec<owo_agent_core::hooks::HookConfig> {
+        let mut merged = self.settings.clone();
+        merged.extend(self.plugins.iter().cloned());
+        merged
+    }
+}
 pub type PendingApproval = (tokio::sync::oneshot::Sender<Decision>, PermissionRequest);
 
 /// A8-3（取优合并自远端 engine）：桌宠显隐的期望/实际状态。
@@ -178,6 +195,8 @@ pub struct AppState {
     pub elements: Arc<Mutex<owo_agent_core::ElementRegistry>>,
     /// 插件启用状态（进程级热卸载的持久化基础）。
     pub plugin_state: Arc<Mutex<owo_agent_core::plugin::PluginStateStore>>,
+    /// hooks 的来源快照（settings.json 与插件包分开存，合并后交给 Agent）。
+    pub hook_sources: Arc<Mutex<HookSources>>,
     /// 持久场景图（跨请求保持模板命中率/历史命中先验；元素每请求从注册表刷新）。
     pub scene: Arc<Mutex<owo_agent_core::scene::SceneGraph>>,
     /// computer-use 任务注册表（任务级审批 + 熔断，m4d 前奏）。
@@ -230,6 +249,31 @@ impl AppState {
             .canonicalize()
             .map(|path| path.to_string_lossy().into_owned())
             .unwrap_or_else(|_| self.workspace.to_string_lossy().into_owned())
+    }
+
+    /// 设置页热重灌 hooks：只替换 `settings.json` 那一半，插件贡献的 hooks 保留。
+    ///
+    /// 两半分开存（[`HookSources`]）的原因：设置保存与插件加载是两条独立生命线，
+    /// 任何一侧重建都不能静默清掉另一侧。
+    pub fn install_settings_hooks(&self, settings_hooks: &[owo_agent_core::hooks::HookConfig]) {
+        if let Ok(mut sources) = self.hook_sources.lock() {
+            sources.settings = settings_hooks.to_vec();
+            let merged = sources.merged();
+            drop(sources);
+            self.agent
+                .set_hooks(owo_agent_core::hooks::HookManager::from_configs(&merged));
+        }
+    }
+
+    /// 启动时注入插件包贡献的 hooks（Agent Plugins 扩展命名空间）。
+    pub fn install_plugin_hooks(&self, plugin_hooks: Vec<owo_agent_core::hooks::HookConfig>) {
+        if let Ok(mut sources) = self.hook_sources.lock() {
+            sources.plugins = plugin_hooks;
+            let merged = sources.merged();
+            drop(sources);
+            self.agent
+                .set_hooks(owo_agent_core::hooks::HookManager::from_configs(&merged));
+        }
     }
 
     pub fn new(
@@ -309,8 +353,14 @@ impl AppState {
             agent.policy().set_spec(spec);
         }
         // A2-1：启动即装载 settings.json 的 hooks（设置页保存后热重灌）。
+        // 插件贡献的 hooks 由 CLI 在 AppState 建立后经 `install_plugin_hooks` 注入；
+        // 两半分开存放，任何一侧重建都不会清掉另一侧。
+        let initial_hook_sources = HookSources {
+            settings: settings.hooks.clone(),
+            plugins: Vec::new(),
+        };
         agent.set_hooks(owo_agent_core::hooks::HookManager::from_configs(
-            &settings.hooks,
+            &initial_hook_sources.merged(),
         ));
         // 审查 N1：受限模式进入审计（谁在何时因何被跳过，之后可查询/追溯）。
         if workspace_trust_gated {
@@ -363,6 +413,7 @@ impl AppState {
             plugin_state: Arc::new(Mutex::new(owo_agent_core::plugin::PluginStateStore::new(
                 Some(data_root.join("plugin_state.json")),
             ))),
+            hook_sources: Arc::new(Mutex::new(initial_hook_sources)),
             scene: Arc::new(Mutex::new(owo_agent_core::scene::SceneGraph::new())),
             computer_tasks: Arc::new(owo_agent_core::ComputerTaskRegistry::new()),
             cloud_queue: Arc::new(tokio::sync::Mutex::new(None)),

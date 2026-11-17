@@ -20,7 +20,7 @@
 
 | 插件 | name | 组件 | 说明 |
 |---|---|---|---|
-| 演示工具包 | `owo-demo-kit` | 技能 `demo-kit` + stdio 服务器 `demo`（`echo` / `plugin_info`） | 纯标准库 Python；`${PLUGIN_ROOT}` 展开与 `cwd` 缺省的可运行样本 |
+| 演示工具包 | `owo-demo-kit` | 技能 `demo-kit` + stdio 服务器 `demo`（`echo` / `plugin_info`）+ hooks 示例（`com.owo.agent/hooks.example.json`，默认不加载） | 纯标准库 Python；`${PLUGIN_ROOT}` 展开、`cwd` 缺省与 hooks 贡献点的可运行样本 |
 
 校验（不启动 Daemon）：
 

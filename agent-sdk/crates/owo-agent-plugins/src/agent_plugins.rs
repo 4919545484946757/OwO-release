@@ -46,6 +46,26 @@ pub const AGENT_PLUGINS_SKILLS_DIR: &str = "skills";
 /// 技能入口文件名。
 pub const AGENT_PLUGINS_SKILL_FILE: &str = "SKILL.md";
 
+// ---------------------------------------------------------------------------
+// 客户端扩展命名空间（§8）：OwO 自己的 hooks 贡献点
+// ---------------------------------------------------------------------------
+
+/// 本客户端在 `extensions` 里使用的反向域名命名空间，也是扩展目录名（§8）。
+pub const OWO_EXTENSION_NAMESPACE: &str = "com.owo.agent";
+/// 扩展目录里的可选 hooks 文件（与清单内 `hooks` 数组等价）。
+pub const OWO_EXTENSION_HOOKS_FILE: &str = "hooks.json";
+/// 单包可声明的 hook 上限（防御性上限：hooks 串行执行，数量直接放大回合延迟）。
+pub const MAX_PLUGIN_HOOKS: usize = 32;
+/// hooks 贡献点认可的事件名（与 core `HookEvent` 同一组；跨 crate 无法共享常量，
+/// 由 core 侧的映射测试保证同步）。
+pub const PLUGIN_HOOK_EVENTS: &[&str] = &[
+    "pre_tool_use",
+    "post_tool_use",
+    "user_prompt_submit",
+    "stop",
+    "pre_compact",
+];
+
 /// `plugin.json` 允许的顶层字段（闭模式，§5.2）。
 const MANIFEST_FIELDS: &[&str] = &[
     "$schema",
@@ -557,7 +577,7 @@ pub fn scan_agent_plugin_for_risks(root: &Path, allowlist_domains: &[String]) ->
 // 技能
 // ---------------------------------------------------------------------------
 
-/// 一个通过 Agent Skills 规范校验的技能。
+/// 一个通过规范校验的技能。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentSkill {
     /// frontmatter 的 `name`（Agent Skills 规范要求）。
@@ -568,6 +588,25 @@ pub struct AgentSkill {
     pub dir: PathBuf,
     /// `SKILL.md` 的规范路径。
     pub skill_md: PathBuf,
+}
+
+/// 插件贡献的 hooks（`com.owo.agent` 扩展命名空间）。
+///
+/// 与宿主 `hooks` 同一个执行器，但来源可追溯（`plugin:<name>`），便于审计与排障。
+/// 脚本必须是包内文件（`./...` 或 `${PLUGIN_ROOT}/...`）：不接受裸命令，避免借
+/// PATH 执行包外程序；扩展名决定解释器（见 core 的 `plugin_hook_configs`）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AgentPluginHook {
+    /// 事件名（[`PLUGIN_HOOK_EVENTS`] 之一）。
+    pub event: String,
+    /// 工具名通配（`*` / `desktop_*`；缺省 = 全部）。
+    pub matcher: Option<String>,
+    /// 包内脚本的规范路径。
+    pub script: PathBuf,
+    /// 传给脚本的参数（占位符已展开；不含引号/换行）。
+    pub args: Vec<String>,
+    /// `open`（缺省）/ `closed`。
+    pub fail_mode: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -617,6 +656,8 @@ pub struct LoadedAgentPlugin {
     pub manifest: AgentPluginManifest,
     pub skills: Vec<AgentSkill>,
     pub mcp_servers: Vec<AgentMcpServer>,
+    /// 客户端扩展命名空间贡献的 hooks。
+    pub hooks: Vec<AgentPluginHook>,
     /// 加载过程中的全部诊断（信息 + 非致命问题）。
     pub diagnostics: Vec<PluginDiagnostic>,
 }
@@ -671,15 +712,17 @@ pub fn load_agent_plugin(
 
     let skills = discover_skills(&root, &mut diagnostics);
     let mcp_servers = load_mcp_servers(&root, &data_root, &manifest, &mut diagnostics);
+    let hooks = load_plugin_hooks(&root, &data_root, &manifest, &mut diagnostics);
 
     diagnostics.push(PluginDiagnostic::info(
         "plugin_loaded",
         Some(&root),
         format!(
-            "Agent Plugins {} 已加载：skills={} mcp_servers={}",
+            "Agent Plugins {} 已加载：skills={} mcp_servers={} hooks={}",
             AGENT_PLUGINS_SPEC_VERSION,
             skills.len(),
-            mcp_servers.len()
+            mcp_servers.len(),
+            hooks.len()
         ),
     ));
 
@@ -688,6 +731,7 @@ pub fn load_agent_plugin(
         manifest,
         skills,
         mcp_servers,
+        hooks,
         diagnostics,
     })
 }
@@ -695,6 +739,172 @@ pub fn load_agent_plugin(
 /// 目录是否像一个 Agent Plugins 包（只做存在性判断，不做校验）。
 pub fn is_agent_plugin_dir(directory: &Path) -> bool {
     directory.join(AGENT_PLUGINS_MANIFEST_FILE).is_file()
+}
+
+// ---------------------------------------------------------------------------
+// 客户端扩展：hooks 贡献点
+// ---------------------------------------------------------------------------
+
+/// 读取 `com.owo.agent` 命名空间贡献的 hooks。
+///
+/// 两个来源（§8 允许清单内数据与客户端目录并存）：
+/// 1. `plugin.json` 的 `extensions["com.owo.agent"].hooks` 数组；
+/// 2. 包根 `com.owo.agent/hooks.json`（同样的数组）。
+///
+/// 单条非法只跳过自己（与组件级窄边界一致），并在诊断里说明原因。
+fn load_plugin_hooks(
+    root: &Path,
+    data_root: &Path,
+    manifest: &AgentPluginManifest,
+    diagnostics: &mut Vec<PluginDiagnostic>,
+) -> Vec<AgentPluginHook> {
+    let mut raw_entries: Vec<serde_json::Value> = Vec::new();
+    if let Some(namespace) = manifest.extensions.get(OWO_EXTENSION_NAMESPACE) {
+        if let Some(hooks) = namespace.get("hooks") {
+            match hooks.as_array() {
+                Some(entries) => raw_entries.extend(entries.iter().cloned()),
+                None => diagnostics.push(PluginDiagnostic::warning(
+                    "plugin_hooks_not_array",
+                    None,
+                    "extensions.com.owo.agent.hooks 不是数组，已忽略",
+                )),
+            }
+        }
+    }
+    let hooks_file = root
+        .join(OWO_EXTENSION_NAMESPACE)
+        .join(OWO_EXTENSION_HOOKS_FILE);
+    if std::fs::symlink_metadata(&hooks_file).is_ok() {
+        match std::fs::canonicalize(&hooks_file) {
+            Ok(canonical) if path_is_within(root, &canonical) && canonical.is_file() => {
+                match std::fs::read_to_string(&canonical)
+                    .ok()
+                    .and_then(|content| serde_json::from_str::<Value>(&content).ok())
+                {
+                    Some(Value::Array(entries)) => raw_entries.extend(entries),
+                    _ => diagnostics.push(PluginDiagnostic::warning(
+                        "plugin_hooks_file_invalid",
+                        Some(&canonical),
+                        "扩展目录 hooks.json 必须是数组，已忽略",
+                    )),
+                }
+            }
+            _ => diagnostics.push(PluginDiagnostic::warning(
+                "plugin_hooks_file_invalid",
+                Some(&hooks_file),
+                "扩展目录 hooks.json 解析到包外或不是普通文件，已忽略",
+            )),
+        }
+    }
+
+    let mut hooks = Vec::new();
+    for entry in raw_entries {
+        if hooks.len() >= MAX_PLUGIN_HOOKS {
+            diagnostics.push(PluginDiagnostic::warning(
+                "plugin_hooks_truncated",
+                Some(root),
+                format!("hooks 超过 {MAX_PLUGIN_HOOKS} 条，其余已忽略"),
+            ));
+            break;
+        }
+        match parse_plugin_hook(&entry, root, data_root) {
+            Ok(hook) => hooks.push(hook),
+            Err(reason) => diagnostics.push(PluginDiagnostic::warning(
+                "plugin_hook_skipped",
+                Some(root),
+                format!("hook 已跳过：{reason}"),
+            )),
+        }
+    }
+    hooks
+}
+
+fn parse_plugin_hook(
+    value: &Value,
+    root: &Path,
+    data_root: &Path,
+) -> Result<AgentPluginHook, String> {
+    const FIELDS: &[&str] = &["event", "matcher", "command", "args", "fail_mode"];
+    let object = value
+        .as_object()
+        .ok_or_else(|| "hook 必须是 JSON 对象".to_string())?;
+    if let Some(unknown) = object
+        .keys()
+        .find(|field| !FIELDS.contains(&field.as_str()))
+    {
+        return Err(format!("hook 不允许字段 `{unknown}`"));
+    }
+    let event = match object.get("event") {
+        Some(Value::String(event)) => event.clone(),
+        Some(_) => return Err("`event` 必须是字符串".to_string()),
+        None => return Err("缺少必填字段 `event`".to_string()),
+    };
+    if !PLUGIN_HOOK_EVENTS.contains(&event.as_str()) {
+        return Err(format!(
+            "未知事件 `{event}`（允许：{}）",
+            PLUGIN_HOOK_EVENTS.join("/")
+        ));
+    }
+    let command = match object.get("command") {
+        Some(Value::String(command)) if !command.is_empty() => command.clone(),
+        Some(_) => return Err("`command` 必须是非空字符串".to_string()),
+        None => return Err("缺少必填字段 `command`".to_string()),
+    };
+    // 只接受包内脚本：裸命令可借 PATH 执行包外程序，与「能力随包分发」不符。
+    let relative = if is_plugin_relative(&command) {
+        PathBuf::from(&command)
+    } else if let Some(rest) = command.strip_prefix("${PLUGIN_ROOT}/") {
+        PathBuf::from(rest)
+    } else {
+        return Err(format!(
+            "`command` 必须是包内脚本（./x 或 ${{PLUGIN_ROOT}}/x）：{command}"
+        ));
+    };
+    let resolved = resolve_within(root, &relative)
+        .ok_or_else(|| format!("`command` 越出插件根：{command}"))?;
+    let canonical = std::fs::canonicalize(&resolved)
+        .map_err(|error| format!("`command` 脚本不存在（{}）：{error}", resolved.display()))?;
+    if !path_is_within(root, &canonical) || !canonical.is_file() {
+        return Err(format!("`command` 解析到包外或不是普通文件：{command}"));
+    }
+    let args = match object.get("args") {
+        None => Vec::new(),
+        Some(Value::Array(items)) => {
+            let mut args = Vec::with_capacity(items.len());
+            for item in items {
+                let Value::String(item) = item else {
+                    return Err("`args` 必须是字符串数组".to_string());
+                };
+                if item.contains('"') || item.contains(['\n', '\r']) {
+                    return Err(format!("参数含引号或换行，拒绝拼进 shell：{item}"));
+                }
+                args.push(expand_placeholders(item, root, data_root));
+            }
+            args
+        }
+        Some(_) => return Err("`args` 必须是字符串数组".to_string()),
+    };
+    let matcher = match object.get("matcher") {
+        None => None,
+        Some(Value::String(matcher)) => Some(matcher.clone()),
+        Some(_) => return Err("`matcher` 必须是字符串".to_string()),
+    };
+    let fail_mode = match object.get("fail_mode") {
+        None => None,
+        Some(Value::String(mode))
+            if mode.eq_ignore_ascii_case("open") || mode.eq_ignore_ascii_case("closed") =>
+        {
+            Some(mode.to_ascii_lowercase())
+        }
+        Some(_) => return Err("`fail_mode` 只能是 open / closed".to_string()),
+    };
+    Ok(AgentPluginHook {
+        event,
+        matcher,
+        script: canonical,
+        args,
+        fail_mode,
+    })
 }
 
 // ---------------------------------------------------------------------------

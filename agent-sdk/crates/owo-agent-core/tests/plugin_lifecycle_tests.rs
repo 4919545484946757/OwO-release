@@ -206,6 +206,8 @@ fn signed_manifest(
         network_allowlist: Vec::new(),
         signature: None,
         mcp: None,
+        mcp_servers: Vec::new(),
+        hooks: Vec::new(),
     };
     let digest = owo_agent_core::plugin::plugin_digest(&manifest, entry_content);
     let signature = key.sign(&digest);

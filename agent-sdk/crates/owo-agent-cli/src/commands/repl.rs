@@ -149,10 +149,17 @@ impl Repl {
             &settings.deny_commands,
         )?);
         // A2-1：本地 REPL 装载 settings.json 的 hooks（与 server 同一出口）；
-        // 未信任工作区跳过（审查 N1）。
+        // 未信任工作区跳过（审查 N1）。插件贡献的 hooks 合并在同一次装载里。
         if !trust_gated {
+            let mut hook_configs = settings.hooks.clone();
+            for (_, manifest) in &enabled_plugins {
+                hook_configs.extend(owo_agent_core::hooks::plugin_hook_configs(
+                    &manifest.id,
+                    &manifest.hooks,
+                ));
+            }
             agent.set_hooks(owo_agent_core::hooks::HookManager::from_configs(
-                &settings.hooks,
+                &hook_configs,
             ));
         }
         // §11：--no-approval 弃用告警（兼容期显式映射 + 高风险提示）。
