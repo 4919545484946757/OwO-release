@@ -660,6 +660,15 @@ fn record(
         ("skip", 0)
     };
     save_run(&loaded.path, &loaded.run)?;
+    // 完成即自动留档一次（手动 archive 仍可用，用于中途快照）。
+    let mut auto_archive: Option<String> = None;
+    if loaded.run.is_complete(&loaded.playbook) {
+        let marker = format!("complete-{}", epoch_marker());
+        match archive(file, Some(&marker), true, false) {
+            Ok(()) => auto_archive = Some(marker),
+            Err(error) => println!("（自动归档失败，不影响进度：{error}）"),
+        }
+    }
     let next_id = loaded
         .run
         .next_ready(&loaded.playbook)
@@ -675,6 +684,7 @@ fn record(
                 "attempts": attempts,
                 "progress": progress_json(&loaded.playbook, &loaded.run),
                 "next": next_id,
+                "auto_archive": auto_archive,
                 "state_file": loaded.path.to_string_lossy(),
             })
         );
@@ -1002,6 +1012,14 @@ fn validate_marker(marker: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// 归档默认标记：当前 epoch 毫秒。
+fn epoch_marker() -> String {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis().to_string())
+        .unwrap_or_else(|_| "0".to_string())
+}
+
 /// 把当前状态快照到 `<剧本>.runs/<标记>.json`（不改动当前状态）。
 fn archive(
     file: &Path,
@@ -1015,12 +1033,7 @@ fn archive(
     if !state.exists() {
         return Err("还没有运行状态：先用 playbook next/record 产生进度，再归档".into());
     }
-    let marker = marker.map(str::to_string).unwrap_or_else(|| {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|elapsed| elapsed.as_millis().to_string())
-            .unwrap_or_else(|_| "0".to_string())
-    });
+    let marker = marker.map(str::to_string).unwrap_or_else(epoch_marker);
     validate_marker(&marker).map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
     let dir = runs_dir(file);
     std::fs::create_dir_all(&dir)
@@ -1286,6 +1299,30 @@ mod tests {
         let playbook = load(&file).unwrap();
         assert!(load_archive(&file, "missing", &playbook).is_err());
         assert!(load_archive(&file, "../escape", &playbook).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn completing_a_playbook_auto_archives_a_snapshot() {
+        let dir = scratch("auto-archive");
+        let file = dir.join("one.json");
+        std::fs::write(
+            &file,
+            r#"{"id":"one","name":"单步","steps":[{"id":"a","title":"A"}]}"#,
+        )
+        .unwrap();
+        record(&file, "a", Some("done".to_string()), None, None, None, true).unwrap();
+
+        let archived: Vec<_> = std::fs::read_dir(runs_dir(&file))
+            .unwrap()
+            .flatten()
+            .collect();
+        assert_eq!(archived.len(), 1, "完成时应自动留档一次");
+        let name = archived[0].file_name().to_string_lossy().into_owned();
+        assert!(name.starts_with("complete-"), "{name}");
+
+        let loaded = load_run(&file, None).unwrap();
+        assert!(loaded.run.is_complete(&loaded.playbook));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

@@ -95,7 +95,7 @@ owo-agent playbook init my-flow
 owo-agent playbook init my-flow --out playbooks/my-flow.json --force
 
 # 归档与历史（同一剧本多次运行可对比）
-owo-agent playbook archive playbooks/code-review.json --marker 2026-11-18-a
+owo-agent playbook archive playbooks/code-review.json --marker 2026-11-18-a   # 中途快照；完成时会自动留档 complete-<时间戳>
 owo-agent playbook history playbooks/code-review.json
 owo-agent playbook history --json playbooks/code-review.json
 owo-agent playbook diff playbooks/code-review.json --from 2026-11-18-a --to 2026-11-18-b
