@@ -97,6 +97,27 @@ pub(crate) fn load_playbook_run(
     Ok((playbook, run))
 }
 
+/// 剧本推进的宿主判定：完成 / 有下一步 / 阻塞。
+pub(crate) enum PlaybookDirective {
+    Complete,
+    Next(owo_agent_core::playbook::PlaybookStep),
+    Blocked,
+}
+
+/// 纯函数：宿主按剧本状态决定推进循环该做什么（不读文件、不执行命令）。
+pub(crate) fn playbook_directive(
+    playbook: &owo_agent_core::playbook::Playbook,
+    run: &owo_agent_core::playbook::PlaybookRun,
+) -> PlaybookDirective {
+    if run.is_complete(playbook) {
+        return PlaybookDirective::Complete;
+    }
+    match run.next_ready(playbook) {
+        Some(step) => PlaybookDirective::Next(step.clone()),
+        None => PlaybookDirective::Blocked,
+    }
+}
+
 /// 剧本推进的提示块：当前步骤 + 判据 + 命令 + 进度。
 pub(crate) fn playbook_prompt(
     playbook: &owo_agent_core::playbook::Playbook,

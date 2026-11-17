@@ -1127,6 +1127,50 @@ mod repl_completion_tests {
         assert_eq!(stops, 1, "第三次连续失败应停止");
     }
 
+    /// `/advance --playbook`：宿主判定的三个阶段（下一步 / 完成 / 阻塞）。
+    #[test]
+    fn playbook_directive_reports_next_complete_and_blocked() {
+        use owo_agent_core::playbook::{Playbook, PlaybookRun, PlaybookStep, StepKind};
+        let step = |id: &str, deps: &[&str]| PlaybookStep {
+            id: id.to_string(),
+            title: id.to_string(),
+            detail: String::new(),
+            acceptance: String::new(),
+            command: String::new(),
+            depends_on: deps.iter().map(|value| value.to_string()).collect(),
+            kind: StepKind::Model,
+        };
+        let playbook = Playbook {
+            id: "p".to_string(),
+            name: "p".to_string(),
+            description: String::new(),
+            steps: vec![step("a", &[]), step("b", &["a"])],
+        };
+        let mut run = PlaybookRun::new(&playbook);
+        assert!(matches!(
+            super::playbook_directive(&playbook, &run),
+            super::PlaybookDirective::Next(step) if step.id == "a"
+        ));
+        run.record_pass("a", "ok");
+        assert!(matches!(
+            super::playbook_directive(&playbook, &run),
+            super::PlaybookDirective::Next(step) if step.id == "b"
+        ));
+        run.record_pass("b", "ok");
+        assert!(matches!(
+            super::playbook_directive(&playbook, &run),
+            super::PlaybookDirective::Complete
+        ));
+
+        // 前置被跳过（失败仍可重试）→ 下游阻塞 → Blocked。
+        let mut blocked = PlaybookRun::new(&playbook);
+        blocked.record_skip("a", "不适用");
+        assert!(matches!(
+            super::playbook_directive(&playbook, &blocked),
+            super::PlaybookDirective::Blocked
+        ));
+    }
+
     /// `/advance --playbook`：只读剧本状态 + 提示词内容。
     #[test]
     fn playbook_advance_reads_state_and_builds_step_prompt() {

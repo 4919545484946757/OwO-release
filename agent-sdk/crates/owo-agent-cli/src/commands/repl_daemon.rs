@@ -1296,28 +1296,28 @@ impl DaemonRepl {
             if let Some(path) = playbook {
                 match crate::support::load_playbook_run(&self.workspace, path) {
                     Ok((playbook_def, run)) => {
-                        if run.is_complete(&playbook_def) {
-                            if let Some(goal) = self.goal.as_mut() {
-                                goal.done = true;
+                        match crate::support::playbook_directive(&playbook_def, &run) {
+                            crate::support::PlaybookDirective::Complete => {
+                                if let Some(goal) = self.goal.as_mut() {
+                                    goal.done = true;
+                                }
+                                self.persist_goal("done", None).await;
+                                println!(
+                                    "{} 剧本已完成（{}）",
+                                    "✓".green(),
+                                    run.summary(&playbook_def)
+                                );
+                                break;
                             }
-                            self.persist_goal("done", None).await;
-                            println!(
-                                "{} 剧本已完成（{}）",
-                                "✓".green(),
-                                run.summary(&playbook_def)
-                            );
-                            break;
-                        }
-                        match run.next_ready(&playbook_def) {
-                            Some(step) => {
+                            crate::support::PlaybookDirective::Next(step) => {
                                 prompt.push_str("\n\n");
                                 prompt.push_str(&crate::support::playbook_prompt(
                                     &playbook_def,
                                     &run,
-                                    step,
+                                    &step,
                                 ));
                             }
-                            None => {
+                            crate::support::PlaybookDirective::Blocked => {
                                 println!(
                                     "{}",
                                     format!(
