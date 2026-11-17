@@ -24,6 +24,7 @@ pub fn router(state: std::sync::Arc<owo_agent_server::AppState>) -> axum::Router
         .route("/playbooks/status", axum::routing::get(status))
         .route("/playbooks/history", axum::routing::get(history))
         .route("/playbooks/record", axum::routing::post(record))
+        .route("/playbooks/archive", axum::routing::post(archive))
         .with_state(state)
 }
 
@@ -353,6 +354,84 @@ async fn history(
         "name": playbook.name,
         "count": runs.len(),
         "runs": runs,
+    })))
+}
+
+#[derive(Deserialize)]
+struct ArchiveRequest {
+    file: String,
+    #[serde(default)]
+    marker: Option<String>,
+}
+
+fn validate_marker(marker: &str) -> Result<(), String> {
+    if marker.is_empty() || marker.chars().count() > 64 {
+        return Err("归档标记长度必须在 1–64 之间".to_string());
+    }
+    if !marker
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_'))
+    {
+        return Err("归档标记只允许字母、数字与 . - _".to_string());
+    }
+    if marker.starts_with('.') || marker.contains("..") {
+        return Err("归档标记不能以 . 开头或包含 ..".to_string());
+    }
+    Ok(())
+}
+
+/// POST /playbooks/archive {file, marker?}：把当前状态快照到 `<剧本>.runs/`。
+///
+/// 面板"保存快照"用；默认标记 `ui-<epoch 毫秒>`。只复制状态文件，不改进度。
+async fn archive(
+    State(state): State<std::sync::Arc<owo_agent_server::AppState>>,
+    Json(request): Json<ArchiveRequest>,
+) -> ApiResult {
+    let file = resolve_in_workspace(&state.workspace, &request.file)
+        .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+    let playbook = load_playbook(&file).map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+    let run = load_run(&file, &playbook).map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+    let _ = run;
+    let state_file = state_path(&file);
+    if !state_file.exists() {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "还没有运行状态：先记录一步再归档",
+        ));
+    }
+    let marker = request.marker.unwrap_or_else(|| {
+        let millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_millis())
+            .unwrap_or(0);
+        format!("ui-{millis}")
+    });
+    validate_marker(&marker).map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+    let dir = file.with_extension("runs");
+    std::fs::create_dir_all(&dir).map_err(|error| {
+        err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("创建归档目录失败：{error}"),
+        )
+    })?;
+    let target = dir.join(format!("{marker}.json"));
+    if target.exists() {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            format!("归档 `{marker}` 已存在"),
+        ));
+    }
+    std::fs::copy(&state_file, &target).map_err(|error| {
+        err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("写入归档失败：{error}"),
+        )
+    })?;
+    Ok(Json(json!({
+        "ok": true,
+        "id": playbook.id,
+        "marker": marker,
+        "archive": target.to_string_lossy(),
     })))
 }
 

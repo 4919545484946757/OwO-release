@@ -11235,6 +11235,40 @@
           }
         }
       }
+    },
+    "/playbooks/archive": {
+      "post": {
+        "operationId": "playbookArchive",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  },
+                  "marker": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "archived snapshot"
+          },
+          "400": {
+            "description": "missing state or invalid marker"
+          }
+        }
+      }
     }
   },
   "security": [

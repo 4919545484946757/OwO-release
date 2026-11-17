@@ -107,8 +107,11 @@
         esc(summary) + "</div>" +
         (item.description ? '<div class="hint">' + esc(item.description) + "</div>" : "") +
         "</div>" +
+        '<div class="owo-pb-card-actions">' +
+        '<button type="button" class="owo-pb-archive" data-pb-archive="' + esc(item.path) +
+        '" title="把当前进度保存为历史快照">保存快照</button>' +
         '<button type="button" class="owo-pb-toggle" data-pb-toggle="' + esc(item.path) + '">' +
-        (expanded ? "收起" : "打开") + "</button></div>" +
+        (expanded ? "收起" : "打开") + "</button></div></div>" +
         bar(progress) +
         '<div class="owo-pb-chips">' + next +
         (item.warnings
@@ -286,6 +289,19 @@
       return String(value).replace(/["\\]/g, "\\$&");
     }
 
+    /// 保存当前进度为历史快照（POST /playbooks/archive），随后刷新列表与历史。
+    function archiveSnapshot(root, path) {
+      notify(root, "");
+      return post("/playbooks/archive", { file: path })
+        .then(function (data) {
+          notify(root, "已保存快照：" + (data.marker || ""), true);
+          return refresh(root);
+        })
+        .catch(function (error) {
+          showError(root, "保存快照失败：" + friendly(error));
+        });
+    }
+
     function record(root, path, step, outcome) {
       var cardEl = root.querySelector('.owo-pb-card[data-path="' + cssEscape(path) + '"]');
       var input = cardEl
@@ -343,6 +359,11 @@
           } else {
             notify(root, "当前环境不支持剪贴板，请手动选择命令", false);
           }
+          return;
+        }
+        var archiveButton = target.closest("[data-pb-archive]");
+        if (archiveButton) {
+          archiveSnapshot(root, archiveButton.getAttribute("data-pb-archive"));
         }
       });
     }

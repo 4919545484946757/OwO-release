@@ -96,6 +96,7 @@ test("card() escapes names and surfaces warnings/next", () => {
   assert.match(html, /高风险命令 2 条/);
   assert.match(html, /下一步：build/);
   assert.match(html, /结构化评审/);
+  assert.match(html, /data-pb-archive="playbooks\/code-review\.json"/);
 });
 
 test("stepRow() renders warnings and hides actions for passed steps", () => {

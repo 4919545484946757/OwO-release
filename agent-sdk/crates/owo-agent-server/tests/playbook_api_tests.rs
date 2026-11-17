@@ -225,6 +225,85 @@ async fn record_writes_state_and_advances() {
 }
 
 #[tokio::test]
+async fn archive_creates_snapshot_and_rejects_bad_input() {
+    let (state, _temp) = test_state();
+    let workspace = state.workspace.clone();
+    write_playbook(&workspace, "demo", "");
+    let router = playbook_api::router(state);
+
+    // 还没有状态文件 → 400。
+    let (status, body) = call(
+        &router,
+        "POST",
+        "/playbooks/archive",
+        Some(r#"{"file":"playbooks/demo.json"}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+
+    // 记录一步后归档：默认标记 ui-<millis>。
+    let (status, _) = call(
+        &router,
+        "POST",
+        "/playbooks/record",
+        Some(r#"{"file":"playbooks/demo.json","step":"a","outcome":"pass","note":"ok"}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = call(
+        &router,
+        "POST",
+        "/playbooks/archive",
+        Some(r#"{"file":"playbooks/demo.json"}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let marker = body["marker"].as_str().unwrap();
+    assert!(marker.starts_with("ui-"), "{body}");
+    assert!(workspace
+        .join("playbooks/demo.runs")
+        .join(format!("{marker}.json"))
+        .exists());
+
+    // 显式标记可重复校验：同名 400、非法标记 400。
+    let (status, _) = call(
+        &router,
+        "POST",
+        "/playbooks/archive",
+        Some(r#"{"file":"playbooks/demo.json","marker":"snap-1"}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = call(
+        &router,
+        "POST",
+        "/playbooks/archive",
+        Some(r#"{"file":"playbooks/demo.json","marker":"snap-1"}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _) = call(
+        &router,
+        "POST",
+        "/playbooks/archive",
+        Some(r#"{"file":"playbooks/demo.json","marker":"../escape"}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // 历史能读到刚存的快照。
+    let (status, body) = call(
+        &router,
+        "GET",
+        "/playbooks/history?file=playbooks%2Fdemo.json",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["count"].as_u64().unwrap() >= 2, "{body}");
+}
+
+#[tokio::test]
 async fn status_reports_step_warnings() {
     let (state, _temp) = test_state();
     let dir = state.workspace.join("playbooks");

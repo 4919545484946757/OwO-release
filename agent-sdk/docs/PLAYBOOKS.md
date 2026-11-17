@@ -186,6 +186,8 @@ owo-agent playbook status --json playbooks/code-review.json
 |---|---|---|
 | GET | `/playbooks` | 工作区 `playbooks/` 目录总览（含进度与 `next`；非法条目带 `issues` 不中断） |
 | GET | `/playbooks/status?file=` | 单个剧本逐步状态（`file` 为工作区内相对路径） |
+| GET | `/playbooks/history?file=` | 归档列表（含每步状态，前端可本地对比两次运行） |
+| POST | `/playbooks/archive` | `{file, marker?}`：把当前状态快照到 `<剧本>.runs/`（面板「保存快照」；默认 `ui-<时间戳>`） |
 | POST | `/playbooks/record` | `{file, step, outcome: pass\|fail\|skip, note}`，写 `<剧本>.state.json` |
 
 契约已同步：`crates/owo-agent-server/src/openapi.json`、`clients/ts/openapi.json`、
