@@ -68,6 +68,10 @@
         '<button type="button" class="owo-pb-refresh" aria-label="刷新剧本列表">刷新</button></div>' +
         '<div class="hint">按剧本推进：查看进度、记录通过/失败/跳过。' +
         '需要自动执行 <code>check</code> 步骤时，让 Agent 调用 <code>playbook_check</code>（经审批）。</div>' +
+        '<div class="owo-pb-new">' +
+        '<input type="text" class="owo-pb-new-id" placeholder="新剧本 id（小写/数字/连字符）" aria-label="新剧本 id">' +
+        '<button type="button" class="owo-pb-create" data-pb-create="1">新建剧本</button>' +
+        "</div>" +
         '<div class="owo-pb-meta sub" role="status" aria-live="polite">加载中…</div>' +
         '<div class="owo-pb-list"></div>' +
         '<div class="owo-pb-error sub" role="alert" hidden></div>' +
@@ -399,6 +403,26 @@
         });
     }
 
+    /// 新建空白剧本（POST /playbooks/init），成功后清空输入并刷新列表。
+    function createPlaybook(root) {
+      var input = root.querySelector(".owo-pb-new-id");
+      var id = input ? String(input.value || "").trim() : "";
+      if (!id) {
+        showError(root, "请输入剧本 id（小写字母/数字/连字符）");
+        return Promise.resolve();
+      }
+      notify(root, "");
+      return post("/playbooks/init", { id: id })
+        .then(function (data) {
+          if (input) input.value = "";
+          notify(root, "已创建剧本：" + (data.path || id), true);
+          return refresh(root);
+        })
+        .catch(function (error) {
+          showError(root, "创建失败：" + friendly(error));
+        });
+    }
+
     function record(root, path, step, outcome) {
       var cardEl = root.querySelector('.owo-pb-card[data-path="' + cssEscape(path) + '"]');
       var input = cardEl
@@ -467,6 +491,10 @@
         if (compareButton) {
           var compareCard = compareButton.closest(".owo-pb-card");
           if (compareCard) renderCompare(compareCard, compareButton.getAttribute("data-pb-compare"));
+          return;
+        }
+        if (target.closest("[data-pb-create]")) {
+          createPlaybook(root);
         }
       });
     }

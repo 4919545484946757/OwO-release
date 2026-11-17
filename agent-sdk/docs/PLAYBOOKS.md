@@ -224,7 +224,7 @@ owo-agent playbook status --json playbooks/code-review.json
 
 桌面「任务剧本」面板（`desktop/web/panels/playbook.panel.js`）已接入：工作台
 「自动化 → 任务剧本」。列表显示进度与下一步；展开后逐步展示状态/命令，并提供
-通过/失败/跳过记录、保存快照与点击历史行做「该归档 → 当前」的逐步对比（含失败类型变化）
+通过/失败/跳过记录、新建剧本、保存快照、点击历史行做「该归档 → 当前」的逐步对比（含失败类型变化）
 （命令执行仍由 Agent 的 `playbook_check` 完成，面板不提供执行入口）。
 
 ## 9. 下一步

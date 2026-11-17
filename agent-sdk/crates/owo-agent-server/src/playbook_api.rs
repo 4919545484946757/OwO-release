@@ -25,6 +25,7 @@ pub fn router(state: std::sync::Arc<owo_agent_server::AppState>) -> axum::Router
         .route("/playbooks/history", axum::routing::get(history))
         .route("/playbooks/record", axum::routing::post(record))
         .route("/playbooks/archive", axum::routing::post(archive))
+        .route("/playbooks/init", axum::routing::post(init))
         .with_state(state)
 }
 
@@ -443,6 +444,99 @@ async fn archive(
         "id": playbook.id,
         "marker": marker,
         "archive": target.to_string_lossy(),
+    })))
+}
+
+#[derive(Deserialize)]
+struct InitRequest {
+    id: String,
+}
+
+fn validate_new_id(id: &str) -> Result<(), String> {
+    if id.is_empty() || id.chars().count() > 64 {
+        return Err("剧本 id 长度必须在 1–64 之间".to_string());
+    }
+    if !id.chars().all(|character| {
+        character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
+    }) {
+        return Err("剧本 id 只允许小写字母、数字与连字符".to_string());
+    }
+    let first = id.chars().next().unwrap_or(' ');
+    let last = id.chars().last().unwrap_or(' ');
+    if !first.is_ascii_alphanumeric() || !last.is_ascii_alphanumeric() {
+        return Err("剧本 id 必须以字母或数字开头/结尾".to_string());
+    }
+    Ok(())
+}
+
+/// POST /playbooks/init {id}：在工作区 `playbooks/` 新建三步骨架。
+async fn init(
+    State(state): State<std::sync::Arc<owo_agent_server::AppState>>,
+    Json(request): Json<InitRequest>,
+) -> ApiResult {
+    validate_new_id(request.id.trim()).map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+    let id = request.id.trim();
+    let dir = playbooks_dir(&state.workspace);
+    std::fs::create_dir_all(&dir).map_err(|error| {
+        err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("创建目录失败：{error}"),
+        )
+    })?;
+    let path = dir.join(format!("{id}.json"));
+    if path.exists() {
+        return Err(err(StatusCode::BAD_REQUEST, format!("剧本 `{id}` 已存在")));
+    }
+    let skeleton = json!({
+        "id": id,
+        "name": id,
+        "description": "TODO：说明这类任务的输入、产出与边界",
+        "steps": [
+            {
+                "id": "plan",
+                "title": "确认任务范围",
+                "kind": "model",
+                "detail": "读输入、确认产出与不做的事。",
+                "acceptance": "列出输入、产出与不做的事"
+            },
+            {
+                "id": "check",
+                "title": "可自动校验的检查",
+                "kind": "check",
+                "detail": "能写成一条「退出码即结论」的命令就填 command；留空则人工判定。",
+                "acceptance": "TODO：写可判定的判据",
+                "depends_on": ["plan"]
+            },
+            {
+                "id": "deliver",
+                "title": "评审与交付",
+                "kind": "human",
+                "detail": "汇总证据，交给人工确认。",
+                "acceptance": "人工确认结果",
+                "depends_on": ["check"]
+            }
+        ]
+    });
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&skeleton).map_err(|error| {
+            err(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("序列化失败：{error}"),
+            )
+        })?,
+    )
+    .map_err(|error| {
+        err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("写入失败：{error}"),
+        )
+    })?;
+    Ok(Json(json!({
+        "ok": true,
+        "id": id,
+        "path": format!("playbooks/{id}.json"),
+        "steps": 3,
     })))
 }
 

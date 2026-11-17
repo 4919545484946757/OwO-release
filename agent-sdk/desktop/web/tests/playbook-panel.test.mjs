@@ -160,6 +160,7 @@ test("mount fetches the list and renders cards", async () => {
     esc,
   });
   await flush();
+  assert.match(view.innerHTML, /新建剧本/);
   assert.ok(calls.includes("/playbooks"));
   assert.match(view.querySelector(".owo-pb-list").innerHTML, /代码评审/);
   assert.match(view.querySelector(".owo-pb-meta").textContent, /共 1 个剧本/);

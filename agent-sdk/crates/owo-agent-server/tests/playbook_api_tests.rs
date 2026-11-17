@@ -225,6 +225,44 @@ async fn record_writes_state_and_advances() {
 }
 
 #[tokio::test]
+async fn init_creates_skeleton_and_rejects_bad_input() {
+    let (state, _temp) = test_state();
+    let workspace = state.workspace.clone();
+    let router = playbook_api::router(state);
+
+    let (status, body) = call(
+        &router,
+        "POST",
+        "/playbooks/init",
+        Some(r#"{"id":"demo-new"}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["id"], "demo-new");
+    assert!(workspace.join("playbooks/demo-new.json").exists());
+    // 生成的字剧应能立即出现在列表里。
+    let (status, body) = call(&router, "GET", "/playbooks", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["playbooks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| item["id"] == "demo-new"));
+
+    // 重名与非法 id 都被拒绝。
+    let (status, _) = call(
+        &router,
+        "POST",
+        "/playbooks/init",
+        Some(r#"{"id":"demo-new"}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _) = call(&router, "POST", "/playbooks/init", Some(r#"{"id":"Bad"}"#)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn archive_creates_snapshot_and_rejects_bad_input() {
     let (state, _temp) = test_state();
     let workspace = state.workspace.clone();

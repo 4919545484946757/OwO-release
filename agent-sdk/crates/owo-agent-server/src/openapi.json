@@ -11269,6 +11269,37 @@
           }
         }
       }
+    },
+    "/playbooks/init": {
+      "post": {
+        "operationId": "playbookInit",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "created skeleton"
+          },
+          "400": {
+            "description": "invalid or duplicate id"
+          }
+        }
+      }
     }
   },
   "security": [
