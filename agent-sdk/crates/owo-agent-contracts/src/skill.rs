@@ -60,39 +60,59 @@ impl SkillRegistry {
 
     /// 从全局数据目录 `<data>/skills` 与工作区 `.agents/skills` 发现技能。
     pub fn discover(workspace: &Path, data_root: &Path) -> Self {
+        Self::discover_with_plugin_skills(workspace, data_root, &[])
+    }
+
+    /// 在宿主技能之外，额外发现**插件包内**的技能（Agent Plugins 1.0.0 的 `skills/`）。
+    ///
+    /// `plugin_roots` 是已启用插件的包根；调用方只应传入启用中的插件（禁用插件的技能
+    /// 不应出现在模型可见目录里）。同名技能按「先发现者胜」处理：数据目录与工作区技能
+    /// 优先于插件技能，避免插件顶替宿主技能。
+    pub fn discover_with_plugin_skills(
+        workspace: &Path,
+        data_root: &Path,
+        plugin_roots: &[PathBuf],
+    ) -> Self {
         let mut registry = Self::default();
-        let mut roots = vec![
+        for root in [
             data_root.join("skills"),
             workspace.join(".agents").join("skills"),
-        ];
-        for root in roots.drain(..) {
-            let Ok(entries) = std::fs::read_dir(&root) else {
-                continue;
-            };
-            for entry in entries.flatten() {
-                let is_dir = entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false);
-                if !is_dir {
-                    continue;
-                }
-                let skill_file = entry.path().join("SKILL.md");
-                if !skill_file.exists() {
-                    continue;
-                }
-                if let Ok(skill) = Skill::load(&skill_file) {
-                    if !registry
-                        .skills
-                        .iter()
-                        .any(|existing| existing.name == skill.name)
-                    {
-                        registry.skills.push(skill);
-                    }
-                }
-            }
+        ] {
+            registry.collect_from(&root);
+        }
+        for plugin_root in plugin_roots {
+            registry.collect_from(&plugin_root.join("skills"));
         }
         registry
             .skills
             .sort_by(|left, right| left.name.cmp(&right.name));
         registry
+    }
+
+    /// 扫描一个技能根：每个直接子目录里的 `SKILL.md` 是一个技能（不递归）。
+    fn collect_from(&mut self, root: &Path) {
+        let Ok(entries) = std::fs::read_dir(root) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let is_dir = entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false);
+            if !is_dir {
+                continue;
+            }
+            let skill_file = entry.path().join("SKILL.md");
+            if !skill_file.exists() {
+                continue;
+            }
+            if let Ok(skill) = Skill::load(&skill_file) {
+                if !self
+                    .skills
+                    .iter()
+                    .any(|existing| existing.name == skill.name)
+                {
+                    self.skills.push(skill);
+                }
+            }
+        }
     }
 
     pub fn list(&self) -> Vec<&Skill> {
@@ -188,6 +208,57 @@ mod tests {
             .unwrap()
             .instructions
             .contains("执行 A"));
+        let _ = std::fs::remove_dir_all(&workspace);
+        let _ = std::fs::remove_dir_all(&data);
+    }
+
+    #[test]
+    fn discovers_plugin_skills_without_shadowing_host_skills() {
+        let workspace =
+            std::env::temp_dir().join(format!("owo-skill-plugin-ws-{}", uuid::Uuid::new_v4()));
+        let data =
+            std::env::temp_dir().join(format!("owo-skill-plugin-data-{}", uuid::Uuid::new_v4()));
+        // 宿主技能（工作区）。
+        let host_dir = workspace.join(".agents").join("skills").join("shared");
+        std::fs::create_dir_all(&host_dir).unwrap();
+        std::fs::write(
+            host_dir.join("SKILL.md"),
+            "---\nname: shared\ndescription: 宿主同名技能\n---\n宿主正文。",
+        )
+        .unwrap();
+        // 插件包：一个与宿主同名，一个独有。
+        let plugin_root = workspace.join("plugins").join("demo-kit");
+        for (dir, name, body) in [
+            ("shared", "shared", "插件正文（不应顶替宿主）。"),
+            ("plugin-only", "plugin-only", "插件独有技能正文。"),
+        ] {
+            let skill_dir = plugin_root.join("skills").join(dir);
+            std::fs::create_dir_all(&skill_dir).unwrap();
+            std::fs::write(
+                skill_dir.join("SKILL.md"),
+                format!("---\nname: {name}\ndescription: 插件技能\n---\n{body}"),
+            )
+            .unwrap();
+        }
+
+        let registry =
+            SkillRegistry::discover_with_plugin_skills(&workspace, &data, &[plugin_root]);
+        let names: Vec<&str> = registry.list().iter().map(|s| s.name.as_str()).collect();
+        assert!(names.contains(&"shared"));
+        assert!(names.contains(&"plugin-only"));
+        assert!(
+            registry
+                .get("shared")
+                .unwrap()
+                .instructions
+                .contains("宿主正文"),
+            "同名技能必须保留宿主版本"
+        );
+        assert!(registry
+            .get("plugin-only")
+            .unwrap()
+            .instructions
+            .contains("插件独有"));
         let _ = std::fs::remove_dir_all(&workspace);
         let _ = std::fs::remove_dir_all(&data);
     }

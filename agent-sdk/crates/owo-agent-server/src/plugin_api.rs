@@ -42,12 +42,27 @@ pub(super) async fn plugins_list(State(state): State<Arc<AppState>>) -> Json<Val
                 "enabled": enabled,
                 "tools_hidden": tools_hidden,
                 "permissions": manifest.permissions,
+                // 历史单服务器字段（保留兼容）；Agent Plugins 包见 mcp_servers。
                 "mcp": manifest.mcp.as_ref().map(|mcp| json!({
                     "name": mcp.name,
                     "transport": mcp.transport,
                     "command": mcp.command,
                     "args": mcp.args,
                 })),
+                // 只暴露可展示的连接信息；env/headers 可能含凭据，绝不出网。
+                "mcp_servers": manifest.mcp_servers.iter().map(|mcp| json!({
+                    "name": mcp.name,
+                    "transport": mcp.transport,
+                    "command": mcp.command,
+                    "args": mcp.args,
+                    "url": mcp.url,
+                })).collect::<Vec<_>>(),
+                "format": if path.file_name().and_then(|name| name.to_str())
+                    == Some(owo_agent_core::agent_plugins::AGENT_PLUGINS_MANIFEST_FILE) {
+                    "agent-plugins-1.0.0"
+                } else {
+                    "owo-manifest"
+                },
                 "manifest_path": path.to_string_lossy(),
             })
         })

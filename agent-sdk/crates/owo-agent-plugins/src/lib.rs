@@ -30,13 +30,21 @@
 //!
 //! 本 crate 不依赖 core / server / ONNX / Sherpa。
 
+pub mod agent_plugins;
 pub mod plugin;
 
+pub use agent_plugins::{
+    collect_agent_plugin_code, is_agent_plugin_dir, load_agent_plugin, scan_agent_plugin_for_risks,
+    validate_mcp_url, validate_plugin_name, AgentMcpServer, AgentMcpTransport, AgentPluginAuthor,
+    AgentPluginError, AgentPluginManifest, AgentSkill, DiagnosticLevel, LoadedAgentPlugin,
+    PluginDiagnostic, AGENT_PLUGINS_MANIFEST_SCHEMA, AGENT_PLUGINS_MCP_SCHEMA,
+    AGENT_PLUGINS_SPEC_VERSION,
+};
 pub use plugin::{
-    discover_plugins, plugin_mcp_config, scan_plugin_for_risks, verify_plugin_signature,
-    MarketPluginEntry, MarketUpdateManifest, PluginInstallReport, PluginInstallState,
-    PluginManager, PluginManifest, PluginReviewState, PluginSignature, PluginStateStore,
-    PluginSubmission, VersionsJson,
+    agent_plugin_to_manifest, discover_plugins, discover_plugins_with_report, plugin_mcp_config,
+    plugin_mcp_configs, scan_plugin_for_risks, verify_plugin_signature, MarketPluginEntry,
+    MarketUpdateManifest, PluginInstallReport, PluginInstallState, PluginManager, PluginManifest,
+    PluginReviewState, PluginSignature, PluginStateStore, PluginSubmission, VersionsJson,
 };
 
 // ---------------------------------------------------------------------------
@@ -72,6 +80,18 @@ pub struct McpServerConfig {
     /// （hash 不一致即退回 Execute 询问）。空 = 无任何工具获可信只读。
     #[serde(default)]
     pub trusted_readonly: Vec<String>,
+    /// stdio：子进程环境变量（Agent Plugins 1.0.0 §7.2.1）。插件把凭据放在这里
+    /// 而不是 args，避免出现在进程命令行与审计明文里。空 = 继承宿主环境。
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub env: std::collections::BTreeMap<String, String>,
+    /// stdio：子进程工作目录（绝对路径；相对路径按宿主当前目录解析）。
+    /// Agent Plugins 包加载后此处固定写成解析好的插件根目录（§7.2.1 缺省 cwd）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+    /// HTTP：连接时附加的固定请求头（Agent Plugins 1.0.0 §7.2.1）。
+    /// 仅随请求发送到配置的 origin；不得含凭据（规范把凭据留给客户端管理）。
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub headers: std::collections::BTreeMap<String, String>,
 }
 
 impl McpServerConfig {
@@ -85,6 +105,9 @@ impl McpServerConfig {
             timeout_ms: None,
             network_allowlist: Vec::new(),
             trusted_readonly: Vec::new(),
+            env: std::collections::BTreeMap::new(),
+            cwd: None,
+            headers: std::collections::BTreeMap::new(),
         }
     }
 
@@ -98,6 +121,9 @@ impl McpServerConfig {
             timeout_ms: None,
             network_allowlist: Vec::new(),
             trusted_readonly: Vec::new(),
+            env: std::collections::BTreeMap::new(),
+            cwd: None,
+            headers: std::collections::BTreeMap::new(),
         }
     }
 

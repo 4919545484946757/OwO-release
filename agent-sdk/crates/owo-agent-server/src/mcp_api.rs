@@ -106,6 +106,9 @@ pub(super) async fn mcp_add(
         timeout_ms: None,
         network_allowlist: Vec::new(),
         trusted_readonly: Vec::new(),
+        env: std::collections::BTreeMap::new(),
+        cwd: None,
+        headers: std::collections::BTreeMap::new(),
     };
     let mut configs = load_mcp_configs(&state.data_root);
     if configs.iter().any(|existing| existing.name == name) {

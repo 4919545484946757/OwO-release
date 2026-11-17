@@ -33,7 +33,11 @@ impl Repl {
     }
 
     pub(crate) fn reload_skills(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut skills = SkillRegistry::discover(&self.workspace, &self.data_root);
+        let mut skills = SkillRegistry::discover_with_plugin_skills(
+            &self.workspace,
+            &self.data_root,
+            &self.plugin_roots,
+        );
         apply_disabled_skills(&mut skills, &self.settings);
         self.skills = skills;
         self.rebuild_agent()?;

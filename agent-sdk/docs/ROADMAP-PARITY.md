@@ -52,6 +52,7 @@
 | G13 | **变更审阅（per-hunk）** | 服务端已有 `change_set`（写前快照/diff/revert）+ artifact review 状态机；Web UI 有 diff 渲染（`workswarm/format.js` 19 处、`workswarm/render.js` 55 处） | ✅ 逐 hunk 接受/拒绝，拒绝可回灌模型让其改法 | 服务端已具备，UI 只到"整份审阅" | 契约测试落在 `change_set`；UI 侧端到端 |
 | G14 | **代码库索引/符号检索** | 只有文本搜索（`search_files`）+ 语义记忆；无符号级索引 | ✅ 符号/引用级检索，大仓库下可控延迟 | 缺失 | 索引构建时间与查询延迟基准；命中率对照文本搜索 |
 | G15 | **光标/选区上下文协议** | 无（没有编辑器就谈不上） | ✅ 客户端把 active file / selection / diagnostics 作为结构化上下文随请求上传 | 依赖 G12 | 协议契约测试（context envelope 的字段与上限） |
+| G16 | **插件包格式（Agent Plugins 1.0.0）** | ✅ 已实现：`plugin.json`（闭模式清单）+ `skills/`（Agent Skills）+ `mcp.json`（stdio / streamable-http），窄失败边界逐条对齐规范；包内技能随插件启用状态进入 `SkillRegistry`，服务器名按 `<plugin>/<server>` 命名空间化 | ✅ 与 Amazon/Cursor/Microsoft/OpenAI/Vercel/Google 发布的**可移植包格式**互通 | 已具备（签名/市场仍走历史格式） | `cargo test -p owo-agent-plugins`（30 条）+ `mcp_tests::agent_plugins_package_connects_with_env_and_cwd`（真连）+ `owo-agent plugins validate`；见 `docs/AGENT-PLUGINS.md` |
 
 ---
 

@@ -58,6 +58,8 @@ pub(crate) struct Repl {
     skills: SkillRegistry,
     settings: Settings,
     plugins: Vec<PluginManifest>,
+    /// 已启用插件的包根（插件包内 `skills/` 的技能来源；禁用插件不在其中）。
+    plugin_roots: Vec<PathBuf>,
     audit_flushed: usize,
     perception: SituationStore,
     learn: LearnRecorder,
@@ -110,6 +112,11 @@ impl Repl {
             owo_agent_core::plugin::discover_enabled_plugins(&workspace, &root, &plugin_state)
         };
         merge_plugin_mcp(&enabled_plugins, &mut mcp_configs);
+        // 插件包内 `skills/`（Agent Plugins 1.0.0）随插件启用状态加载。
+        let plugin_roots: Vec<PathBuf> = enabled_plugins
+            .iter()
+            .filter_map(|(manifest_path, _)| manifest_path.parent().map(|dir| dir.to_path_buf()))
+            .collect();
         let plugins: Vec<PluginManifest> = discovered_plugins
             .into_iter()
             .map(|(_, manifest)| manifest)
@@ -123,7 +130,8 @@ impl Repl {
             }
             Err(error) => eprintln!("内置技能安装失败：{error}"),
         }
-        let mut skills = SkillRegistry::discover(&workspace, &root);
+        let mut skills =
+            SkillRegistry::discover_with_plugin_skills(&workspace, &root, &plugin_roots);
         apply_disabled_skills(&mut skills, &settings);
         let mut whitelist = Whitelist::default();
         if !trust_gated {
@@ -171,6 +179,7 @@ impl Repl {
             skills,
             settings,
             plugins,
+            plugin_roots,
             audit_flushed: 0,
             perception: SituationStore::new(),
             learn: LearnRecorder::new(),

@@ -25,7 +25,7 @@ Usage:
   Initialize-OwoDevEnv -EnsureOrt -EnsureModels
 
   # or run directly (full flow, good for CI logs):
-  pwsh -File scripts\init-dev-env.ps1 [-OrtCacheDir <dir>] [-EnsureModels] [-NoDownload]
+  pwsh -File scripts\init-dev-env.ps1 [-OrtCacheDir <dir>] [-EnsureOrt] [-EnsureModels] [-NoDownload]
 
 Exit codes (direct run): 0 = OK; 2 = missing required dependency (actionable).
 #>
@@ -292,7 +292,7 @@ function Initialize-OwoDevEnv {
 # Direct run: execute the full flow.
 if ($MyInvocation.InvocationName -ne ".") {
     try {
-        $null = Initialize-OwoDevEnv -EnsureModels:$OwoEnsureModels -NoDownload:(($OwoNoDownload) -or (-not $OwoEnsureOrt))
+        $null = Initialize-OwoDevEnv -EnsureOrt:$OwoEnsureOrt -EnsureModels:$OwoEnsureModels -NoDownload:(($OwoNoDownload) -or (-not $OwoEnsureOrt))
         Write-Host "[init] init-dev-env OK. Repo: $script:OwoSdkRoot" -ForegroundColor Green
         exit 0
     } catch {

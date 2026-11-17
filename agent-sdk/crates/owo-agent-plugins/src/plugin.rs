@@ -30,6 +30,10 @@ pub struct PluginManifest {
     /// 插件提供的 MCP 服务器（工具桥接）。
     #[serde(default)]
     pub mcp: Option<McpServerConfig>,
+    /// Agent Plugins 1.0.0 包的 `mcp.json`（可声明多个服务器）。
+    /// 与历史单服务器字段 `mcp` 并存，统一由 [`PluginManifest::all_mcp_servers`] 遍历。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mcp_servers: Vec<McpServerConfig>,
     /// 要求的最低 App 版本（如 "0.5.8"；None 表示不限制）。
     #[serde(default)]
     pub min_app_version: Option<String>,
@@ -54,11 +58,34 @@ impl PluginManifest {
         }
         Ok(manifest)
     }
+
+    /// 该插件声明的全部 MCP 服务器：历史单服务器字段 + Agent Plugins 包的多服务器。
+    pub fn all_mcp_servers(&self) -> impl Iterator<Item = &McpServerConfig> {
+        self.mcp.iter().chain(self.mcp_servers.iter())
+    }
 }
 
 /// 从全局 `<data>/plugins` 与工作区 `plugins/` 发现插件（按 id 去重，工作区优先）。
+///
+/// 同一目录里两种包格式都支持：
+/// * `plugin.json` —— Agent Plugins 1.0.0 规范包（技能 + 多 MCP 服务器）；
+/// * `manifest.json` —— OwO 历史格式（单 MCP 服务器 + 签名/市场字段）。
+///
+/// 规范包优先；加载诊断可用 [`discover_plugins_with_report`] 取回。
 pub fn discover_plugins(workspace: &Path, data_root: &Path) -> Vec<(PathBuf, PluginManifest)> {
+    discover_plugins_with_report(workspace, data_root).0
+}
+
+/// 发现插件并返回加载诊断（未知字段、被跳过的技能/服务器、被拒绝的包）。
+pub fn discover_plugins_with_report(
+    workspace: &Path,
+    data_root: &Path,
+) -> (
+    Vec<(PathBuf, PluginManifest)>,
+    Vec<crate::agent_plugins::PluginDiagnostic>,
+) {
     let mut plugins = Vec::new();
+    let mut diagnostics = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for root in [workspace.join("plugins"), data_root.join("plugins")] {
         let Ok(entries) = std::fs::read_dir(&root) else {
@@ -67,6 +94,30 @@ pub fn discover_plugins(workspace: &Path, data_root: &Path) -> Vec<(PathBuf, Plu
         for entry in entries.flatten() {
             let is_dir = entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false);
             if !is_dir {
+                continue;
+            }
+            // Agent Plugins 1.0.0 规范包优先。
+            if crate::agent_plugins::is_agent_plugin_dir(&entry.path()) {
+                match crate::agent_plugins::load_agent_plugin(&entry.path(), None) {
+                    Ok(loaded) => {
+                        diagnostics.extend(loaded.diagnostics.iter().cloned());
+                        let manifest = agent_plugin_to_manifest(&loaded);
+                        if seen.insert(manifest.id.clone()) {
+                            plugins.push((
+                                entry
+                                    .path()
+                                    .join(crate::agent_plugins::AGENT_PLUGINS_MANIFEST_FILE),
+                                manifest,
+                            ));
+                        }
+                    }
+                    Err(error) => diagnostics.push(crate::agent_plugins::PluginDiagnostic {
+                        level: crate::agent_plugins::DiagnosticLevel::Error,
+                        code: error.code,
+                        path: Some(entry.path()),
+                        message: error.message,
+                    }),
+                }
                 continue;
             }
             let manifest_path = entry.path().join("manifest.json");
@@ -80,7 +131,48 @@ pub fn discover_plugins(workspace: &Path, data_root: &Path) -> Vec<(PathBuf, Plu
             }
         }
     }
-    plugins
+    (plugins, diagnostics)
+}
+
+/// 把 Agent Plugins 1.0.0 包映射为宿主内部 manifest。
+///
+/// 规范包没有签名/权限/最低版本字段：签名与市场治理仍走 `PluginManager` 的
+/// 历史格式（规范包按「未签名」处理，是否放行由调用方策略决定）。
+pub fn agent_plugin_to_manifest(
+    loaded: &crate::agent_plugins::LoadedAgentPlugin,
+) -> PluginManifest {
+    let name = loaded.manifest.name.clone();
+    PluginManifest {
+        id: name.clone(),
+        name,
+        version: loaded
+            .manifest
+            .version
+            .clone()
+            .unwrap_or_else(|| "0.0.0".to_string()),
+        description: loaded.manifest.description.clone().unwrap_or_default(),
+        // MCP 服务器需要工具通道；纯技能包不额外声明能力。
+        permissions: if loaded.mcp_servers.is_empty() {
+            Vec::new()
+        } else {
+            vec!["agent:tools".to_string()]
+        },
+        mcp: None,
+        mcp_servers: loaded
+            .mcp_servers
+            .iter()
+            .map(|server| {
+                let mut config = server.config.clone();
+                // 服务器名带上插件名：跨插件的同名 server 不会互相顶替工具。
+                config.name = format!("{}/{}", loaded.manifest.name, server.key);
+                config
+            })
+            .collect(),
+        min_app_version: None,
+        entry: None,
+        network_allowlist: Vec::new(),
+        signature: None,
+    }
 }
 
 /// 插件启用状态存储（v0.5 生产加固）：只记录被禁用的 id，
@@ -657,9 +749,13 @@ impl PluginManager {
         }
 
         // 4. 沙箱门卫（X01）：插件宿主（MCP 服务器/入口）统一经 SandboxManager 授权。
-        if let Some(mcp) = &manifest.mcp {
+        let mut gated = 0usize;
+        for mcp in manifest.all_mcp_servers() {
             sandbox_gate_for_mcp(&manifest, mcp, self.egress_enabled)?;
-            audit.push("插件宿主沙箱策略通过".to_string());
+            gated += 1;
+        }
+        if gated > 0 {
+            audit.push(format!("插件宿主沙箱策略通过（{gated} 个 MCP 服务器）"));
         }
 
         Ok(PluginInstallReport {
@@ -1035,6 +1131,18 @@ pub fn plugin_mcp_config(
     Some(config)
 }
 
+/// 插件的全部 MCP 服务器配置（历史单服务器 + Agent Plugins 多服务器）。
+///
+/// 规范包的服务器在加载时已经解析成绝对路径与展开后的参数，这里原样透传；
+/// 历史格式仍按 manifest 所在目录解析相对入口。
+pub fn plugin_mcp_configs(manifest_path: &Path, manifest: &PluginManifest) -> Vec<McpServerConfig> {
+    let mut configs: Vec<McpServerConfig> = manifest.mcp_servers.clone();
+    if let Some(config) = plugin_mcp_config(manifest_path, manifest) {
+        configs.push(config);
+    }
+    configs
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1122,6 +1230,7 @@ mod tests {
             entry: None,
             network_allowlist: Vec::new(),
             signature: None,
+            mcp_servers: Vec::new(),
             mcp: Some(McpServerConfig {
                 name: "ignored".to_string(),
                 transport: "stdio".to_string(),
@@ -1131,6 +1240,9 @@ mod tests {
                 timeout_ms: None,
                 network_allowlist: Vec::new(),
                 trusted_readonly: Vec::new(),
+                env: std::collections::BTreeMap::new(),
+                cwd: None,
+                headers: std::collections::BTreeMap::new(),
             }),
         };
         // 相对命令按 manifest 目录解析；服务器名 = 插件 id。
@@ -1150,9 +1262,11 @@ mod tests {
             entry: None,
             network_allowlist: Vec::new(),
             signature: None,
+            mcp_servers: Vec::new(),
             mcp: None,
         };
         assert!(plugin_mcp_config(&manifest_path, &bare).is_none());
+        assert!(plugin_mcp_configs(&manifest_path, &bare).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

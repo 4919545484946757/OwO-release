@@ -155,6 +155,14 @@ impl McpClient {
                 .build()
                 .map_err(|error| format!("HTTP 客户端创建失败：{error}"))?;
             let mut headers = HeaderMap::new();
+            // Agent Plugins 1.0.0 §7.2.1：固定请求头随连接发送到配置的 origin。
+            for (name, value) in &config.headers {
+                let header_name = reqwest::header::HeaderName::from_bytes(name.as_bytes())
+                    .map_err(|error| format!("HTTP MCP 请求头名称非法（{name}）：{error}"))?;
+                let header_value = reqwest::header::HeaderValue::from_str(value)
+                    .map_err(|error| format!("HTTP MCP 请求头 {name} 的值非法：{error}"))?;
+                headers.insert(header_name, header_value);
+            }
             headers.insert(
                 ACCEPT,
                 HeaderValue::from_static("application/json, text/event-stream"),
@@ -201,6 +209,13 @@ impl McpClient {
                 .stderr(std::process::Stdio::inherit())
                 // 子进程随客户端释放（客户端被 drop/关机时不留孤儿进程）。
                 .kill_on_drop(true);
+            // Agent Plugins 1.0.0 §7.2.1：env 传凭据（不进命令行），cwd 缺省为插件根。
+            if !config.env.is_empty() {
+                command.envs(&config.env);
+            }
+            if let Some(cwd) = &config.cwd {
+                command.current_dir(cwd);
+            }
             let mut child = command
                 .spawn()
                 .map_err(|error| format!("MCP 服务器启动失败（{}）：{error}", config.command))?;

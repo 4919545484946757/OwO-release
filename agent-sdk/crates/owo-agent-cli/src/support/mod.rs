@@ -539,7 +539,8 @@ pub(crate) fn merge_plugin_mcp(
     configs: &mut Vec<McpServerConfig>,
 ) {
     for (manifest_path, manifest) in plugins {
-        if let Some(config) = owo_agent_core::plugin_mcp_config(manifest_path, manifest) {
+        // 历史格式单个 `mcp` + Agent Plugins 包的多服务器都走这里。
+        for config in owo_agent_core::plugin_mcp_configs(manifest_path, manifest) {
             if !configs.iter().any(|existing| existing.name == config.name) {
                 configs.push(config);
             }

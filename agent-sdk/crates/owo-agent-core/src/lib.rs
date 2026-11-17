@@ -278,7 +278,7 @@ pub use owo_agent_perception::{
     window_template,
 };
 
-pub use owo_agent_plugins::{plugin, McpServerConfig};
+pub use owo_agent_plugins::{agent_plugins, plugin, McpServerConfig};
 
 pub use owo_agent_env::{desktop_env, experience_store, transition, world_model};
 
@@ -444,10 +444,10 @@ pub use plan::{
 };
 pub use platform::{capture_screen, clipboard_sequence, poll_foreground_app};
 pub use plugin::{
-    discover_plugins, plugin_mcp_config, scan_plugin_for_risks, verify_plugin_signature,
-    MarketPluginEntry, MarketUpdateManifest, PluginInstallReport, PluginInstallState,
-    PluginManager, PluginManifest, PluginReviewState, PluginSignature, PluginStateStore,
-    PluginSubmission, VersionsJson,
+    agent_plugin_to_manifest, discover_plugins, discover_plugins_with_report, plugin_mcp_config,
+    plugin_mcp_configs, scan_plugin_for_risks, verify_plugin_signature, MarketPluginEntry,
+    MarketUpdateManifest, PluginInstallReport, PluginInstallState, PluginManager, PluginManifest,
+    PluginReviewState, PluginSignature, PluginStateStore, PluginSubmission, VersionsJson,
 };
 pub use project_space_store::{
     ProjectSpaceStoreBackend, ProjectSpaceStoreError, SqliteProjectSpaceStore,

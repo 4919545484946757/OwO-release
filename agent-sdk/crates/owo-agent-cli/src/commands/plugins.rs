@@ -29,6 +29,8 @@ pub(crate) enum PluginAction {
     Check { dir: PathBuf },
     /// 校验插件目录（与 check 相同）
     Verify { dir: PathBuf },
+    /// 校验 Agent Plugins 1.0.0 规范包（plugin.json + skills/ + mcp.json）
+    Validate { dir: PathBuf },
     /// 安装插件目录
     Install { dir: PathBuf },
     /// 更新已安装插件（id 为已安装插件 id）
@@ -36,6 +38,59 @@ pub(crate) enum PluginAction {
     /// 卸载插件
     Uninstall { id: String },
 }
+/// 校验 Agent Plugins 1.0.0 规范包并打印逐组件结果。
+///
+/// 规范语义：清单非法 = 整个插件拒绝（exit 1）；组件级问题只降级并列出。
+fn validate_agent_plugin(dir: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    use owo_agent_core::agent_plugins::{
+        load_agent_plugin, DiagnosticLevel, AGENT_PLUGINS_SPEC_VERSION,
+    };
+    match load_agent_plugin(dir, None) {
+        Ok(loaded) => {
+            println!(
+                "Agent Plugins {AGENT_PLUGINS_SPEC_VERSION} 规范包：{} v{}",
+                loaded.id(),
+                loaded.manifest.version.as_deref().unwrap_or("(未声明)")
+            );
+            println!("  技能 {} 个：", loaded.skills.len());
+            for skill in &loaded.skills {
+                println!("    {} —— {}", skill.name, skill.description);
+            }
+            println!("  MCP 服务器 {} 个：", loaded.mcp_servers.len());
+            for server in &loaded.mcp_servers {
+                println!(
+                    "    {}（{}）{}",
+                    server.key,
+                    server.transport.as_str(),
+                    server
+                        .config
+                        .url
+                        .as_deref()
+                        .unwrap_or(server.config.command.as_str())
+                );
+            }
+            let warnings: Vec<_> = loaded
+                .diagnostics
+                .iter()
+                .filter(|item| item.level >= DiagnosticLevel::Warning)
+                .collect();
+            if warnings.is_empty() {
+                println!("  诊断：无（符合 Agent Plugins {AGENT_PLUGINS_SPEC_VERSION}）");
+            } else {
+                println!("  诊断 {} 条：", warnings.len());
+                for diagnostic in warnings {
+                    println!("    {diagnostic}");
+                }
+            }
+            Ok(())
+        }
+        Err(error) => {
+            println!("校验失败：{error}");
+            std::process::exit(1);
+        }
+    }
+}
+
 /// 插件市场治理（本地离线模式）：catalog/check/install/update/uninstall/verify。
 /// 签名/扫描/回滚由 core PluginManager 提供；远端拉取走 HTTP 面（POST /plugins/market/refresh）。
 pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -67,23 +122,37 @@ pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Err
             );
             for (path, manifest) in &plugins {
                 let base = path.parent().unwrap_or(path);
-                let manifest_content = std::fs::read_to_string(path).unwrap_or_default();
-                let entry_content = manifest
-                    .entry
-                    .as_ref()
-                    .and_then(|entry| std::fs::read_to_string(base.join(entry)).ok());
-                let risks = scan_plugin_for_risks(
-                    &manifest_content,
-                    entry_content.as_deref(),
-                    &manifest.network_allowlist,
-                );
+                let is_spec = path.file_name().and_then(|name| name.to_str())
+                    == Some(owo_agent_core::agent_plugins::AGENT_PLUGINS_MANIFEST_FILE);
+                // 规范包只扫可执行内容；清单元数据里的 $schema/homepage 不是网络请求。
+                let risks = if is_spec {
+                    owo_agent_core::agent_plugins::scan_agent_plugin_for_risks(base, &[])
+                } else {
+                    let manifest_content = std::fs::read_to_string(path).unwrap_or_default();
+                    let entry_content = manifest
+                        .entry
+                        .as_ref()
+                        .and_then(|entry| std::fs::read_to_string(base.join(entry)).ok());
+                    scan_plugin_for_risks(
+                        &manifest_content,
+                        entry_content.as_deref(),
+                        &manifest.network_allowlist,
+                    )
+                };
                 let risk = if risks.is_empty() { "clean" } else { "RISK" };
+                let format = if is_spec {
+                    "agent-plugins-1.0.0"
+                } else {
+                    "owo-manifest"
+                };
                 println!(
-                    "  {} v{}（{}）[{}]{}",
+                    "  {} v{}（{}）[{}][{}] 服务器 {} 个{}",
                     manifest.id,
                     manifest.version,
                     manifest.name,
+                    format,
                     risk,
+                    manifest.all_mcp_servers().count(),
                     if risks.is_empty() {
                         String::new()
                     } else {
@@ -96,6 +165,10 @@ pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Err
             }
         }
         PluginAction::Check { dir } | PluginAction::Verify { dir } => {
+            // Agent Plugins 1.0.0 规范包走规范校验（先校验清单，再发现组件）。
+            if owo_agent_core::agent_plugins::is_agent_plugin_dir(&dir) {
+                return validate_agent_plugin(&dir);
+            }
             let manager = PluginManager::new(data_root.clone(), app_version);
             match manager.verify_plugin_dir(&dir) {
                 Ok(report) => {
@@ -112,6 +185,9 @@ pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Err
                     std::process::exit(1);
                 }
             }
+        }
+        PluginAction::Validate { dir } => {
+            return validate_agent_plugin(&dir);
         }
         PluginAction::Install { dir } => {
             let manager = PluginManager::new(data_root.clone(), app_version);

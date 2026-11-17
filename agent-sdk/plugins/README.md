@@ -1,11 +1,32 @@
 # 官方示例插件
 
-随包附带两个官方示例插件（技术文档 P0：“插件 SDK 随包附带 2 个官方示例插件”）：
+本目录同时演示**两种**插件包格式，宿主会按目录内容自动选择：
+
+| 格式 | 识别文件 | 示例 | 说明 |
+|---|---|---|---|
+| OwO 历史格式 | `manifest.json` | `owo-translate` / `owo-clipboard` / `example-hello` | 单 MCP 服务器 + 签名 + 市场治理 |
+| Agent Plugins 1.0.0 | `plugin.json` | `owo-demo-kit` | 可移植包：`skills/` + `mcp.json`（多服务器） |
+
+规范兼容层见 [`../docs/AGENT-PLUGINS.md`](../docs/AGENT-PLUGINS.md)。
+
+### 历史格式示例
 
 | 插件 | id | 工具 | 权限 |
 |---|---|---|---|
 | 翻译 | `owo.plugin.translate` | `translate`（演示词典，中英常用短语，无网络依赖） | `agent:tools` |
 | 剪贴板历史 | `owo.plugin.clipboard` | `clipboard_read` / `clipboard_write`（Windows 经 PowerShell） | `agent:tools`、`clipboard:read`、`clipboard:write` |
+
+### Agent Plugins 1.0.0 示例
+
+| 插件 | name | 组件 | 说明 |
+|---|---|---|---|
+| 演示工具包 | `owo-demo-kit` | 技能 `demo-kit` + stdio 服务器 `demo`（`echo` / `plugin_info`） | 纯标准库 Python；`${PLUGIN_ROOT}` 展开与 `cwd` 缺省的可运行样本 |
+
+校验（不启动 Daemon）：
+
+```powershell
+cargo run -p owo-agent-cli -- plugin validate plugins/owo-demo-kit
+```
 
 ## 运行要求
 

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "owo-demo-kit",
+  "version": "1.0.0",
+  "description": "Agent Plugins 1.0.0 规范包示例：一个技能 + 一个 stdio MCP 服务器（echo / plugin_info）",
+  "author": {
+    "name": "OwO Agent SDK"
+  },
+  "homepage": "https://github.com/owo-agent",
+  "license": "MIT",
+  "keywords": ["demo", "agent-plugins", "mcp", "skill"],
+  "extensions": {
+    "com.owo.agent": {
+      "recommended": true
+    }
+  }
+}

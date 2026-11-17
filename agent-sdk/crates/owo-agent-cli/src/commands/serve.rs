@@ -71,6 +71,11 @@ pub(crate) async fn run_serve(args: ServeArgs) -> Result<(), Box<dyn std::error:
     };
     let mut mcp_configs = load_mcp_configs(&root);
     merge_plugin_mcp(&plugins, &mut mcp_configs);
+    // Agent Plugins 1.0.0 包内 `skills/`：只取已启用（且工作区已信任）的插件。
+    let plugin_roots: Vec<std::path::PathBuf> = plugins
+        .iter()
+        .filter_map(|(manifest_path, _)| manifest_path.parent().map(|dir| dir.to_path_buf()))
+        .collect();
     // MCP 是可选扩展，握手不能占用 Daemon 的 ready 关键路径。
     // 成功后通过 Agent 的线程安全注册表热挂工具；服务仍先对本地客户端可用。
     match install_builtin_packages(&builtin_skills_root(), &root, env!("CARGO_PKG_VERSION")) {
@@ -81,7 +86,7 @@ pub(crate) async fn run_serve(args: ServeArgs) -> Result<(), Box<dyn std::error:
         }
         Err(error) => tracing::warn!("内置技能安装失败：{error}"),
     }
-    let mut skills = SkillRegistry::discover(&workspace, &root);
+    let mut skills = SkillRegistry::discover_with_plugin_skills(&workspace, &root, &plugin_roots);
     apply_disabled_skills(&mut skills, &settings);
     let agent = build_agent_with_mcp_serve(
         &workspace,

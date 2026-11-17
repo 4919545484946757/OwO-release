@@ -149,6 +149,9 @@ async fn run_mcp(args: McpArgs, root: PathBuf) -> Result<(), Box<dyn std::error:
                 timeout_ms: None,
                 network_allowlist: Vec::new(),
                 trusted_readonly: Vec::new(),
+                env: std::collections::BTreeMap::new(),
+                cwd: None,
+                headers: std::collections::BTreeMap::new(),
             });
             save_mcp_configs(&root, &configs);
             if args.json {
@@ -257,6 +260,9 @@ mod tests {
             timeout_ms: None,
             network_allowlist: Vec::new(),
             trusted_readonly: Vec::new(),
+            env: std::collections::BTreeMap::new(),
+            cwd: None,
+            headers: std::collections::BTreeMap::new(),
         });
         save_mcp_configs(&root, &configs);
 
@@ -283,6 +289,9 @@ mod tests {
             timeout_ms: None,
             network_allowlist: Vec::new(),
             trusted_readonly: Vec::new(),
+            env: std::collections::BTreeMap::new(),
+            cwd: None,
+            headers: std::collections::BTreeMap::new(),
         };
         assert_eq!(summarize(&config), "http https://example.test/mcp");
     }
