@@ -830,6 +830,7 @@ fn list(dir: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
                     value["id"] = serde_json::json!(playbook.id);
                     value["name"] = serde_json::json!(playbook.name);
                     value["steps"] = serde_json::json!(playbook.steps.len());
+                    value["warnings"] = serde_json::json!(playbook.risk_warnings().len());
                 }
                 if let Some(run) = &item.run {
                     let playbook = item.playbook.as_ref().expect("run 只在有剧本时读取");
@@ -860,11 +861,19 @@ fn list(dir: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
                     .map(|run| run.summary(playbook))
                     .unwrap_or_else(|| format!("0/{}（未开始）", playbook.steps.len()));
                 println!(
-                    "  {:<20} {:<12} {} · {}",
+                    "  {:<20} {:<12} {} · {}{}",
                     playbook.id,
                     playbook.name,
                     playbook.steps.len().to_string() + " 步",
-                    progress
+                    progress,
+                    {
+                        let risks = playbook.risk_warnings().len();
+                        if risks > 0 {
+                            format!("  ⚠ 风险 {risks}")
+                        } else {
+                            String::new()
+                        }
+                    }
                 );
             }
             _ => {
