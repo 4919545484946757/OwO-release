@@ -72,7 +72,7 @@ CLI turn / 默认 REPL / TUI / 桌面 HTTP 客户端
 | 流式用量与预算 | `gateway/stream.rs::parse_sse_payload` 不再要求 `/choices/0/delta`；`gateway/tests.rs` 有 `choices=[]` 的 usage-only 尾帧断言 | **2026-11-18 复核：已修复**（空 choices 的 usage 帧会进入账本）。回归测试已存在，勿回退为"先取 delta 再读 usage" |
 | 架构维护性 | `tools.rs` 约 3,765 行，`agent/mod.rs` 约 1,776 行，server `lib.rs` 约 1,533 行 | 拆包已有进展，但工具与装配仍集中；优先按职责拆分并保留行为契约，不为拆分继续增加门面层 |
 | 重依赖与评测隔离 | core 直接依赖 perception，后者默认启用 STT 并依赖 ORT；server/cli 依赖 eval-facade | 仅凭 core 清单不再直接列 ORT，不能证明传递依赖或最终链接已消除；按实际 feature/构建结果判断 |
-| 能力成熟度与旧文档 | server `capabilities.rs` 当前登记 9 个 Beta、2 个 Experimental、0 个 Stable（2026-11-18 复核，含任务剧本/自定义工作流/MCP 等）；README 仍沿用 v0.6 和旧验收声明 | 登记表也只覆盖部分能力；文档不可自动把有模块/测试的功能提升为 Stable，README 的旧测试路径也需按现文件核对 |
+| 能力成熟度与旧文档 | server `capabilities.rs` 当前登记 10 个 Beta、2 个 Experimental、0 个 Stable（2026-11-18 复核，含 Agent Plugins 规范包、任务剧本、自定义工作流、MCP 等）；README 仍沿用 v0.6 和旧验收声明 | 登记表也只覆盖部分能力；文档不可自动把有模块/测试的功能提升为 Stable，README 的旧测试路径也需按现文件核对 |
 | 桌面自治与跨机 | 感知/执行/环境模块真实存在；world-model 有不可用回退，fleet 协议有证书预留字段 | 属于需单独验证的扩展面；模拟、协议骨架和 fallback 不构成通用桌面自治或跨机生产验收 |
 
 上述问题只作本次审查记录，没有在本次顺带修复。处理顺序：先补流式用量格式和 SSE 资源边界的回归验证，再验证 MCP 限时降级、收敛默认构建依赖与文档成熟度；大型模块拆分跟随具体功能边界推进。

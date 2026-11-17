@@ -68,6 +68,29 @@ pub struct CapabilityDescriptor {
     pub dependencies: &'static [CapabilityId],
 }
 
+const E_PLUGIN_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent plugin catalog|validate|check|sign|install|update|uninstall",
+        label: "Agent Plugins 规范包：校验、签名、安装与更新",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "GET /plugins/market, POST /plugins/market/install|update|verify|scan",
+        label: "插件市场：本地索引、规范包安装/更新（吊销列表生效）",
+    },
+    Entrypoint {
+        kind: "ui",
+        target: "工作台 →「插件与技能」面板",
+        label: "查看包格式、MCP 服务器与 hooks 注入",
+    },
+    Entrypoint {
+        kind: "service",
+        target: "plugin.json / mcp.json / skills/ / plugin.sig.json",
+        label: "清单 + 技能 + MCP + 可选 ed25519 包签名（可移植包格式）",
+    },
+];
+
 const E_PLAYBOOK_ENTRYPOINTS: &[Entrypoint] = &[
     Entrypoint {
         kind: "cli",
@@ -293,6 +316,20 @@ const E_TRUST_ENTRYPOINTS: &[Entrypoint] = &[
 
 /// 功能目录注册表（§8.3 单一来源）。新增能力：在此追加条目 + 同步路由契约测试。
 pub static CAPABILITIES: &[CapabilityDescriptor] = &[
+    CapabilityDescriptor {
+        id: CapabilityId("plugins.agent-plugins"),
+        user_name: "Agent Plugins 规范包（技能 + MCP + 签名）",
+        summary: "可移植的插件包：plugin.json + skills/ + mcp.json，可选 ed25519 包签名；经市场安装/更新并受吊销列表约束，安装前做静态风险扫描",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_PLUGIN_ENTRYPOINTS,
+        required_effects: &[
+            ToolEffectClass::Read,
+            ToolEffectClass::Write,
+            ToolEffectClass::Execute,
+        ],
+        advanced: false,
+        dependencies: &[],
+    },
     CapabilityDescriptor {
         id: CapabilityId("workflow.playbooks"),
         user_name: "任务剧本（按进度推进的工作流）",
