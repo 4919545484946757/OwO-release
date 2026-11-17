@@ -318,10 +318,6 @@ public sealed partial class SetupPage : Page
         Grid.SetColumn(_browseDirectory, 1);
         location.Children.Add(_browseDirectory);
         installation.Children.Add(location);
-        installation.Children.Add(new TextBlock {
-            Text = "浏览时会在所选文件夹下创建 OwO 目录，也可填写完整路径。已有安装或可验证的失败残留会改用新的同级目录，不覆盖原文件；其他非空目录不能使用。",
-            TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7
-        });
         body.Children.Add(Card(installation));
 
         var options = new StackPanel { Spacing = 10 };
@@ -351,10 +347,6 @@ public sealed partial class SetupPage : Page
         languageText.Children.Add(languageActions);
         languageText.Children.Add(_packageStatus);
         body.Children.Add(ResponsiveColumns(Card(options), Card(languageText)));
-        body.Children.Add(new TextBlock {
-            Text = "安装到当前用户账户；注册输入法组件时，Windows 会请求管理员授权。无需将中文设为系统显示语言。",
-            TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7
-        });
 
         _consent.Content = new TextBlock {
             Text = "我确认安装来源可信，已了解输入环境提示，并同意注册输入法组件和启动当前用户后台服务。",

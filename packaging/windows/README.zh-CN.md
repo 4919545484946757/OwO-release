@@ -1,4 +1,4 @@
-# OwO 输入法 0.3.3
+# OwO 输入法 0.3.4
 
 使用前请阅读[输入环境与高级编辑使用协议](USER-AGREEMENT.zh-CN.md)：能普通打字不等于可以安全读取或发送文本。
 
@@ -30,8 +30,9 @@ WinUI 安装助手的选项页默认勾选安装随包插件与配置，并按�
 程序静默完成这一步。
 
 安装范围仅限当前 Windows 用户；首次注册和卸载 TSF 时会显示 Windows UAC 管理员授权提示。
+通过「浏览」选择父文件夹时，向导会在其中创建 OwO 目录；也可以直接填写完整安装路径。遇到已有安装或可验证的失败残留时，向导会使用新的同级目录，不覆盖原文件；其他非空目录不能用作安装目标。
 运行文件安装到
-`%LOCALAPPDATA%\Programs\OwO\InputMethod\0.3.3`，用户配置、词频和日志保存在
+`%LOCALAPPDATA%\Programs\OwO\InputMethod\0.3.4`，用户配置、词频和日志保存在
 `%LOCALAPPDATA%\OwO\InputMethod`。
 
 ## 使用与卸载

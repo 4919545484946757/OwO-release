@@ -26,6 +26,10 @@ public sealed partial class SetupPage
             if (_bundledPlugins.IsChecked != true || _bundledPlugins.ActualWidth <= 0)
                 throw new InvalidOperationException("Bundled plugin option must render and default to enabled.");
             if (round == 0) {
+                if (_browseDirectory.ActualWidth <= 0 || VisualText(this).Any(text =>
+                    text.StartsWith("浏览时会在所选文件夹下创建", StringComparison.Ordinal) ||
+                    text.StartsWith("安装到当前用户账户；注册输入法组件时", StringComparison.Ordinal)))
+                    throw new InvalidOperationException("Compact options must retain browsing and omit the two redundant help blocks.");
                 _consent.IsChecked = false;
                 if (_primary.IsEnabled || _blockedPrimaryFeedback.Visibility != Microsoft.UI.Xaml.Visibility.Visible)
                     throw new InvalidOperationException("Blocked installation must retain a separate feedback hit target.");
@@ -136,6 +140,14 @@ public sealed partial class SetupPage
             throw new InvalidOperationException("Read-only navigation verification changed installation state.");
 
         double DetailsTop() => _detailsToggle.TransformToVisual(this).TransformPoint(default).Y;
+        static IEnumerable<string> VisualText(Microsoft.UI.Xaml.DependencyObject node)
+        {
+            if (node is Microsoft.UI.Xaml.Controls.TextBlock text) yield return text.Text;
+            var children = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(node);
+            for (var index = 0; index < children; index++)
+                foreach (var value in VisualText(Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(node, index)))
+                    yield return value;
+        }
         void VerifyProgressTip(int index)
         {
             if (_progressTipIndex != index || _progressTipPosition?.Text != $"{index + 1} / {tips.Children.Count}")
