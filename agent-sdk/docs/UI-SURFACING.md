@@ -17,7 +17,11 @@
 | 自定义工作流（模板/草稿/评审/健康/attention） | 工作台 →「自定义工作流」面板 | ✅ |
 | 工作流运行（run/rerun/diff/验证） | 「工作流」面板 | ✅ |
 | 目标与计划（waves/步骤/尝试/输出） | 工作台 →「目标与计划」 | ✅ |
-| 任务剧本（列表/进度/逐步记录/历史与退化） | 工作台 →「自动化 → 任务剧本」面板 | ✅ 2026-11-18 补 |
+| 任务剧本 | 工作台 →「自动化 → 任务剧本」面板 | ✅ 2026-11-18 |
+| ├ 新建 / 列表 / 进度 / 风险与失败类型 | 同上（`POST /playbooks/init`、`GET /playbooks`） | ✅ 截图 `docs/qa/evidence/ui-playbook-create-20261118.png` |
+| ├ 展开：命令/重试预算/逐步记录 | 同上（`GET /playbooks/status`、`POST /playbooks/record`） | ✅ 截图 `docs/qa/evidence/ui-playbook-panel-20261118.png` |
+| ├ 保存快照 / 历史与退化对比 | 同上（`POST /playbooks/archive`、`GET /playbooks/history`） | ✅ 截图 `ui-playbook-archive-*.png`、`ui-playbook-compare-*.png` |
+| └ 风险提示（高风险命令） | 列表计数 + 步骤行提示 | ✅ 截图 `ui-playbook-risk-20261118.png` |
 | 团队协作（任务图/产物/干预） | 「团队协作」页 + 面板 | ✅ |
 | 权限与审批中心 | 「权限中心」面板 | ✅ |
 | 运行指标 / 诊断 / 评测 | 对应面板 | ✅ |
