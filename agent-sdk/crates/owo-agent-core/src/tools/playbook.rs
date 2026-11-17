@@ -438,6 +438,14 @@ impl Tool for PlaybookCheckTool {
                 ));
             }
         }
+        // 直接调用时也要守住前置：依赖没通过（失败/跳过/未做）就不执行。
+        let pending = run.pending_dependencies(&step);
+        if !pending.is_empty() {
+            return Err(format!(
+                "步骤 `{step_id}` 的前置未通过：{}（先完成前置，或用 playbook_record 记录结论）",
+                pending.join("、")
+            ));
+        }
         if journal_pending(&path)
             .iter()
             .any(|pending| pending == &step_id)
@@ -914,6 +922,57 @@ mod tests {
             .expect("清除后应可执行");
         assert_eq!(ok["passed"], true, "{ok}");
         assert!(journal_pending(&file).is_empty());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn check_refuses_when_dependencies_not_passed() {
+        use std::sync::{Arc, Mutex};
+        let dir = scratch("dep-guard");
+        let file = dir.join("dep.json");
+        std::fs::write(
+            &file,
+            r#"{"id":"dep","name":"依赖","steps":[
+                {"id":"a","title":"前置"},
+                {"id":"b","title":"检查","kind":"check","acceptance":"exit 0","command":"echo ok","depends_on":["a"]}
+            ]}"#,
+        )
+        .unwrap();
+        let policy = crate::Policy::new(&dir);
+        let audit = Arc::new(Mutex::new(crate::AuditLog::default()));
+        let skills = crate::SkillRegistry::default();
+        let elements = Arc::new(Mutex::new(crate::ElementRegistry::new()));
+        let mut session = crate::session::Session::new(&dir, "mock", None);
+        let mut ctx = ToolContext {
+            workspace: &dir,
+            policy: &policy,
+            session: &mut session,
+            audit: &audit,
+            subagent: None,
+            skills: &skills,
+            elements: &elements,
+            fanout: None,
+            abort: None,
+            questioner: None,
+        };
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let file_arg = file.to_string_lossy().into_owned();
+
+        runtime
+            .block_on(PlaybookRecordTool.run(
+                &mut ctx,
+                json!({ "file": file_arg, "step": "a", "outcome": "skip", "note": "不适用" }),
+            ))
+            .expect("record 应成功");
+        let error = runtime
+            .block_on(PlaybookCheckTool.run(&mut ctx, json!({ "file": file_arg, "step": "b" })))
+            .unwrap_err();
+        assert!(error.contains("前置未通过"), "{error}");
+        assert!(error.contains("a"), "{error}");
 
         let _ = std::fs::remove_dir_all(&dir);
     }

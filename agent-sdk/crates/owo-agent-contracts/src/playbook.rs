@@ -445,6 +445,15 @@ impl PlaybookRun {
             .is_some_and(|limit| self.attempts(&step.id) >= limit)
     }
 
+    /// 还没通过的前置步骤 id（空 = 依赖都已通过）。
+    pub fn pending_dependencies(&self, step: &PlaybookStep) -> Vec<String> {
+        step.depends_on
+            .iter()
+            .filter(|dependency| !self.is_passed(dependency))
+            .cloned()
+            .collect()
+    }
+
     fn is_passed(&self, step_id: &str) -> bool {
         matches!(self.states.get(step_id), Some(StepState::Passed { .. }))
     }
