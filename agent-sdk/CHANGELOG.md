@@ -33,7 +33,9 @@
 
 - 派发日志：check 执行前写 `start`、完成后写 `end`；崩溃后 `pending_unknown` 可见，
   check/run 拒绝重跑并提示人工确认。
-- 失败分类：`exit_nonzero` / `timeout` / `command_unavailable`，status/diff/面板可见。
+- 失败分类：`exit_nonzero` / `timeout` / `command_unavailable`，status/diff/面板可见，
+  并映射为恢复建议（`failure_recovery_hint`）。
+- 推进受阻时列出重试耗尽的步骤，并给出「人工确认或提高 max_attempts」的建议。
 - 完成时自动留档 `complete-<时间戳>`；失败重试达上限后不再进入可执行集。
 
 **hooks**
