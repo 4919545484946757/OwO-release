@@ -41,6 +41,8 @@ struct Candidate {
     // Pre-beam strong n-gram evidence. The rank-only backend must not
     // replace a complete winner selected by the experimental decoder.
     std::int64_t lmdg_bonus{};
+    // One-based syllable index of a verified, lexically separate aspect marker.
+    std::uint8_t attached_aspect{};
     [[nodiscard]] bool user_preferred() const noexcept {
         return user_lexicon && !provisional_user_word;
     }

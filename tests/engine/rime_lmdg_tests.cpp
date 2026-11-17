@@ -118,7 +118,8 @@ int main(int argc, char** argv) {
     (void)model.load(directory / "intentionally-not-a-model.gram");
     write(path, fixture({0xb5, 0x32, 0x8e, 0x59, 0x99, 0x04, 0xb4, 0x06})); // 甲乙处理
     const MemoryLexicon subject_lexicon({{{"jia", "yi"}, "甲乙", 1600}, {{"chu", "li"}, "处理", 1600},
-        {{"zhe", "xie"}, "这些", 1800}, {{"bing", "ding"}, "丙丁", 1800}});
+        {{"zhe", "xie"}, "这些", 1800}, {{"bing", "ding"}, "丙丁", 1800},
+        {{"le"}, "了", 1800}, {{"le"}, "乐", 1600}});
     const CandidateGenerator subject_generator(subject_lexicon);
     const auto prefix_bonus = [&](const std::string_view input, const std::string_view expected) {
         const auto result = subject_generator.generate(FullPinyinSchema{}.parse(input, 16, false),
@@ -128,5 +129,19 @@ int main(int argc, char** argv) {
     if (!model.load(path).empty() || prefix_bonus("jiayichuli", "甲乙处理") != 5000 ||
         prefix_bonus("jiayichulizhexie", "甲乙处理这些") != 5000 ||
         prefix_bonus("jiayichulizhexiebingding", "甲乙处理这些丙丁") != 1250) return 12;
+    const auto aspect = subject_generator.generate(FullPinyinSchema{}.parse("jiayichulilebingding", 16, false),
+        16, false, {}, nullptr, {}, false, 7, true, 0, 0, false, false, &model);
+    if (aspect.empty() || aspect.front().text != "甲乙处理了丙丁" || aspect.front().attached_aspect != 5 ||
+        std::any_of(aspect.begin(), aspect.end(), [](const auto& row) {
+            return row.text.find("乐") != std::string::npos && row.attached_aspect != 0;
+        })) return 13;
+    (void)model.load(directory / "intentionally-not-a-model.gram");
+    write(path, fixture({0x99, 0x04, 0xb4, 0x06, 0x8e, 0x19, 0x8e, 0x01})); // 处理丙丁
+    if (!model.load(path).empty()) return 14;
+    const MemoryLexicon packed_lexicon({{{"chu", "li", "le"}, "处理了", 1600},
+        {{"bing", "ding"}, "丙丁", 1800}});
+    const auto packed = CandidateGenerator(packed_lexicon).generate(FullPinyinSchema{}.parse("chulilebingding", 16, false),
+        16, false, {}, nullptr, {}, false, 7, true, 0, 0, false, false, &model);
+    if (packed.empty() || packed.front().text != "处理了丙丁" || packed.front().lmdg_bonus != 5000) return 15;
     std::cout << "Rime grammar mapping, bounds, and adjacent/cross-word in-beam score contract passed.\n";
 }

@@ -40,6 +40,8 @@ struct SearchState {
     std::int64_t lmdg_relative_bonus{};
     // A surface N + possible V adjacency, not a confirmed object relation.
     std::int64_t lmdg_untyped_predicate_bonus{};
+    std::uint8_t attached_aspect{};
+    bool pending_aspect{};
     syntax_collocations::History syntax_history;
 };
 
@@ -399,6 +401,7 @@ void replace_candidate_payload(Candidate& existing, Candidate replacement) {
     existing.qualified_sentence_reading = replacement.qualified_sentence_reading;
     existing.shortest_segmentation_bonus = replacement.shortest_segmentation_bonus;
     existing.lmdg_bonus = replacement.lmdg_bonus;
+    existing.attached_aspect = replacement.attached_aspect;
 }
 
 class CandidateAccumulator {
@@ -1722,6 +1725,29 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         if (!state.previous.empty()) score -= kAdditionalSegmentPenalty;
                         if (bigram_ != nullptr && !state.previous.empty())
                             score += bigram_->score(state.previous, entry.text);
+                        using namespace syntax_collocations;
+                        auto attached_aspect = state.attached_aspect;
+                        bool pending_aspect = false;
+                        if (lmdg_path && !attached_aspect) {
+                            if (state.pending_aspect && reading.size() >= 2 && reading.size() <= 4 &&
+                                entry.text.size() == reading.size() * 3) {
+                                const auto role = entry_role(entry_index);
+                                if (role == Role::none || has(role, Role::nominal)) {
+                                    // An independently verified, bound aspect marker is
+                                    // not another free-standing lexical segment.
+                                    attached_aspect = static_cast<std::uint8_t>(begin);
+                                    constexpr std::int64_t kAspectAttachmentPenaltyRelief = 1'500;
+                                    score += kAspectAttachmentPenaltyRelief;
+                                }
+                            } else if (reading.size() == 1 && end + 2 <= path.syllables.size() &&
+                                state.previous.size() >= 6 && state.previous.size() <= 12 &&
+                                has(entry_role(entry_index), Role::aspect)) {
+                                const auto predicate_role = state.syntax_history.tokens.front().role;
+                                pending_aspect = has(predicate_role, Role::verb) ||
+                                    (predicate_role == Role::none &&
+                                     state.lmdg_untyped_predicate_bonus >= RimeLmdg::kConfirmedSentenceBonus);
+                            }
+                        }
                         std::int64_t collocation = 0;
                         if (path.match_kind == InputMatchKind::abbreviated_completion &&
                             !state.segment_lengths.empty() && state.segment_lengths.back() >= 2 && reading.size() >= 2 &&
@@ -1766,7 +1792,6 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         std::int64_t lmdg_object_bonus = 0, held_object_bonus = 0, relative_bonus = 0;
                         std::int64_t untyped_predicate_bonus = 0;
                         std::int64_t qualified_relative = 0;
-                        using namespace syntax_collocations;
                         const auto can_be_nominal = [](const Role role) {
                             return role == Role::none || has(role, Role::nominal);
                         };
@@ -1843,9 +1868,18 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 // Unknown endpoints are allowed only with a strong corpus attestation.
                                 std::int64_t best_cross = 0;
                                 bool best_cross_can_be_relative = false;
-                                for (std::size_t gap = 1; gap < lmdg_context.size() && lmdg_bonus < room; ++gap) {
-                                    const auto& anchor = lmdg_context[gap];
+                                for (std::size_t gap = 0; gap < lmdg_context.size() && lmdg_bonus < room; ++gap) {
+                                    auto anchor = lmdg_context[gap];
                                     if (anchor.word.empty()) break;
+                                    // A dictionary word may package the grammar marker
+                                    // with its verb. Probe the same lemma in both layouts.
+                                    const bool packed_aspect = anchor.word.size() >= 9 &&
+                                        has(atomic_role(anchor.word.substr(anchor.word.size() - 3)), Role::aspect) &&
+                                        has(atomic_role(anchor.word.substr(0, anchor.word.size() - 3)), Role::verb);
+                                    if (packed_aspect) {
+                                        anchor.word.remove_suffix(3);
+                                        anchor.role = Role::verb;
+                                    } else if (gap == 0) continue;
                                     if (!(anchor.allowed & flag(Relation::object)) ||
                                         (anchor.role != Role::none && !has(anchor.role, Role::verb))) continue;
                                     if (!can_be_nominal(entry_role(entry_index))) break;
@@ -1854,10 +1888,12 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                     // evidence; unknown predicates still require a strong hit.
                                     const bool known_verb = has(anchor.role, Role::verb);
                                     const bool overt_possessive = gap >= 2 && has(lmdg_context.front().role, Role::link);
+                                    const bool aspect_only = gap == 0 || (gap == 1 && has(lmdg_context.front().role, Role::aspect));
                                     const auto minimum = known_verb ? kMinimumVerbObjectBonus : RimeLmdg::kConfirmedSentenceBonus;
                                     if (attestation < minimum) continue;
-                                    const auto projected = known_verb && overt_possessive ? attestation :
-                                        attestation * 85 / 100 - 250 * static_cast<std::int64_t>(gap - 1);
+                                    auto projected = known_verb && (overt_possessive || aspect_only) ? attestation :
+                                        attestation * 85 / 100 - 250 * (static_cast<std::int64_t>(gap) - 1);
+                                    if (gap == 0) projected = std::max<std::int64_t>(0, projected - lmdg_bonus);
                                     if (projected > best_cross ||
                                         (projected == best_cross && known_verb)) {
                                         best_cross = projected;
@@ -1894,6 +1930,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 next.lmdg_held_object_bonus = held_object_bonus;
                                 next.lmdg_relative_bonus = relative_bonus;
                                 next.lmdg_untyped_predicate_bonus = untyped_predicate_bonus;
+                                next.attached_aspect = attached_aspect;
+                                next.pending_aspect = pending_aspect;
                                 if ((syntax_path && syntax_queries < syntax_collocations::kMaximumQueries) ||
                                     (lmdg_path && lmdg_queries < RimeLmdg::kMaximumQueries && lmdg_time < kLmdgTimeBudget)) {
                                     next.syntax_history = state.syntax_history;
@@ -1930,6 +1968,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 path.syllables.back().end, state.segment_count};
             candidate.segment_lengths = std::move(state.segment_lengths);
             candidate.lmdg_bonus = state.lmdg_bonus;
+            candidate.attached_aspect = state.attached_aspect;
             if (path.match_kind == InputMatchKind::exact) exact_candidate_found = true;
             store_candidate(std::move(candidate));
         }
@@ -2357,11 +2396,18 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             // dictionary bigram. Keep half the unsupported-character cost:
             // this is bounded evidence, not a prefix whitelist or a free edge
             // for arbitrary character permutations.
-            const auto uncovered_penalty = dominant_character == begin
-                ? kUncoveredBoundaryCharacterPenalty / 2 : kUncoveredBoundaryCharacterPenalty;
+            const bool bound_aspect = candidate.attached_aspect != 0 &&
+                static_cast<std::size_t>(candidate.attached_aspect - 1) == begin;
+            const auto singleton_score = bound_aspect ? kMaximumBoundaryCoherenceBonus / 2 :
+                dominant_character == begin ? -kUncoveredBoundaryCharacterPenalty / 2 : -kUncoveredBoundaryCharacterPenalty;
             best[begin + 1] = std::max(
                 best[begin + 1],
-                best[begin] - uncovered_penalty);
+                best[begin] + singleton_score);
+            if (bound_aspect) {
+                if (dictionary_chain[begin]) dictionary_chain[begin + 1] = true;
+                dictionary_covered[begin] = true;
+                if (begin < prefix_dictionary_covered.size()) prefix_dictionary_covered[begin] = true;
+            }
             std::vector<std::string_view> reading;
             reading.reserve(maximum_phrase);
             for (std::size_t end = begin + 1;

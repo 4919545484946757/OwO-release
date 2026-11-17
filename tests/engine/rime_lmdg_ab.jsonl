@@ -16,3 +16,6 @@
 {"id":"robbers-pay-these-fees","input":"jiefeizhifuzhexiefeiyong","expected":["劫匪支付这些费用"],"tags":["control","subject-verb-object"]}
 {"id":"students-pay-these-bills","input":"xueshengzhifuzhexiezhangdan","expected":["学生支付这些账单"],"tags":["control","subject-verb-object"]}
 {"id":"robbers-subdue-these-thugs","input":"jiefeizhifuzhexiedaitu","expected":["劫匪制服这些歹徒"],"tags":["control","subject-verb-object"]}
+{"id":"robbers-subdued-kidnappers","input":"jiefeizhifulebangfei","expected":["劫匪制服了绑匪"],"tags":["same-reading","subject-verb-object","aspect"]}
+{"id":"robbers-paid-the-bill","input":"jiefeizhifulezhangdan","expected":["劫匪支付了账单"],"tags":["control","aspect"]}
+{"id":"robbers-subdued-robbers","input":"jiefeizhifulejiefei","expected":["劫匪制服了劫匪"],"tags":["subject-verb-object","aspect"]}
