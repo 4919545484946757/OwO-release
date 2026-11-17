@@ -430,6 +430,30 @@ fn plan(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
 // 运行进度：状态文件读写（格式 = PlaybookRun 的 serde 形态）
 // ---------------------------------------------------------------------------
 
+/// 清除工具侧派发待定：向 `<stem>.journal.jsonl` 追加一条 end（人工结论即终态）。
+fn clear_journal_pending(state: &Path, step_id: &str) {
+    let journal = state.with_extension("journal.jsonl");
+    if !journal.exists() {
+        return;
+    }
+    use std::io::Write;
+    let Ok(mut file) = std::fs::OpenOptions::new().append(true).open(&journal) else {
+        return;
+    };
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs())
+        .unwrap_or(0);
+    let entry = serde_json::json!({
+        "step": step_id,
+        "phase": "end",
+        "exit_code": null,
+        "source": "human-cli",
+        "ts": ts,
+    });
+    let _ = writeln!(file, "{entry}");
+}
+
 /// 默认状态文件：与剧本同目录的 `<stem>.state.json`。
 fn default_run_path(file: &Path) -> PathBuf {
     file.with_extension("state.json")
@@ -744,6 +768,8 @@ fn record(
         ("skip", 0)
     };
     save_run(&loaded.path, &loaded.run)?;
+    // 清除工具侧"派发待定"记录：人工结论即终态（与 tools 同一 journal 格式）。
+    clear_journal_pending(&loaded.path, step_id);
     // 完成即自动留档一次（手动 archive 仍可用，用于中途快照）。
     let mut auto_archive: Option<String> = None;
     if loaded.run.is_complete(&loaded.playbook) {
@@ -1429,6 +1455,27 @@ mod tests {
         )
         .unwrap();
         file
+    }
+
+    #[test]
+    fn cli_record_clears_journal_pending() {
+        let dir = scratch("cli-journal");
+        let file = write_playbook(&dir);
+        let run = load_run(&file, None).unwrap().run;
+        save_run(&default_run_path(&file), &run).unwrap();
+        let journal = default_run_path(&file).with_extension("journal.jsonl");
+        std::fs::write(&journal, "{\"step\":\"a\",\"phase\":\"start\",\"ts\":1}\n").unwrap();
+
+        record(&file, "a", Some("ok".to_string()), None, None, None, true).unwrap();
+        let last = std::fs::read_to_string(&journal)
+            .unwrap()
+            .lines()
+            .last()
+            .unwrap()
+            .to_string();
+        assert!(last.contains("\"phase\":\"end\""), "{last}");
+        assert!(last.contains("human-cli"), "{last}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -145,6 +145,79 @@ fn progress_json(playbook: &Playbook, run: &PlaybookRun) -> Value {
     })
 }
 
+/// 执行日志：与状态文件同目录的 `<stem>.journal.jsonl`。
+///
+/// 用途：命令**派发前**写 `start`、完成后写 `end`。若进程在两者之间崩溃，
+/// 恢复时能确认"这条命令可能已产生副作用"，从而要求人工确认，而不是静默重跑。
+fn journal_path(path: &Path) -> PathBuf {
+    path.with_extension("journal.jsonl")
+}
+
+fn journal_append(path: &Path, entry: Value) {
+    use std::io::Write;
+    let journal = journal_path(path);
+    let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&journal)
+    else {
+        return;
+    };
+    let _ = writeln!(file, "{entry}");
+}
+
+fn epoch_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs())
+        .unwrap_or(0)
+}
+
+/// 已派发但没有终态的步骤（可能执行过、结果未知）。
+fn journal_pending(path: &Path) -> Vec<String> {
+    let Ok(content) = std::fs::read_to_string(journal_path(path)) else {
+        return Vec::new();
+    };
+    let mut phases: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+    for line in content.lines() {
+        let Ok(entry) = serde_json::from_str::<Value>(line.trim()) else {
+            continue;
+        };
+        let (Some(step), Some(phase)) = (
+            entry.get("step").and_then(Value::as_str),
+            entry.get("phase").and_then(Value::as_str),
+        ) else {
+            continue;
+        };
+        phases.insert(step.to_string(), phase.to_string());
+    }
+    phases
+        .into_iter()
+        .filter(|(_, phase)| phase == "start")
+        .map(|(step, _)| step)
+        .collect()
+}
+
+fn journal_begin(path: &Path, step: &str) {
+    journal_append(
+        path,
+        json!({ "step": step, "phase": "start", "ts": epoch_now() }),
+    );
+}
+
+fn journal_end(path: &Path, step: &str, exit_code: Option<i64>, source: &str) {
+    journal_append(
+        path,
+        json!({
+            "step": step,
+            "phase": "end",
+            "exit_code": exit_code,
+            "source": source,
+            "ts": epoch_now(),
+        }),
+    );
+}
+
 fn next_json(playbook: &Playbook, run: &PlaybookRun) -> Value {
     let mut next = run.next_ready(playbook).map(step_json);
     // 把风险提示随下一步一起交给模型：执行前就能看到"这条命令危险"。
@@ -196,6 +269,7 @@ impl Tool for PlaybookNextTool {
             "playbook": { "id": playbook.id, "name": playbook.name },
             "progress": progress_json(&playbook, &run),
             "next": next_json(&playbook, &run),
+            "pending_unknown": journal_pending(&path),
             "state_file": state_path(&path).to_string_lossy(),
             "hint": "只读查询，未写状态；执行这一步后用 playbook_record 记录结果",
         }))
@@ -256,6 +330,8 @@ impl Tool for PlaybookRecordTool {
             _ => run.record_skip(&step_id, note.clone()),
         }
         save_run(&path, &run)?;
+        // 人工记录也清除派发日志（把"未知"落成明确结论）。
+        journal_end(&path, &step_id, None, "human");
         let next = next_json(&playbook, &run);
         Ok(json!({
             "recorded": { "step": step_id, "outcome": outcome, "attempts": run.attempts(&step_id) },
@@ -352,7 +428,17 @@ impl Tool for PlaybookCheckTool {
             }));
         }
 
+        if journal_pending(&path)
+            .iter()
+            .any(|pending| pending == &step_id)
+        {
+            return Err(format!(
+                "步骤 `{step_id}` 上次执行结果未知（派发后未落盘）：先用 playbook_record 确认通过或失败，再重跑"
+            ));
+        }
+        journal_begin(&path, &step_id);
         let (passed, exit_code, evidence) = execute_check(ctx, &step).await;
+        journal_end(&path, &step_id, exit_code, "check");
         if passed {
             run.record_pass(&step_id, evidence.clone());
         } else {
@@ -466,7 +552,19 @@ impl Tool for PlaybookRunTool {
                 stopped = Some(format!("步骤 {} 的命令过长，拒绝执行", step.id));
                 break;
             }
+            if journal_pending(&path)
+                .iter()
+                .any(|pending| pending == &step.id)
+            {
+                stopped = Some(format!(
+                    "步骤 {} 上次执行结果未知，先用 playbook_record 确认",
+                    step.id
+                ));
+                break;
+            }
+            journal_begin(&path, &step.id);
             let (passed, exit_code, evidence) = execute_check(ctx, &step).await;
+            journal_end(&path, &step.id, exit_code, "check");
             if passed {
                 run.record_pass(&step.id, evidence.clone());
             } else {
@@ -700,6 +798,77 @@ mod tests {
         let run = PlaybookRun::new(&playbook);
         let value = next_json(&playbook, &run);
         assert!(value["next"]["warnings"].as_array().unwrap().is_empty());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn journal_tracks_dispatch_and_completion() {
+        let dir = scratch("journal");
+        let file = dir.join("j.json");
+        assert!(journal_pending(&file).is_empty());
+        journal_begin(&file, "w");
+        assert_eq!(journal_pending(&file), vec!["w".to_string()]);
+        journal_end(&file, "w", Some(0), "check");
+        assert!(journal_pending(&file).is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn check_refuses_unknown_outcome_until_recorded() {
+        use std::sync::{Arc, Mutex};
+        let dir = scratch("journal-guard");
+        let file = dir.join("g.json");
+        std::fs::write(
+            &file,
+            r#"{"id":"g","name":"守卫","steps":[
+                {"id":"w","title":"检查","kind":"check","acceptance":"exit 0","command":"echo ok"}
+            ]}"#,
+        )
+        .unwrap();
+        journal_begin(&file, "w");
+
+        let policy = crate::Policy::new(&dir);
+        let audit = Arc::new(Mutex::new(crate::AuditLog::default()));
+        let skills = crate::SkillRegistry::default();
+        let elements = Arc::new(Mutex::new(crate::ElementRegistry::new()));
+        let mut session = crate::session::Session::new(&dir, "mock", None);
+        let mut ctx = ToolContext {
+            workspace: &dir,
+            policy: &policy,
+            session: &mut session,
+            audit: &audit,
+            subagent: None,
+            skills: &skills,
+            elements: &elements,
+            fanout: None,
+            abort: None,
+            questioner: None,
+        };
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let file_arg = file.to_string_lossy().into_owned();
+
+        let error = runtime
+            .block_on(PlaybookCheckTool.run(&mut ctx, json!({ "file": file_arg, "step": "w" })))
+            .unwrap_err();
+        assert!(error.contains("未知"), "{error}");
+
+        // 人工记录后清除待定，再执行即可通过。
+        runtime
+            .block_on(PlaybookRecordTool.run(
+                &mut ctx,
+                json!({ "file": file_arg, "step": "w", "outcome": "pass", "note": "人工确认" }),
+            ))
+            .expect("record 应成功");
+        assert!(journal_pending(&file).is_empty());
+        let ok = runtime
+            .block_on(PlaybookCheckTool.run(&mut ctx, json!({ "file": file_arg, "step": "w" })))
+            .expect("清除后应可执行");
+        assert_eq!(ok["passed"], true, "{ok}");
+        assert!(journal_pending(&file).is_empty());
 
         let _ = std::fs::remove_dir_all(&dir);
     }

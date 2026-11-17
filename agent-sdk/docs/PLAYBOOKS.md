@@ -145,6 +145,11 @@ owo-agent playbook status --json playbooks/code-review.json
 `playbook_next` 返回的步骤带 `warnings`（高风险命令提示）——模型在执行前就能看到，
 但提示不等于授权，执行仍走审批。
 
+**派发日志（durable 语义的最小实现）**：`playbook_check` / `playbook_run` 在执行前写
+`<剧本>.journal.jsonl` 的 `start`、完成后写 `end`。若进程在两者之间退出，下次
+`playbook_next` 返回 `pending_unknown`，`check` / `run` 会**拒绝重跑**并提示先用
+`playbook_record` 人工确认（人工记录即终态）；这样避免"命令已产生副作用却因崩溃被重跑"。
+
 安全边界：路径经会话工作区约束（越界拒绝）；读取上限 256 KB、备注上限 2000 字符；
 `playbook_record` 的副作用登记为 Write，照常走审批。
 
