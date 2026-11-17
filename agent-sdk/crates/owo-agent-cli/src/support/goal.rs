@@ -15,7 +15,82 @@ pub(crate) struct GoalState {
     pub iterations: usize,
     pub done: bool,
     /// 按进度推进的账本（连续失败/连续同状态/轮数），驱动"继续/重试/停滞/结束"。
+    /// 只在 [`AdvanceMode::Progress`] 下读取：`/goal` 的既有语义不受影响。
     pub progress: owo_agent_core::goal_progress::GoalProgress,
+    /// 推进模式：`/goal` = Legacy（保持既有行为），`/advance` = Progress（工作流增强）。
+    pub mode: AdvanceMode,
+}
+
+/// 目标推进模式。**工作流是额外功能**：默认 `Legacy` 完全不改变 `/goal` 的既有行为，
+/// 进度策略只在新命令 `/advance` 下生效。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AdvanceMode {
+    /// 既有行为：失败即停、状态不变继续跑、无停滞检测。
+    Legacy,
+    /// 按进度推进：有界重试 + 停滞检测（`/advance`）。
+    Progress,
+}
+
+/// 推进循环的下一步。
+pub(crate) enum GoalStep {
+    /// 继续下一轮（可带一条提示）。
+    Continue { note: Option<String> },
+    /// 目标达成。
+    Done,
+    /// 停止自动推进（附原因）。
+    Stop { message: String, failed: bool },
+}
+
+/// 按模式决定下一步——这是一个纯函数，便于把「既有行为不回归」写成测试。
+pub(crate) fn goal_step(
+    mode: AdvanceMode,
+    progress: &mut owo_agent_core::goal_progress::GoalProgress,
+    turn: &GoalTurnResult,
+    accepted: bool,
+) -> GoalStep {
+    match mode {
+        AdvanceMode::Legacy => {
+            if accepted {
+                GoalStep::Done
+            } else if turn.failed {
+                GoalStep::Stop {
+                    message: "回合失败，目标未完成（/goal status 查看；修复问题后可重新提交）"
+                        .to_string(),
+                    failed: true,
+                }
+            } else if turn.completion_status == owo_agent_protocol::CompletionStatusV1::Aborted {
+                GoalStep::Stop {
+                    message: "目标推进已中止".to_string(),
+                    failed: false,
+                }
+            } else {
+                GoalStep::Continue { note: None }
+            }
+        }
+        AdvanceMode::Progress => {
+            use owo_agent_core::goal_progress::AdvanceOutcome;
+            match goal_advance(progress, turn, accepted) {
+                AdvanceOutcome::Done => GoalStep::Done,
+                AdvanceOutcome::Continue => GoalStep::Continue { note: None },
+                AdvanceOutcome::Retry { .. } => GoalStep::Continue {
+                    note: goal_advance_message(&AdvanceOutcome::Retry {
+                        consecutive_failures: progress.consecutive_failures,
+                    }),
+                },
+                other => {
+                    let failed = matches!(
+                        other,
+                        AdvanceOutcome::Failed { .. } | AdvanceOutcome::Stall { .. }
+                    );
+                    GoalStep::Stop {
+                        message: goal_advance_message(&other)
+                            .unwrap_or_else(|| "目标推进已停止".to_string()),
+                        failed,
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

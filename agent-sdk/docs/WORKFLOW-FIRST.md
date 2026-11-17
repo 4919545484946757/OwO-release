@@ -38,7 +38,24 @@
 | 推进 | **本轮新增** `owo_agent_contracts::goal_progress` | 纯策略：按"进度有没有动"决定下一步 |
 | 入口 | CLI `/goal`（daemon + local） | 每轮一回合，宿主状态作为进度信号 |
 
-## 4. 本轮落地：按进度推进（不是按轮数）
+## 4. 落地：opt-in 的 `/advance`（不改 `/goal`）
+
+**硬约束：工作流是额外功能，不改变既有行为。** 因此推进策略不是直接替换 `/goal` 的
+语义，而是新增一个显式命令：
+
+| 命令 | 模式 | 行为 |
+|---|---|---|
+| `/goal` | `Legacy` | 与之前完全一致：失败即停、状态不变继续跑、无停滞检测 |
+| `/advance` | `Progress` | 有界重试 + 停滞检测 + 进度行 |
+
+两个命令共用同一个回合循环，`goal_step(mode, ...)` 是纯函数分支，测试锁死两边语义：
+
+- `goal_step_legacy_keeps_existing_semantics`：legacy 首次失败即停、连续 5 轮同状态仍继续；
+- `goal_step_progress_is_opt_in`：progress 前两次失败重试、第三次停止。
+
+`/goal status` 输出保持原样；只有 `/advance status` 才追加进度行。
+
+### 推进规则（`/advance`）
 
 `goal_progress` 是纯逻辑模块（无 IO），规则：
 
@@ -54,16 +71,16 @@
 在原地打转；继续自动推进只会烧预算。`Stall` 会带着状态与轮数停下，并提示"拆分目标 /
 补完成标准 / 换更具体的下一步"。
 
-配置（env，可按工作流覆盖）：
+配置（env，只影响 `/advance`；`/goal` 不受影响）：
 
 | 变量 | 默认 | 含义 |
 |---|---|---|
 | `OWO_GOAL_MAX_RETRIES` | 2 | 连续失败允许的自动重试次数（0 = 首次失败即停） |
 | `OWO_GOAL_STALL_WINDOW` | 3 | 连续多少轮同状态判停滞（0 = 关闭检测） |
-| `OWO_GOAL_MAX_ITERATIONS` | 不限 | 总轮数上限（既有） |
+| `OWO_GOAL_MAX_ITERATIONS` | 不限 | 总轮数上限（既有，两种模式共用） |
 
-可见性：`/goal status` 现在会打印进度行（连续失败次数 / 连续同状态轮数）；停滞与
-失败停止时终端给出可操作建议，而不是静默退出。
+可见性：`/advance status` 会打印进度行（连续失败次数 / 连续同状态轮数）；停滞与
+失败停止时终端给出可操作建议。`/goal status` 输出保持不变。
 
 ## 5. 下一步（按价值排序）
 

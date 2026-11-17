@@ -373,7 +373,14 @@ impl Repl {
                 "approvals" => self.handle_approvals(parts.next()),
                 "goal" => {
                     let rest = command.strip_prefix("goal").unwrap_or("").trim();
-                    self.handle_goal(rest).await?;
+                    self.handle_goal(rest, crate::support::AdvanceMode::Legacy)
+                        .await?;
+                }
+                // 工作流增强：按进度推进（额外功能，不影响 /goal 的既有语义）。
+                "advance" => {
+                    let rest = command.strip_prefix("advance").unwrap_or("").trim();
+                    self.handle_goal(rest, crate::support::AdvanceMode::Progress)
+                        .await?;
                 }
                 "todo" => self.show_todos(),
                 "audit" => self.show_audit(),
@@ -464,7 +471,12 @@ impl Repl {
     }
 
     /// `/goal [目标|status|clear]`：目标模式——模型标记完成且宿主裁决允许交付时才停止。
-    async fn handle_goal(&mut self, arg: &str) -> Result<(), Box<dyn std::error::Error>> {
+    async fn handle_goal(
+        &mut self,
+        arg: &str,
+        mode: crate::support::AdvanceMode,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::support::AdvanceMode;
         match arg {
             "" | "status" => {
                 match &self.goal {
@@ -476,7 +488,9 @@ impl Repl {
                             crate::support::goal_iteration_label(goal_max_iterations()),
                             if goal.done { "已完成" } else { "推进中" }
                         );
-                        println!("  {}", crate::support::goal_progress_line(&goal.progress));
+                        if goal.mode == AdvanceMode::Progress {
+                            println!("  {}", crate::support::goal_progress_line(&goal.progress));
+                        }
                     }
                     None => println!("（未设定目标；用法：/goal <目标描述>）"),
                 }
@@ -494,6 +508,7 @@ impl Repl {
                     iterations: 0,
                     done: false,
                     progress: Default::default(),
+                    mode,
                 });
                 println!(
                     "{}（轮次上限：{}；/goal clear 停止）",
@@ -534,11 +549,11 @@ impl Repl {
                     println!("{}", format!("── 目标推进 {iteration}/{limit} ──").bold());
                     let turn = self.run_turn_capture(&prompt).await?;
                     let accepted = crate::support::goal_claim_is_accepted(&turn);
-                    let outcome = match self.goal.as_mut() {
+                    let step = match self.goal.as_mut() {
                         Some(goal) => {
                             goal.iterations = iteration;
                             goal.progress.iterations = iteration as u32;
-                            crate::support::goal_advance(&mut goal.progress, &turn, accepted)
+                            crate::support::goal_step(mode, &mut goal.progress, &turn, accepted)
                         }
                         None => break,
                     };
@@ -547,19 +562,24 @@ impl Repl {
                             goal.done = true;
                         }
                     }
-                    use owo_agent_core::goal_progress::AdvanceOutcome;
-                    match &outcome {
-                        AdvanceOutcome::Done => {
+                    match step {
+                        crate::support::GoalStep::Done => {
                             println!("{} 目标完成（第 {iteration} 轮）", "✓".green());
+                            break;
                         }
-                        other => {
-                            if let Some(message) = crate::support::goal_advance_message(other) {
-                                println!("{}", message.yellow());
+                        crate::support::GoalStep::Stop { message, failed } => {
+                            if failed {
+                                println!("{} {}", "!".red(), message);
+                            } else {
+                                println!("{} {}", "!".yellow(), message);
+                            }
+                            break;
+                        }
+                        crate::support::GoalStep::Continue { note } => {
+                            if let Some(note) = note {
+                                println!("{}", note.yellow());
                             }
                         }
-                    }
-                    if outcome.is_terminal() {
-                        break;
                     }
                     if turn
                         .final_text

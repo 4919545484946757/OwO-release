@@ -1027,6 +1027,97 @@ mod repl_completion_tests {
         }));
     }
 
+    /// 硬约束：工作流是**额外功能**——`/goal`（Legacy）的既有语义必须一字不变。
+    /// 失败立即停（不自动重试）、状态连续不变也不停（没有停滞检测）。
+    #[test]
+    fn goal_step_legacy_keeps_existing_semantics() {
+        use owo_agent_protocol::CompletionStatusV1;
+        let turn = |status, failed| super::GoalTurnResult {
+            final_text: None,
+            completion_status: status,
+            failed,
+        };
+
+        // 失败：第一次就停（不会进重试预算）。
+        let mut progress = Default::default();
+        let step = super::goal_step(
+            super::AdvanceMode::Legacy,
+            &mut progress,
+            &turn(CompletionStatusV1::Blocked, true),
+            false,
+        );
+        assert!(
+            matches!(step, super::GoalStep::Stop { failed: true, .. }),
+            "legacy 必须首次失败即停"
+        );
+
+        // 状态连续不变：legacy 不检测停滞，一直继续。
+        let mut progress = Default::default();
+        for _ in 0..5 {
+            let step = super::goal_step(
+                super::AdvanceMode::Legacy,
+                &mut progress,
+                &turn(CompletionStatusV1::Unverified, false),
+                false,
+            );
+            assert!(matches!(step, super::GoalStep::Continue { note: None }));
+        }
+
+        // 中止与完成。
+        let mut progress = Default::default();
+        assert!(matches!(
+            super::goal_step(
+                super::AdvanceMode::Legacy,
+                &mut progress,
+                &turn(CompletionStatusV1::Aborted, false),
+                false
+            ),
+            super::GoalStep::Stop { failed: false, .. }
+        ));
+        let mut progress = Default::default();
+        assert!(matches!(
+            super::goal_step(
+                super::AdvanceMode::Legacy,
+                &mut progress,
+                &turn(CompletionStatusV1::Accepted, false),
+                true
+            ),
+            super::GoalStep::Done
+        ));
+    }
+
+    /// `/advance`（Progress）才启用有界重试 + 停滞检测。
+    #[test]
+    fn goal_step_progress_is_opt_in() {
+        use owo_agent_protocol::CompletionStatusV1;
+        let turn = |status, failed| super::GoalTurnResult {
+            final_text: None,
+            completion_status: status,
+            failed,
+        };
+
+        let mut progress = Default::default();
+        let mut notes = 0;
+        let mut stops = 0;
+        for _ in 0..5 {
+            match super::goal_step(
+                super::AdvanceMode::Progress,
+                &mut progress,
+                &turn(CompletionStatusV1::Blocked, true),
+                false,
+            ) {
+                super::GoalStep::Continue { note: Some(_) } => notes += 1,
+                super::GoalStep::Stop { .. } => {
+                    stops += 1;
+                    break;
+                }
+                other => panic!("意外步骤：{:?}", std::mem::discriminant(&other)),
+            }
+        }
+        assert_eq!(notes, 2, "默认 max_retries=2 应重试两次");
+        assert_eq!(stops, 1, "第三次连续失败应停止");
+    }
+
     #[test]
     fn goal_continuation_explains_host_rejection() {
         let prompt = super::goal_continue_prompt_after_status(
@@ -1056,6 +1147,7 @@ mod repl_completion_tests {
             iterations: 0,
             done: false,
             progress: Default::default(),
+            mode: super::AdvanceMode::Legacy,
         };
         let attached = super::goal_context_prompt(Some(&active), "先补单元测试");
         assert!(attached.contains("【当前目标】重构登录模块"), "{attached}");
@@ -1066,6 +1158,7 @@ mod repl_completion_tests {
             iterations: 2,
             done: true,
             progress: Default::default(),
+            mode: super::AdvanceMode::Legacy,
         };
         assert_eq!(
             super::goal_context_prompt(Some(&done), "普通输入"),

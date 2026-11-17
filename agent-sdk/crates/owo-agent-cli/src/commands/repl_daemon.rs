@@ -306,7 +306,14 @@ impl DaemonRepl {
             "debug" => self.show_debug(),
             "goal" => {
                 let rest = command.strip_prefix("goal").unwrap_or("").trim();
-                self.handle_goal(rest).await?;
+                self.handle_goal(rest, crate::support::AdvanceMode::Legacy)
+                    .await?;
+            }
+            // 工作流增强：按进度推进（额外功能，不影响 /goal 的既有语义）。
+            "advance" => {
+                let rest = command.strip_prefix("advance").unwrap_or("").trim();
+                self.handle_goal(rest, crate::support::AdvanceMode::Progress)
+                    .await?;
             }
             "team" => self.handle_team(parts).await?,
             "todo" => self.show_todos().await?,
@@ -363,6 +370,7 @@ impl DaemonRepl {
             iterations: goal.iterations,
             done: goal.done,
             progress: Default::default(),
+            mode: crate::support::AdvanceMode::Legacy,
         });
         if let Some(goal) = self.goal.as_ref() {
             println!(
@@ -443,6 +451,7 @@ impl DaemonRepl {
             iterations: goal.iterations,
             done: goal.done,
             progress: Default::default(),
+            mode: crate::support::AdvanceMode::Legacy,
         });
         Ok(())
     }
@@ -1044,7 +1053,11 @@ impl DaemonRepl {
     }
 
     /// `/goal [目标|status|clear]`：目标模式——模型标记完成且宿主裁决允许交付时才停止。
-    async fn handle_goal(&mut self, arg: &str) -> Result<(), Box<dyn std::error::Error>> {
+    async fn handle_goal(
+        &mut self,
+        arg: &str,
+        mode: crate::support::AdvanceMode,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         use crate::support::{goal_max_iterations, GoalState};
         match arg {
             "" | "status" => {
@@ -1057,7 +1070,9 @@ impl DaemonRepl {
                             crate::support::goal_iteration_label(goal_max_iterations()),
                             if goal.done { "已完成" } else { "推进中" }
                         );
-                        println!("  {}", crate::support::goal_progress_line(&goal.progress));
+                        if goal.mode == crate::support::AdvanceMode::Progress {
+                            println!("  {}", crate::support::goal_progress_line(&goal.progress));
+                        }
                     }
                     None => println!("（未设定目标；用法：/goal <目标描述>）"),
                 }
@@ -1102,9 +1117,10 @@ impl DaemonRepl {
                         .as_ref()
                         .map(|goal| goal.progress.clone())
                         .unwrap_or_default(),
+                    mode,
                 });
                 println!("{}", format!("接管目标：{objective}").green());
-                self.run_goal_loop(&objective).await
+                self.run_goal_loop(&objective, mode).await
             }
             objective => {
                 let max = goal_max_iterations();
@@ -1113,6 +1129,7 @@ impl DaemonRepl {
                     iterations: 0,
                     done: false,
                     progress: Default::default(),
+                    mode,
                 });
                 // 目标落在当前会话上（跨进程 /resume 不丢）：先确保会话存在再写入。
                 self.current_session().await?;
@@ -1122,15 +1139,24 @@ impl DaemonRepl {
                     format!("目标已设定：{objective}").green(),
                     crate::support::goal_iteration_label(max)
                 );
-                self.run_goal_loop(objective).await
+                self.run_goal_loop(objective, mode).await
             }
         }
     }
 
-    /// 目标推进循环：模型标记完成且宿主裁决允许交付时才停止（`/goal <目标>` 与
-    /// `/goal run` 共用；轮次上限由 `goal_max_iterations` 决定）。
-    async fn run_goal_loop(&mut self, objective: &str) -> Result<(), Box<dyn std::error::Error>> {
-        use crate::support::{goal_continue_prompt, goal_first_prompt, goal_max_iterations};
+    /// 目标推进循环：模型标记完成且宿主裁决允许交付时才停止。
+    ///
+    /// `/goal` 走 [`AdvanceMode::Legacy`]（既有语义，行为不变）；`/advance` 走
+    /// [`AdvanceMode::Progress`]（有界重试 + 停滞检测）。工作流是额外功能，
+    /// 不改变既有 `/goal` 的推进规则。
+    async fn run_goal_loop(
+        &mut self,
+        objective: &str,
+        mode: crate::support::AdvanceMode,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::support::{
+            goal_continue_prompt, goal_first_prompt, goal_max_iterations, GoalStep,
+        };
         let max = goal_max_iterations();
         let mut previous_status = None;
         loop {
@@ -1162,12 +1188,16 @@ impl DaemonRepl {
             let limit = crate::support::goal_iteration_label(max);
             println!("{}", format!("── 目标推进 {iteration}/{limit} ──").bold());
             let turn = self.run_turn_capture(&prompt).await?;
+            if let Some(goal) = self.goal.as_mut() {
+                goal.iterations = iteration;
+            }
+            // 与既有实现保持同一持久化顺序：先记 advance，接受后再记 done。
+            self.persist_goal("advance", None).await;
             let accepted = crate::support::goal_claim_is_accepted(&turn);
-            let outcome = match self.goal.as_mut() {
+            let step = match self.goal.as_mut() {
                 Some(goal) => {
-                    goal.iterations = iteration;
                     goal.progress.iterations = iteration as u32;
-                    crate::support::goal_advance(&mut goal.progress, &turn, accepted)
+                    crate::support::goal_step(mode, &mut goal.progress, &turn, accepted)
                 }
                 None => break,
             };
@@ -1175,22 +1205,26 @@ impl DaemonRepl {
                 if let Some(goal) = self.goal.as_mut() {
                     goal.done = true;
                 }
+                self.persist_goal("done", None).await;
             }
-            self.persist_goal(if accepted { "done" } else { "advance" }, None)
-                .await;
-            use owo_agent_core::goal_progress::AdvanceOutcome;
-            match &outcome {
-                AdvanceOutcome::Done => {
+            match step {
+                GoalStep::Done => {
                     println!("{} 目标完成（第 {iteration} 轮）", "✓".green());
+                    break;
                 }
-                other => {
-                    if let Some(message) = crate::support::goal_advance_message(other) {
-                        println!("{}", message.yellow());
+                GoalStep::Stop { message, failed } => {
+                    if failed {
+                        println!("{} {}", "!".red(), message);
+                    } else {
+                        println!("{} {}", "!".yellow(), message);
+                    }
+                    break;
+                }
+                GoalStep::Continue { note } => {
+                    if let Some(note) = note {
+                        println!("{}", note.yellow());
                     }
                 }
-            }
-            if outcome.is_terminal() {
-                break;
             }
             if turn
                 .final_text
