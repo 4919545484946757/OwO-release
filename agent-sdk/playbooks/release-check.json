@@ -8,7 +8,8 @@
       "title": "工作树干净",
       "kind": "check",
       "detail": "确认没有未提交改动与未跟踪的构建产物。",
-      "acceptance": "git status --short 为空"
+      "acceptance": "git status --short 为空",
+      "command": "git diff --quiet && git diff --cached --quiet"
     },
     {
       "id": "build",
@@ -16,7 +17,10 @@
       "kind": "check",
       "detail": "按资源红线用 -j 1 构建 release。",
       "acceptance": "构建命令 exit 0",
-      "depends_on": ["clean"]
+      "depends_on": [
+        "clean"
+      ],
+      "command": "cargo build --release -j 1"
     },
     {
       "id": "smoke",
@@ -24,7 +28,10 @@
       "kind": "check",
       "detail": "运行冒烟脚本，确认核心路径可用。",
       "acceptance": "冒烟脚本 exit 0",
-      "depends_on": ["build"]
+      "depends_on": [
+        "build"
+      ],
+      "command": "cargo test --workspace --locked -j 1"
     },
     {
       "id": "notes",
@@ -32,7 +39,9 @@
       "kind": "model",
       "detail": "按用户可见改动整理变更摘要，标注已知问题。",
       "acceptance": "变更摘要覆盖所有用户可见改动",
-      "depends_on": ["build"]
+      "depends_on": [
+        "build"
+      ]
     },
     {
       "id": "signoff",
@@ -40,7 +49,10 @@
       "kind": "human",
       "detail": "负责人检查清单与说明后确认发布。",
       "acceptance": "负责人确认发布",
-      "depends_on": ["smoke", "notes"]
+      "depends_on": [
+        "smoke",
+        "notes"
+      ]
     }
   ]
 }

@@ -213,6 +213,7 @@ fn plan(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
                     "title": step.title,
                     "depends_on": step.depends_on,
                     "acceptance": step.acceptance,
+                    "command": step.command,
                     "detail": step.detail,
                 })
             })
@@ -256,6 +257,9 @@ fn plan(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
             );
             if !step.acceptance.is_empty() {
                 println!("     判据：{}", step.acceptance);
+            }
+            if !step.command.is_empty() {
+                println!("     命令：{}", step.command);
             }
         }
         if let Some(next) = run.next_ready(&playbook) {

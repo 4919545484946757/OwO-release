@@ -48,6 +48,12 @@ pub struct PlaybookStep {
     /// 完成判据：人话或可执行断言（`Check` 步骤的判据由宿主执行）。
     #[serde(default)]
     pub acceptance: String,
+    /// `Check` 步骤可声明一条由宿主执行的命令（0 = 通过）。
+    ///
+    /// 本模块**不执行**它：执行经宿主 Tool Host（`playbook_check` 工具内部复用
+    /// `run_command` 的沙箱与审计），这里只存声明。空 = 人工判定/由模型记录。
+    #[serde(default)]
+    pub command: String,
     /// 前置步骤 id：必须都已通过，本步才可开始。
     #[serde(default)]
     pub depends_on: Vec<String>,
@@ -448,6 +454,7 @@ mod tests {
             } else {
                 String::new()
             },
+            command: String::new(),
             depends_on: depends_on.iter().map(|value| value.to_string()).collect(),
             kind,
         }
@@ -541,6 +548,23 @@ mod tests {
         };
         let codes: Vec<&str> = playbook.validate().iter().map(|issue| issue.code).collect();
         assert!(codes.contains(&"playbook_too_large"), "{codes:?}");
+    }
+
+    #[test]
+    fn check_command_is_optional_and_round_trips() {
+        let playbook: Playbook = serde_json::from_str(
+            r#"{"id":"c","name":"C","steps":[
+                {"id":"a","title":"A","kind":"check","acceptance":"exit 0","command":"cargo check"},
+                {"id":"b","title":"B","kind":"check","acceptance":"人工确认"}
+            ]}"#,
+        )
+        .unwrap();
+        assert!(playbook.validate().is_empty(), "{:?}", playbook.validate());
+        assert_eq!(playbook.steps[0].command, "cargo check");
+        assert_eq!(playbook.steps[1].command, "");
+        let json = serde_json::to_string(&playbook).unwrap();
+        let restored: Playbook = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, playbook);
     }
 
     #[test]

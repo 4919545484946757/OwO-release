@@ -10,8 +10,9 @@
 //!   `<stem>.state.json`，副作用登记为 Write，照常走审批；
 //! * 剧本/状态文件大小与字段长度有上限，避免把上下文撑爆。
 
+use super::command_tools::RunCommandTool;
 use super::{resolve_session_path, Tool, ToolContext, ToolSpec};
-use crate::playbook::{Playbook, PlaybookRun, PlaybookStep};
+use crate::playbook::{Playbook, PlaybookRun, PlaybookStep, StepKind, StepState};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -26,6 +27,12 @@ pub(super) struct PlaybookNextTool;
 
 /// `playbook_record`：记录一步结果（写状态文件）。
 pub(super) struct PlaybookRecordTool;
+
+/// `playbook_check`：执行 `check` 步骤声明的命令并记录结果。
+///
+/// 内部复用 `run_command` 的实现：沙箱、输出截断、审计与 `run_command` 完全一致；
+/// 外层工具调用的副作用登记为 Execute，仍然走审批。
+pub(super) struct PlaybookCheckTool;
 
 fn state_path(file: &Path) -> PathBuf {
     file.with_extension("state.json")
@@ -248,6 +255,131 @@ impl Tool for PlaybookRecordTool {
     }
 }
 
+/// 证据摘要：stdout/stderr 合并，取尾部最多 600 字符（失败原因要能看懂）。
+fn evidence_tail(stdout: &str, stderr: &str) -> String {
+    let mut text = String::new();
+    for part in [stdout, stderr] {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        if !text.is_empty() {
+            text.push('\n');
+        }
+        text.push_str(part);
+    }
+    let characters: Vec<char> = text.chars().collect();
+    if characters.len() > 600 {
+        format!(
+            "…{}",
+            characters[characters.len() - 600..]
+                .iter()
+                .collect::<String>()
+        )
+    } else {
+        text
+    }
+}
+
+#[async_trait]
+impl Tool for PlaybookCheckTool {
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "playbook_check".into(),
+            description:
+                "执行任务剧本 `check` 步骤声明的命令并记录结果：exit 0 = 通过，否则记失败。\
+                          命令经与 run_command 相同的沙箱/审计执行；需要审批。\
+                          步骤没有声明 command 时请改用 playbook_record 记录人工结论。"
+                    .into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file": { "type": "string", "description": "剧本文件路径（相对工作区）" },
+                    "step": { "type": "string", "description": "check 步骤 id" }
+                },
+                "required": ["file", "step"]
+            }),
+            effect: None,
+        }
+    }
+
+    async fn run(&self, ctx: &mut ToolContext<'_>, args: Value) -> Result<Value, String> {
+        let file = arg_str(&args, "file")?;
+        let step_id = arg_str(&args, "step")?;
+        let path = resolve_session_path(ctx, &file)?;
+        let playbook = load_playbook(&path)?;
+        let step = playbook
+            .steps
+            .iter()
+            .find(|step| step.id == step_id)
+            .cloned()
+            .ok_or_else(|| format!("剧本里没有步骤 `{step_id}`"))?;
+        if step.kind != StepKind::Check {
+            return Err(format!(
+                "步骤 `{step_id}` 不是 check 类型：用 playbook_record 记录人工/模型结论"
+            ));
+        }
+        if step.command.trim().is_empty() {
+            return Err(format!(
+                "步骤 `{step_id}` 没有声明 command：无法自动校验，改用 playbook_record"
+            ));
+        }
+        if step.command.chars().count() > 4000 {
+            return Err("步骤命令过长（> 4000 字符）：剧本只放一条可判定的命令".to_string());
+        }
+
+        let mut run = load_or_new_run(&path, &playbook)?;
+        if matches!(run.states.get(&step_id), Some(StepState::Passed { .. })) {
+            let next = next_json(&playbook, &run);
+            return Ok(json!({
+                "step": step_id,
+                "passed": true,
+                "skipped": "该步骤已通过，未重复执行",
+                "progress": progress_json(&playbook, &run),
+                "next": next["next"],
+            }));
+        }
+
+        let outcome = RunCommandTool
+            .run(ctx, json!({ "command": step.command }))
+            .await;
+        match outcome {
+            Ok(value) => {
+                let exit_code = value.get("exit_code").and_then(Value::as_i64).unwrap_or(-1);
+                let evidence = evidence_tail(
+                    value.get("stdout").and_then(Value::as_str).unwrap_or(""),
+                    value.get("stderr").and_then(Value::as_str).unwrap_or(""),
+                );
+                if exit_code == 0 {
+                    run.record_pass(&step_id, evidence.clone());
+                } else {
+                    run.record_fail(&step_id, format!("exit {exit_code}：{evidence}"));
+                }
+                save_run(&path, &run)?;
+                let next = next_json(&playbook, &run);
+                Ok(json!({
+                    "step": step_id,
+                    "passed": exit_code == 0,
+                    "exit_code": exit_code,
+                    "evidence": evidence,
+                    "progress": progress_json(&playbook, &run),
+                    "next": next["next"],
+                    "blocked": next["blocked"],
+                    "state_file": state_path(&path).to_string_lossy(),
+                }))
+            }
+            Err(error) => {
+                // 执行失败本身也是结论：记为失败，避免"跑不起来"被当成未开始。
+                run.record_fail(&step_id, format!("命令执行失败：{error}"));
+                save_run(&path, &run)?;
+                Err(format!(
+                    "步骤 `{step_id}` 的命令执行失败（已记为失败）：{error}"
+                ))
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,6 +412,88 @@ mod tests {
             state_path(Path::new("playbooks/demo.json")),
             PathBuf::from("playbooks/demo.state.json")
         );
+    }
+
+    #[test]
+    fn check_tool_runs_command_and_records_state() {
+        use std::sync::{Arc, Mutex};
+        let dir = scratch("check-tool");
+        let file = dir.join("check.json");
+        std::fs::write(
+            &file,
+            r#"{"id":"check","name":"校验","steps":[
+                {"id":"ok","title":"通过","kind":"check","acceptance":"exit 0","command":"echo ok"},
+                {"id":"boom","title":"失败","kind":"check","acceptance":"exit 0","command":"definitely-not-a-real-command-owo"}
+            ]}"#,
+        )
+        .unwrap();
+
+        let policy = crate::Policy::new(&dir);
+        let audit = Arc::new(Mutex::new(crate::AuditLog::default()));
+        let skills = crate::SkillRegistry::default();
+        let elements = Arc::new(Mutex::new(crate::ElementRegistry::new()));
+        let mut session = crate::session::Session::new(&dir, "mock", None);
+        let mut ctx = ToolContext {
+            workspace: &dir,
+            policy: &policy,
+            session: &mut session,
+            audit: &audit,
+            subagent: None,
+            skills: &skills,
+            elements: &elements,
+            fanout: None,
+            abort: None,
+            questioner: None,
+        };
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let file_arg = file.to_string_lossy().into_owned();
+
+        // 通过：exit 0 记为 Passed，并写入状态文件。
+        let ok = runtime
+            .block_on(PlaybookCheckTool.run(&mut ctx, json!({ "file": file_arg, "step": "ok" })))
+            .expect("check 应执行成功");
+        assert_eq!(ok["passed"], true, "{ok}");
+        let state = std::fs::read_to_string(state_path(&file)).unwrap();
+        assert!(state.contains("\"passed\""), "{state}");
+        assert!(state.contains("ok"), "{state}");
+
+        // 重复执行：已通过则跳过，不重复跑命令。
+        let again = runtime
+            .block_on(PlaybookCheckTool.run(&mut ctx, json!({ "file": file_arg, "step": "ok" })))
+            .expect("已通过不应报错");
+        assert!(again["skipped"].as_str().unwrap().contains("已通过"));
+
+        // 失败：非零退出记为 Failed（attempts=1），命令不存在也算失败。
+        let boom = runtime
+            .block_on(PlaybookCheckTool.run(&mut ctx, json!({ "file": file_arg, "step": "boom" })))
+            .expect("失败命令应返回结果而不是 Err");
+        assert_eq!(boom["passed"], false, "{boom}");
+        let state = std::fs::read_to_string(state_path(&file)).unwrap();
+        assert!(state.contains("\"failed\""), "{state}");
+        assert!(state.contains("\"attempts\""), "{state}");
+
+        // 非 check 步骤拒绝自动执行。
+        let error = runtime
+            .block_on(
+                PlaybookCheckTool.run(&mut ctx, json!({ "file": file_arg, "step": "missing" })),
+            )
+            .unwrap_err();
+        assert!(error.contains("没有步骤"), "{error}");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn evidence_tail_keeps_the_end_and_caps_length() {
+        assert_eq!(evidence_tail("", ""), "");
+        assert_eq!(evidence_tail("out\n", "err\n"), "out\nerr");
+        let long = "x".repeat(900);
+        let tail = evidence_tail(&long, "");
+        assert!(tail.starts_with('…'));
+        assert_eq!(tail.chars().count(), 601);
     }
 
     #[test]

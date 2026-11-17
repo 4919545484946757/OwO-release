@@ -40,6 +40,7 @@
 | `steps[].id` / `title` | ✅ | 步骤标识（剧本内唯一）与标题 |
 | `steps[].kind` | ❌ | `model`（默认，需要模型回合）/ `check`（确定性校验）/ `human`（人工确认） |
 | `steps[].acceptance` | `check` 必填 | 完成判据；`check` 无判据无从判定，直接判非法 |
+| `steps[].command` | ❌ | `check` 步骤可由宿主执行的命令（0 = 通过）；空 = 人工判定。执行经 Tool Host，工具本身不执行 |
 | `steps[].depends_on` | ❌ | 前置步骤 id；必须已通过才允许开始 |
 | `steps[].detail` | ❌ | 给执行者的上下文 |
 
@@ -119,9 +120,10 @@ owo-agent playbook status --json playbooks/code-review.json
 |---|---|---|
 | `playbook_next { file }` | **read** | 返回下一步 + 完成判据 + 整体进度；只读，不写状态文件 |
 | `playbook_record { file, step, outcome, note }` | **write** | 记录 `pass/fail/skip`，写同目录 `<剧本>.state.json` |
+| `playbook_check { file, step }` | **execute** | 执行 `check` 步骤声明的 `command`：exit 0 记通过，否则记失败；内部复用 `run_command` 的沙箱/审计 |
 
-模型循环：`playbook_next` → 按判据执行这一步（用既有工具，权限/审批/审计不变）→
-`playbook_record` 记录结果 → 再 `next`。失败步骤保留在可执行集里（`attempts` 累计），
+模型循环：`playbook_next` → 按判据执行这一步（`check` 有 `command` 时用 `playbook_check`
+一次完成，其余用既有工具）→ 再 `next`。失败步骤保留在可执行集里（`attempts` 累计），
 是否继续重试由模型或推进策略决定。
 
 安全边界：路径经会话工作区约束（越界拒绝）；读取上限 256 KB、备注上限 2000 字符；
