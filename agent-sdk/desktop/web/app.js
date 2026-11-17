@@ -1728,6 +1728,9 @@ function pluginCard(plugin) {
       "</details>"
     : "";
   const hidden = plugin.tools_hidden ? '<span class="ps-chip">工具已隐藏</span>' : "";
+  const signed = plugin.signed
+    ? '<span class="ps-chip" title="签名在安装/更新时校验">已签名</span>'
+    : "";
   card.innerHTML =
     '<div class="ps-card-top">' +
     `<span class="ps-tile" aria-hidden="true">${initial}</span>` +
@@ -1741,6 +1744,7 @@ function pluginCard(plugin) {
     '<div class="ps-chips">' +
     `<span class="ps-chip">${enabled ? "已启用" : "已禁用"}</span>` +
     `<span class="ps-chip" title="插件包格式">${formatLabel}</span>` +
+    signed +
     `<span class="ps-chip">${esc((plugin.permissions || []).join("、") || "无权限声明")}</span>` +
     hidden +
     "</div>" +

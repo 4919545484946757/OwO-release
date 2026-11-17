@@ -34,12 +34,25 @@ pub(super) async fn plugins_list(State(state): State<Arc<AppState>>) -> Json<Val
             let tools_hidden = state
                 .agent
                 .tool_disabled(&owo_agent_core::tools::mcp_tool_prefix(&manifest.id));
+            // 签名状态：历史格式看清单字段；规范包看包根是否有 plugin.sig.json
+            // （只报告"有无"，不在此处重算摘要——验签发生在安装/更新/check）。
+            let signed = manifest.signature.is_some()
+                || (path.file_name().and_then(|name| name.to_str())
+                    == Some(owo_agent_core::agent_plugins::AGENT_PLUGINS_MANIFEST_FILE)
+                    && path
+                        .parent()
+                        .map(|dir| {
+                            dir.join(owo_agent_core::agent_plugins::AGENT_PLUGIN_SIGNATURE_FILE)
+                                .exists()
+                        })
+                        .unwrap_or(false));
             json!({
                 "id": manifest.id,
                 "name": manifest.name,
                 "version": manifest.version,
                 "description": manifest.description,
                 "enabled": enabled,
+                "signed": signed,
                 "tools_hidden": tools_hidden,
                 "permissions": manifest.permissions,
                 // 历史单服务器字段（保留兼容）；Agent Plugins 包见 mcp_servers。

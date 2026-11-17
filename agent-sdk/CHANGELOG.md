@@ -13,6 +13,7 @@
   窄失败边界（拒绝插件 / 废组件 / 跳过技能 / 跳过服务器）、路径包含检查。
 - 插件可声明多个 MCP 服务器（stdio / streamable-http），支持 `env` / `cwd` / `headers`。
 - 插件贡献 hooks：`com.owo.agent` 命名空间（清单内联或 `hooks.json`）。
+- 插件页显示「已签名」状态（只报有无，验签在安装/更新/check 时做）。
 - 规范包可选签名：`plugin.sig.json`（ed25519 覆盖包摘要）；作者侧 `plugin sign`，
   `plugin check` 显示验签状态；市场安装/更新要求签名有效。
 - 市场可安装/更新规范包；吊销列表对两种格式生效；`plugin rollback` 从备份恢复旧版。
