@@ -22,6 +22,7 @@ pub fn router(state: std::sync::Arc<owo_agent_server::AppState>) -> axum::Router
     axum::Router::new()
         .route("/playbooks", axum::routing::get(list))
         .route("/playbooks/status", axum::routing::get(status))
+        .route("/playbooks/history", axum::routing::get(history))
         .route("/playbooks/record", axum::routing::post(record))
         .with_state(state)
 }
@@ -289,6 +290,61 @@ async fn status(
         "progress": progress_json(&playbook, &run),
         "next": run.next_ready(&playbook).map(|step| step.id.clone()),
         "steps": steps,
+    })))
+}
+
+/// GET /playbooks/history?file=…：归档列表（含每步状态，UI 可本地对比两次运行）。
+async fn history(
+    State(state): State<std::sync::Arc<owo_agent_server::AppState>>,
+    Query(query): Query<StatusQuery>,
+) -> ApiResult {
+    let file = resolve_in_workspace(&state.workspace, &query.file)
+        .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+    let playbook = load_playbook(&file).map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+    let dir = file.with_extension("runs");
+    let mut runs: Vec<Value> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                continue;
+            }
+            let marker = path
+                .file_stem()
+                .map(|value| value.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let Some(run) = std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|content| serde_json::from_str::<PlaybookRun>(&content).ok())
+                .filter(|run| run.playbook_id == playbook.id)
+            else {
+                continue;
+            };
+            let mut steps = serde_json::Map::new();
+            for step in &playbook.steps {
+                let (label, _note) = state_label(&run, &playbook, &step.id);
+                steps.insert(step.id.clone(), json!(label));
+            }
+            runs.push(json!({
+                "marker": marker,
+                "progress": progress_json(&playbook, &run),
+                "complete": run.is_complete(&playbook),
+                "steps": steps,
+            }));
+        }
+    }
+    runs.sort_by(|left, right| {
+        right["marker"]
+            .as_str()
+            .unwrap_or_default()
+            .cmp(left["marker"].as_str().unwrap_or_default())
+    });
+    Ok(Json(json!({
+        "ok": true,
+        "id": playbook.id,
+        "name": playbook.name,
+        "count": runs.len(),
+        "runs": runs,
     })))
 }
 

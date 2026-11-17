@@ -223,6 +223,48 @@ async fn record_writes_state_and_advances() {
 }
 
 #[tokio::test]
+async fn history_lists_archives_with_step_states() {
+    let (state, _temp) = test_state();
+    let workspace = state.workspace.clone();
+    write_playbook(&workspace, "demo", "");
+    let runs = workspace.join("playbooks/demo.runs");
+    std::fs::create_dir_all(&runs).unwrap();
+    std::fs::write(
+        runs.join("run-1.json"),
+        r#"{"playbook_id":"demo","states":{"a":{"state":"passed","evidence":"ok"}}}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        runs.join("run-2.json"),
+        r#"{"playbook_id":"demo","states":{"b":{"state":"failed","reason":"boom","attempts":1}}}"#,
+    )
+    .unwrap();
+
+    let router = playbook_api::router(state);
+    let (status, body) = call(
+        &router,
+        "GET",
+        "/playbooks/history?file=playbooks%2Fdemo.json",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["count"], 2, "{body}");
+    assert_eq!(body["runs"][0]["marker"], "run-2");
+    assert_eq!(body["runs"][0]["steps"]["b"], "failed");
+    assert_eq!(body["runs"][1]["steps"]["a"], "passed");
+    // 未知剧本 → 400
+    let (status, _) = call(
+        &router,
+        "GET",
+        "/playbooks/history?file=playbooks%2Fmissing.json",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn status_rejects_missing_and_non_playbook_files() {
     let (state, _temp) = test_state();
     let workspace = state.workspace.clone();

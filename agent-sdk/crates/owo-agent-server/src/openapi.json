@@ -11212,6 +11212,29 @@
           }
         }
       }
+    },
+    "/playbooks/history": {
+      "get": {
+        "operationId": "playbookHistory",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "archived runs with per-step states"
+          },
+          "400": {
+            "description": "invalid path or playbook"
+          }
+        }
+      }
     }
   },
   "security": [
