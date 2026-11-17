@@ -169,6 +169,9 @@
           return '<div class="hint owo-pb-warn">⚠ ' + esc(message) + "</div>";
         })
         .join("");
+      var failureKind = step.failure_kind
+        ? '<div class="hint">失败类型：<code>' + esc(step.failure_kind) + "</code></div>"
+        : "";
       return (
         '<div class="owo-pb-step owo-pb-' + esc(step.state) + '">' +
         '<div class="owo-pb-step-head"><span class="owo-pb-mark">' + mark(step.state) +
@@ -176,6 +179,7 @@
         '<span class="sub">' + esc(step.id) + " · " + esc(step.kind || "") + "</span></div>" +
         (step.note ? '<div class="hint">' + esc(step.note) + "</div>" : "") +
         (step.attempts ? '<div class="hint">已尝试 ' + step.attempts + " 次</div>" : "") +
+        failureKind +
         command +
         warnings +
         action +

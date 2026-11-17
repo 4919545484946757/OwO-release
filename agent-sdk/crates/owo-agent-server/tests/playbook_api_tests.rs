@@ -304,6 +304,29 @@ async fn archive_creates_snapshot_and_rejects_bad_input() {
 }
 
 #[tokio::test]
+async fn status_exposes_failure_kind() {
+    let (state, _temp) = test_state();
+    let workspace = state.workspace.clone();
+    write_playbook(&workspace, "demo", "");
+    std::fs::write(
+        workspace.join("playbooks/demo.state.json"),
+        r#"{"playbook_id":"demo","states":{"a":{"state":"failed","reason":"exit 1","attempts":1,"kind":"exit_nonzero"}}}"#,
+    )
+    .unwrap();
+    let router = playbook_api::router(state);
+    let (status, body) = call(
+        &router,
+        "GET",
+        "/playbooks/status?file=playbooks%2Fdemo.json",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["steps"][0]["failure_kind"], "exit_nonzero", "{body}");
+    assert_eq!(body["steps"][0]["attempts"], 1, "{body}");
+}
+
+#[tokio::test]
 async fn status_reports_step_warnings() {
     let (state, _temp) = test_state();
     let dir = state.workspace.join("playbooks");

@@ -437,7 +437,7 @@ impl Tool for PlaybookCheckTool {
             ));
         }
         journal_begin(&path, &step_id);
-        let (passed, exit_code, evidence) = execute_check(ctx, &step).await;
+        let (passed, exit_code, evidence, failure_kind) = execute_check(ctx, &step).await;
         journal_end(&path, &step_id, exit_code, "check");
         if passed {
             run.record_pass(&step_id, evidence.clone());
@@ -446,7 +446,7 @@ impl Tool for PlaybookCheckTool {
                 Some(code) => format!("exit {code}：{evidence}"),
                 None => evidence.clone(),
             };
-            run.record_fail(&step_id, reason);
+            run.record_fail_kind(&step_id, reason, failure_kind);
         }
         save_run(&path, &run)?;
         let next = next_json(&playbook, &run);
@@ -454,6 +454,7 @@ impl Tool for PlaybookCheckTool {
             "step": step_id,
             "passed": passed,
             "exit_code": exit_code,
+            "failure_kind": failure_kind,
             "evidence": evidence,
             "progress": progress_json(&playbook, &run),
             "next": next["next"],
@@ -470,7 +471,7 @@ impl Tool for PlaybookCheckTool {
 async fn execute_check(
     ctx: &mut ToolContext<'_>,
     step: &PlaybookStep,
-) -> (bool, Option<i64>, String) {
+) -> (bool, Option<i64>, String, Option<&'static str>) {
     match RunCommandTool
         .run(ctx, json!({ "command": step.command }))
         .await
@@ -481,9 +482,25 @@ async fn execute_check(
                 value.get("stdout").and_then(Value::as_str).unwrap_or(""),
                 value.get("stderr").and_then(Value::as_str).unwrap_or(""),
             );
-            (exit_code == Some(0), exit_code, evidence)
+            let timed_out = value
+                .get("timed_out")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            let kind = if exit_code == Some(0) {
+                None
+            } else if timed_out {
+                Some("timeout")
+            } else {
+                Some("exit_nonzero")
+            };
+            (exit_code == Some(0), exit_code, evidence, kind)
         }
-        Err(error) => (false, None, format!("命令执行失败：{error}")),
+        Err(error) => (
+            false,
+            None,
+            format!("命令执行失败：{error}"),
+            Some("command_unavailable"),
+        ),
     }
 }
 
@@ -563,7 +580,7 @@ impl Tool for PlaybookRunTool {
                 break;
             }
             journal_begin(&path, &step.id);
-            let (passed, exit_code, evidence) = execute_check(ctx, &step).await;
+            let (passed, exit_code, evidence, failure_kind) = execute_check(ctx, &step).await;
             journal_end(&path, &step.id, exit_code, "check");
             if passed {
                 run.record_pass(&step.id, evidence.clone());
@@ -572,13 +589,14 @@ impl Tool for PlaybookRunTool {
                     Some(code) => format!("exit {code}：{evidence}"),
                     None => evidence.clone(),
                 };
-                run.record_fail(&step.id, reason);
+                run.record_fail_kind(&step.id, reason, failure_kind);
             }
             save_run(&path, &run)?;
             executed.push(json!({
                 "step": step.id,
                 "passed": passed,
                 "exit_code": exit_code,
+                "failure_kind": failure_kind,
                 "evidence": evidence,
             }));
             if !passed {
@@ -691,6 +709,7 @@ mod tests {
             .block_on(PlaybookCheckTool.run(&mut ctx, json!({ "file": file_arg, "step": "boom" })))
             .expect("失败命令应返回结果而不是 Err");
         assert_eq!(boom["passed"], false, "{boom}");
+        assert_eq!(boom["failure_kind"], "exit_nonzero", "{boom}");
         let state = std::fs::read_to_string(state_path(&file)).unwrap();
         assert!(state.contains("\"failed\""), "{state}");
         assert!(state.contains("\"attempts\""), "{state}");

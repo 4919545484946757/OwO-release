@@ -329,7 +329,13 @@ pub enum StepState {
     /// 已通过（带证据：命令输出摘要/评审结论/人工确认）。
     Passed { evidence: String },
     /// 失败过（记录尝试次数与最近原因）。
-    Failed { reason: String, attempts: u32 },
+    /// 失败：`kind` 是可选分类（`exit_nonzero` / `command_unavailable` / `timeout` 等）。
+    Failed {
+        reason: String,
+        attempts: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kind: Option<String>,
+    },
     /// 主动跳过（记录原因；依赖它的步骤会被阻塞）。
     Skipped { reason: String },
 }
@@ -455,6 +461,16 @@ impl PlaybookRun {
 
     /// 记录失败（保留尝试次数，供有界重试）。
     pub fn record_fail(&mut self, step_id: &str, reason: impl Into<String>) {
+        self.record_fail_kind(step_id, reason, None);
+    }
+
+    /// 记录失败并附分类（`exit_nonzero` / `command_unavailable` / `timeout` 等）。
+    pub fn record_fail_kind(
+        &mut self,
+        step_id: &str,
+        reason: impl Into<String>,
+        kind: Option<&str>,
+    ) {
         let attempts = match self.states.get(step_id) {
             Some(StepState::Failed { attempts, .. }) => attempts + 1,
             _ => 1,
@@ -464,8 +480,17 @@ impl PlaybookRun {
             StepState::Failed {
                 reason: reason.into(),
                 attempts,
+                kind: kind.map(str::to_string),
             },
         );
+    }
+
+    /// 失败分类（未失败或未分类返回 None）。
+    pub fn failure_kind(&self, step_id: &str) -> Option<&str> {
+        match self.states.get(step_id) {
+            Some(StepState::Failed { kind, .. }) => kind.as_deref(),
+            _ => None,
+        }
     }
 
     /// 记录跳过。
@@ -761,6 +786,22 @@ mod tests {
             run.next_ready(&playbook).map(|step| step.id.as_str()),
             Some("review")
         );
+    }
+
+    #[test]
+    fn failure_kind_is_recorded_and_retained_across_attempts() {
+        let playbook = playbook();
+        let mut run = PlaybookRun::new(&playbook);
+        assert_eq!(run.failure_kind("check"), None);
+        run.record_fail_kind("check", "exit 1", Some("exit_nonzero"));
+        assert_eq!(run.failure_kind("check"), Some("exit_nonzero"));
+        // 第二次失败换分类：分类更新、attempts 继续累计。
+        run.record_fail_kind("check", "命令不存在", Some("command_unavailable"));
+        assert_eq!(run.failure_kind("check"), Some("command_unavailable"));
+        assert_eq!(run.attempts("check"), 2);
+        // 通过后分类清空。
+        run.record_pass("check", "ok");
+        assert_eq!(run.failure_kind("check"), None);
     }
 
     #[test]

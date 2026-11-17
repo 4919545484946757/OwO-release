@@ -154,9 +154,9 @@ fn progress_json(playbook: &Playbook, run: &PlaybookRun) -> Value {
 fn state_label(run: &PlaybookRun, playbook: &Playbook, step_id: &str) -> (&'static str, String) {
     match run.states.get(step_id).unwrap_or(&StepState::Pending) {
         StepState::Passed { evidence } => ("passed", evidence.clone()),
-        StepState::Failed { reason, attempts } => {
-            ("failed", format!("尝试 {attempts} 次：{reason}"))
-        }
+        StepState::Failed {
+            reason, attempts, ..
+        } => ("failed", format!("尝试 {attempts} 次：{reason}")),
         StepState::Skipped { reason } => ("skipped", reason.clone()),
         StepState::Pending => {
             if run.is_blocked(playbook, step_id) {
@@ -284,6 +284,7 @@ async fn status(
                 "state": state,
                 "note": note,
                 "attempts": run.attempts(&step.id),
+                "failure_kind": run.failure_kind(&step.id),
                 "command": step.command,
                 "warnings": warnings,
             })

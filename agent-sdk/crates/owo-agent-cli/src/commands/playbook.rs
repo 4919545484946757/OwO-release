@@ -544,7 +544,9 @@ fn save_run(path: &Path, run: &PlaybookRun) -> Result<(), Box<dyn std::error::Er
 fn state_label(run: &PlaybookRun, playbook: &Playbook, step_id: &str) -> (&'static str, String) {
     match run.states.get(step_id).unwrap_or(&StepState::Pending) {
         StepState::Passed { evidence } => ("✔", format!("通过：{evidence}")),
-        StepState::Failed { reason, attempts } => ("✘", format!("失败 {attempts} 次：{reason}")),
+        StepState::Failed {
+            reason, attempts, ..
+        } => ("✘", format!("失败 {attempts} 次：{reason}")),
         StepState::Skipped { reason } => ("⊘", format!("跳过：{reason}")),
         StepState::Pending => {
             if run.is_blocked(playbook, step_id) {
@@ -595,6 +597,7 @@ fn status(
                     "mark": mark,
                     "note": note,
                     "attempts": loaded.run.attempts(&step.id),
+                    "failure_kind": loaded.run.failure_kind(&step.id),
                     "warnings": loaded
                         .playbook
                         .risk_warnings()
@@ -692,6 +695,7 @@ fn next(
                     "detail": step.detail,
                     "acceptance": step.acceptance,
                     "depends_on": step.depends_on,
+                    "failure_kind": loaded.run.failure_kind(&step.id),
                     "warnings": loaded
                         .playbook
                         .risk_warnings()
