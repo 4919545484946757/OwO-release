@@ -121,6 +121,25 @@ test("stepRow() renders warnings and hides actions for passed steps", () => {
   assert.doesNotMatch(passed, /data-pb-record/);
 });
 
+test("compareRows() lists transitions and flags regressions", () => {
+  const { panel } = harness();
+  panel.mount(fakeRoot(), { get: async () => ({ playbooks: [] }), esc });
+  const identical = panel._test.compareRows({ a: "passed" }, { steps: { a: "passed" } });
+  assert.match(identical, /与当前状态一致/);
+
+  const html = panel._test.compareRows(
+    { a: "pending", b: "failed" },
+    { steps: { a: "passed", b: "pending" } }
+  );
+  assert.match(html, /a<\/code><span>passed → pending/);
+  assert.match(html, /退化/);
+  assert.match(html, /b<\/code><span>pending → failed/);
+
+  const escaped = panel._test.compareRows({ "<x>": "passed" }, { steps: { "<x>": "pending" } });
+  assert.doesNotMatch(escaped, /<x>/);
+  assert.match(escaped, /&lt;x&gt;/);
+});
+
 test("mount fetches the list and renders cards", async () => {
   const { panel } = harness();
   const view = fakeRoot();

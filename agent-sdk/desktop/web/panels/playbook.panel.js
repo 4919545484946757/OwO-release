@@ -200,7 +200,53 @@
         '<div class="owo-pb-history" hidden></div>';
     }
 
-    /// 历史运行：列出归档；相对当前状态退化的步骤标红。
+    /// 纯渲染：某次归档 vs 当前状态的逐步差异。
+    function compareRows(currentSteps, run) {
+      var current = currentSteps || {};
+      var archiveSteps = (run && run.steps) || {};
+      var changes = [];
+      Object.keys(archiveSteps).forEach(function (stepId) {
+        var before = archiveSteps[stepId];
+        var after = current[stepId] || "pending";
+        if (before === after) return;
+        changes.push({
+          id: stepId,
+          from: before,
+          to: after,
+          regression: before === "passed" && after !== "passed",
+        });
+      });
+      if (!changes.length) {
+        return '<div class="hint">与当前状态一致（没有步骤变化）</div>';
+      }
+      var regressions = changes.filter(function (item) {
+        return item.regression;
+      }).length;
+      return (
+        '<div class="owo-pb-compare-list">' +
+        changes
+          .map(function (item) {
+            return (
+              '<div class="owo-pb-compare-row' +
+              (item.regression ? " owo-pb-bad" : "") +
+              '"><code>' +
+              esc(item.id) +
+              "</code><span>" +
+              esc(item.from) +
+              " → " +
+              esc(item.to) +
+              "</span>" +
+              (item.regression ? '<span class="owo-pb-chip owo-pb-bad">退化</span>' : "") +
+              "</div>"
+            );
+          })
+          .join("") +
+        (regressions ? '<div class="hint">' + regressions + " 个已通过步骤退化</div>" : "") +
+        "</div>"
+      );
+    }
+
+    /// 历史运行：列出归档；点击可对比该次归档与当前状态。
     function loadHistory(root, cardEl, path) {
       var box = cardEl.querySelector(".owo-pb-history");
       if (!box) return Promise.resolve();
@@ -208,6 +254,7 @@
         .then(function (data) {
           var runs = (data && data.runs) || [];
           var current = cardEl.__pbSteps || {};
+          cardEl.__pbHistory = runs;
           box.hidden = false;
           if (!runs.length) {
             box.innerHTML =
@@ -217,7 +264,7 @@
           box.innerHTML =
             '<div class="owo-pb-detail-head"><span class="sub">历史运行 ' +
             runs.length +
-            " 次</span></div>" +
+            " 次（点击对比当前）</span></div>" +
             runs
               .map(function (run) {
                 var regressions = [];
@@ -229,7 +276,9 @@
                 });
                 var progress = run.progress || {};
                 return (
-                  '<div class="owo-pb-run">' +
+                  '<button type="button" class="owo-pb-run" data-pb-compare="' +
+                  esc(run.marker || "") +
+                  '">' +
                   '<span class="owo-pb-run-marker">' + esc(run.marker || "?") + "</span>" +
                   '<span class="sub">' + esc(progress.summary || "") + "</span>" +
                   (run.complete ? '<span class="owo-pb-chip">已完成</span>' : "") +
@@ -238,15 +287,33 @@
                       esc(regressions.join("、")) +
                       "</span>"
                     : "") +
-                  "</div>"
+                  "</button>"
                 );
               })
-              .join("");
+              .join("") +
+            '<div class="owo-pb-compare" hidden></div>';
         })
         .catch(function (error) {
           box.hidden = false;
           box.innerHTML = '<div class="hint">历史读取失败：' + esc(friendly(error)) + "</div>";
         });
+    }
+
+    /// 点击历史行：渲染「该归档 → 当前」的逐步差异。
+    function renderCompare(cardEl, marker) {
+      var box = cardEl.querySelector(".owo-pb-compare");
+      if (!box) return;
+      var runs = cardEl.__pbHistory || [];
+      var run = runs.filter(function (item) {
+        return item.marker === marker;
+      })[0];
+      if (!run) return;
+      box.hidden = false;
+      box.innerHTML =
+        '<div class="owo-pb-detail-head"><span class="sub">' +
+        esc(marker) +
+        " → 当前</span></div>" +
+        compareRows(cardEl.__pbSteps, run);
     }
 
     function showError(root, message) {
@@ -364,6 +431,12 @@
         var archiveButton = target.closest("[data-pb-archive]");
         if (archiveButton) {
           archiveSnapshot(root, archiveButton.getAttribute("data-pb-archive"));
+          return;
+        }
+        var compareButton = target.closest("[data-pb-compare]");
+        if (compareButton) {
+          var compareCard = compareButton.closest(".owo-pb-card");
+          if (compareCard) renderCompare(compareCard, compareButton.getAttribute("data-pb-compare"));
         }
       });
     }
@@ -431,6 +504,7 @@
       stepRow: stepRow,
       mark: mark,
       bar: bar,
+      compareRows: compareRows,
     };
 
     return {
