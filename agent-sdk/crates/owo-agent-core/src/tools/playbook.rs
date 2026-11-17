@@ -153,9 +153,19 @@ fn journal_path(path: &Path) -> PathBuf {
     path.with_extension("journal.jsonl")
 }
 
+/// 派发日志上限：超过后压缩为最近若干条（长跑剧本不无限增长）。
+const JOURNAL_MAX_BYTES: u64 = 256 * 1024;
+const JOURNAL_KEEP_LINES: usize = 200;
+
 fn journal_append(path: &Path, entry: Value) {
     use std::io::Write;
     let journal = journal_path(path);
+    // 体积守卫：先压缩再追加，保留最近的 start/end 仍然完整（结尾部分）。
+    if let Ok(metadata) = std::fs::metadata(&journal) {
+        if metadata.len() > JOURNAL_MAX_BYTES {
+            compact_journal(&journal);
+        }
+    }
     let Ok(mut file) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -164,6 +174,22 @@ fn journal_append(path: &Path, entry: Value) {
         return;
     };
     let _ = writeln!(file, "{entry}");
+}
+
+/// 只保留最近 `JOURNAL_KEEP_LINES` 行（写临时文件后原子替换）。
+fn compact_journal(journal: &Path) {
+    let Ok(content) = std::fs::read_to_string(journal) else {
+        return;
+    };
+    let lines: Vec<&str> = content.lines().collect();
+    if lines.len() <= JOURNAL_KEEP_LINES {
+        return;
+    }
+    let kept = lines[lines.len() - JOURNAL_KEEP_LINES..].join("\n");
+    let temporary = journal.with_extension("journal.jsonl.tmp");
+    if std::fs::write(&temporary, kept + "\n").is_ok() {
+        let _ = std::fs::rename(&temporary, journal);
+    }
 }
 
 fn epoch_now() -> u64 {
@@ -852,6 +878,29 @@ mod tests {
         let value = next_json(&playbook, &run);
         assert!(value["next"]["warnings"].as_array().unwrap().is_empty());
 
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn journal_compacts_when_it_grows_too_large() {
+        let dir = scratch("journal-compact");
+        let file = dir.join("j.json");
+        // 用 12000 条（约 360 KB）触发压缩，并确认文件回落到 200 行左右。
+        for index in 0..12000 {
+            journal_append(
+                &file,
+                json!({ "step": format!("s{}", index % 7), "phase": "end" }),
+            );
+        }
+        let content = std::fs::read_to_string(journal_path(&file)).unwrap();
+        let lines = content.lines().count();
+        // 触发压缩后只保留一段，再继续追加；关键是文件大小被上限约束、行数远小于写入量。
+        assert!(lines < 12000, "压缩应丢弃历史行，实际 {lines}");
+        assert!(lines > 0, "压缩后不应为空");
+        assert!(
+            std::fs::metadata(journal_path(&file)).unwrap().len() < JOURNAL_MAX_BYTES,
+            "压缩后文件应小于上限"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

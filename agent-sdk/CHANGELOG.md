@@ -37,7 +37,7 @@
 - 失败分类：`exit_nonzero` / `timeout` / `command_unavailable`，status/diff/面板可见，
   并映射为恢复建议（`failure_recovery_hint`）。
 - 推进受阻时列出重试耗尽的步骤，并给出「人工确认或提高 max_attempts」的建议。
-- 完成时自动留档 `complete-<时间戳>`；失败重试达上限后不再进入可执行集。
+- 完成时自动留档 `complete-<时间戳>`；失败重试达上限后不再进入可执行集；派发日志超过 256 KB 自动压缩。
 
 **hooks**
 
