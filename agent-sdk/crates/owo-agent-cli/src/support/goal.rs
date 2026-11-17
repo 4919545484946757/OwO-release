@@ -149,6 +149,15 @@ pub(crate) fn playbook_prompt(
             step.command
         ));
     }
+    if let Some(limit) = step.max_attempts {
+        prompt.push_str(&format!(
+            "\n重试上限：{limit} 次（已失败 {} 次）",
+            run.attempts(&step.id)
+        ));
+    }
+    if let Some(kind) = run.failure_kind(&step.id) {
+        prompt.push_str(&format!("\n上次失败类型：{kind}"));
+    }
     prompt.push_str(
         "\n要求：本轮只推进这一步；完成后用 playbook_record（或 playbook_check）记录结果，\
          不要跳步。剧本全部步骤通过后，再检查整体目标是否完成。",

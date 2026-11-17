@@ -1127,6 +1127,33 @@ mod repl_completion_tests {
         assert_eq!(stops, 1, "第三次连续失败应停止");
     }
 
+    /// 推进提示包含重试预算与上次失败分类。
+    #[test]
+    fn playbook_prompt_includes_retry_budget_and_failure_kind() {
+        use owo_agent_core::playbook::{Playbook, PlaybookRun, PlaybookStep, StepKind};
+        let step = PlaybookStep {
+            id: "w".to_string(),
+            title: "检查".to_string(),
+            detail: String::new(),
+            acceptance: "exit 0".to_string(),
+            command: "cargo check".to_string(),
+            depends_on: Vec::new(),
+            kind: StepKind::Check,
+            max_attempts: Some(2),
+        };
+        let playbook = Playbook {
+            id: "p".to_string(),
+            name: "p".to_string(),
+            description: String::new(),
+            steps: vec![step.clone()],
+        };
+        let mut run = PlaybookRun::new(&playbook);
+        run.record_fail_kind("w", "exit 1", Some("exit_nonzero"));
+        let prompt = super::playbook_prompt(&playbook, &run, &step);
+        assert!(prompt.contains("重试上限：2 次（已失败 1 次）"), "{prompt}");
+        assert!(prompt.contains("上次失败类型：exit_nonzero"), "{prompt}");
+    }
+
     /// `/advance --playbook`：宿主判定的三个阶段（下一步 / 完成 / 阻塞）。
     #[test]
     fn playbook_directive_reports_next_complete_and_blocked() {
