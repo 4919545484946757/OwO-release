@@ -138,6 +138,8 @@ owo-agent playbook status --json playbooks/code-review.json
 模型循环：`playbook_next` → 多个连续 `check` 用 `playbook_run` 一次跑完（单个用
 `playbook_check`），需要模型的步骤用既有工具做、再用 `playbook_record` 记录 → 再 `next`。
 失败步骤保留在可执行集里（`attempts` 累计），是否继续重试由模型或推进策略决定。
+`playbook_next` 返回的步骤带 `warnings`（高风险命令提示）——模型在执行前就能看到，
+但提示不等于授权，执行仍走审批。
 
 安全边界：路径经会话工作区约束（越界拒绝）；读取上限 256 KB、备注上限 2000 字符；
 `playbook_record` 的副作用登记为 Write，照常走审批。

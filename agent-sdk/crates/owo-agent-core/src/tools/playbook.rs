@@ -146,7 +146,19 @@ fn progress_json(playbook: &Playbook, run: &PlaybookRun) -> Value {
 }
 
 fn next_json(playbook: &Playbook, run: &PlaybookRun) -> Value {
-    let next = run.next_ready(playbook).map(step_json);
+    let mut next = run.next_ready(playbook).map(step_json);
+    // 把风险提示随下一步一起交给模型：执行前就能看到"这条命令危险"。
+    if let Some(value) = next.as_mut() {
+        if let Some(step_id) = value.get("id").and_then(Value::as_str) {
+            let warnings: Vec<String> = playbook
+                .risk_warnings()
+                .into_iter()
+                .filter(|warning| warning.step.as_deref() == Some(step_id))
+                .map(|warning| warning.message)
+                .collect();
+            value["warnings"] = json!(warnings);
+        }
+    }
     let blocked: Vec<String> = playbook
         .steps
         .iter()
@@ -654,6 +666,40 @@ mod tests {
             .expect("再次运行应成功");
         assert!(again["executed"].as_array().unwrap().is_empty());
         assert!(again["stopped"].as_str().unwrap().contains("需要模型"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn next_json_attaches_risk_warnings_to_the_step() {
+        let dir = scratch("next-warn");
+        let risky = dir.join("risky.json");
+        std::fs::write(
+            &risky,
+            r#"{"id":"risky","name":"危险","steps":[
+                {"id":"w","title":"清理","kind":"check","acceptance":"exit 0","command":"rm -rf build"}
+            ]}"#,
+        )
+        .unwrap();
+        let playbook = load_playbook(&risky).unwrap();
+        let run = PlaybookRun::new(&playbook);
+        let value = next_json(&playbook, &run);
+        let warnings = value["next"]["warnings"].as_array().unwrap();
+        assert_eq!(warnings.len(), 1, "{value}");
+        assert!(warnings[0].as_str().unwrap().contains("rm -rf"), "{value}");
+
+        let safe = dir.join("safe.json");
+        std::fs::write(
+            &safe,
+            r#"{"id":"safe","name":"安全","steps":[
+                {"id":"w","title":"测试","kind":"check","acceptance":"exit 0","command":"cargo test --locked"}
+            ]}"#,
+        )
+        .unwrap();
+        let playbook = load_playbook(&safe).unwrap();
+        let run = PlaybookRun::new(&playbook);
+        let value = next_json(&playbook, &run);
+        assert!(value["next"]["warnings"].as_array().unwrap().is_empty());
 
         let _ = std::fs::remove_dir_all(&dir);
     }
