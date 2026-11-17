@@ -359,6 +359,7 @@ fn plan(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
                     "acceptance": step.acceptance,
                     "command": step.command,
                     "detail": step.detail,
+                    "max_attempts": step.max_attempts,
                     "warnings": playbook
                         .risk_warnings()
                         .into_iter()
@@ -410,6 +411,9 @@ fn plan(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
             }
             if !step.command.is_empty() {
                 println!("     命令：{}", step.command);
+            }
+            if let Some(limit) = step.max_attempts {
+                println!("     重试上限：{limit} 次");
             }
             for warning in playbook
                 .risk_warnings()
@@ -1035,6 +1039,7 @@ fn skeleton(id: &str) -> Playbook {
                 command: String::new(),
                 depends_on: dep.iter().map(|value| value.to_string()).collect(),
                 kind,
+                max_attempts: None,
             }
         };
     Playbook {

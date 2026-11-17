@@ -1139,6 +1139,7 @@ mod repl_completion_tests {
             command: String::new(),
             depends_on: deps.iter().map(|value| value.to_string()).collect(),
             kind: StepKind::Model,
+            max_attempts: None,
         };
         let playbook = Playbook {
             id: "p".to_string(),

@@ -60,6 +60,9 @@ pub struct PlaybookStep {
     /// 步骤类型。
     #[serde(default)]
     pub kind: StepKind,
+    /// 失败重试上限（`None` = 不限制，由调用方决定；到上限的失败步骤不再进入可执行集）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_attempts: Option<u32>,
 }
 
 /// 步骤类型：决定"谁来判定这一步完成"。
@@ -238,6 +241,18 @@ impl Playbook {
                     ),
                 ));
             }
+            if let Some(limit) = step.max_attempts {
+                if limit == 0 || limit > 10 {
+                    issues.push(PlaybookIssue::new(
+                        "step_max_attempts_invalid",
+                        Some(&step.id),
+                        format!(
+                            "步骤 `{}` 的 max_attempts 必须在 1–10 之间（当前 {limit}）",
+                            step.id
+                        ),
+                    ));
+                }
+            }
         }
 
         for step in &self.steps {
@@ -403,14 +418,25 @@ impl PlaybookRun {
     /// `attempts` 累计，是否继续重试由调用方（模型/推进策略）决定。
     pub fn next_ready<'a>(&self, playbook: &'a Playbook) -> Option<&'a PlaybookStep> {
         playbook.steps.iter().find(|step| {
-            matches!(
-                self.states.get(&step.id).unwrap_or(&StepState::Pending),
-                StepState::Pending | StepState::Failed { .. }
-            ) && step
-                .depends_on
-                .iter()
-                .all(|dependency| self.is_passed(dependency))
+            let state = self.states.get(&step.id).unwrap_or(&StepState::Pending);
+            let ready = match state {
+                StepState::Pending => true,
+                // 失败可重试，但到该步骤的重试上限后不再进入可执行集。
+                StepState::Failed { .. } => !self.attempts_exhausted(step),
+                _ => false,
+            };
+            ready
+                && step
+                    .depends_on
+                    .iter()
+                    .all(|dependency| self.is_passed(dependency))
         })
+    }
+
+    /// 失败次数是否已达该步骤的上限。
+    pub fn attempts_exhausted(&self, step: &PlaybookStep) -> bool {
+        step.max_attempts
+            .is_some_and(|limit| self.attempts(&step.id) >= limit)
     }
 
     fn is_passed(&self, step_id: &str) -> bool {
@@ -532,6 +558,7 @@ mod tests {
             command: String::new(),
             depends_on: depends_on.iter().map(|value| value.to_string()).collect(),
             kind,
+            max_attempts: None,
         }
     }
 
@@ -681,12 +708,48 @@ mod tests {
     }
 
     #[test]
-    fn failed_step_stays_retryable() {
+    fn retry_limit_stops_exhausted_step_and_validates_bounds() {
+        let mut limited = playbook();
+        // check 步骤设 1 次重试上限。
+        for step in &mut limited.steps {
+            if step.id == "check" {
+                step.max_attempts = Some(1);
+            }
+        }
+        assert!(limited.validate().is_empty());
+        let mut run = PlaybookRun::new(&limited);
+        run.record_pass("plan", "ok");
+        run.record_fail("check", "exit 1");
+        assert!(run.attempts_exhausted(
+            limited
+                .steps
+                .iter()
+                .find(|step| step.id == "check")
+                .unwrap()
+        ));
+        // 达到上限后不再进入可执行集（下游因此阻塞）。
+        assert_eq!(run.next_ready(&limited), None);
+
+        // 非法上限：0 与 >10 都被拒绝。
+        let mut invalid = playbook();
+        invalid.steps[1].max_attempts = Some(0);
+        assert!(invalid
+            .validate()
+            .iter()
+            .any(|issue| issue.code == "step_max_attempts_invalid"));
+        invalid.steps[1].max_attempts = Some(11);
+        assert!(invalid
+            .validate()
+            .iter()
+            .any(|issue| issue.code == "step_max_attempts_invalid"));
+    }
+
+    #[test]
+    fn failed_step_retries_by_default() {
         let playbook = playbook();
         let mut run = PlaybookRun::new(&playbook);
         run.record_pass("plan", "ok");
-        run.record_fail("check", "第一次 exit 1");
-        // 失败不是终态：next_ready 会把这一步再次给出（attempts 记录次数）。
+        run.record_fail("check", "第一次 exit 1"); // 失败不是终态：next_ready 会把这一步再次给出（attempts 记录次数）。
         assert_eq!(
             run.next_ready(&playbook).map(|step| step.id.as_str()),
             Some("check")
