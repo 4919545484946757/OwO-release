@@ -111,6 +111,9 @@
         (expanded ? "收起" : "打开") + "</button></div>" +
         bar(progress) +
         '<div class="owo-pb-chips">' + next +
+        (item.warnings
+          ? '<span class="owo-pb-chip owo-pb-warn">高风险命令 ' + item.warnings + " 条</span>"
+          : "") +
         (progress.blocked ? '<span class="owo-pb-chip owo-pb-warn">阻塞 ' + progress.blocked + "</span>" : "") +
         (progress.failed ? '<span class="owo-pb-chip owo-pb-bad">失败 ' + progress.failed + "</span>" : "") +
         "</div>" +

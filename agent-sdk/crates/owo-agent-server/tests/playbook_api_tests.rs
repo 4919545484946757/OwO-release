@@ -148,6 +148,8 @@ async fn list_reports_progress_and_skips_state_files() {
         .expect("broken 应在列表");
     assert_eq!(broken["ok"], false);
     assert!(!broken["issues"].as_array().unwrap().is_empty());
+    // 正常剧本没有高风险命令时 warnings=0。
+    assert_eq!(demo["warnings"], 0);
 }
 
 #[tokio::test]

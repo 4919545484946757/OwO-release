@@ -210,6 +210,7 @@ async fn list(State(state): State<std::sync::Arc<owo_agent_server::AppState>>) -
                     "id": playbook.id,
                     "name": playbook.name,
                     "description": playbook.description,
+                    "warnings": playbook.risk_warnings().len(),
                     "path": display,
                     "steps": playbook.steps.len(),
                     "ok": true,
