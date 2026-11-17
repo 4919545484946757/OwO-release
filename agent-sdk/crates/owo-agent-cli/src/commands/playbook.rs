@@ -82,6 +82,18 @@ pub(crate) enum PlaybookAction {
         #[arg(long)]
         force: bool,
     },
+    /// 归档当前运行状态（快照到 `<剧本>.runs/<标记>.json`）
+    Archive {
+        file: PathBuf,
+        /// 归档标记（默认当前 epoch 毫秒；只允许字母/数字/.-_）
+        #[arg(long)]
+        marker: Option<String>,
+        /// 覆盖同标记的归档
+        #[arg(long)]
+        force: bool,
+    },
+    /// 列出历次归档与各自进度
+    History { file: PathBuf },
 }
 
 pub(crate) fn run_playbook_cmd(args: PlaybookArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -101,6 +113,12 @@ pub(crate) fn run_playbook_cmd(args: PlaybookArgs) -> Result<(), Box<dyn std::er
         PlaybookAction::Reset { file, run } => reset(&file, run.as_deref(), args.json),
         PlaybookAction::List { dir } => list(&dir, args.json),
         PlaybookAction::Init { id, out, force } => init(&id, out.as_deref(), force, args.json),
+        PlaybookAction::Archive {
+            file,
+            marker,
+            force,
+        } => archive(&file, marker.as_deref(), force, args.json),
+        PlaybookAction::History { file } => history(&file, args.json),
     }
 }
 
@@ -892,6 +910,143 @@ fn init(
     Ok(())
 }
 
+/// 归档目录：与剧本同级的 `<stem>.runs/`。
+fn runs_dir(file: &Path) -> PathBuf {
+    file.with_extension("runs")
+}
+
+fn validate_marker(marker: &str) -> Result<(), String> {
+    if marker.is_empty() || marker.chars().count() > 64 {
+        return Err("归档标记长度必须在 1–64 之间".to_string());
+    }
+    if !marker
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_'))
+    {
+        return Err("归档标记只允许字母、数字与 . - _".to_string());
+    }
+    if marker.starts_with('.') || marker.contains("..") {
+        return Err("归档标记不能以 . 开头或包含 ..".to_string());
+    }
+    Ok(())
+}
+
+/// 把当前状态快照到 `<剧本>.runs/<标记>.json`（不改动当前状态）。
+fn archive(
+    file: &Path,
+    marker: Option<&str>,
+    force: bool,
+    json: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let playbook = load(file)?;
+    ensure_valid(&playbook)?;
+    let state = default_run_path(file);
+    if !state.exists() {
+        return Err("还没有运行状态：先用 playbook next/record 产生进度，再归档".into());
+    }
+    let marker = marker.map(str::to_string).unwrap_or_else(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_millis().to_string())
+            .unwrap_or_else(|_| "0".to_string())
+    });
+    validate_marker(&marker).map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
+    let dir = runs_dir(file);
+    std::fs::create_dir_all(&dir)
+        .map_err(|error| format!("创建归档目录失败（{}）：{error}", dir.display()))?;
+    let target = dir.join(format!("{marker}.json"));
+    if target.exists() && !force {
+        return Err(format!("归档 {} 已存在（用 --force 覆盖）", target.display()).into());
+    }
+    std::fs::copy(&state, &target)
+        .map_err(|error| format!("写入归档失败（{}）：{error}", target.display()))?;
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "ok": true,
+                "id": playbook.id,
+                "marker": marker,
+                "archive": target.to_string_lossy(),
+            })
+        );
+    } else {
+        println!("已归档：{}（{}）", target.display(), marker);
+    }
+    Ok(())
+}
+
+/// 列出历次归档与各自进度（按标记倒序）。
+fn history(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let playbook = load(file)?;
+    ensure_valid(&playbook)?;
+    let dir = runs_dir(file);
+    if !dir.exists() {
+        if json {
+            println!(
+                "{}",
+                serde_json::json!({ "ok": true, "id": playbook.id, "runs": [] })
+            );
+        } else {
+            println!("还没有归档（用 playbook archive 保存一次运行）");
+        }
+        return Ok(());
+    }
+    let entries = std::fs::read_dir(&dir)
+        .map_err(|error| format!("读取归档目录失败（{}）：{error}", dir.display()))?;
+    let mut runs: Vec<(String, Option<PlaybookRun>)> = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+            continue;
+        }
+        let marker = path
+            .file_stem()
+            .map(|value| value.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let run = std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|content| serde_json::from_str::<PlaybookRun>(&content).ok())
+            .filter(|run| run.playbook_id == playbook.id);
+        runs.push((marker, run));
+    }
+    runs.sort_by(|left, right| right.0.cmp(&left.0));
+    if json {
+        let items: Vec<serde_json::Value> = runs
+            .iter()
+            .map(|(marker, run)| match run {
+                Some(run) => serde_json::json!({
+                    "marker": marker,
+                    "progress": progress_json(&playbook, run),
+                    "complete": run.is_complete(&playbook),
+                }),
+                None => serde_json::json!({ "marker": marker, "invalid": true }),
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::json!({ "ok": true, "id": playbook.id, "runs": items })
+        );
+        return Ok(());
+    }
+    println!("剧本 {} 的归档（{} 次）：", playbook.id, runs.len());
+    for (marker, run) in &runs {
+        match run {
+            Some(run) => println!(
+                "  {marker:<24} {} {}",
+                run.summary(&playbook),
+                if run.is_complete(&playbook) {
+                    "已完成"
+                } else {
+                    ""
+                }
+            ),
+            None => println!("  {marker:<24} （无法解析或属于其它剧本）"),
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -915,6 +1070,56 @@ mod tests {
         )
         .unwrap();
         file
+    }
+
+    #[test]
+    fn archive_requires_state_and_validates_markers() {
+        let dir = scratch("archive");
+        let file = write_playbook(&dir);
+        // 没有状态文件不能归档。
+        assert!(archive(&file, Some("run-1"), false, false).is_err());
+
+        let mut run = load_run(&file, None).unwrap().run;
+        run.record_pass("a", "证据");
+        save_run(&default_run_path(&file), &run).unwrap();
+
+        archive(&file, Some("run-1"), false, false).unwrap();
+        let archived = runs_dir(&file).join("run-1.json");
+        assert!(archived.exists());
+        // 重复标记需 --force；非法标记拒绝。
+        assert!(archive(&file, Some("run-1"), false, false).is_err());
+        archive(&file, Some("run-1"), true, false).unwrap();
+        assert!(archive(&file, Some("../escape"), false, false).is_err());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn history_lists_archives_newest_first() {
+        let dir = scratch("history");
+        let file = write_playbook(&dir);
+        let mut run = load_run(&file, None).unwrap().run;
+        run.record_pass("a", "证据");
+        save_run(&default_run_path(&file), &run).unwrap();
+        archive(&file, Some("run-1"), false, false).unwrap();
+        archive(&file, Some("run-2"), false, false).unwrap();
+
+        let listed = {
+            let dir = runs_dir(&file);
+            let mut markers: Vec<String> = std::fs::read_dir(&dir)
+                .unwrap()
+                .flatten()
+                .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                .collect();
+            markers.sort();
+            markers
+        };
+        assert_eq!(listed, vec!["run-1.json", "run-2.json"]);
+        // history 只读：再次载入进度仍然只来自当前状态文件。
+        let reloaded = load_run(&file, None).unwrap();
+        assert_eq!(reloaded.run.progress(&reloaded.playbook).passed, 1);
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

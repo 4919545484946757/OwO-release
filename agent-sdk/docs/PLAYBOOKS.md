@@ -94,7 +94,12 @@ owo-agent playbook list --json
 owo-agent playbook init my-flow
 owo-agent playbook init my-flow --out playbooks/my-flow.json --force
 
-# 机器可读（status / next / record / reset / list / init 都支持）
+# 归档与历史（同一剧本多次运行可对比）
+owo-agent playbook archive playbooks/code-review.json --marker 2026-11-18-a
+owo-agent playbook history playbooks/code-review.json
+owo-agent playbook history --json playbooks/code-review.json
+
+# 机器可读（status / next / record / reset / list / init / archive / history 都支持）
 owo-agent playbook status --json playbooks/code-review.json
 ```
 
