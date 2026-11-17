@@ -348,6 +348,12 @@ fn plan(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
                     "acceptance": step.acceptance,
                     "command": step.command,
                     "detail": step.detail,
+                    "warnings": playbook
+                        .risk_warnings()
+                        .into_iter()
+                        .filter(|warning| warning.step.as_deref() == Some(step.id.as_str()))
+                        .map(|warning| warning.message)
+                        .collect::<Vec<_>>(),
                 })
             })
             .collect();
@@ -393,6 +399,13 @@ fn plan(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
             }
             if !step.command.is_empty() {
                 println!("     命令：{}", step.command);
+            }
+            for warning in playbook
+                .risk_warnings()
+                .iter()
+                .filter(|warning| warning.step.as_deref() == Some(step.id.as_str()))
+            {
+                println!("     提示：{}", warning.message);
             }
         }
         if let Some(next) = run.next_ready(&playbook) {
@@ -543,6 +556,13 @@ fn status(
                     "mark": mark,
                     "note": note,
                     "attempts": loaded.run.attempts(&step.id),
+                    "warnings": loaded
+                        .playbook
+                        .risk_warnings()
+                        .into_iter()
+                        .filter(|warning| warning.step.as_deref() == Some(step.id.as_str()))
+                        .map(|warning| warning.message)
+                        .collect::<Vec<_>>(),
                 })
             })
             .collect();
@@ -577,12 +597,18 @@ fn status(
         );
         for step in &loaded.playbook.steps {
             let (mark, note) = state_label(&loaded.run, &loaded.playbook, &step.id);
+            let risk = loaded
+                .playbook
+                .risk_warnings()
+                .iter()
+                .any(|warning| warning.step.as_deref() == Some(step.id.as_str()));
             println!(
-                "  {mark} {:<16} {:<6} {}（{}）",
+                "  {mark} {:<16} {:<6} {}（{}）{}",
                 step.id,
                 kind_label(step.kind),
                 step.title,
-                note
+                note,
+                if risk { " ⚠" } else { "" }
             );
         }
         match next {
