@@ -10,7 +10,7 @@
 - HTTP API（`owo-agent-server`）：session/turn/permission/diff/revert/abort，SSE 事件流。
 - CLI（`owo-agent-cli`）：交互式 `turn` 与 `serve`。
 
-当前设计入口：[主开发技术文档](../builGoal/主开发技术文档-Agent-SDK-v1.md)、[后续任务实施指南](../builGoal/Agent-SDK-后续任务实施指南-2026-09-18.md)、[CLI 与 Electron 施工文档](../builGoal/Agent-SDK-CLI优先-Codex式拆分-Electron前端-施工文档-2026-09-24.md)、[工作流优先：按进度自主推进](docs/WORKFLOW-FIRST.md)。最近桌面验证见 [六项优化记录](docs/review/desktop-six-items-implementation-20261011.md)。
+当前设计入口：[主开发技术文档](../builGoal/主开发技术文档-Agent-SDK-v1.md)、[后续任务实施指南](../builGoal/Agent-SDK-后续任务实施指南-2026-09-18.md)、[CLI 与 Electron 施工文档](../builGoal/Agent-SDK-CLI优先-Codex式拆分-Electron前端-施工文档-2026-09-24.md)、[工作流优先：按进度自主推进](docs/WORKFLOW-FIRST.md)、[开发进度索引 2026-11-18](docs/PROGRESS-2026-11-18.md)。最近桌面验证见 [六项优化记录](docs/review/desktop-six-items-implementation-20261011.md)。
 
 2026-10-11 已剔除活动 Agent 工程内的旧输入法适配库、workspace 登记与锁文件条目。Agent 核心、CLI 和桌面保持独立；默认与全 workspace 构建均不包含该适配库。历史 C++ 输入法工程及本地归档也已移除，输入法由独立 OwO 主仓库维护；此工作树不保留输入法源码备份。
 
