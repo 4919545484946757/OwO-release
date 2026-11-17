@@ -196,14 +196,17 @@ fn validate(file: &Path, json: bool, strict: bool) -> Result<(), Box<dyn std::er
             if !ok {
                 failed += 1;
             }
-            for warning in &warnings {
-                println!("  提示  [{}] {}", warning.code, warning.message);
+            if !json {
+                for warning in &warnings {
+                    println!("  提示  [{}] {}", warning.code, warning.message);
+                }
             }
             items.push(serde_json::json!({
                 "path": item.path.to_string_lossy(),
                 "id": item.playbook.as_ref().map(|playbook| playbook.id.clone()),
                 "ok": ok,
                 "issues": issues_json(&item.issues),
+                "warnings": issues_json(&warnings),
             }));
             if !json {
                 let name = item
