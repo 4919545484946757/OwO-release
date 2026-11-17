@@ -798,6 +798,13 @@ impl PluginManager {
             }
         }
         let manifest = agent_plugin_to_manifest(&loaded);
+        // 吊销对规范包同样生效（id = 包名）：不因为格式不同而绕过安全治理。
+        if self.is_revoked(&manifest.id, &manifest.version) {
+            return Err(format!(
+                "插件 {} {} 已被吊销，拒绝加载",
+                manifest.id, manifest.version
+            ));
+        }
         audit.push(format!(
             "Agent Plugins {AGENT_PLUGINS_SPEC_VERSION} 包：{} v{}（skills={} mcp_servers={} hooks={}）",
             manifest.id,

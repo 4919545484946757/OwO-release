@@ -44,10 +44,10 @@ fn manager_for(data_root: &Path) -> Arc<Mutex<PluginManager>> {
     let manager = map
         .entry(data_root.to_path_buf())
         .or_insert_with(|| {
-            Arc::new(Mutex::new(PluginManager::new(
-                data_root.to_path_buf(),
-                app_version(),
-            )))
+            let mut manager = PluginManager::new(data_root.to_path_buf(), app_version());
+            // 市场安装/更新同样执行吊销列表（默认 <data_root>/revocations.json）。
+            manager.load_revocations(None);
+            Arc::new(Mutex::new(manager))
         })
         .clone();
     if let Ok(mut mgr) = manager.lock() {

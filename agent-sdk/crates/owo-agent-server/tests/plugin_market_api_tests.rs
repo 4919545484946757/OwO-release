@@ -246,6 +246,32 @@ async fn update_accepts_agent_plugin_normative_package() {
     assert!(backups.is_dir(), "旧版应备份到 backups/");
 }
 
+#[tokio::test]
+async fn revoked_agent_plugin_is_rejected_by_market_install() {
+    let (state, temp) = test_state();
+    write_agent_plugin(&temp.path().join("ws"), "agent-pkg");
+    // 吊销 pkg-demo 1.0.0（data_root/revocations.json）。
+    std::fs::write(
+        temp.path().join("revocations.json"),
+        r#"[{"id":"pkg-demo","version":"1.0.0","reason":"安全事件","ts":"2026-11-18"}]"#,
+    )
+    .unwrap();
+    let (status, body) = call(
+        &router(state),
+        request(
+            "POST",
+            "/plugins/market/install",
+            Some(r#"{"dir":"agent-pkg"}"#),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(
+        body["error"].as_str().unwrap_or("").contains("吊销"),
+        "{body}"
+    );
+}
+
 // ---------- 目录 / seed / versions ----------
 
 #[tokio::test]
