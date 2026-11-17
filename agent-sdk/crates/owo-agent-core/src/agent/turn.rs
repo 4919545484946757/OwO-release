@@ -1139,6 +1139,38 @@ impl Agent {
                     }
                     // —— 回填：按原 tool-call 顺序生成 tool 消息 + 审计 + 计步 ——
                     for (call, result) in calls.iter().zip(results) {
+                        // A2-1 PostToolUse：通知型钩子。工具已执行，结果不可撤销；
+                        // exit 2 只记审计（附 stderr），不改变本次工具结果。
+                        let post_hooks = self.hooks_snapshot();
+                        if !post_hooks.is_empty() {
+                            let hook_session_id = session.id.clone();
+                            let hook_ok = result.is_ok();
+                            let hook_error = result.as_ref().err().cloned();
+                            let hook_outcome = post_hooks
+                                .run(
+                                    crate::hooks::HookEvent::PostToolUse,
+                                    &serde_json::json!({
+                                        "tool": call.name,
+                                        "args": &call.arguments,
+                                        "session_id": hook_session_id.clone(),
+                                        "ok": hook_ok,
+                                        "error": hook_error,
+                                    }),
+                                )
+                                .await;
+                            if let crate::hooks::HookOutcome::Blocked(stderr) = hook_outcome {
+                                self.audit
+                                    .lock()
+                                    .map_err(|_| AgentError::Session("审计锁中毒".into()))?
+                                    .record(
+                                        &hook_session_id,
+                                        "hook_post_tool_use",
+                                        Some(call.name.clone()),
+                                        Some(false),
+                                        format!("通知钩子返回阻断（不改变结果）：{stderr}"),
+                                    );
+                            }
+                        }
                         if result.is_ok() && !self.call_is_concurrent_eligible(call) {
                             reset_loop_guard_after_progress(
                                 &mut call_signatures,

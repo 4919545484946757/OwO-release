@@ -1616,6 +1616,72 @@ async fn pre_tool_use_hook_blocks_call_but_keeps_turn() {
     );
 }
 
+/// A2-1 hooks：PostToolUse 是通知型钩子——工具结果不可撤销，exit 2 只记审计。
+#[tokio::test]
+async fn post_tool_use_hook_runs_and_never_changes_result() {
+    let state = ProbeState::new();
+    let mut registry = ToolRegistry::new();
+    registry.register(ProbeTool {
+        label: "probe_a",
+        delay_ms: 0,
+        class: EffectClass::Read,
+        host_verified: true,
+        state: Arc::clone(&state),
+    });
+    let outputs = Mutex::new(VecDeque::from(vec![
+        ModelOutput::ToolCalls(vec![crate::gateway::ToolCall {
+            id: "call-a".to_string(),
+            name: "probe_a".to_string(),
+            arguments: serde_json::json!({}),
+        }]),
+        ModelOutput::Text("完成".to_string()),
+    ]));
+    let agent = Agent::new(
+        Arc::new(ScriptedTestProvider { outputs }),
+        registry,
+        Policy::new("."),
+        AgentConfig::default(),
+    );
+    let marker = std::env::temp_dir().join(format!("owo-post-hook-{}.txt", uuid::Uuid::new_v4()));
+    let command = if cfg!(windows) {
+        format!("echo fired> \"{}\" & exit /b 2", marker.display())
+    } else {
+        format!("echo fired > \"{}\"; exit 2", marker.display())
+    };
+    agent.set_hooks(crate::hooks::HookManager::from_configs(&[
+        crate::hooks::HookConfig {
+            event: "post_tool_use".to_string(),
+            matcher: Some("probe_a".to_string()),
+            command,
+            fail_mode: None,
+            source: None,
+        },
+    ]));
+    let mut session = Session::new(std::env::temp_dir(), "test-model", None);
+    let approver = crate::permissions::AutoApprover { allow: true };
+    let outcome = agent
+        .run_turn(
+            &mut session,
+            "跑探针",
+            &approver,
+            &AtomicBool::new(false),
+            &mut |_| {},
+        )
+        .await
+        .expect("通知钩子不应终止回合");
+    assert!(marker.exists(), "PostToolUse hook 应被执行（留下标记文件）");
+    let ok = outcome
+        .events
+        .iter()
+        .find_map(|event| match event {
+            TurnEvent::ToolResult { tool, ok, .. } if tool == "probe_a" => Some(*ok),
+            _ => None,
+        })
+        .expect("应有 probe_a 的结果事件");
+    assert!(ok, "通知钩子的 exit 2 不得改变工具结果");
+    let _ = std::fs::remove_file(&marker);
+}
+
 /// 远端 agent.rs 取优：步数耗尽补一次不带工具的收尾总结，回合以可见结论结束
 /// （旧行为直接返回「达到最大回合数」错误，用户只看到思考过程后什么都没有）。
 #[tokio::test]

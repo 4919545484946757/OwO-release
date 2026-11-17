@@ -158,6 +158,9 @@ plugins/<pkg>/plugin.json 存在
 ### 与宿主 hooks 的关系
 
 - 与 `settings.json` 的 hooks **同一执行器**：stdin 收事件 JSON、exit 2 = 阻断、10s 超时。
+- **`post_tool_use` 是通知型**：工具已经执行、结果不可撤销，exit 2 只写审计
+  （`hook_post_tool_use`），不会改写本次工具结果；payload 含 `tool`/`args`/`session_id`/
+  `ok`/`error`，适合做"失败转规则"的记录与告警。
 - 来源可追溯：插件 hook 的 `source` 为 `plugin:<包名>`，阻断消息里带该标签；设置页的
   hook 来源为 `settings`。
 - 两半分开存放（`AppState::HookSources`）：设置页热重灌只替换 settings 那一半，
