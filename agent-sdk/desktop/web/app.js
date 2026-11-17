@@ -1654,7 +1654,29 @@ async function refreshPlugins() {
     const data = await apiWithTimeout("/plugins");
     const plugins = data.plugins || [];
     const count = $("pluginCount");
-    if (count) count.textContent = plugins.length ? `${plugins.length} 个` : "暂无";
+    if (count) {
+      if (!plugins.length) {
+        count.textContent = "暂无";
+      } else {
+        const servers = plugins.reduce((total, plugin) => {
+          const list =
+            Array.isArray(plugin.mcp_servers) && plugin.mcp_servers.length
+              ? plugin.mcp_servers
+              : plugin.mcp
+                ? [plugin.mcp]
+                : [];
+          return total + list.length;
+        }, 0);
+        const hooks = plugins.reduce(
+          (total, plugin) => total + (Array.isArray(plugin.hooks) ? plugin.hooks.length : 0),
+          0,
+        );
+        const parts = [`${plugins.length} 个`];
+        if (servers) parts.push(`${servers} 个 MCP 服务器`);
+        if (hooks) parts.push(`${hooks} 条 hooks`);
+        count.textContent = parts.join(" · ");
+      }
+    }
     grid.innerHTML = "";
     for (const plugin of plugins) grid.appendChild(pluginCard(plugin));
     if (!plugins.length) grid.innerHTML = '<div class="sub">尚未安装插件</div>';
@@ -1665,14 +1687,47 @@ async function refreshPlugins() {
   }
 }
 
+/// 插件卡：包格式 / MCP 服务器（含多服务器）/ hooks 注入都要露出来。
+/// 只显示可展示字段——env、headers、命令路径可能含凭据或本机路径，后端不下发。
 function pluginCard(plugin) {
   const enabled = plugin.enabled !== false;
   const card = document.createElement("div");
   card.className = "ps-card";
   const initial = esc((plugin.name || plugin.id || "?").trim().slice(0, 1).toUpperCase());
-  const mcp = plugin.mcp
-    ? `${esc(plugin.mcp.transport)}｜${esc(plugin.mcp.command)}`
+  const isPortable = plugin.format === "agent-plugins-1.0.0";
+  const formatLabel = isPortable ? "Agent Plugins 1.0.0" : "OwO manifest";
+  // 新格式走 mcp_servers（可多个）；历史格式只有单个 mcp，兼容两种。
+  // 注意：历史插件的 mcp_servers 是空数组（不是缺失），所以先看非空。
+  const servers =
+    Array.isArray(plugin.mcp_servers) && plugin.mcp_servers.length
+      ? plugin.mcp_servers
+      : plugin.mcp
+        ? [plugin.mcp]
+        : [];
+  const hooks = Array.isArray(plugin.hooks) ? plugin.hooks : [];
+  const serverSummary = servers.length
+    ? servers
+        .map((server) => `${esc(server.name || "?")}（${esc(server.transport)}）`)
+        .join("、")
     : "未配置 MCP 服务器";
+  const hooksHtml = hooks.length
+    ? '<details class="ps-hooks"><summary class="sub">hooks 注入 ' +
+      hooks.length +
+      " 条（点开查看触发点）</summary>" +
+      hooks
+        .map(
+          (hook) =>
+            '<div class="sub">· ' +
+            esc(hook.event || "?") +
+            " ← " +
+            esc(hook.matcher || "全部工具") +
+            (hook.fail_mode === "closed" ? "（失败即阻断）" : "") +
+            "</div>",
+        )
+        .join("") +
+      "</details>"
+    : "";
+  const hidden = plugin.tools_hidden ? '<span class="ps-chip">工具已隐藏</span>' : "";
   card.innerHTML =
     '<div class="ps-card-top">' +
     `<span class="ps-tile" aria-hidden="true">${initial}</span>` +
@@ -1685,10 +1740,13 @@ function pluginCard(plugin) {
     `<p class="ps-card-desc">${esc(plugin.description || "暂无描述")}</p>` +
     '<div class="ps-chips">' +
     `<span class="ps-chip">${enabled ? "已启用" : "已禁用"}</span>` +
+    `<span class="ps-chip" title="插件包格式">${formatLabel}</span>` +
     `<span class="ps-chip">${esc((plugin.permissions || []).join("、") || "无权限声明")}</span>` +
+    hidden +
     "</div>" +
+    hooksHtml +
     '<div class="ps-card-foot">' +
-    `<span class="sub" title="${mcp}">${mcp}</span>` +
+    `<span class="sub" title="${serverSummary}">${serverSummary}</span>` +
     `<button type="button" class="ps-card-btn">${enabled ? "禁用" : "启用"}</button>` +
     "</div>";
   card.querySelector("button").addEventListener("click", async () => {
