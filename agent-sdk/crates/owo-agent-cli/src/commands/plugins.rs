@@ -31,6 +31,13 @@ pub(crate) enum PluginAction {
     Verify { dir: PathBuf },
     /// 校验 Agent Plugins 1.0.0 规范包（plugin.json + skills/ + mcp.json）
     Validate { dir: PathBuf },
+    /// 为规范包生成 plugin.sig.json（私钥文件：raw 32 字节 / hex / base64）
+    Sign {
+        dir: PathBuf,
+        /// 私钥文件路径
+        #[arg(long)]
+        key: PathBuf,
+    },
     /// 安装插件目录
     Install { dir: PathBuf },
     /// 更新已安装插件（id 为已安装插件 id）
@@ -43,7 +50,8 @@ pub(crate) enum PluginAction {
 /// 规范语义：清单非法 = 整个插件拒绝（exit 1）；组件级问题只降级并列出。
 fn validate_agent_plugin(dir: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     use owo_agent_core::agent_plugins::{
-        load_agent_plugin, DiagnosticLevel, AGENT_PLUGINS_SPEC_VERSION,
+        load_agent_plugin, load_agent_plugin_signature, verify_agent_plugin_signature,
+        DiagnosticLevel, AGENT_PLUGINS_SPEC_VERSION,
     };
     match load_agent_plugin(dir, None) {
         Ok(loaded) => {
@@ -84,6 +92,21 @@ fn validate_agent_plugin(dir: &std::path::Path) -> Result<(), Box<dyn std::error
                 .iter()
                 .filter(|item| item.level >= DiagnosticLevel::Warning)
                 .collect();
+            // 可选签名层：存在即必须通过（与安装/更新一致），缺失明确标注未签名。
+            match load_agent_plugin_signature(dir) {
+                Ok(Some(signature)) => match verify_agent_plugin_signature(dir, &signature) {
+                    Ok(()) => println!("  签名：{} 校验通过（覆盖包内容）", signature.algorithm),
+                    Err(error) => {
+                        println!("  签名：校验失败 —— {error}");
+                        std::process::exit(1);
+                    }
+                },
+                Ok(None) => println!("  签名：未签名（可选层）"),
+                Err(error) => {
+                    println!("  签名：文件无效 —— {error}");
+                    std::process::exit(1);
+                }
+            }
             if warnings.is_empty() {
                 println!("  诊断：无（符合 Agent Plugins {AGENT_PLUGINS_SPEC_VERSION}）");
             } else {
@@ -200,6 +223,15 @@ pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Err
         PluginAction::Validate { dir } => {
             return validate_agent_plugin(&dir);
         }
+        PluginAction::Sign { dir, key } => {
+            let bytes = std::fs::read(&key)
+                .map_err(|error| format!("读取私钥失败（{}）：{error}", key.display()))?;
+            let secret = parse_secret_key(&bytes)?;
+            owo_agent_core::agent_plugins::sign_agent_plugin(&dir, &secret)
+                .map_err(|error| format!("签名失败：{error}"))?;
+            println!("已签名：{}（plugin.sig.json）", dir.display());
+            return Ok(());
+        }
         PluginAction::Install { dir } => {
             let manager = PluginManager::new(data_root.clone(), app_version);
             match manager.install(&dir) {
@@ -252,4 +284,51 @@ pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Err
     }
     let _ = PluginManifest::load; // 类型引用保活（防未使用告警变体依赖）。
     Ok(())
+}
+
+/// 解析 Ed25519 私钥：raw 32 字节、hex（可带 0x）或 base64。
+fn parse_secret_key(bytes: &[u8]) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    if bytes.len() == 32 {
+        let mut key = [0u8; 32];
+        key.copy_from_slice(bytes);
+        return Ok(key);
+    }
+    let text = String::from_utf8_lossy(bytes).trim().to_string();
+    let hex = text.strip_prefix("0x").unwrap_or(&text).trim();
+    if hex.len() == 64 && hex.chars().all(|character| character.is_ascii_hexdigit()) {
+        let mut key = [0u8; 32];
+        for (index, pair) in hex.as_bytes().chunks(2).enumerate() {
+            let pair = std::str::from_utf8(pair)?;
+            key[index] = u8::from_str_radix(pair, 16)?;
+        }
+        return Ok(key);
+    }
+    let decoded = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, text.trim())
+        .map_err(|error| format!("私钥需为 32 字节原文、hex 或 base64：{error}"))?;
+    if decoded.len() != 32 {
+        return Err(format!("私钥长度非法（{} 字节，需 32）", decoded.len()).into());
+    }
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&decoded);
+    Ok(key)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_secret_key;
+
+    #[test]
+    fn secret_key_accepts_raw_hex_and_base64() {
+        let secret = [0x11u8; 32];
+        assert_eq!(parse_secret_key(&secret).unwrap(), secret);
+        let hex = "11".repeat(32);
+        assert_eq!(parse_secret_key(hex.as_bytes()).unwrap(), secret);
+        assert_eq!(
+            parse_secret_key(format!("0x{hex}").as_bytes()).unwrap(),
+            secret
+        );
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, secret);
+        assert_eq!(parse_secret_key(b64.as_bytes()).unwrap(), secret);
+        assert!(parse_secret_key(b"short").is_err());
+    }
 }

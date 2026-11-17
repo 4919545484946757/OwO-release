@@ -76,6 +76,10 @@ owo-demo-kit/
 签名对象是**包摘要**——按相对路径排序，对「路径 \0 文件 sha256 \n」整体再做 sha256，
 排除签名文件本身、隐藏目录与符号链接。签名存在即必须通过，缺失按未签名包处理。
 
+作者侧签名：`owo-agent plugin sign <包目录> --key <私钥文件>`（私钥支持 raw 32 字节 /
+hex / base64，只读入内存、不落盘）；`owo-agent plugin check <包目录>` 会显示
+「签名：ed25519 校验通过」或「签名：校验失败」。
+
 随包示例：`plugins/owo-demo-kit/`（一个技能 + 一个 stdio 服务器，Python 标准库实现）。
 
 ## 4. 加载流程

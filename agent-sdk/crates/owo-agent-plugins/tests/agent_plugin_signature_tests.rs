@@ -1,7 +1,7 @@
 use ed25519_dalek::{Signer, SigningKey};
 use owo_agent_plugins::agent_plugins::{
-    agent_plugin_package_digest, load_agent_plugin_signature, verify_agent_plugin_signature,
-    AgentPluginPackageSignature, AGENT_PLUGIN_SIGNATURE_FILE,
+    agent_plugin_package_digest, load_agent_plugin_signature, sign_agent_plugin,
+    verify_agent_plugin_signature, AgentPluginPackageSignature, AGENT_PLUGIN_SIGNATURE_FILE,
 };
 use owo_agent_plugins::plugin::PluginManager;
 use serde_json::json;
@@ -81,6 +81,18 @@ fn package_signature_covers_every_file() {
         .unwrap_err()
         .contains("不支持的签名算法"));
 
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn sign_tool_writes_a_verifiable_signature() {
+    let dir = scratch("sign");
+    write_package(&dir);
+    sign_agent_plugin(&dir, &[7u8; 32]).expect("签名应成功");
+    let signature = load_agent_plugin_signature(&dir)
+        .unwrap()
+        .expect("签名文件应存在");
+    verify_agent_plugin_signature(&dir, &signature).expect("签名应可验证");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

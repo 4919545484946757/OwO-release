@@ -273,7 +273,9 @@ impl AgentPluginManifest {
                 format!("读取 {} 失败：{error}", canonical.display()),
             )
         })?;
-        let value: Value = serde_json::from_str(&content).map_err(|error| {
+        // Windows 编辑器常写 UTF-8 BOM：解析前剔除，避免 "line 1 column 1" 的假错误。
+        let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+        let value: Value = serde_json::from_str(content).map_err(|error| {
             AgentPluginError::new(
                 "manifest_invalid_json",
                 format!("{} 不是合法 JSON：{error}", canonical.display()),
@@ -658,6 +660,33 @@ pub fn load_agent_plugin_signature(
     let signature: AgentPluginPackageSignature = serde_json::from_str(&content)
         .map_err(|error| format!("签名文件不是合法 JSON：{error}"))?;
     Ok(Some(signature))
+}
+
+/// 为规范包生成 `plugin.sig.json`（作者侧工具；私钥只由调用方传入，不落盘）。
+pub fn sign_agent_plugin(root: &Path, secret_key: &[u8; 32]) -> Result<(), String> {
+    use ed25519_dalek::{Signer, SigningKey};
+
+    let signing_key = SigningKey::from_bytes(secret_key);
+    let digest = agent_plugin_package_digest(root)?;
+    let signature = signing_key.sign(&digest);
+    let payload = AgentPluginPackageSignature {
+        algorithm: "ed25519".to_string(),
+        public_key: base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            signing_key.verifying_key().to_bytes(),
+        ),
+        signature: base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            signature.to_bytes(),
+        ),
+    };
+    let path = root.join(AGENT_PLUGIN_SIGNATURE_FILE);
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&payload)
+            .map_err(|error| format!("序列化签名失败：{error}"))?,
+    )
+    .map_err(|error| format!("写入签名文件失败（{}）：{error}", path.display()))
 }
 
 /// 校验规范包签名：内容摘要 + Ed25519 验签。
