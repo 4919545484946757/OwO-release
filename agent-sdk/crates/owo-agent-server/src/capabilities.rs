@@ -68,6 +68,35 @@ pub struct CapabilityDescriptor {
     pub dependencies: &'static [CapabilityId],
 }
 
+const E_PLAYBOOK_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent playbook validate|plan|init|next|record|status|list",
+        label: "剧本定义、校验与逐步骤运行",
+    },
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent playbook archive|history|diff",
+        label: "运行归档、历史与退化对比",
+    },
+    Entrypoint {
+        kind: "http",
+        target:
+            "GET /playbooks, GET /playbooks/status, GET /playbooks/history, POST /playbooks/record",
+        label: "桌面面板数据面（只读写，不执行命令）",
+    },
+    Entrypoint {
+        kind: "ui",
+        target: "工作台 →「任务剧本」面板",
+        label: "看进度、历史与逐步记录结果",
+    },
+    Entrypoint {
+        kind: "service",
+        target: "playbook_next / playbook_record / playbook_check / playbook_run",
+        label: "模型侧工具组（需开启 tool_capabilities.playbooks；执行经审批）",
+    },
+];
+
 const E_SESSION_ENTRYPOINTS: &[Entrypoint] = &[
     Entrypoint {
         kind: "http",
@@ -264,6 +293,20 @@ const E_TRUST_ENTRYPOINTS: &[Entrypoint] = &[
 
 /// 功能目录注册表（§8.3 单一来源）。新增能力：在此追加条目 + 同步路由契约测试。
 pub static CAPABILITIES: &[CapabilityDescriptor] = &[
+    CapabilityDescriptor {
+        id: CapabilityId("workflow.playbooks"),
+        user_name: "任务剧本（按进度推进的工作流）",
+        summary: "把一类任务写成可校验的步骤剧本：定义/校验/计划/逐步骤执行与记录、归档与退化对比；可由 /advance --playbook 自主推进，桌面面板可看进度",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_PLAYBOOK_ENTRYPOINTS,
+        required_effects: &[
+            ToolEffectClass::Read,
+            ToolEffectClass::Write,
+            ToolEffectClass::Execute,
+        ],
+        advanced: false,
+        dependencies: &[],
+    },
     CapabilityDescriptor {
         id: CapabilityId("workflows.custom"),
         user_name: "用户自定义多 Agent 工作流",
