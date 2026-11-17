@@ -2332,4 +2332,55 @@ mod tests {
             "https://direct.example"
         );
     }
+
+    /// 工具面 token 预算：默认面/可选组各占多少，防止工具悄悄膨胀。
+    ///
+    /// 估算口径：序列化后的字符数 / 4（业界常用粗估；只用于回归对比，不是计费值）。
+    fn schema_tokens(registry: &ToolRegistry) -> (usize, usize) {
+        let specs = registry.specs();
+        let characters: usize = specs
+            .iter()
+            .map(|spec| {
+                spec.name.len() + spec.description.len() + spec.input_schema.to_string().len()
+            })
+            .sum();
+        (specs.len(), characters / 4)
+    }
+
+    #[test]
+    fn tool_schema_budget_by_capability_group() {
+        let default = ToolRegistry::new();
+        let mut playbook = ToolRegistry::new();
+        playbook.register_playbook_tools();
+        let mut all = ToolRegistry::with_all_builtin_capabilities();
+        all.register_playbook_tools();
+
+        let (default_count, default_tokens) = schema_tokens(&default);
+        let (playbook_count, playbook_tokens) = schema_tokens(&playbook);
+        let (all_count, all_tokens) = schema_tokens(&all);
+        let delta_tokens = playbook_tokens.saturating_sub(default_tokens);
+
+        eprintln!(
+            "tool schema budget: default={default_count} tools ~{default_tokens} tok; \
+             +playbook={playbook_count} tools ~{playbook_tokens} tok (Δ{delta_tokens}); \
+             all={all_count} tools ~{all_tokens} tok"
+        );
+
+        // 默认面是每次请求都要发送的固定成本：给一个明显有余量的上限。
+        assert!(
+            default_tokens <= 6_000,
+            "默认工具面 ~{default_tokens} tok 超出预算 6000"
+        );
+        // 剧本组只应增加很小的固定开销（4 个工具）。
+        assert_eq!(playbook_count, default_count + 4, "剧本组应只添加 4 个工具");
+        assert!(
+            delta_tokens <= 800,
+            "剧本组新增 ~{delta_tokens} tok 超出预算 800"
+        );
+        // 全能力面（桌面/浏览器/剧本）同样设上限，避免可选组无限增长。
+        assert!(
+            all_tokens <= 10_000,
+            "全能力工具面 ~{all_tokens} tok 超出预算 10000"
+        );
+    }
 }
