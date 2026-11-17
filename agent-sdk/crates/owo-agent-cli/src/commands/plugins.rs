@@ -184,13 +184,19 @@ pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Err
                 } else {
                     "owo-manifest"
                 };
+                let signed = manifest.signature.is_some()
+                    || (is_spec
+                        && base
+                            .join(owo_agent_core::agent_plugins::AGENT_PLUGIN_SIGNATURE_FILE)
+                            .exists());
                 println!(
-                    "  {} v{}（{}）[{}][{}] 服务器 {} 个 / hooks {} 条{}",
+                    "  {} v{}（{}）[{}][{}]{} 服务器 {} 个 / hooks {} 条{}",
                     manifest.id,
                     manifest.version,
                     manifest.name,
                     format,
                     risk,
+                    if signed { "[signed]" } else { "" },
                     manifest.all_mcp_servers().count(),
                     manifest.hooks.len(),
                     if risks.is_empty() {
