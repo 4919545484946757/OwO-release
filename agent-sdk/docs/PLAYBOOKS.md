@@ -98,8 +98,9 @@ owo-agent playbook init my-flow --out playbooks/my-flow.json --force
 owo-agent playbook archive playbooks/code-review.json --marker 2026-11-18-a
 owo-agent playbook history playbooks/code-review.json
 owo-agent playbook history --json playbooks/code-review.json
+owo-agent playbook diff playbooks/code-review.json --from 2026-11-18-a --to 2026-11-18-b
 
-# 机器可读（status / next / record / reset / list / init / archive / history 都支持）
+# 机器可读（status / next / record / reset / list / init / archive / history / diff 都支持）
 owo-agent playbook status --json playbooks/code-review.json
 ```
 

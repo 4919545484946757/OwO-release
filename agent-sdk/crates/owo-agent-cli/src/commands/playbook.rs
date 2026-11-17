@@ -10,6 +10,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::{Args, Subcommand};
+use colored::Colorize;
 use owo_agent_core::playbook::{
     Playbook, PlaybookIssue, PlaybookRun, PlaybookStep, StepKind, StepState, MAX_PLAYBOOK_STEPS,
 };
@@ -94,6 +95,16 @@ pub(crate) enum PlaybookAction {
     },
     /// 列出历次归档与各自进度
     History { file: PathBuf },
+    /// 对比两次归档（哪一步变化/退化）
+    Diff {
+        file: PathBuf,
+        /// 基准归档标记
+        #[arg(long)]
+        from: String,
+        /// 目标归档标记
+        #[arg(long)]
+        to: String,
+    },
 }
 
 pub(crate) fn run_playbook_cmd(args: PlaybookArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -119,6 +130,7 @@ pub(crate) fn run_playbook_cmd(args: PlaybookArgs) -> Result<(), Box<dyn std::er
             force,
         } => archive(&file, marker.as_deref(), force, args.json),
         PlaybookAction::History { file } => history(&file, args.json),
+        PlaybookAction::Diff { file, from, to } => diff(&file, &from, &to, args.json),
     }
 }
 
@@ -1047,6 +1059,115 @@ fn history(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn step_state_label(run: &PlaybookRun, step_id: &str) -> &'static str {
+    match run.states.get(step_id).unwrap_or(&StepState::Pending) {
+        StepState::Passed { .. } => "passed",
+        StepState::Failed { .. } => "failed",
+        StepState::Skipped { .. } => "skipped",
+        StepState::Pending => "pending",
+    }
+}
+
+/// 纯比较：两次归档之间发生变化的步骤 + 退化数（passed → 非 passed）。
+fn diff_runs(
+    playbook: &Playbook,
+    from: &PlaybookRun,
+    to: &PlaybookRun,
+) -> (serde_json::Value, usize) {
+    let mut changed: Vec<serde_json::Value> = Vec::new();
+    let mut regressions = 0usize;
+    for step in &playbook.steps {
+        let before = step_state_label(from, &step.id);
+        let after = step_state_label(to, &step.id);
+        if before == after {
+            continue;
+        }
+        let regression = before == "passed" && after != "passed";
+        if regression {
+            regressions += 1;
+        }
+        changed.push(serde_json::json!({
+            "id": step.id,
+            "from": before,
+            "to": after,
+            "regression": regression,
+            "attempts_from": from.attempts(&step.id),
+            "attempts_to": to.attempts(&step.id),
+        }));
+    }
+    (
+        serde_json::json!({
+            "changed": changed,
+            "regressions": regressions,
+            "progress": {
+                "from": progress_json(playbook, from),
+                "to": progress_json(playbook, to),
+            },
+        }),
+        regressions,
+    )
+}
+
+fn load_archive(file: &Path, marker: &str, playbook: &Playbook) -> Result<PlaybookRun, String> {
+    validate_marker(marker)?;
+    let path = runs_dir(file).join(format!("{marker}.json"));
+    let content = std::fs::read_to_string(&path)
+        .map_err(|error| format!("读取归档失败（{}）：{error}", path.display()))?;
+    let run: PlaybookRun = serde_json::from_str(&content)
+        .map_err(|error| format!("归档不是合法 JSON（{}）：{error}", path.display()))?;
+    if run.playbook_id != playbook.id {
+        return Err(format!(
+            "归档属于另一个剧本（{} ≠ {}）",
+            run.playbook_id, playbook.id
+        ));
+    }
+    Ok(run)
+}
+
+/// 对比两次归档：哪一步变了、哪一步退化。
+fn diff(file: &Path, from: &str, to: &str, json: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let playbook = load(file)?;
+    ensure_valid(&playbook)?;
+    let from_run = load_archive(file, from, &playbook)
+        .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
+    let to_run = load_archive(file, to, &playbook)
+        .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
+    let (value, regressions) = diff_runs(&playbook, &from_run, &to_run);
+    if json {
+        println!("{}", value);
+        return Ok(());
+    }
+    let summary = |side: &str| {
+        value["progress"][side]["summary"]
+            .as_str()
+            .unwrap_or("-")
+            .to_string()
+    };
+    println!("对比：{from} → {to}");
+    println!("  进度：{} → {}", summary("from"), summary("to"));
+    let changed = value["changed"].as_array().cloned().unwrap_or_default();
+    if changed.is_empty() {
+        println!("  没有步骤状态变化");
+    }
+    for step in changed {
+        let id = step["id"].as_str().unwrap_or("?");
+        let before = step["from"].as_str().unwrap_or("?");
+        let after = step["to"].as_str().unwrap_or("?");
+        let regression = step["regression"].as_bool().unwrap_or(false);
+        println!(
+            "  {id:<16} {before} → {after}{}",
+            if regression { "（退化）" } else { "" }
+        );
+    }
+    if regressions > 0 {
+        println!(
+            "{}",
+            format!("  注意：{regressions} 个已通过步骤退化为未通过").yellow()
+        );
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1070,6 +1191,43 @@ mod tests {
         )
         .unwrap();
         file
+    }
+
+    #[test]
+    fn diff_reports_changed_steps_and_regressions() {
+        let dir = scratch("diff");
+        let file = write_playbook(&dir);
+        let playbook = load(&file).unwrap();
+        let mut before = PlaybookRun::new(&playbook);
+        before.record_pass("a", "ok");
+        let mut after = PlaybookRun::new(&playbook);
+        after.states.insert("a".to_string(), StepState::Pending);
+        after.record_fail("b", "boom");
+
+        let (value, regressions) = diff_runs(&playbook, &before, &after);
+        assert_eq!(regressions, 1, "{value}");
+        let changed = value["changed"].as_array().unwrap();
+        assert_eq!(changed.len(), 2, "{value}");
+        assert!(changed
+            .iter()
+            .any(|step| step["id"] == "a" && step["regression"] == true));
+        assert!(changed
+            .iter()
+            .any(|step| step["id"] == "b" && step["to"] == "failed"));
+        assert_eq!(value["progress"]["from"]["passed"], 1);
+        assert_eq!(value["progress"]["to"]["failed"], 1);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn archive_lookup_rejects_unknown_or_unsafe_markers() {
+        let dir = scratch("archive-lookup");
+        let file = write_playbook(&dir);
+        let playbook = load(&file).unwrap();
+        assert!(load_archive(&file, "missing", &playbook).is_err());
+        assert!(load_archive(&file, "../escape", &playbook).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
