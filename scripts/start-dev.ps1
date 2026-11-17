@@ -3,6 +3,7 @@ param(
     [string]$BuildDirectory,
     [string]$X86BuildDirectory,
     [string]$LexiconPath,
+    [string]$LmdgModelPath,
     [string]$LibimeRuntimeDirectory,
     [string]$LibimeModelPath,
     [switch]$BuildLatest,
@@ -75,6 +76,13 @@ function Get-Sha256Hex {
 }
 
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if (-not [string]::IsNullOrWhiteSpace($LmdgModelPath)) {
+    $LmdgModelPath = [IO.Path]::GetFullPath($LmdgModelPath)
+    if (-not (Test-Path -LiteralPath $LmdgModelPath -PathType Leaf)) {
+        throw "Experimental LMDG model file does not exist: $LmdgModelPath"
+    }
+    if (-not ($RestartCore -or $BuildLatest)) { throw 'Use -RestartCore to activate an experimental LMDG model.' }
+}
 if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
     $BuildDirectory = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'build') -Directory |
         ForEach-Object { Join-Path $_.FullName 'Release' } |
@@ -264,6 +272,7 @@ if ($running.Count -eq 0) {
         '--user-frequency', ('"{0}"' -f $frequencyPath)
     )
     if ($modelHostEnabled) { $arguments += '--model-host' }
+    if ($LmdgModelPath) { $arguments += @('--lmdg-model', ('"{0}"' -f $LmdgModelPath)) }
     $core = Start-Process -FilePath $coreService -ArgumentList $arguments `
         -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr
@@ -318,6 +327,7 @@ if ($modelHostEnabled) {
 Write-Output "TSF DLL: $tsfDll"
 Write-Output "TSF DLL (x86): $x86TsfDll"
 Write-Output "Lexicon: $LexiconPath"
+if ($LmdgModelPath) { Write-Output "Experimental LMDG requested: $LmdgModelPath (see the Core startup log for loading status)." }
 Write-Output "User frequency: $frequencyPath"
 Write-Output "Build updated: $BuildLatest"
 Write-Output 'OwO is activated for this Windows session; use Win+Space if the target app kept another profile.'

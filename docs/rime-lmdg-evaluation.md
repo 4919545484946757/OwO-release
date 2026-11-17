@@ -36,4 +36,26 @@ pwsh -NoProfile -File scripts/run-rime-lmdg-ab.ps1 `
 
 雾凇组还将「学生证在参加」「支付小偷」「支付宝突」分别改为「学生正在参加」「制服小偷」「制服暴徒」。万象＋模型组将「制服暴徒」召回到第 2 名，首选仍是「支付宝图」。「支付费用」在四组均为首选。样本小且包含有意选择的错例，不应把上述命中率当作通用输入准确率。
 
-下一步：保留 OwO 词库，在现有句候选被截断前试验可选的离线组合评分／召回。不要只重排展示列表，也不要先替换现有词库或暂停状态的 0 号候选。真正接入前还需扩大盲测样本，测低配机器的冷加载、内存和逐键延迟；公开分发前对固定 `.gram` 资产单独确认许可，不能从仓库的 [许可范围](https://raw.githubusercontent.com/amzxyz/rime-wanxiang-data/wanxiang/LICENSE-SCOPE.md) 自动推断模型二进制的再分发授权。
+## OwO Core 原生实验接入
+
+OwO 现在可在既有全拼成句搜索中显式启用该资产，不使用 librime 的词库或解码器。Windows Core 只读内存映射简体 LTS `.gram`；格式和查询参照 [librime-octagram](https://github.com/lotem/librime-octagram) 与 [Darts-clone](https://github.com/s-yata/darts-clone) 的公开实现。不安装 DLL、不访问网络，不需要载入第三方可执行组件。
+
+- 在搜索淘汰和句子配额截断前，为既有词典的 `2–4 字 + 2–4 字`、总长不超过 6 字的精确搭配加分。不引入词库外的词，不因模型缺词扣分；不影响单字输入、纠错／简拼路径或 0 号候选。
+- 每次生成最多 4,096 次搭配查询，累积查询约 3 ms 后不再开启新查询。单次冷缺页延迟不受这项软预算约束；第一轮不将低配机冷启动纳入性能结论。文件缺失、截断或格式不兼容时，Core 日志提示后继续用普通候选。
+- 若首选是有强 LMDG 证据的完整精确候选，该轮不再由 libime 后置重排覆盖它；其他轮次仍按原逻辑调用 libime。调试与性能页增加「LMDG 搭配查询（实验）」；诊断只记录耗时、次数、命中和是否跳过后置重排。
+
+仅开发启动显式启用，不改变设置默认值，不自动下载或分发模型：
+
+```powershell
+./scripts/start-dev.ps1 -BuildDirectory <本次构建的x64-Release> `
+  -X86BuildDirectory <x86-Release> -LexiconPath <现有OwO词典> `
+  -LmdgModelPath <本地简体LTS.gram绝对路径> -RestartCore
+```
+
+`Core` 启动日志中的 `lmdg_mapped` 表示已加载，`experimental_lmdg_unavailable` 表示已降级。不传 `-LmdgModelPath` 并重启可关闭。也可使用隔离开发 CLI 的 `input query` 或 `input batch`，额外传 `--lexicon` 与 `--lmdg-model`。配对评测合并 `tests/engine/syntax_collocation_ab.jsonl` 和 `tests/engine/rime_lmdg_ab.jsonl`；同一词库运行时不传模型参数作为对照，建议附加 `--check-expanded`。
+
+28 条样例在 OwO Core 中对照：关闭 → 开启，首选 `21/28 → 25/28`，首屏 `23/28 → 26/28`，未发现分页与展开不一致。`制服劫匪`、`制服小偷`、`制服暴徒` 均从未召回升到首选，`支付费用` 仍为首选。另有一例「学生正在参加」由第二升为第一。基础请求 P95 在本机小样本上未观察到稳定增加，不能据此推定低配机或冷缺页成本。
+
+另用本机 libime 模型和原有句法开关对四条同音专项进行共存复测：三条「制服…」的首选在候选更新后仍保留，未发出覆盖它们的 libime 请求；「支付费用」仍由 libime 后置处理，结果仍为首选。四条展开结果均与分页一致。
+
+公开分发前对固定 `.gram` 资产单独确认许可，不能从仓库的 [许可范围](https://raw.githubusercontent.com/amzxyz/rime-wanxiang-data/wanxiang/LICENSE-SCOPE.md) 自动推断模型二进制的再分发授权。

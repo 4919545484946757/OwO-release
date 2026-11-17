@@ -4,6 +4,7 @@
 #include "owo/config/config_paths.h"
 #include "owo/core/plugin_executor.h"
 #include "owo/engine/binary_lexicon.h"
+#include "owo/engine/rime_lmdg.h"
 #include "owo/engine/user_frequency.h"
 
 #include <iostream>
@@ -22,6 +23,7 @@ int wmain(int argc, wchar_t** argv) {
                   << phase << R"(","duration_us":)" << duration << "}\n";
     };
     const wchar_t* lexicon_path = nullptr;
+    const wchar_t* lmdg_path = nullptr;
     const wchar_t* user_frequency_path = nullptr;
     const wchar_t* model_pipe_name = nullptr;
     const wchar_t* config_path = nullptr;
@@ -44,6 +46,9 @@ int wmain(int argc, wchar_t** argv) {
             return 2;
         } else if (option == L"--lexicon") {
             lexicon_path = argv[index + 1];
+            index += 2;
+        } else if (option == L"--lmdg-model") {
+            lmdg_path = argv[index + 1];
             index += 2;
         } else if (option == L"--user-frequency") {
             user_frequency_path = argv[index + 1];
@@ -132,11 +137,19 @@ int wmain(int argc, wchar_t** argv) {
             return 3;
         }
         startup_log("lexicon_mapped", phase_started);
+        owo::engine::RimeLmdg lmdg;
+        if (lmdg_path != nullptr) {
+            const auto model_started = std::chrono::steady_clock::now();
+            const auto error = lmdg.load(lmdg_path);
+            if (error.empty()) startup_log("lmdg_mapped", model_started);
+            else std::cerr << "experimental_lmdg_unavailable: " << error << '\n';
+        }
         const auto input_schemes = start_input_schemes(&lexicon);
         startup_log("core_initialized", process_started);
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, lexicon,
                                          user_frequency_ptr, model_pipe_name,
-                                         config_monitor_ptr, &plugin_executor);
+                                         config_monitor_ptr, &plugin_executor,
+                                         lmdg.ready() ? &lmdg : nullptr);
     }
     const auto input_schemes = start_input_schemes(nullptr);
     if (user_frequency_ptr != nullptr) {

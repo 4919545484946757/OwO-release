@@ -10,6 +10,7 @@
 namespace owo::engine {
 class Lexicon;
 class UserFrequencyStore;
+class RimeLmdg;
 }
 
 namespace owo::config {
@@ -80,7 +81,8 @@ private:
                                   engine::UserFrequencyStore* user_frequency,
                                   const wchar_t* model_pipe_name,
                                   const config::ConfigMonitor* config_monitor,
-                                  core::PluginExecutor* plugin_executor = nullptr);
+                                  core::PluginExecutor* plugin_executor = nullptr,
+                                  const engine::RimeLmdg* lmdg = nullptr);
 
 /// 运行 ModelHost v1 串行服务循环。后端在服务退出前必须保持有效。
 [[nodiscard]] int run_model_server(const wchar_t* pipe_name, model::IModelBackend& backend);

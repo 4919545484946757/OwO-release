@@ -137,6 +137,7 @@ internal sealed class CandidateTimingStore {
         "normalization_us", "segmentation_us", "correction_us", "assistance_us", "generation_us", "lookup_us", "sort_us",
         "lookup_count", "beam_transitions", "beam_materialized", "search_us", "layout_us", "cache_hit", "cancelled",
         "syntax_collocation_ns", "syntax_collocation_queries", "syntax_collocation_hits", "syntax_cross_word_hits",
+        "lmdg_ns", "lmdg_queries", "lmdg_hits", "lmdg_precedes_external",
         "correction_fallback", "parse_paths", "status", "dropped_total", "render_us", "model_prepare_us", "model_prepared"
     };
     internal static bool TryParse(string line, string session, out CandidateTimingEvent? record) {
@@ -194,6 +195,9 @@ internal sealed class CandidateTimingStore {
             var syntax = sorted.Where(e => e.Component == "core" && e.Event == "generation" &&
                 e.Get("auxiliary") == 0 && e.Get("syntax_collocation_queries") > 0).ToArray();
             if (syntax.Length > 0) stages["syntax"] = syntax.Sum(e => e.Get("syntax_collocation_ns")) / 1_000_000.0;
+            var lmdg = sorted.Where(e => e.Component == "core" && e.Event == "generation" &&
+                e.Get("auxiliary") == 0 && e.Get("lmdg_queries") > 0).ToArray();
+            if (lmdg.Length > 0) stages["lmdg"] = lmdg.Sum(e => e.Get("lmdg_ns")) / 1_000_000.0;
             Sum("encode", "core", "encoded", "duration_us", true);
             Sum("write", "core", "written", "duration_us", true);
             Sum("convert", "tsf", "response_posted", "conversion_us");

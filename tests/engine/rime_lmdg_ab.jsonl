@@ -1,0 +1,4 @@
+{"id":"subdue-robber","input":"zhifujiefei","expected":["制服劫匪"],"tags":["same-reading","verb-object"]}
+{"id":"subdue-thief","input":"zhifuxiaotou","expected":["制服小偷"],"tags":["same-reading","verb-object"]}
+{"id":"subdue-rioter","input":"zhifubaotu","expected":["制服暴徒"],"tags":["same-reading","verb-object"]}
+{"id":"pay-fees","input":"zhifufeiyong","expected":["支付费用"],"tags":["control","verb-object"]}

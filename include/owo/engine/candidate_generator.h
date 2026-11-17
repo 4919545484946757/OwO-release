@@ -14,6 +14,8 @@
 
 namespace owo::engine {
 
+class RimeLmdg;
+
 // A joint scoring band is not a display partition. Preserve the destination
 // slot when a word and a sentence exchange positions inside that band.
 enum class CandidatePartitionSlot : std::uint8_t { automatic, sentence, dictionary };
@@ -36,6 +38,9 @@ struct Candidate {
     bool qualified_sentence_reading{};
     // A once-per-complete-input soft prior, not a per-token reward.
     std::int64_t shortest_segmentation_bonus{};
+    // Pre-beam strong n-gram evidence. The rank-only backend must not
+    // replace a complete winner selected by the experimental decoder.
+    std::int64_t lmdg_bonus{};
     [[nodiscard]] bool user_preferred() const noexcept {
         return user_lexicon && !provisional_user_word;
     }
@@ -55,6 +60,9 @@ struct CandidateGenerationMetrics {
     std::uint64_t syntax_collocation_queries{};
     std::uint64_t syntax_collocation_hits{};
     std::uint64_t syntax_cross_word_hits{};
+    std::uint64_t lmdg_ns{};
+    std::uint64_t lmdg_queries{};
+    std::uint64_t lmdg_hits{};
 };
 
 class CandidateGenerator {
@@ -75,7 +83,8 @@ public:
                                                   std::size_t user_completion_max_syllables = 0,
                                                   std::size_t incomplete_candidate_page_size = 0,
                                                   bool zero_lattice = false,
-                                                  bool syntax_collocation_enabled = false) const;
+                                                  bool syntax_collocation_enabled = false,
+                                                  const RimeLmdg* lmdg = nullptr) const;
 
 private:
     const Lexicon& lexicon_;

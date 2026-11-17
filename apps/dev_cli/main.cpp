@@ -10,6 +10,7 @@
 #include "owo/core/input_method_runtime.h"
 #include "owo/engine/binary_lexicon.h"
 #include "owo/engine/full_pinyin_schema.h"
+#include "owo/engine/rime_lmdg.h"
 #include "owo/engine/user_frequency.h"
 #include "owo/ipc/named_pipe.h"
 #include "owo/plugin/plugin_authorization_store.h"
@@ -353,6 +354,7 @@ class InputSession {
                                      {{"jie"}, "界", 800},
                                      {{"xi", "an"}, "西安", 900}}};
     engine::UserFrequencyStore frequency_;
+    engine::RimeLmdg lmdg_;
     config::ConfigMonitor config_;
     std::wstring pipe_;
     std::thread server_;
@@ -365,7 +367,7 @@ class InputSession {
   public:
     InputSession(const fs::path &root, std::string lexicon, unsigned timeout,
                  model::IModelBackend* backend = nullptr, const fs::path& config_path = {},
-                 bool use_learning = true)
+                 bool use_learning = true, const std::string_view lmdg_model = {})
         : pipe_(L"\\\\.\\pipe\\OwO.Developer.Core." + std::to_wstring(GetCurrentProcessId()) +
                 L"." + std::to_wstring(GetTickCount64())),
           client_(pipe_), timeout_(timeout) {
@@ -374,6 +376,10 @@ class InputSession {
             auto result = disk_.load(wide(lexicon));
             require(result.success, result.error, 4);
             selected = &disk_;
+        }
+        if (!lmdg_model.empty()) {
+            const auto error = lmdg_.load(wide(lmdg_model));
+            require(error.empty(), std::string(error), 4);
         }
         if (use_learning)
             require(frequency_.load(root / L"user-frequency.owuf").success,
@@ -386,7 +392,8 @@ class InputSession {
         try {
         server_ = std::thread([this, selected] {
             static_cast<void>(
-                ipc::run_core_server(pipe_.c_str(), *selected, &frequency_, model_pipe_.empty() ? nullptr : model_pipe_.c_str(), &config_));
+                ipc::run_core_server(pipe_.c_str(), *selected, &frequency_, model_pipe_.empty() ? nullptr : model_pipe_.c_str(),
+                    &config_, nullptr, lmdg_.ready() ? &lmdg_ : nullptr));
         });
         } catch (...) { stop_model(); throw; }
     }
@@ -470,6 +477,7 @@ void batch_input(Args& args, const fs::path& root) {
     auto report_name = args.get("report", "batch-" + std::to_string(GetTickCount64()) + "-" + std::to_string(GetCurrentProcessId()));
     auto page_size = args.number("page-size", 0, 9); auto partition = args.get("partition");
     const auto syntax = args.get("syntax-collocation");
+    const auto lmdg_model = args.get("lmdg-model");
     auto timeout = args.number("timeout-ms", 2500), model_timeout = args.number("model-timeout-ms", 100, 1000);
     auto bridge = args.get("bridge"), model_path = args.get("model"); const auto run_model = args.flag("run-model");
     args.finish();
@@ -490,6 +498,8 @@ void batch_input(Args& args, const fs::path& root) {
     require(options.model == "libime" || (bridge.empty() && model_path.empty() && !run_model), "only libime accepts --run-model/--bridge/--model");
     require(options.model != "libime" || (run_model && !bridge.empty() && !model_path.empty()), "libime needs --run-model and explicit trusted --bridge/--model paths", 3);
     require(options.mode != "parse" || (options.model == "base" && !options.check_expanded && !options.min_top1 && !options.min_first_page && !options.min_topk && !options.max_p95_ms), "parse-only cannot evaluate candidate/model gates");
+    require(lmdg_model.empty() || (options.mode != "parse" && !lexicon.empty()),
+            "lmdg-model requires a candidate batch and explicit --lexicon");
     std::vector<dev::EvaluationCase> cases;
     try { cases = dev::read_evaluation_cases(wide(file), format); }
     catch (const std::exception& error) { throw Error(2, error.what()); }
@@ -512,7 +522,7 @@ void batch_input(Args& args, const fs::path& root) {
     if (options.model == "mock") backend = std::make_unique<model::MockModelBackend>();
     if (options.model == "libime") { auto loaded = model::load_libime_backend(bridge, model_path); require(bool(loaded), loaded.diagnostic, 5); backend = std::move(loaded.backend); }
     std::unique_ptr<InputSession> session;
-    if (options.mode != "parse") session = std::make_unique<InputSession>(root, lexicon, timeout, backend.get(), run / L"effective.conf", use_learning);
+    if (options.mode != "parse") session = std::make_unique<InputSession>(root, lexicon, timeout, backend.get(), run / L"effective.conf", use_learning, lmdg_model);
     auto asset = [hash_assets](const std::string& path) {
         if (path.empty()) return std::string("null");
         const auto absolute = fs::absolute(wide(path));
@@ -524,7 +534,8 @@ void batch_input(Args& args, const fs::path& root) {
     };
     wchar_t executable[32768]{}; require(GetModuleFileNameW(nullptr, executable, 32768) > 0, "cannot identify CLI executable");
     const auto manifest = "\"protocol_version\":" + std::to_string(protocol::kProtocolVersion) + ",\"cli_asset\":" + asset(utf8(executable)) + ",\"dataset\":" + asset(file) + ",\"lexicon\":" + asset(lexicon) + ",\"lexicon_source\":" + json(lexicon.empty() ? "synthetic_fixture" : "explicit_file") + ",\"bridge\":" + asset(bridge) + ",\"model_asset\":" + asset(model_path) + ",\"learning\":" + json(use_learning ? "isolated_session" : "disabled") + ",\"effective_config\":" + json(config::serialize_config(settings.value)) + ",\"report_directory\":" + json(utf8(run.wstring())) + ",\"startup_ms\":" + std::to_string(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startup).count());
-    const auto code = dev::evaluate_cases(cases, options, [&](protocol::Message message) { require(bool(session), "no candidate session", 4); return session->evaluate(std::move(message)); }, run, manifest, std::cout);
+    const auto code = dev::evaluate_cases(cases, options, [&](protocol::Message message) { require(bool(session), "no candidate session", 4); return session->evaluate(std::move(message)); },
+        run, manifest + ",\"lmdg_asset\":" + asset(lmdg_model), std::cout);
     if (code) throw Error(code, "batch quality gate or runtime failure; see summary", true);
 }
 
@@ -569,6 +580,8 @@ void input(Args &args, const fs::path &root, std::string command) {
         return;
     }
     auto lexicon = args.get("lexicon");
+    const auto lmdg_model = args.get("lmdg-model");
+    require(lmdg_model.empty() || !lexicon.empty(), "lmdg-model requires explicit --lexicon");
     auto timeout = args.number("timeout-ms", 2500);
     require(timeout > 0, "timeout must be positive");
     auto file = command == "replay" ? args.get("file") : std::string{};
@@ -586,7 +599,7 @@ void input(Args &args, const fs::path &root, std::string command) {
     query.context = context;
     require(!(query.expanded && query.page), "expanded query must start at page zero");
     args.finish();
-    InputSession session(root, lexicon, timeout);
+    InputSession session(root, lexicon, timeout, nullptr, {}, true, lmdg_model);
     if (command == "query") {
         std::cout << protocol::encode_message(session.send(query)) << '\n';
         return;
@@ -1095,6 +1108,7 @@ void help() {
            "[--previous input] [--learn]\n"
            "input batch --file <UTF-8 jsonl/tsv> [--lexicon file] [--report basename]\n"
            "  [--syntax-collocation on|off] override local dependency scoring for this batch only\n"
+           "  [--lmdg-model <absolute .gram>] opt in to experimental in-beam contextual scoring\n"
            "  --mode parse|candidates|both --typing whole|incremental --top-k 10 --max-pages 4\n"
            "  [--check-expanded] [--repeat 1] [--page-size 7] [--partition on|off]\n"
            "  [--format auto|jsonl|tsv] [--hash-assets]\n"

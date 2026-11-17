@@ -19,6 +19,7 @@
 #include "owo/engine/managed_dictionary.h"
 #include "owo/engine/user_lexicon_alignment.h"
 #include "owo/engine/symbol_composition.h"
+#include "owo/engine/rime_lmdg.h"
 #include "owo/engine/ranking_context.h"
 
 #include "owo/protocol/messages.h"
@@ -1382,7 +1383,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     engine::UserFrequencyStore* user_frequency,
                     const wchar_t* model_pipe_name,
                     const config::ConfigMonitor* config_monitor,
-                    core::PluginExecutor* plugin_executor) {
+                    core::PluginExecutor* plugin_executor,
+                    const engine::RimeLmdg* lmdg) {
     const engine::FullPinyinSchema full_pinyin_schema;
     const engine::ExactCodeSchema exact_code_schema;
     auto dictionary_root = user_frequency != nullptr && !user_frequency->storage_path().empty()
@@ -1614,7 +1616,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 runtime_config->candidate_partition_enabled ? page_size : 0,
                                 runtime_config->user_lexicon_completion_enabled,
                                 runtime_config->user_lexicon_completion_max_syllables, page_size,
-                                false, runtime_config->syntax_collocation_enabled);
+                                false, runtime_config->syntax_collocation_enabled, lmdg);
                             std::size_t maximum = 0;
                             for (const auto& candidate : candidates)
                                 maximum = std::max(maximum, utf8_character_count(candidate.text));
@@ -2099,6 +2101,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 CandidateCacheKey model_cache_key;
                 bool model_refined = false;
                 bool model_metadata_prepared = false;
+                bool lmdg_precedes_external = false;
                 std::uint64_t model_prepare_us = 0;
                 std::size_t model_visible_count = 0;
                 std::size_t abbreviation_sentence_limit = 0;
@@ -2271,7 +2274,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             external_model_ranking_enabled,
                             partitioned_layout ? page_size : 0,
                             user_completion_enabled, user_completion_max_syllables, page_size,
-                            false, full_pinyin_scheme && runtime_config && runtime_config->syntax_collocation_enabled);
+                            false, full_pinyin_scheme && runtime_config && runtime_config->syntax_collocation_enabled,
+                            full_pinyin_scheme ? lmdg : nullptr);
                         generation_phase_us += static_cast<std::uint64_t>(
                             std::chrono::duration_cast<std::chrono::microseconds>(
                                 std::chrono::steady_clock::now() -
@@ -2506,7 +2510,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 auto local = full_pinyin_schema.parse(query, 8, decoded.message.correction_enabled, nullptr, stop);
                                 return generator.generate(local, page_size, false, decoded.message.context,
                                     &generation_metrics, stop, false, 0, false, 0, 0, false,
-                                    runtime_config && runtime_config->syntax_collocation_enabled);
+                                    runtime_config && runtime_config->syntax_collocation_enabled, lmdg);
                             }, page_size);
                     }
                     full_input_bytes = parsed.normalized_input.size();
@@ -2643,8 +2647,17 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         symbol_state->source_segments.insert_or_assign(
                             candidate.text + ':' + std::to_string(candidate.consumed_input_bytes),
                             candidate.source_segments);
+                    // The asynchronous Libime ranker lacks the graph evidence
+                    // which produced an LMDG winner: a large hidden homophone
+                    // pool otherwise evicts it at the model's sentence quota.
+                    // Leave the existing ranker and user/context ranking alone
+                    // when an opt-in model did not yield a strong exact leader.
+                    lmdg_precedes_external = visible_candidate_count != 0 &&
+                        candidates.front().match_kind == engine::InputMatchKind::exact &&
+                        candidates.front().consumed_input_bytes == full_input_bytes &&
+                        candidates.front().lmdg_bonus >= engine::RimeLmdg::kConfirmedSentenceBonus;
                     model_metadata_prepared = !request_cancelled && !response.candidate_refinement_pending &&
-                        external_model_ranking_enabled && !model_refined && page == 0 &&
+                        external_model_ranking_enabled && !lmdg_precedes_external && !model_refined && page == 0 &&
                         visible_candidate_count != 0 && model_requests.size() < 128 &&
                         (!full_pinyin_scheme || !is_double_initial_input(decoded.message.text));
                     if (model_metadata_prepared) {
@@ -2876,6 +2889,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         {"syntax_collocation_queries", static_cast<std::int64_t>(generation_metrics.syntax_collocation_queries)},
                         {"syntax_collocation_hits", static_cast<std::int64_t>(generation_metrics.syntax_collocation_hits)},
                         {"syntax_cross_word_hits", static_cast<std::int64_t>(generation_metrics.syntax_cross_word_hits)},
+                        {"lmdg_ns", static_cast<std::int64_t>(generation_metrics.lmdg_ns)},
+                        {"lmdg_queries", static_cast<std::int64_t>(generation_metrics.lmdg_queries)},
+                        {"lmdg_hits", static_cast<std::int64_t>(generation_metrics.lmdg_hits)},
+                        {"lmdg_precedes_external", lmdg_precedes_external},
                         {"model_prepare_us", static_cast<std::int64_t>(model_prepare_us)},
                         {"model_prepared", model_metadata_prepared},
                         {"search_us", total_us},
@@ -2907,6 +2924,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         << R"(,"syntax_collocation_queries":)" << generation_metrics.syntax_collocation_queries
                         << R"(,"syntax_collocation_hits":)" << generation_metrics.syntax_collocation_hits
                         << R"(,"syntax_cross_word_hits":)" << generation_metrics.syntax_cross_word_hits
+                        << R"(,"lmdg_ns":)" << generation_metrics.lmdg_ns
+                        << R"(,"lmdg_queries":)" << generation_metrics.lmdg_queries
+                        << R"(,"lmdg_hits":)" << generation_metrics.lmdg_hits
                         << R"(,"exact_lookup_cache_hits":)" << generation_metrics.exact_lookup_cache_hits
                         << R"(,"coherence_cache_hits":)" << generation_metrics.coherence_cache_hits
                         << R"(,"total_us":)" << total_us

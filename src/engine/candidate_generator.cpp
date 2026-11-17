@@ -1,6 +1,7 @@
 #include "owo/engine/candidate_generator.h"
 #include "owo/engine/compact_collocations.h"
 #include "owo/engine/syntax_collocations.h"
+#include "owo/engine/rime_lmdg.h"
 #include "owo/engine/candidate_partition.h"
 #include "owo/engine/user_lexicon_alignment.h"
 #include "owo/engine/candidate_scoring.h"
@@ -31,6 +32,7 @@ struct SearchState {
     std::vector<std::size_t> segment_lengths;
     std::int64_t collocation_bonus{};
     std::int64_t syntax_bonus{};
+    std::int64_t lmdg_bonus{};
     syntax_collocations::History syntax_history;
 };
 
@@ -260,6 +262,7 @@ void append_successor(std::vector<SearchState>& destination, const std::size_t w
     next.segment_count = source.segment_count;
     next.collocation_bonus = source.collocation_bonus;
     next.syntax_bonus = source.syntax_bonus;
+    next.lmdg_bonus = source.lmdg_bonus;
     next.segment_lengths.reserve(source.segment_lengths.size() + 1);
     next.segment_lengths.insert(next.segment_lengths.end(),
         source.segment_lengths.begin(), source.segment_lengths.end());
@@ -388,6 +391,7 @@ void replace_candidate_payload(Candidate& existing, Candidate replacement) {
     existing.partition_slot = replacement.partition_slot;
     existing.qualified_sentence_reading = replacement.qualified_sentence_reading;
     existing.shortest_segmentation_bonus = replacement.shortest_segmentation_bonus;
+    existing.lmdg_bonus = replacement.lmdg_bonus;
 }
 
 class CandidateAccumulator {
@@ -919,7 +923,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                     const std::size_t user_completion_max_syllables,
                                                     const std::size_t incomplete_candidate_page_size,
                                                     const bool zero_lattice,
-                                                    const bool syntax_collocation_enabled) const {
+                                                    const bool syntax_collocation_enabled,
+                                                    const RimeLmdg* const lmdg) const {
     if (!parsed.valid || limit == 0 || (cancelled && cancelled())) return {};
     // A normal first page needs only page_size + one look-ahead candidate.
     // Keeping a small quality margin avoids the former 32-result floor, which
@@ -1463,6 +1468,9 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     }
     CompactCollocations collocations;
     std::uint32_t syntax_queries = 0;
+    std::uint32_t lmdg_queries = 0;
+    std::chrono::nanoseconds lmdg_time{};
+    constexpr auto kLmdgTimeBudget = std::chrono::milliseconds(3);
     std::vector<const ParsePath*> source_paths;
     source_paths.reserve(parsed.paths.size() + boundary_paths.size() + initial_paths.size() + phrase_tail_paths.size());
     const auto first_exact = std::find_if(parsed.paths.begin(), parsed.paths.end(), [](const auto& path) {
@@ -1657,6 +1665,9 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         const std::size_t maximum_reading_length = lexicon_.maximum_reading_length();
         const bool syntax_path = syntax_collocation_enabled &&
             (path.match_kind == InputMatchKind::exact || path.match_kind == InputMatchKind::abbreviated_completion);
+        const bool lmdg_path = lmdg != nullptr && lmdg->ready() && !zero_lattice &&
+            path.match_kind == InputMatchKind::exact && path.syllables.size() >= 4 &&
+            path.syllables.size() <= 24;
         for (std::size_t begin = 0; begin < path.syllables.size(); ++begin) {
             if (cancelled && cancelled()) return {};
             if (chart[begin].empty()) continue;
@@ -1737,10 +1748,37 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 score += syntax_bonus;
                             }
                         }
+                        // Apply n-gram evidence on dictionary transitions, before
+                        // either the beam or the visible sentence quota can prune them.
+                        std::int64_t lmdg_bonus = 0;
+                        if (lmdg_path && reading.size() >= 2 && reading.size() <= 4 &&
+                            !state.segment_lengths.empty() && state.segment_lengths.back() >= 2 &&
+                            state.segment_lengths.back() + reading.size() <= 6 &&
+                            state.previous.size() == state.segment_lengths.back() * 3 && entry.text.size() == reading.size() * 3 &&
+                            state.lmdg_bonus < RimeLmdg::kMaximumPathBonus &&
+                            lmdg_queries < RimeLmdg::kMaximumQueries && lmdg_time < kLmdgTimeBudget) {
+                            const auto room = std::min(RimeLmdg::kMaximumBonus,
+                                RimeLmdg::kMaximumPathBonus - state.lmdg_bonus);
+                            if (chart[end].size() < beam_width || score + room >= chart[end].front().score) {
+                                ++lmdg_queries;
+                                const auto started = std::chrono::steady_clock::now();
+                                lmdg_bonus = std::min(room, lmdg->boundary_bonus(state.previous, entry.text));
+                                const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                    std::chrono::steady_clock::now() - started);
+                                lmdg_time += elapsed;
+                                if (metrics) {
+                                    metrics->lmdg_ns += static_cast<std::uint64_t>(elapsed.count());
+                                    ++metrics->lmdg_queries;
+                                    if (lmdg_bonus) ++metrics->lmdg_hits;
+                                }
+                                score += lmdg_bonus;
+                            }
+                        }
                         append_successor(chart[end], beam_width, state, entry.text, score, 0,
                             [&](SearchState& next) {
                                 next.collocation_bonus += collocation;
                                 next.syntax_bonus += syntax_bonus;
+                                next.lmdg_bonus += lmdg_bonus;
                                 if (syntax_path && syntax_queries < syntax_collocations::kMaximumQueries) {
                                     next.syntax_history = state.syntax_history;
                                     next.syntax_history.push(entry.text.size(), entry_role(entry_index));
@@ -1775,6 +1813,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 path.match_kind, raw_segments,
                                 path.syllables.back().end, state.segment_count};
             candidate.segment_lengths = std::move(state.segment_lengths);
+            candidate.lmdg_bonus = state.lmdg_bonus;
             if (path.match_kind == InputMatchKind::exact) exact_candidate_found = true;
             store_candidate(std::move(candidate));
         }

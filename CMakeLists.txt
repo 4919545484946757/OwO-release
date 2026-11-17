@@ -115,6 +115,7 @@ add_library(owo_engine STATIC
     src/engine/lexicon.cpp
     src/engine/indexed_lexicon.cpp
     src/engine/language_model.cpp
+    src/engine/rime_lmdg.cpp
     src/engine/user_frequency.cpp
     src/engine/managed_dictionary.cpp
     src/engine/user_lexicon_editor.cpp
@@ -805,6 +806,15 @@ if(BUILD_TESTING)
     add_test(NAME owo.engine.full_pinyin COMMAND owo_full_pinyin_tests)
 
     add_executable(owo_candidate_generator_tests tests/engine/candidate_generator_tests.cpp)
+    if(WIN32)
+        add_executable(owo_rime_lmdg_tests tests/engine/rime_lmdg_tests.cpp)
+        target_link_libraries(owo_rime_lmdg_tests PRIVATE owo_engine)
+        target_compile_features(owo_rime_lmdg_tests PRIVATE cxx_std_20)
+        if(MSVC)
+            target_compile_options(owo_rime_lmdg_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+        endif()
+        add_test(NAME owo.engine.rime_lmdg COMMAND owo_rime_lmdg_tests "${CMAKE_CURRENT_BINARY_DIR}/rime-lmdg-test")
+    endif()
     target_link_libraries(owo_candidate_generator_tests PRIVATE owo_engine)
     target_compile_features(owo_candidate_generator_tests PRIVATE cxx_std_20)
     if(MSVC)
