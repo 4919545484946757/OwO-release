@@ -149,6 +149,22 @@ test("compareRows() lists transitions and flags regressions", () => {
   assert.match(kinds, /失败类型 timeout → exit_nonzero/);
 });
 
+test("compareMaps() compares two archives including failure kinds", () => {
+  const { panel } = harness();
+  panel.mount(fakeRoot(), { get: async () => ({ playbooks: [] }), esc });
+  const html = panel._test.compareMaps(
+    { a: "passed", b: "pending" },
+    {},
+    { a: "pending", b: "failed" },
+    { b: "timeout" }
+  );
+  assert.match(html, /a<\/code><span>passed → pending/);
+  assert.match(html, /退化/);
+  assert.match(html, /失败类型 - → timeout/);
+  const same = panel._test.compareMaps({ a: "passed" }, {}, { a: "passed" }, {});
+  assert.match(same, /两次运行一致/);
+});
+
 test("mount fetches the list and renders cards", async () => {
   const { panel } = harness();
   const view = fakeRoot();

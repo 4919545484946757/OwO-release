@@ -563,3 +563,8 @@ body.panel-open #panelRoot > section[data-panel] { border: 0; border-radius: 0; 
 
 .owo-pb-reset { border: 1px solid var(--border-strong); background: var(--surface); color: var(--red); border-radius: 8px; padding: 4px 10px; font: inherit; cursor: pointer; }
 .owo-pb-reset:hover { background: var(--red-soft); }
+
+.owo-pb-pair { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.owo-pb-pair select { border: 1px solid var(--border-strong); border-radius: 8px; padding: 4px 8px; font: inherit; background: var(--surface); color: var(--text); }
+.owo-pb-pair-btn { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 10px; font: inherit; cursor: pointer; }
+.owo-pb-pair-btn:hover { background: var(--accent-soft); }

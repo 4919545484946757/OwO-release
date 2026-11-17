@@ -221,29 +221,30 @@
     }
 
     /// 纯渲染：某次归档 vs 当前状态的逐步差异。
-    function compareRows(currentSteps, run, currentKinds) {
-      var current = currentSteps || {};
-      var kindsNow = currentKinds || {};
-      var archiveSteps = (run && run.steps) || {};
-      var archiveKinds = (run && run.step_kinds) || {};
+    /// 纯渲染：两组步骤快照的差异（from → to）。
+    function compareMaps(fromSteps, fromKinds, toSteps, toKinds) {
+      var before = fromSteps || {};
+      var beforeKinds = fromKinds || {};
+      var after = toSteps || {};
+      var afterKinds = toKinds || {};
       var changes = [];
-      Object.keys(archiveSteps).forEach(function (stepId) {
-        var before = archiveSteps[stepId];
-        var after = current[stepId] || "pending";
-        var kindBefore = archiveKinds[stepId];
-        var kindAfter = kindsNow[stepId];
-        if (before === after && kindBefore === kindAfter) return;
+      Object.keys(before).forEach(function (stepId) {
+        var stateBefore = before[stepId];
+        var stateAfter = after[stepId] || "pending";
+        var kindBefore = beforeKinds[stepId];
+        var kindAfter = afterKinds[stepId];
+        if (stateBefore === stateAfter && kindBefore === kindAfter) return;
         changes.push({
           id: stepId,
-          from: before,
-          to: after,
+          from: stateBefore,
+          to: stateAfter,
           kindFrom: kindBefore,
           kindTo: kindAfter,
-          regression: before === "passed" && after !== "passed",
+          regression: stateBefore === "passed" && stateAfter !== "passed",
         });
       });
       if (!changes.length) {
-        return '<div class="hint">与当前状态一致（没有步骤变化）</div>';
+        return '<div class="hint">两次运行一致（没有步骤变化）</div>';
       }
       var regressions = changes.filter(function (item) {
         return item.regression;
@@ -282,6 +283,18 @@
       );
     }
 
+    /// 某次归档 → 当前状态。
+    function compareRows(currentSteps, run, currentKinds) {
+      var html = compareMaps(
+        (run && run.steps) || {},
+        (run && run.step_kinds) || {},
+        currentSteps || {},
+        currentKinds || {}
+      );
+      // 对"归档 → 当前"用更贴切的文案。
+      return html.replace("两次运行一致（没有步骤变化）", "与当前状态一致（没有步骤变化）");
+    }
+
     /// 历史运行：列出归档；点击可对比该次归档与当前状态。
     function loadHistory(root, cardEl, path) {
       var box = cardEl.querySelector(".owo-pb-history");
@@ -297,10 +310,23 @@
               '<div class="hint">还没有历史运行（CLI：owo-agent playbook archive）</div>';
             return;
           }
+          var options = runs
+            .map(function (run) {
+              return (
+                '<option value="' + esc(run.marker || "") + '">' + esc(run.marker || "?") + "</option>"
+              );
+            })
+            .join("");
           box.innerHTML =
             '<div class="owo-pb-detail-head"><span class="sub">历史运行 ' +
             runs.length +
-            " 次（点击对比当前）</span></div>" +
+            " 次（点击行对比当前）</span></div>" +
+            '<div class="owo-pb-pair">' +
+            '<select data-pb-from aria-label="基准归档">' + options + "</select>" +
+            "<span>→</span>" +
+            '<select data-pb-to aria-label="目标归档">' + options + "</select>" +
+            '<button type="button" class="owo-pb-pair-btn" data-pb-compare-pair="1">对比两次</button>' +
+            "</div>" +
             runs
               .map(function (run) {
                 var regressions = [];
@@ -328,11 +354,44 @@
               })
               .join("") +
             '<div class="owo-pb-compare" hidden></div>';
+          // 默认选中"上一次 → 最新"。
+          var from = box.querySelector("[data-pb-from]");
+          var to = box.querySelector("[data-pb-to]");
+          if (to) to.value = runs[0].marker || "";
+          if (from) from.value = (runs[1] || runs[0]).marker || "";
         })
         .catch(function (error) {
           box.hidden = false;
           box.innerHTML = '<div class="hint">历史读取失败：' + esc(friendly(error)) + "</div>";
         });
+    }
+
+    /// 两次归档之间的对比（from → to）。
+    function renderPair(cardEl, fromMarker, toMarker) {
+      var box = cardEl.querySelector(".owo-pb-compare");
+      if (!box) return;
+      var runs = cardEl.__pbHistory || [];
+      var find = function (marker) {
+        return runs.filter(function (item) {
+          return item.marker === marker;
+        })[0];
+      };
+      var from = find(fromMarker);
+      var to = find(toMarker);
+      if (!from || !to) return;
+      box.hidden = false;
+      box.innerHTML =
+        '<div class="owo-pb-detail-head"><span class="sub">' +
+        esc(fromMarker) +
+        " → " +
+        esc(toMarker) +
+        "</span></div>" +
+        compareMaps(
+          from.steps || {},
+          from.step_kinds || {},
+          to.steps || {},
+          to.step_kinds || {}
+        );
     }
 
     /// 点击历史行：渲染「该归档 → 当前」的逐步差异。
@@ -520,6 +579,16 @@
           if (compareCard) renderCompare(compareCard, compareButton.getAttribute("data-pb-compare"));
           return;
         }
+        if (target.closest("[data-pb-compare-pair]")) {
+          var pairCard = target.closest(".owo-pb-card");
+          if (!pairCard) return;
+          var fromSelect = pairCard.querySelector("[data-pb-from]");
+          var toSelect = pairCard.querySelector("[data-pb-to]");
+          if (fromSelect && toSelect) {
+            renderPair(pairCard, fromSelect.value, toSelect.value);
+          }
+          return;
+        }
         if (target.closest("[data-pb-create]")) {
           createPlaybook(root);
         }
@@ -590,6 +659,7 @@
       mark: mark,
       bar: bar,
       compareRows: compareRows,
+      compareMaps: compareMaps,
     };
 
     return {
