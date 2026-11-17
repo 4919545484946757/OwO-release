@@ -153,6 +153,25 @@ owo-agent playbook status --json playbooks/code-review.json
 安全边界：路径经会话工作区约束（越界拒绝）；读取上限 256 KB、备注上限 2000 字符；
 `playbook_record` 的副作用登记为 Write，照常走审批。
 
+**失败转规则（样板）**：`post_tool_use` 是通知型钩子，可把 `playbook_check` /
+`playbook_run` 的失败落成待转清单，人工复核后变成 `check` 断言或调整
+`max_attempts`——这是"事故 → 检查项"的最小闭环：
+
+```json
+{
+  "hooks": [
+    {
+      "event": "post_tool_use",
+      "matcher": "playbook_*",
+      "command": "python docs/examples/hooks/record-playbook-failure.py learned-failures.md"
+    }
+  ]
+}
+```
+
+脚本见 `docs/examples/hooks/record-playbook-failure.py`：只记录失败（ok=false）的
+`playbook_check`/`playbook_run`，追加到清单文件；不阻断、不改结果（退出码恒 0）。
+
 ## 6. 与 `/advance` 协同（剧本驱动的自主推进）
 
 ```text
