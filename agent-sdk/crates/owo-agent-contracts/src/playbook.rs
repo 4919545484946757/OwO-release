@@ -315,12 +315,16 @@ impl PlaybookRun {
         })
     }
 
-    /// 下一个可执行步骤：Pending 且依赖全部已通过（按定义顺序取第一个）。
+    /// 下一个可执行步骤：`Pending` 或 `Failed`（可重试）且依赖全部已通过，
+    /// 按定义顺序取第一个。
+    ///
+    /// 失败步骤**保留在可执行集里**：`Failed` 是"上次没过"，不是终态；重试次数由
+    /// `attempts` 累计，是否继续重试由调用方（模型/推进策略）决定。
     pub fn next_ready<'a>(&self, playbook: &'a Playbook) -> Option<&'a PlaybookStep> {
         playbook.steps.iter().find(|step| {
             matches!(
                 self.states.get(&step.id).unwrap_or(&StepState::Pending),
-                StepState::Pending
+                StepState::Pending | StepState::Failed { .. }
             ) && step
                 .depends_on
                 .iter()
@@ -557,6 +561,26 @@ mod tests {
             .next_ready(&playbook)
             .map(|step| step.id != "ship")
             .unwrap_or(false));
+    }
+
+    #[test]
+    fn failed_step_stays_retryable() {
+        let playbook = playbook();
+        let mut run = PlaybookRun::new(&playbook);
+        run.record_pass("plan", "ok");
+        run.record_fail("check", "第一次 exit 1");
+        // 失败不是终态：next_ready 会把这一步再次给出（attempts 记录次数）。
+        assert_eq!(
+            run.next_ready(&playbook).map(|step| step.id.as_str()),
+            Some("check")
+        );
+        assert_eq!(run.attempts("check"), 1);
+        // 重试通过后继续往下走。
+        run.record_pass("check", "exit 0");
+        assert_eq!(
+            run.next_ready(&playbook).map(|step| step.id.as_str()),
+            Some("review")
+        );
     }
 
     #[test]

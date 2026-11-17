@@ -304,8 +304,10 @@ pub fn builtin_class_for(tool: &str) -> Option<EffectClass> {
     let class = match tool {
         "read_file" | "list_dir" | "search_files" | "grep" | "read_artifact" | "read_image"
         | "find_symbol" | "shell_output" | "todo" | "verification_plan" | "git_status"
-        | "git_diff" | "git_log" | "ask_user" => EffectClass::Read,
-        "write_file" | "edit_file" | "multi_edit" | "apply_patch" => EffectClass::Write,
+        | "git_diff" | "git_log" | "ask_user" | "playbook_next" => EffectClass::Read,
+        "write_file" | "edit_file" | "multi_edit" | "apply_patch" | "playbook_record" => {
+            EffectClass::Write
+        }
         // kill_shell 终止进程（不可逆副作用），不得归为 Read：只读档在旧矩阵里会把
         // 它当宿主验证只读自动放行（审查记录的低危项）。
         "run_command" | "kill_shell" | "web_fetch" | "web_search" => EffectClass::Execute,
@@ -344,6 +346,8 @@ fn builtin_effects() -> Vec<(&'static str, EffectClass)> {
         ("kill_shell", EffectClass::Execute),
         ("todo", EffectClass::Read),
         ("verification_plan", EffectClass::Read),
+        ("playbook_next", EffectClass::Read),
+        ("playbook_record", EffectClass::Write),
         ("edit_file", EffectClass::Write),
         ("multi_edit", EffectClass::Write),
         ("apply_patch", EffectClass::Write),
@@ -416,8 +420,8 @@ mod tests {
             .filter(|effect| effect.source == "builtin")
             .count();
         assert_eq!(
-            builtin, 50,
-            "内置矩阵应完整播种 50 个工具（含 multi_edit / read_artifact / find_symbol / git 只读 / ask_user / verification_plan）"
+            builtin, 52,
+            "内置矩阵应完整播种 52 个工具（含 multi_edit / read_artifact / find_symbol / git 只读 / ask_user / verification_plan / playbook_next / playbook_record）"
         );
     }
 

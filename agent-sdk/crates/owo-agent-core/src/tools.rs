@@ -34,8 +34,11 @@ use std::sync::{Arc, Mutex};
 mod command_tools;
 #[path = "tools/mcp_adapters.rs"]
 mod mcp_adapters;
+#[path = "tools/playbook.rs"]
+mod playbook;
 use command_tools::{KillShellTool, RunCommandTool, ShellOutputTool};
 use mcp_adapters::{McpPromptAdapter, McpResourceAdapter, McpToolAdapter};
+use playbook::{PlaybookNextTool, PlaybookRecordTool};
 
 #[path = "tools/web.rs"]
 mod web;
@@ -225,6 +228,15 @@ impl ToolRegistry {
     /// 受控命令执行：`run_command`（实现族角色专用；沙箱 + 审批约束不变）。
     pub fn register_run_command(&mut self) {
         self.register_builtin(RunCommandTool);
+    }
+
+    /// 任务剧本组（**可选能力**，默认不装配）：`playbook_next` / `playbook_record`。
+    ///
+    /// 开启后模型可以按剧本推进；`playbook_next` 只读，`playbook_record` 只写
+    /// 工作区内同目录的 `<剧本>.state.json`（副作用登记为 Write，照常审批）。
+    pub fn register_playbook_tools(&mut self) {
+        self.register_builtin(PlaybookNextTool);
+        self.register_builtin(PlaybookRecordTool);
     }
 
     /// 桌面观察/视觉组：截图 OCR、窗口信息与视觉 grounding/verify，不包含输入操作。

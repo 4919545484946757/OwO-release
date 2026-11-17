@@ -219,6 +219,9 @@ fn builtin_registry_for_workspace(workspace: &std::path::Path) -> ToolRegistry {
     if capabilities.browser {
         registry.register_browser_tools();
     }
+    if capabilities.playbooks {
+        registry.register_playbook_tools();
+    }
     registry
 }
 
@@ -271,12 +274,16 @@ mod tool_capability_tests {
         assert!(!default_names.contains(&"screen_ocr".to_string()));
         assert!(!default_names.contains(&"desktop_click".to_string()));
         assert!(!default_names.contains(&"browser_navigate".to_string()));
+        // 剧本工具是可选组：默认不出现（模型可见工具面不变）。
+        assert!(!default_names.contains(&"playbook_next".to_string()));
+        assert!(!default_names.contains(&"playbook_record".to_string()));
 
         Settings {
             tool_capabilities: AgentToolCapabilities {
                 desktop_observation: true,
                 desktop_control: false,
                 browser: true,
+                playbooks: true,
             },
             ..Settings::default()
         }
@@ -286,6 +293,8 @@ mod tool_capability_tests {
         let opted_names: Vec<String> = opted_in.specs().into_iter().map(|spec| spec.name).collect();
         assert!(opted_names.contains(&"screen_ocr".to_string()));
         assert!(opted_names.contains(&"browser_navigate".to_string()));
+        assert!(opted_names.contains(&"playbook_next".to_string()));
+        assert!(opted_names.contains(&"playbook_record".to_string()));
         assert!(!opted_names.contains(&"desktop_click".to_string()));
 
         let _ = std::fs::remove_dir_all(&workspace);

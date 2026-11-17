@@ -102,14 +102,35 @@ owo-agent playbook status --json playbooks/code-review.json
 }
 ```
 
-## 5. 安全边界
+## 5. 模型侧接入（可选工具组，默认关闭）
+
+剧本工具属于**额外能力**：新增两个工具会改变模型可见工具面（上下文成本 + 行为引导），
+因此默认不装配。在 `<workspace>/settings.json` 显式开启：
+
+```json
+{ "tool_capabilities": { "playbooks": true } }
+```
+
+| 工具 | 副作用 | 用途 |
+|---|---|---|
+| `playbook_next { file }` | **read** | 返回下一步 + 完成判据 + 整体进度；只读，不写状态文件 |
+| `playbook_record { file, step, outcome, note }` | **write** | 记录 `pass/fail/skip`，写同目录 `<剧本>.state.json` |
+
+模型循环：`playbook_next` → 按判据执行这一步（用既有工具，权限/审批/审计不变）→
+`playbook_record` 记录结果 → 再 `next`。失败步骤保留在可执行集里（`attempts` 累计），
+是否继续重试由模型或推进策略决定。
+
+安全边界：路径经会话工作区约束（越界拒绝）；读取上限 256 KB、备注上限 2000 字符；
+`playbook_record` 的副作用登记为 Write，照常走审批。
+
+## 6. 安全边界
 
 - 本模块**不执行任何命令**：`check` 步骤的 `acceptance` 只是文本判据，真正执行必须由
   宿主经 Tool Host（权限/审批/审计/沙箱一个都不能绕）。
 - 输入按上限截断（步骤数、单步文本长度由 schema 控制），不做递归解释。
 - 文件读取容忍 UTF-8 BOM（Windows 编辑器常见），不改变内容语义。
 
-## 6. 下一步
+## 7. 下一步
 
 1. **执行驱动**：`playbook run` 按 `next_ready()` 推进；`check` 步骤经 Tool Host 执行并
    记录证据，`model` 步骤走一次 Agent 回合，`human` 步骤挂审批；

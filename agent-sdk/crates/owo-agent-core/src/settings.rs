@@ -179,6 +179,9 @@ pub struct AgentToolCapabilities {
     pub desktop_control: bool,
     /// 浏览器导航、搜索、交互与下载。
     pub browser: bool,
+    /// 任务剧本工具（`playbook_next` / `playbook_record`）：模型按剧本推进并记录进度。
+    /// 默认关闭——这是额外能力，开启后模型工具面会多两个工具。
+    pub playbooks: bool,
 }
 
 /// 十一期：团队（`/team`）统一配置——`<workspace>/settings.json` 的 `team` 段。
@@ -509,6 +512,7 @@ mod tests {
                 desktop_observation: true,
                 desktop_control: false,
                 browser: true,
+                playbooks: false,
             },
             ..Settings::default()
         };
@@ -531,6 +535,7 @@ mod tests {
                 desktop_observation: true,
                 desktop_control: false,
                 browser: true,
+                playbooks: false,
             }
         );
         let _ = std::fs::remove_dir_all(&workspace);
