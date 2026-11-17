@@ -1317,15 +1317,37 @@ impl DaemonRepl {
                                     &step,
                                 ));
                             }
-                            crate::support::PlaybookDirective::Blocked => {
-                                println!(
-                                    "{}",
-                                    format!(
-                                        "剧本没有可执行步骤（前置失败/跳过导致阻塞）：{}",
-                                        run.summary(&playbook_def)
-                                    )
-                                    .yellow()
-                                );
+                            crate::support::PlaybookDirective::Blocked(exhausted) => {
+                                if exhausted.is_empty() {
+                                    println!(
+                                        "{}",
+                                        format!(
+                                            "剧本没有可执行步骤（前置失败/跳过导致阻塞）：{}",
+                                            run.summary(&playbook_def)
+                                        )
+                                        .yellow()
+                                    );
+                                    println!(
+                                        "{}",
+                                        "下一步：用 playbook_record 确认被跳过的步骤，或调整剧本依赖"
+                                            .yellow()
+                                    );
+                                } else {
+                                    println!(
+                                        "{}",
+                                        format!(
+                                            "剧本推进停止：步骤 {} 已达重试上限（{}）",
+                                            exhausted.join("、"),
+                                            run.summary(&playbook_def)
+                                        )
+                                        .yellow()
+                                    );
+                                    println!(
+                                        "{}",
+                                        "下一步：人工确认结果（playbook_record），或提高该步骤的 max_attempts"
+                                            .yellow()
+                                    );
+                                }
                                 break;
                             }
                         }

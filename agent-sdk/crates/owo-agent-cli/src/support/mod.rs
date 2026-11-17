@@ -1190,13 +1190,27 @@ mod repl_completion_tests {
             super::PlaybookDirective::Complete
         ));
 
-        // 前置被跳过（失败仍可重试）→ 下游阻塞 → Blocked。
+        // 前置被跳过（失败仍可重试）→ 下游阻塞 → Blocked（无重试耗尽）。
         let mut blocked = PlaybookRun::new(&playbook);
         blocked.record_skip("a", "不适用");
-        assert!(matches!(
-            super::playbook_directive(&playbook, &blocked),
-            super::PlaybookDirective::Blocked
-        ));
+        match super::playbook_directive(&playbook, &blocked) {
+            super::PlaybookDirective::Blocked(exhausted) => {
+                assert!(exhausted.is_empty(), "{exhausted:?}");
+            }
+            _ => panic!("应为 Blocked"),
+        }
+
+        // 重试上限耗尽 → Blocked 带上步骤 id，供提示词给恢复建议。
+        let mut limited = playbook.clone();
+        limited.steps[0].max_attempts = Some(1);
+        let mut exhausted_run = PlaybookRun::new(&limited);
+        exhausted_run.record_fail("a", "boom");
+        match super::playbook_directive(&limited, &exhausted_run) {
+            super::PlaybookDirective::Blocked(exhausted) => {
+                assert_eq!(exhausted, vec!["a".to_string()]);
+            }
+            _ => panic!("应为 Blocked"),
+        }
     }
 
     /// `/advance --playbook`：只读剧本状态 + 提示词内容。

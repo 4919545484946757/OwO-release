@@ -101,7 +101,8 @@ pub(crate) fn load_playbook_run(
 pub(crate) enum PlaybookDirective {
     Complete,
     Next(owo_agent_core::playbook::PlaybookStep),
-    Blocked,
+    /// 没有可执行步骤：附"重试耗尽"的步骤 id（可能为空 = 前置被跳过等）。
+    Blocked(Vec<String>),
 }
 
 /// 纯函数：宿主按剧本状态决定推进循环该做什么（不读文件、不执行命令）。
@@ -114,7 +115,20 @@ pub(crate) fn playbook_directive(
     }
     match run.next_ready(playbook) {
         Some(step) => PlaybookDirective::Next(step.clone()),
-        None => PlaybookDirective::Blocked,
+        None => {
+            let exhausted: Vec<String> = playbook
+                .steps
+                .iter()
+                .filter(|step| {
+                    matches!(
+                        run.states.get(&step.id),
+                        Some(owo_agent_core::playbook::StepState::Failed { .. })
+                    ) && run.attempts_exhausted(step)
+                })
+                .map(|step| step.id.clone())
+                .collect();
+            PlaybookDirective::Blocked(exhausted)
+        }
     }
 }
 
