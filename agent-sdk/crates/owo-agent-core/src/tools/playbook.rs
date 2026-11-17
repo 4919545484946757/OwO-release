@@ -428,6 +428,13 @@ impl Tool for PlaybookCheckTool {
             }));
         }
 
+        if let Some(limit) = step.max_attempts {
+            if run.attempts(&step_id) >= limit {
+                return Err(format!(
+                    "步骤 `{step_id}` 已达重试上限（{limit} 次）：先用 playbook_record 人工确认，或调整剧本的 max_attempts"
+                ));
+            }
+        }
         if journal_pending(&path)
             .iter()
             .any(|pending| pending == &step_id)
@@ -553,7 +560,23 @@ impl Tool for PlaybookRunTool {
                 stopped = Some(if run.is_complete(&playbook) {
                     "complete".to_string()
                 } else {
-                    "no_ready_step".to_string()
+                    let exhausted: Vec<&str> = playbook
+                        .steps
+                        .iter()
+                        .filter(|step| {
+                            matches!(run.states.get(&step.id), Some(StepState::Failed { .. }))
+                                && run.attempts_exhausted(step)
+                        })
+                        .map(|step| step.id.as_str())
+                        .collect();
+                    if exhausted.is_empty() {
+                        "no_ready_step".to_string()
+                    } else {
+                        format!(
+                            "已达重试上限：{}（先用 playbook_record 人工确认）",
+                            exhausted.join("、")
+                        )
+                    }
                 });
                 break;
             };
@@ -888,6 +911,64 @@ mod tests {
             .expect("清除后应可执行");
         assert_eq!(ok["passed"], true, "{ok}");
         assert!(journal_pending(&file).is_empty());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn check_refuses_after_retry_limit_exhausted() {
+        use std::sync::{Arc, Mutex};
+        let dir = scratch("retry-limit");
+        let file = dir.join("limit.json");
+        std::fs::write(
+            &file,
+            r#"{"id":"limit","name":"上限","steps":[
+                {"id":"w","title":"检查","kind":"check","acceptance":"exit 0","command":"echo ok","max_attempts":1}
+            ]}"#,
+        )
+        .unwrap();
+        let policy = crate::Policy::new(&dir);
+        let audit = Arc::new(Mutex::new(crate::AuditLog::default()));
+        let skills = crate::SkillRegistry::default();
+        let elements = Arc::new(Mutex::new(crate::ElementRegistry::new()));
+        let mut session = crate::session::Session::new(&dir, "mock", None);
+        let mut ctx = ToolContext {
+            workspace: &dir,
+            policy: &policy,
+            session: &mut session,
+            audit: &audit,
+            subagent: None,
+            skills: &skills,
+            elements: &elements,
+            fanout: None,
+            abort: None,
+            questioner: None,
+        };
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let file_arg = file.to_string_lossy().into_owned();
+
+        runtime
+            .block_on(PlaybookRecordTool.run(
+                &mut ctx,
+                json!({ "file": file_arg, "step": "w", "outcome": "fail", "note": "第一次失败" }),
+            ))
+            .expect("record 应成功");
+        let error = runtime
+            .block_on(PlaybookCheckTool.run(&mut ctx, json!({ "file": file_arg, "step": "w" })))
+            .unwrap_err();
+        assert!(error.contains("重试上限"), "{error}");
+
+        // run 也把耗尽原因讲清楚。
+        let run = runtime
+            .block_on(PlaybookRunTool.run(&mut ctx, json!({ "file": file_arg })))
+            .expect("run 应返回结果");
+        assert!(
+            run["stopped"].as_str().unwrap().contains("重试上限"),
+            "{run}"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }
