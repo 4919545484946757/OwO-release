@@ -175,12 +175,66 @@
       var box = cardEl.querySelector(".owo-pb-detail");
       if (!box) return;
       var steps = (data && data.steps) || [];
+      cardEl.__pbSteps = {};
+      steps.forEach(function (step) {
+        cardEl.__pbSteps[step.id] = step.state;
+      });
       box.hidden = false;
       box.innerHTML =
         '<div class="owo-pb-detail-head"><span class="sub">' +
         esc((data && data.progress && data.progress.summary) || "") +
         "</span></div>" +
-        (steps.length ? steps.map(stepRow).join("") : '<div class="hint">没有步骤</div>');
+        (steps.length ? steps.map(stepRow).join("") : '<div class="hint">没有步骤</div>') +
+        '<div class="owo-pb-history" hidden></div>';
+    }
+
+    /// 历史运行：列出归档；相对当前状态退化的步骤标红。
+    function loadHistory(root, cardEl, path) {
+      var box = cardEl.querySelector(".owo-pb-history");
+      if (!box) return Promise.resolve();
+      return get("/playbooks/history?file=" + encodeURIComponent(path))
+        .then(function (data) {
+          var runs = (data && data.runs) || [];
+          var current = cardEl.__pbSteps || {};
+          box.hidden = false;
+          if (!runs.length) {
+            box.innerHTML =
+              '<div class="hint">还没有历史运行（CLI：owo-agent playbook archive）</div>';
+            return;
+          }
+          box.innerHTML =
+            '<div class="owo-pb-detail-head"><span class="sub">历史运行 ' +
+            runs.length +
+            " 次</span></div>" +
+            runs
+              .map(function (run) {
+                var regressions = [];
+                var steps = run.steps || {};
+                Object.keys(steps).forEach(function (stepId) {
+                  if (steps[stepId] === "passed" && current[stepId] !== "passed") {
+                    regressions.push(stepId);
+                  }
+                });
+                var progress = run.progress || {};
+                return (
+                  '<div class="owo-pb-run">' +
+                  '<span class="owo-pb-run-marker">' + esc(run.marker || "?") + "</span>" +
+                  '<span class="sub">' + esc(progress.summary || "") + "</span>" +
+                  (run.complete ? '<span class="owo-pb-chip">已完成</span>' : "") +
+                  (regressions.length
+                    ? '<span class="owo-pb-chip owo-pb-bad">退化：' +
+                      esc(regressions.join("、")) +
+                      "</span>"
+                    : "") +
+                  "</div>"
+                );
+              })
+              .join("");
+        })
+        .catch(function (error) {
+          box.hidden = false;
+          box.innerHTML = '<div class="hint">历史读取失败：' + esc(friendly(error)) + "</div>";
+        });
     }
 
     function showError(root, message) {
@@ -211,6 +265,7 @@
       return get("/playbooks/status?file=" + encodeURIComponent(path))
         .then(function (data) {
           paintDetail(cardEl, data);
+          return loadHistory(root, cardEl, path);
         })
         .catch(function (error) {
           box.hidden = false;
@@ -301,6 +356,7 @@
               return get("/playbooks/status?file=" + encodeURIComponent(expandedPath)).then(
                 function (statusData) {
                   paintDetail(cardEl, statusData);
+                  return loadHistory(root, cardEl, expandedPath);
                 }
               );
             }

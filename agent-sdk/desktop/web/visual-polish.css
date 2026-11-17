@@ -540,3 +540,7 @@ body.panel-open #panelRoot > section[data-panel] { border: 0; border-radius: 0; 
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+.owo-pb-history { margin-top: 10px; display: grid; gap: 6px; }
+.owo-pb-run { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 8px; border: 1px dashed var(--border); border-radius: 8px; }
+.owo-pb-run-marker { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }
