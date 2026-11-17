@@ -14,6 +14,8 @@ pub(crate) struct GoalState {
     pub objective: String,
     pub iterations: usize,
     pub done: bool,
+    /// 按进度推进的账本（连续失败/连续同状态/轮数），驱动"继续/重试/停滞/结束"。
+    pub progress: owo_agent_core::goal_progress::GoalProgress,
 }
 
 #[derive(Debug, Clone)]
@@ -108,6 +110,86 @@ pub(crate) fn goal_is_done(final_text: &str) -> bool {
         .rev()
         .find(|line| !line.trim().is_empty())
         .is_some_and(|line| line.trim() == GOAL_DONE_MARKER)
+}
+
+/// 宿主完成状态的稳定短名（用于进度账本比较：同名才算"没变化"）。
+pub(crate) fn completion_status_label(
+    status: owo_agent_protocol::CompletionStatusV1,
+) -> &'static str {
+    use owo_agent_protocol::CompletionStatusV1 as Status;
+    match status {
+        Status::ResponseComplete => "response_complete",
+        Status::Candidate => "candidate",
+        Status::Accepted => "accepted",
+        Status::Unverified => "unverified",
+        Status::Blocked => "blocked",
+        Status::Aborted => "aborted",
+    }
+}
+
+/// 把本回合结果交给推进策略，得到「继续/重试/停滞/失败/完成/中止」决策。
+pub(crate) fn goal_advance(
+    progress: &mut owo_agent_core::goal_progress::GoalProgress,
+    turn: &GoalTurnResult,
+    accepted: bool,
+) -> owo_agent_core::goal_progress::AdvanceOutcome {
+    use owo_agent_core::goal_progress::{AdvancePolicy, TurnVerdict};
+    let policy = AdvancePolicy::from_env();
+    let verdict = if accepted {
+        TurnVerdict::Accepted
+    } else if turn.failed {
+        TurnVerdict::Failed
+    } else if turn.completion_status == owo_agent_protocol::CompletionStatusV1::Aborted {
+        TurnVerdict::Aborted
+    } else {
+        TurnVerdict::Status(completion_status_label(turn.completion_status))
+    };
+    progress.record(verdict, &policy)
+}
+
+/// `/goal status` 的进度行：把账本翻译成一句人话（停滞/失败streak 一眼可见）。
+pub(crate) fn goal_progress_line(progress: &owo_agent_core::goal_progress::GoalProgress) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if progress.consecutive_failures > 0 {
+        parts.push(format!("连续失败 {} 次", progress.consecutive_failures));
+    }
+    if progress.consecutive_same_status > 1 {
+        let status = progress.last_status.as_deref().unwrap_or("unknown");
+        parts.push(format!(
+            "连续 {} 轮宿主状态未变（{status}）",
+            progress.consecutive_same_status
+        ));
+    }
+    if parts.is_empty() {
+        "进度：正常（每轮都有新的宿主状态）".to_string()
+    } else {
+        format!("进度：{}", parts.join("；"))
+    }
+}
+
+/// 决策的终端可读说明（`None` = 正常继续，无需额外输出）。
+pub(crate) fn goal_advance_message(
+    outcome: &owo_agent_core::goal_progress::AdvanceOutcome,
+) -> Option<String> {
+    use owo_agent_core::goal_progress::AdvanceOutcome;
+    match outcome {
+        AdvanceOutcome::Continue => None,
+        AdvanceOutcome::Retry {
+            consecutive_failures,
+        } => Some(format!(
+            "回合失败（连续 {consecutive_failures} 次），仍在重试预算内，继续推进…"
+        )),
+        AdvanceOutcome::Failed {
+            consecutive_failures,
+        } => Some(format!(
+            "连续失败 {consecutive_failures} 次，已停止自动推进（/goal status 查看进度；修复后 /goal run 继续）"
+        )),
+        AdvanceOutcome::Stall { status, rounds } => Some(format!(
+            "目标停滞：连续 {rounds} 轮宿主状态都是 `{status}`，没有产生可验收的进展；已停止自动推进。建议拆分目标、补完成标准，或换更具体的下一步"
+        )),
+        AdvanceOutcome::Done => Some("目标完成".to_string()),
+        AdvanceOutcome::Aborted => Some("目标推进已中止".to_string()),
+    }
 }
 
 /// 目标激活且未完成时，把目标附到输入前；否则原样返回。

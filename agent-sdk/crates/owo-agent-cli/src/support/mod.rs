@@ -952,6 +952,82 @@ mod repl_completion_tests {
     }
 
     #[test]
+    fn goal_advance_is_driven_by_progress_not_by_turn_count() {
+        use owo_agent_core::goal_progress::AdvanceOutcome;
+        use owo_agent_protocol::CompletionStatusV1;
+
+        let turn = |status, failed| super::GoalTurnResult {
+            final_text: None,
+            completion_status: status,
+            failed,
+        };
+
+        // 失败：重试预算内继续，超过预算交给人（默认 max_retries=2）。
+        let mut progress = Default::default();
+        assert!(matches!(
+            super::goal_advance(
+                &mut progress,
+                &turn(CompletionStatusV1::Blocked, true),
+                false
+            ),
+            AdvanceOutcome::Retry { .. }
+        ));
+        assert!(matches!(
+            super::goal_advance(
+                &mut progress,
+                &turn(CompletionStatusV1::Blocked, true),
+                false
+            ),
+            AdvanceOutcome::Retry { .. }
+        ));
+        assert!(matches!(
+            super::goal_advance(
+                &mut progress,
+                &turn(CompletionStatusV1::Blocked, true),
+                false
+            ),
+            AdvanceOutcome::Failed { .. }
+        ));
+
+        // 停滞：状态连续不变（默认窗口 3）→ Stall；状态变化则重置。
+        let mut progress = Default::default();
+        for _ in 0..2 {
+            assert_eq!(
+                super::goal_advance(
+                    &mut progress,
+                    &turn(CompletionStatusV1::Unverified, false),
+                    false
+                ),
+                AdvanceOutcome::Continue
+            );
+        }
+        let stalled = super::goal_advance(
+            &mut progress,
+            &turn(CompletionStatusV1::Unverified, false),
+            false,
+        );
+        assert!(
+            matches!(stalled, AdvanceOutcome::Stall { ref status, rounds } if status == "unverified" && rounds == 3),
+            "{stalled:?}"
+        );
+        assert!(super::goal_progress_line(&progress).contains("连续 3 轮宿主状态未变"));
+
+        // 接受 = 完成，且是终态。
+        let mut progress = Default::default();
+        let done = super::goal_advance(
+            &mut progress,
+            &turn(CompletionStatusV1::Accepted, false),
+            true,
+        );
+        assert_eq!(done, AdvanceOutcome::Done);
+        assert!(super::goal_claim_is_accepted(&super::GoalTurnResult {
+            final_text: Some("GOAL_DONE".to_string()),
+            completion_status: CompletionStatusV1::Accepted,
+            failed: false,
+        }));
+    }
+
+    #[test]
     fn goal_continuation_explains_host_rejection() {
         let prompt = super::goal_continue_prompt_after_status(
             "重构登录模块",
@@ -979,6 +1055,7 @@ mod repl_completion_tests {
             objective: "重构登录模块".to_string(),
             iterations: 0,
             done: false,
+            progress: Default::default(),
         };
         let attached = super::goal_context_prompt(Some(&active), "先补单元测试");
         assert!(attached.contains("【当前目标】重构登录模块"), "{attached}");
@@ -988,6 +1065,7 @@ mod repl_completion_tests {
             objective: "重构登录模块".to_string(),
             iterations: 2,
             done: true,
+            progress: Default::default(),
         };
         assert_eq!(
             super::goal_context_prompt(Some(&done), "普通输入"),

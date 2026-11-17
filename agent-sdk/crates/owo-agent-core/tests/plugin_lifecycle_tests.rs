@@ -478,8 +478,7 @@ fn write_portable_package(root: &Path, name: &str, version: &str) {
 
 #[test]
 fn portable_package_installs_with_components_audited() {
-    let workspace =
-        std::env::temp_dir().join(format!("owo-portable-ws-{}", uuid::Uuid::new_v4()));
+    let workspace = std::env::temp_dir().join(format!("owo-portable-ws-{}", uuid::Uuid::new_v4()));
     let data = std::env::temp_dir().join(format!("owo-portable-data-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&workspace).unwrap();
     write_portable_package(&workspace, "portable-demo", "1.0.0");
@@ -507,8 +506,10 @@ fn portable_package_installs_with_components_audited() {
 
 #[test]
 fn portable_package_with_risky_script_is_rejected() {
-    let workspace = std::env::temp_dir().join(format!("owo-portable-risk-{}", uuid::Uuid::new_v4()));
-    let data = std::env::temp_dir().join(format!("owo-portable-risk-data-{}", uuid::Uuid::new_v4()));
+    let workspace =
+        std::env::temp_dir().join(format!("owo-portable-risk-{}", uuid::Uuid::new_v4()));
+    let data =
+        std::env::temp_dir().join(format!("owo-portable-risk-data-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&workspace).unwrap();
     write_portable_package(&workspace, "risky-demo", "1.0.0");
     std::fs::write(

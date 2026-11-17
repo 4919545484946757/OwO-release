@@ -44,6 +44,7 @@
 
 pub mod computer_task;
 pub mod context;
+pub mod goal_progress;
 pub mod plan;
 pub mod skill;
 pub mod skill_health;
@@ -52,6 +53,7 @@ pub mod skill_health;
 // 用 glob 而非手写符号表——M6 的教训（手写会抄错符号名，让编译器来证明等价）。
 pub use computer_task::*;
 pub use context::*;
+pub use goal_progress::*;
 pub use plan::*;
 pub use skill::*;
 pub use skill_health::*;

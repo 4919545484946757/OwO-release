@@ -709,7 +709,8 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
             if let Ok(last) = client.workflow_last_run(&template.template_id).await {
                 match last["last_run"].as_object() {
                     Some(run) => println!(
-                        "  最近一次：{} · {} · {}{}",
+                        // 有运行记录时给出可复现入口（沿用同一目标）。
+                        "  最近一次：{} · {} · {}   （复用：owo-agent workflow rerun <id>）",
                         run.get("status")
                             .and_then(|value| value.as_str())
                             .unwrap_or("?"),
@@ -722,8 +723,6 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
                         run.get("objective")
                             .and_then(|value| value.as_str())
                             .unwrap_or("?"),
-                        // 有运行记录时给出可复现入口（沿用同一目标）。
-                        "   （复用：owo-agent workflow rerun <id>）"
                     ),
                     None => println!("  最近一次：从未运行"),
                 }

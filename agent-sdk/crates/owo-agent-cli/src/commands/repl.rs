@@ -468,13 +468,16 @@ impl Repl {
         match arg {
             "" | "status" => {
                 match &self.goal {
-                    Some(goal) => println!(
-                        "目标：{}\n  轮次：{}/{}  状态：{}",
-                        goal.objective,
-                        goal.iterations,
-                        crate::support::goal_iteration_label(goal_max_iterations()),
-                        if goal.done { "已完成" } else { "推进中" }
-                    ),
+                    Some(goal) => {
+                        println!(
+                            "目标：{}\n  轮次：{}/{}  状态：{}",
+                            goal.objective,
+                            goal.iterations,
+                            crate::support::goal_iteration_label(goal_max_iterations()),
+                            if goal.done { "已完成" } else { "推进中" }
+                        );
+                        println!("  {}", crate::support::goal_progress_line(&goal.progress));
+                    }
                     None => println!("（未设定目标；用法：/goal <目标描述>）"),
                 }
                 Ok(())
@@ -490,6 +493,7 @@ impl Repl {
                     objective: objective.to_string(),
                     iterations: 0,
                     done: false,
+                    progress: Default::default(),
                 });
                 println!(
                     "{}（轮次上限：{}；/goal clear 停止）",
@@ -529,25 +533,32 @@ impl Repl {
                     let limit = crate::support::goal_iteration_label(max);
                     println!("{}", format!("── 目标推进 {iteration}/{limit} ──").bold());
                     let turn = self.run_turn_capture(&prompt).await?;
-                    if let Some(goal) = self.goal.as_mut() {
-                        goal.iterations = iteration;
-                    }
-                    if turn.failed {
-                        println!(
-                            "{} 回合失败，目标未完成（/goal status 查看；修复问题后可重新提交）",
-                            "!".red()
-                        );
-                        break;
-                    }
-                    if turn.completion_status == owo_agent_protocol::CompletionStatusV1::Aborted {
-                        println!("{} 目标推进已中止", "!".yellow());
-                        break;
-                    }
-                    if crate::support::goal_claim_is_accepted(&turn) {
+                    let accepted = crate::support::goal_claim_is_accepted(&turn);
+                    let outcome = match self.goal.as_mut() {
+                        Some(goal) => {
+                            goal.iterations = iteration;
+                            goal.progress.iterations = iteration as u32;
+                            crate::support::goal_advance(&mut goal.progress, &turn, accepted)
+                        }
+                        None => break,
+                    };
+                    if accepted {
                         if let Some(goal) = self.goal.as_mut() {
                             goal.done = true;
                         }
-                        println!("{} 目标完成（第 {iteration} 轮）", "✓".green());
+                    }
+                    use owo_agent_core::goal_progress::AdvanceOutcome;
+                    match &outcome {
+                        AdvanceOutcome::Done => {
+                            println!("{} 目标完成（第 {iteration} 轮）", "✓".green());
+                        }
+                        other => {
+                            if let Some(message) = crate::support::goal_advance_message(other) {
+                                println!("{}", message.yellow());
+                            }
+                        }
+                    }
+                    if outcome.is_terminal() {
                         break;
                     }
                     if turn
