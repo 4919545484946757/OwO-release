@@ -166,6 +166,65 @@ fn issues_json(issues: &[PlaybookIssue]) -> Vec<serde_json::Value> {
 }
 
 fn validate(file: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
+    // 目录 = 一次校验全部剧本（CI/提交前用）。
+    if file.is_dir() {
+        let listed = collect_playbooks(file)?;
+        let mut failed = 0usize;
+        let mut items: Vec<serde_json::Value> = Vec::new();
+        for item in &listed {
+            let ok = item.playbook.is_some() && item.issues.is_empty();
+            if !ok {
+                failed += 1;
+            }
+            items.push(serde_json::json!({
+                "path": item.path.to_string_lossy(),
+                "id": item.playbook.as_ref().map(|playbook| playbook.id.clone()),
+                "ok": ok,
+                "issues": issues_json(&item.issues),
+            }));
+            if !json {
+                let name = item
+                    .playbook
+                    .as_ref()
+                    .map(|playbook| playbook.id.as_str())
+                    .unwrap_or_else(|| "?");
+                if ok {
+                    println!(
+                        "  通过  {name:<18} {} 步",
+                        item.playbook
+                            .as_ref()
+                            .map(|playbook| playbook.steps.len())
+                            .unwrap_or(0)
+                    );
+                } else {
+                    println!("  不通过 {name:<18} {} 个问题", item.issues.len());
+                }
+            }
+        }
+        if json {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "ok": failed == 0,
+                    "dir": file.to_string_lossy(),
+                    "count": listed.len(),
+                    "failed": failed,
+                    "playbooks": items,
+                })
+            );
+        } else {
+            println!(
+                "目录校验：{}（{} 个，失败 {} 个）",
+                file.display(),
+                listed.len(),
+                failed
+            );
+        }
+        if failed > 0 {
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
     let playbook = load(file)?;
     let issues = playbook.validate();
     if json {
