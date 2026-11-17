@@ -310,9 +310,8 @@ pub fn builtin_class_for(tool: &str) -> Option<EffectClass> {
         }
         // kill_shell 终止进程（不可逆副作用），不得归为 Read：只读档在旧矩阵里会把
         // 它当宿主验证只读自动放行（审查记录的低危项）。
-        "run_command" | "kill_shell" | "web_fetch" | "web_search" | "playbook_check" => {
-            EffectClass::Execute
-        }
+        "run_command" | "kill_shell" | "web_fetch" | "web_search" | "playbook_check"
+        | "playbook_run" => EffectClass::Execute,
         "text.inject" | "clipboard" => EffectClass::Inject,
         "screen_ocr"
         | "desktop_window_ocr"
@@ -347,6 +346,7 @@ fn builtin_effects() -> Vec<(&'static str, EffectClass)> {
         ("shell_output", EffectClass::Read),
         ("kill_shell", EffectClass::Execute),
         ("playbook_check", EffectClass::Execute),
+        ("playbook_run", EffectClass::Execute),
         ("todo", EffectClass::Read),
         ("verification_plan", EffectClass::Read),
         ("playbook_next", EffectClass::Read),
@@ -423,8 +423,8 @@ mod tests {
             .filter(|effect| effect.source == "builtin")
             .count();
         assert_eq!(
-            builtin, 53,
-            "内置矩阵应完整播种 53 个工具（含 multi_edit / read_artifact / find_symbol / git 只读 / ask_user / verification_plan / playbook_next / playbook_record / playbook_check）"
+            builtin, 54,
+            "内置矩阵应完整播种 54 个工具（含 multi_edit / read_artifact / find_symbol / git 只读 / ask_user / verification_plan / playbook_next / playbook_record / playbook_check / playbook_run）"
         );
     }
 

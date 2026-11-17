@@ -121,10 +121,11 @@ owo-agent playbook status --json playbooks/code-review.json
 | `playbook_next { file }` | **read** | 返回下一步 + 完成判据 + 整体进度；只读，不写状态文件 |
 | `playbook_record { file, step, outcome, note }` | **write** | 记录 `pass/fail/skip`，写同目录 `<剧本>.state.json` |
 | `playbook_check { file, step }` | **execute** | 执行 `check` 步骤声明的 `command`：exit 0 记通过，否则记失败；内部复用 `run_command` 的沙箱/审计 |
+| `playbook_run { file, max_steps? }` | **execute** | 连续执行所有可直接运行的 `check` 步骤（一次调用一次审批）；遇到模型/人工步骤、无命令的 check、失败或达到上限即停，返回已执行清单与下一步 |
 
-模型循环：`playbook_next` → 按判据执行这一步（`check` 有 `command` 时用 `playbook_check`
-一次完成，其余用既有工具）→ 再 `next`。失败步骤保留在可执行集里（`attempts` 累计），
-是否继续重试由模型或推进策略决定。
+模型循环：`playbook_next` → 多个连续 `check` 用 `playbook_run` 一次跑完（单个用
+`playbook_check`），需要模型的步骤用既有工具做、再用 `playbook_record` 记录 → 再 `next`。
+失败步骤保留在可执行集里（`attempts` 累计），是否继续重试由模型或推进策略决定。
 
 安全边界：路径经会话工作区约束（越界拒绝）；读取上限 256 KB、备注上限 2000 字符；
 `playbook_record` 的副作用登记为 Write，照常走审批。

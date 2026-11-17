@@ -38,7 +38,7 @@ mod mcp_adapters;
 mod playbook;
 use command_tools::{KillShellTool, RunCommandTool, ShellOutputTool};
 use mcp_adapters::{McpPromptAdapter, McpResourceAdapter, McpToolAdapter};
-use playbook::{PlaybookCheckTool, PlaybookNextTool, PlaybookRecordTool};
+use playbook::{PlaybookCheckTool, PlaybookNextTool, PlaybookRecordTool, PlaybookRunTool};
 
 #[path = "tools/web.rs"]
 mod web;
@@ -239,6 +239,7 @@ impl ToolRegistry {
         self.register_builtin(PlaybookNextTool);
         self.register_builtin(PlaybookRecordTool);
         self.register_builtin(PlaybookCheckTool);
+        self.register_builtin(PlaybookRunTool);
     }
 
     /// 桌面观察/视觉组：截图 OCR、窗口信息与视觉 grounding/verify，不包含输入操作。

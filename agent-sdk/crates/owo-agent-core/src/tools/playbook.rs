@@ -340,43 +340,153 @@ impl Tool for PlaybookCheckTool {
             }));
         }
 
-        let outcome = RunCommandTool
-            .run(ctx, json!({ "command": step.command }))
-            .await;
-        match outcome {
-            Ok(value) => {
-                let exit_code = value.get("exit_code").and_then(Value::as_i64).unwrap_or(-1);
-                let evidence = evidence_tail(
-                    value.get("stdout").and_then(Value::as_str).unwrap_or(""),
-                    value.get("stderr").and_then(Value::as_str).unwrap_or(""),
-                );
-                if exit_code == 0 {
-                    run.record_pass(&step_id, evidence.clone());
+        let (passed, exit_code, evidence) = execute_check(ctx, &step).await;
+        if passed {
+            run.record_pass(&step_id, evidence.clone());
+        } else {
+            let reason = match exit_code {
+                Some(code) => format!("exit {code}：{evidence}"),
+                None => evidence.clone(),
+            };
+            run.record_fail(&step_id, reason);
+        }
+        save_run(&path, &run)?;
+        let next = next_json(&playbook, &run);
+        Ok(json!({
+            "step": step_id,
+            "passed": passed,
+            "exit_code": exit_code,
+            "evidence": evidence,
+            "progress": progress_json(&playbook, &run),
+            "next": next["next"],
+            "blocked": next["blocked"],
+            "state_file": state_path(&path).to_string_lossy(),
+        }))
+    }
+}
+
+/// 执行一条 `check` 步骤声明的命令（复用 run_command 的沙箱/审计）。
+///
+/// 返回 `(passed, exit_code, evidence)`；命令根本起不来时 `exit_code = None` 且
+/// evidence 写明原因——调用方统一记为失败，避免"跑不起来"被当成未开始。
+async fn execute_check(
+    ctx: &mut ToolContext<'_>,
+    step: &PlaybookStep,
+) -> (bool, Option<i64>, String) {
+    match RunCommandTool
+        .run(ctx, json!({ "command": step.command }))
+        .await
+    {
+        Ok(value) => {
+            let exit_code = value.get("exit_code").and_then(Value::as_i64);
+            let evidence = evidence_tail(
+                value.get("stdout").and_then(Value::as_str).unwrap_or(""),
+                value.get("stderr").and_then(Value::as_str).unwrap_or(""),
+            );
+            (exit_code == Some(0), exit_code, evidence)
+        }
+        Err(error) => (false, None, format!("命令执行失败：{error}")),
+    }
+}
+
+/// `playbook_run`：连续跑完所有可直接执行的 `check` 步骤。
+///
+/// 一次调用、一次审批，把"逐个 check"的往返压成一轮；遇到需要模型/人工的步骤、
+/// 无命令的 check、失败或单次上限时停止，并把剩余工作交回给调用方。
+pub(super) struct PlaybookRunTool;
+
+/// 单次 `playbook_run` 最多连续执行的步骤数。
+const MAX_RUN_STEPS: usize = 16;
+
+#[async_trait]
+impl Tool for PlaybookRunTool {
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "playbook_run".into(),
+            description: "连续执行剧本里所有可直接运行的 check 步骤（每个都经 run_command 的\
+                          沙箱/审计；一次调用一次审批）。遇到需要模型/人工的步骤、无命令的\
+                          check、失败或达到上限时停止，返回已执行结果与下一步。"
+                .into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file": { "type": "string", "description": "剧本文件路径（相对工作区）" },
+                    "max_steps": { "type": "integer", "description": "最多连续执行几步（默认 8，上限 16）" }
+                },
+                "required": ["file"]
+            }),
+            effect: None,
+        }
+    }
+
+    async fn run(&self, ctx: &mut ToolContext<'_>, args: Value) -> Result<Value, String> {
+        let file = arg_str(&args, "file")?;
+        let path = resolve_session_path(ctx, &file)?;
+        let playbook = load_playbook(&path)?;
+        let mut run = load_or_new_run(&path, &playbook)?;
+        let max_steps = args
+            .get("max_steps")
+            .and_then(Value::as_u64)
+            .map(|value| value as usize)
+            .unwrap_or(8)
+            .clamp(1, MAX_RUN_STEPS);
+
+        let mut executed: Vec<Value> = Vec::new();
+        let mut stopped: Option<String> = None;
+        for _ in 0..max_steps {
+            let Some(step) = run.next_ready(&playbook).cloned() else {
+                stopped = Some(if run.is_complete(&playbook) {
+                    "complete".to_string()
                 } else {
-                    run.record_fail(&step_id, format!("exit {exit_code}：{evidence}"));
-                }
-                save_run(&path, &run)?;
-                let next = next_json(&playbook, &run);
-                Ok(json!({
-                    "step": step_id,
-                    "passed": exit_code == 0,
-                    "exit_code": exit_code,
-                    "evidence": evidence,
-                    "progress": progress_json(&playbook, &run),
-                    "next": next["next"],
-                    "blocked": next["blocked"],
-                    "state_file": state_path(&path).to_string_lossy(),
-                }))
+                    "no_ready_step".to_string()
+                });
+                break;
+            };
+            if step.kind != StepKind::Check {
+                stopped = Some(format!("需要模型/人工处理：{}（{}）", step.id, step.title));
+                break;
             }
-            Err(error) => {
-                // 执行失败本身也是结论：记为失败，避免"跑不起来"被当成未开始。
-                run.record_fail(&step_id, format!("命令执行失败：{error}"));
-                save_run(&path, &run)?;
-                Err(format!(
-                    "步骤 `{step_id}` 的命令执行失败（已记为失败）：{error}"
-                ))
+            if step.command.trim().is_empty() {
+                stopped = Some(format!("步骤 {} 没有 command，需要人工记录", step.id));
+                break;
+            }
+            if step.command.chars().count() > 4000 {
+                stopped = Some(format!("步骤 {} 的命令过长，拒绝执行", step.id));
+                break;
+            }
+            let (passed, exit_code, evidence) = execute_check(ctx, &step).await;
+            if passed {
+                run.record_pass(&step.id, evidence.clone());
+            } else {
+                let reason = match exit_code {
+                    Some(code) => format!("exit {code}：{evidence}"),
+                    None => evidence.clone(),
+                };
+                run.record_fail(&step.id, reason);
+            }
+            save_run(&path, &run)?;
+            executed.push(json!({
+                "step": step.id,
+                "passed": passed,
+                "exit_code": exit_code,
+                "evidence": evidence,
+            }));
+            if !passed {
+                stopped = Some(format!("步骤 {} 失败，已停止", step.id));
+                break;
             }
         }
+        let stopped =
+            stopped.unwrap_or_else(|| format!("达到单次执行上限 {max_steps} 步，可再次调用继续"));
+        let next = next_json(&playbook, &run);
+        Ok(json!({
+            "executed": executed,
+            "stopped": stopped,
+            "progress": progress_json(&playbook, &run),
+            "next": next["next"],
+            "blocked": next["blocked"],
+            "state_file": state_path(&path).to_string_lossy(),
+        }))
     }
 }
 
@@ -482,6 +592,68 @@ mod tests {
             )
             .unwrap_err();
         assert!(error.contains("没有步骤"), "{error}");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn run_tool_executes_consecutive_checks_then_stops_at_model_step() {
+        use std::sync::{Arc, Mutex};
+        let dir = scratch("run-tool");
+        let file = dir.join("run.json");
+        std::fs::write(
+            &file,
+            r#"{"id":"run","name":"批量校验","steps":[
+                {"id":"c1","title":"检查一","kind":"check","acceptance":"exit 0","command":"echo one"},
+                {"id":"c2","title":"检查二","kind":"check","acceptance":"exit 0","command":"echo two","depends_on":["c1"]},
+                {"id":"m","title":"模型步骤","depends_on":["c2"]}
+            ]}"#,
+        )
+        .unwrap();
+
+        let policy = crate::Policy::new(&dir);
+        let audit = Arc::new(Mutex::new(crate::AuditLog::default()));
+        let skills = crate::SkillRegistry::default();
+        let elements = Arc::new(Mutex::new(crate::ElementRegistry::new()));
+        let mut session = crate::session::Session::new(&dir, "mock", None);
+        let mut ctx = ToolContext {
+            workspace: &dir,
+            policy: &policy,
+            session: &mut session,
+            audit: &audit,
+            subagent: None,
+            skills: &skills,
+            elements: &elements,
+            fanout: None,
+            abort: None,
+            questioner: None,
+        };
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let file_arg = file.to_string_lossy().into_owned();
+
+        let result = runtime
+            .block_on(PlaybookRunTool.run(&mut ctx, json!({ "file": file_arg })))
+            .expect("批量校验应执行成功");
+        let executed = result["executed"].as_array().unwrap();
+        assert_eq!(executed.len(), 2, "{result}");
+        assert_eq!(executed[0]["step"], "c1");
+        assert_eq!(executed[1]["step"], "c2");
+        assert!(
+            result["stopped"].as_str().unwrap().contains("需要模型"),
+            "{result}"
+        );
+        assert_eq!(result["progress"]["passed"], 2);
+        assert_eq!(result["next"]["id"], "m");
+
+        // 再跑一次：没有可自动执行的步骤，立即停在模型步骤。
+        let again = runtime
+            .block_on(PlaybookRunTool.run(&mut ctx, json!({ "file": file_arg })))
+            .expect("再次运行应成功");
+        assert!(again["executed"].as_array().unwrap().is_empty());
+        assert!(again["stopped"].as_str().unwrap().contains("需要模型"));
 
         let _ = std::fs::remove_dir_all(&dir);
     }
