@@ -492,3 +492,37 @@ body.panel-open #panelRoot > section[data-panel] { border: 0; border-radius: 0; 
  .workbench-panel-header { padding-bottom: 8px; }
  .workbench-panel-header p { font-size: 11px; margin: 2px 0 0; }
 }
+
+/* 任务剧本面板（playbook.panel.js）：与现有工作台面板同一套排版语言。 */
+.owo-pb-panel { display: flex; flex-direction: column; gap: 10px; }
+.owo-pb-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.owo-pb-tools h3 { margin: 0; font-size: 15px; }
+.owo-pb-refresh, .owo-pb-toggle, .owo-pb-actions button {
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+  border-radius: 8px; padding: 4px 10px; font: inherit; cursor: pointer;
+}
+.owo-pb-refresh:hover, .owo-pb-toggle:hover, .owo-pb-actions button:hover { background: var(--accent-soft); }
+.owo-pb-actions button.owo-pb-pass { color: var(--green); border-color: var(--green); }
+.owo-pb-actions button.owo-pb-fail { color: var(--red); border-color: var(--red); }
+.owo-pb-list { display: grid; gap: 10px; }
+.owo-pb-card { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 12px 14px; }
+.owo-pb-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.owo-pb-bar { height: 6px; border-radius: 999px; background: var(--accent-soft); overflow: hidden; margin: 10px 0 8px; }
+.owo-pb-bar > span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.owo-pb-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.owo-pb-chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.owo-pb-chip.owo-pb-warn { background: var(--yellow-soft); color: var(--yellow); }
+.owo-pb-chip.owo-pb-bad { background: var(--red-soft); color: var(--red); }
+.owo-pb-issue { margin-top: 8px; font-size: 12px; color: var(--red); }
+.owo-pb-detail { margin-top: 12px; display: grid; gap: 8px; }
+.owo-pb-detail-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.owo-pb-step { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; }
+.owo-pb-step.owo-pb-passed { border-color: var(--green); background: var(--green-soft); }
+.owo-pb-step.owo-pb-failed { border-color: var(--red); background: var(--red-soft); }
+.owo-pb-step-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.owo-pb-mark { font-weight: 700; }
+.owo-pb-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.owo-pb-actions input {
+  flex: 1 1 180px; min-width: 120px; border: 1px solid var(--border-strong);
+  border-radius: 8px; padding: 5px 8px; font: inherit; background: var(--surface); color: var(--text);
+}

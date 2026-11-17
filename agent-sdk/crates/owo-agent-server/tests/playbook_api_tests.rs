@@ -138,6 +138,8 @@ async fn list_reports_progress_and_skips_state_files() {
         .find(|item| item["id"] == "demo")
         .expect("demo 应在列表");
     assert_eq!(demo["ok"], true);
+    // 列表下发工作区相对路径：客户端可以原样回传给 status/record。
+    assert_eq!(demo["path"], "playbooks/demo.json", "{demo}");
     assert_eq!(demo["progress"]["total"], 2);
     assert_eq!(demo["next"], "a");
     let broken = playbooks

@@ -1,0 +1,341 @@
+// 任务剧本面板：列表 → 进度 → 逐步记录（pass/fail/skip）。
+// 只调用 /playbooks 三条只读/记录接口；命令执行由 Agent 的 playbook_check 完成，
+// 本面板不提供执行入口（权限/审批不绕）。
+// IIFE 注册 window.OwoPanels.playbook；helpers 缺省时用 OwoApi。
+(function () {
+  "use strict";
+
+  var win = typeof window !== "undefined" ? window : globalThis;
+  win.OwoPanels = win.OwoPanels || {};
+
+  win.OwoPanels.playbook = (function () {
+    var ID = "playbook";
+    var H = {};
+    var rootEl = null;
+    var generation = 0;
+    var expandedPath = null;
+    var lastList = null;
+
+    function defaultEsc(text) {
+      var div = document.createElement("div");
+      div.textContent = text == null ? "" : String(text);
+      return div.innerHTML;
+    }
+    function esc(text) {
+      return H.esc ? H.esc(text) : defaultEsc(text);
+    }
+    function friendly(error) {
+      if (H.friendlyError) return H.friendlyError(error);
+      return String((error && error.message) || error || "未知错误");
+    }
+    function get(path) {
+      if (H.get) return H.get(path);
+      return window.OwoApi.stream(path).then(function (response) {
+        if (!response.ok) {
+          return response.text().then(function (body) {
+            throw new Error(response.status + ": " + body);
+          });
+        }
+        return response.json();
+      });
+    }
+    function post(path, body) {
+      return window.OwoApi.stream(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {}),
+      }).then(function (response) {
+        if (!response.ok) {
+          return response.text().then(function (text) {
+            throw new Error(response.status + ": " + text);
+          });
+        }
+        return response.json();
+      });
+    }
+
+    function mark(state) {
+      if (state === "passed") return "✔";
+      if (state === "failed") return "✘";
+      if (state === "skipped") return "⊘";
+      return "○";
+    }
+
+    function nav() {
+      return (
+        '<section data-panel="playbook" class="owo-pb-panel">' +
+        '<div class="owo-pb-tools"><h3>任务剧本</h3>' +
+        '<button type="button" class="owo-pb-refresh" aria-label="刷新剧本列表">刷新</button></div>' +
+        '<div class="hint">按剧本推进：查看进度、记录通过/失败/跳过。' +
+        '需要自动执行 <code>check</code> 步骤时，让 Agent 调用 <code>playbook_check</code>（经审批）。</div>' +
+        '<div class="owo-pb-meta sub" role="status" aria-live="polite">加载中…</div>' +
+        '<div class="owo-pb-list"></div>' +
+        '<div class="owo-pb-error sub" role="alert" hidden></div>' +
+        "</section>"
+      );
+    }
+
+    function bar(progress) {
+      var percent = Math.max(0, Math.min(100, Number(progress && progress.percent) || 0));
+      return (
+        '<div class="owo-pb-bar" role="progressbar" aria-valuenow="' + percent +
+        '" aria-valuemin="0" aria-valuemax="100" aria-label="剧本进度"><span style="width:' +
+        percent + '%"></span></div>'
+      );
+    }
+
+    function card(item) {
+      var progress = item.progress || {};
+      var issues = item.issues || [];
+      var ok = item.ok !== false;
+      var next = item.next ? '<span class="owo-pb-chip">下一步：' + esc(item.next) + "</span>" : "";
+      var summary = progress.summary || (ok ? "0/" + (item.steps || 0) : "不可用");
+      var issueHtml = issues.length
+        ? '<div class="owo-pb-issue">' +
+          issues
+            .map(function (issue) {
+              return esc(issue.message || issue.code || "问题");
+            })
+            .join("；") +
+          "</div>"
+        : "";
+      var expanded = expandedPath === item.path;
+      return (
+        '<article class="owo-pb-card" data-path="' + esc(item.path) + '">' +
+        '<div class="owo-pb-card-head"><div><b>' + esc(item.name || item.id || "未命名") + "</b>" +
+        '<div class="sub">' + esc(item.id || "") + " · " + esc(item.steps || 0) + " 步 · " +
+        esc(summary) + "</div></div>" +
+        '<button type="button" class="owo-pb-toggle" data-pb-toggle="' + esc(item.path) + '">' +
+        (expanded ? "收起" : "打开") + "</button></div>" +
+        bar(progress) +
+        '<div class="owo-pb-chips">' + next +
+        (progress.blocked ? '<span class="owo-pb-chip owo-pb-warn">阻塞 ' + progress.blocked + "</span>" : "") +
+        (progress.failed ? '<span class="owo-pb-chip owo-pb-bad">失败 ' + progress.failed + "</span>" : "") +
+        "</div>" +
+        issueHtml +
+        '<div class="owo-pb-detail" hidden></div>' +
+        "</article>"
+      );
+    }
+
+    function paintList(root, data) {
+      var list = root.querySelector(".owo-pb-list");
+      var meta = root.querySelector(".owo-pb-meta");
+      var playbooks = (data && data.playbooks) || [];
+      lastList = data;
+      if (meta) {
+        meta.textContent = playbooks.length
+          ? "共 " + playbooks.length + " 个剧本 · " + (data.dir || "")
+          : "工作区 playbooks/ 下暂无剧本";
+      }
+      if (!list) return;
+      list.innerHTML = playbooks.length
+        ? playbooks.map(card).join("")
+        : '<div class="hint">还没有剧本：在 <code>playbooks/</code> 放一个 JSON，或用 ' +
+          "<code>owo-agent playbook validate</code> 起步。</div>";
+    }
+
+    function stepRow(step) {
+      var action = "";
+      if (step.state === "pending" || step.state === "failed") {
+        action =
+          '<div class="owo-pb-actions">' +
+          '<input type="text" class="owo-pb-note" data-pb-note="' + esc(step.id) +
+          '" placeholder="证据/原因（可选）" aria-label="步骤 ' + esc(step.id) + ' 的备注">' +
+          '<button type="button" class="owo-pb-pass" data-pb-record="' + esc(step.id) +
+          '" data-pb-outcome="pass">通过</button>' +
+          '<button type="button" class="owo-pb-fail" data-pb-record="' + esc(step.id) +
+          '" data-pb-outcome="fail">失败</button>' +
+          '<button type="button" class="owo-pb-skip" data-pb-record="' + esc(step.id) +
+          '" data-pb-outcome="skip">跳过</button>' +
+          "</div>";
+      }
+      var command = step.command
+        ? '<div class="hint">命令：<code>' + esc(step.command) + "</code>（由 Agent 的 playbook_check 执行）</div>"
+        : "";
+      return (
+        '<div class="owo-pb-step owo-pb-' + esc(step.state) + '">' +
+        '<div class="owo-pb-step-head"><span class="owo-pb-mark">' + mark(step.state) +
+        "</span><b>" + esc(step.title || step.id) + "</b>" +
+        '<span class="sub">' + esc(step.id) + " · " + esc(step.kind || "") + "</span></div>" +
+        (step.note ? '<div class="hint">' + esc(step.note) + "</div>" : "") +
+        (step.attempts ? '<div class="hint">已尝试 ' + step.attempts + " 次</div>" : "") +
+        command +
+        action +
+        "</div>"
+      );
+    }
+
+    function paintDetail(cardEl, data) {
+      var box = cardEl.querySelector(".owo-pb-detail");
+      if (!box) return;
+      var steps = (data && data.steps) || [];
+      box.hidden = false;
+      box.innerHTML =
+        '<div class="owo-pb-detail-head"><span class="sub">' +
+        esc((data && data.progress && data.progress.summary) || "") +
+        "</span></div>" +
+        (steps.length ? steps.map(stepRow).join("") : '<div class="hint">没有步骤</div>');
+    }
+
+    function showError(root, message) {
+      var box = root.querySelector(".owo-pb-error");
+      if (!box) return;
+      box.hidden = !message;
+      box.textContent = message || "";
+    }
+
+    function toggle(root, path) {
+      var cardEl = root.querySelector('.owo-pb-card[data-path="' + cssEscape(path) + '"]');
+      if (!cardEl) return Promise.resolve();
+      var box = cardEl.querySelector(".owo-pb-detail");
+      var button = cardEl.querySelector(".owo-pb-toggle");
+      if (expandedPath === path && box && !box.hidden) {
+        expandedPath = null;
+        box.hidden = true;
+        if (button) button.textContent = "打开";
+        return Promise.resolve();
+      }
+      expandedPath = path;
+      if (button) button.textContent = "收起";
+      return get("/playbooks/status?file=" + encodeURIComponent(path))
+        .then(function (data) {
+          paintDetail(cardEl, data);
+        })
+        .catch(function (error) {
+          box.hidden = false;
+          box.innerHTML = '<div class="hint">读取失败：' + esc(friendly(error)) + "</div>";
+        });
+    }
+
+    function cssEscape(value) {
+      return String(value).replace(/["\\]/g, "\\$&");
+    }
+
+    function record(root, path, step, outcome) {
+      var cardEl = root.querySelector('.owo-pb-card[data-path="' + cssEscape(path) + '"]');
+      var input = cardEl
+        ? cardEl.querySelector('.owo-pb-note[data-pb-note="' + cssEscape(step) + '"]')
+        : null;
+      var note = input ? String(input.value || "").trim() : "";
+      showError(root, "");
+      return post("/playbooks/record", {
+        file: path,
+        step: step,
+        outcome: outcome,
+        note: note,
+      })
+        .then(function () {
+          return refresh(root);
+        })
+        .catch(function (error) {
+          showError(root, "记录失败：" + friendly(error));
+        });
+    }
+
+    function bind(root) {
+      root.addEventListener("click", function (event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+        var toggleButton = target.closest("[data-pb-toggle]");
+        if (toggleButton) {
+          toggle(root, toggleButton.getAttribute("data-pb-toggle"));
+          return;
+        }
+        var recordButton = target.closest("[data-pb-record]");
+        if (recordButton) {
+          var cardEl = recordButton.closest(".owo-pb-card");
+          if (!cardEl) return;
+          record(
+            root,
+            cardEl.getAttribute("data-path"),
+            recordButton.getAttribute("data-pb-record"),
+            recordButton.getAttribute("data-pb-outcome")
+          );
+        }
+      });
+    }
+
+    function refresh(root) {
+      root = root || rootEl;
+      if (!root) return Promise.resolve();
+      var current = ++generation;
+      var meta = root.querySelector(".owo-pb-meta");
+      if (meta) meta.textContent = "加载中…";
+      return get("/playbooks")
+        .then(function (data) {
+          if (current !== generation || rootEl !== root) return;
+          paintList(root, data);
+          if (expandedPath) {
+            var cardEl = root.querySelector(
+              '.owo-pb-card[data-path="' + cssEscape(expandedPath) + '"]'
+            );
+            if (cardEl) {
+              return get("/playbooks/status?file=" + encodeURIComponent(expandedPath)).then(
+                function (statusData) {
+                  paintDetail(cardEl, statusData);
+                }
+              );
+            }
+          }
+          return null;
+        })
+        .catch(function (error) {
+          if (current !== generation || rootEl !== root) return;
+          if (meta) meta.textContent = "加载失败，可重试";
+          showError(root, "剧本列表加载失败：" + friendly(error));
+        });
+    }
+
+    function mount(root, helpers) {
+      dispose();
+      H = {
+        get: helpers && helpers.get,
+        friendlyError: helpers && helpers.friendlyError,
+        esc: helpers && helpers.esc,
+      };
+      if (!root) return;
+      rootEl = root;
+      root.innerHTML = nav();
+      bind(root);
+      var button = root.querySelector(".owo-pb-refresh");
+      if (button)
+        button.addEventListener("click", function () {
+          refresh(root);
+        });
+      refresh(root);
+    }
+
+    function dispose() {
+      generation += 1;
+      rootEl = null;
+      expandedPath = null;
+      lastList = null;
+    }
+
+    var TEST_API = {
+      card: card,
+      stepRow: stepRow,
+      mark: mark,
+      bar: bar,
+    };
+
+    return {
+      id: ID,
+      title: "任务剧本",
+      nav: nav,
+      mount: mount,
+      refresh: refresh,
+      dispose: dispose,
+      _test: TEST_API,
+      get _lastList() {
+        return lastList;
+      },
+    };
+  })();
+})();
+
+if (typeof module !== "undefined" && module.exports) {
+  var __pbWin = typeof window !== "undefined" ? window : globalThis;
+  module.exports = __pbWin.OwoPanels.playbook;
+}

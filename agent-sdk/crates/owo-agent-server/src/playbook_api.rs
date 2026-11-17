@@ -37,21 +37,27 @@ fn playbooks_dir(workspace: &Path) -> PathBuf {
     workspace.join("playbooks")
 }
 
-/// 把请求里的相对路径限制在工作区内；拒绝绝对路径与 `..` 逃逸。
+/// 把请求里的路径限制在工作区内。
+///
+/// 接受两种形式：工作区相对路径（如 `playbooks/x.json`），或**工作区内**的绝对路径
+/// （面板从列表里拿到的路径可能被客户端规范化过）。`..` 逃逸、工作区外路径一律拒绝。
 fn resolve_in_workspace(workspace: &Path, file: &str) -> Result<PathBuf, String> {
-    let relative = Path::new(file);
-    if relative.is_absolute()
-        || relative
-            .components()
-            .any(|component| matches!(component, Component::ParentDir | Component::Prefix(_)))
-    {
-        return Err(format!("路径必须是工作区内的相对路径：{file}"));
-    }
     let base = workspace
         .canonicalize()
         .unwrap_or_else(|_| workspace.to_path_buf());
-    let joined = base.join(relative);
-    let canonical = joined
+    let raw = Path::new(file);
+    let candidate = if raw.is_absolute() {
+        raw.to_path_buf()
+    } else {
+        if raw
+            .components()
+            .any(|component| matches!(component, Component::ParentDir | Component::Prefix(_)))
+        {
+            return Err(format!("路径必须是工作区内的相对路径：{file}"));
+        }
+        base.join(raw)
+    };
+    let canonical = candidate
         .canonicalize()
         .map_err(|error| format!("剧本不存在或不可读（{file}）：{error}"))?;
     if !canonical.starts_with(&base) {
@@ -163,11 +169,15 @@ fn state_label(run: &PlaybookRun, playbook: &Playbook, step_id: &str) -> (&'stat
 /// GET /playbooks：工作区 `playbooks/` 的目录总览（含进度；不合法的不中断整表）。
 async fn list(State(state): State<std::sync::Arc<owo_agent_server::AppState>>) -> ApiResult {
     let dir = playbooks_dir(&state.workspace);
+    let workspace_canonical = state
+        .workspace
+        .canonicalize()
+        .unwrap_or_else(|_| state.workspace.clone());
     let entries = match std::fs::read_dir(&dir) {
         Ok(entries) => entries,
         Err(_) => {
             return Ok(Json(
-                json!({ "dir": dir.to_string_lossy(), "count": 0, "playbooks": [] }),
+                json!({ "dir": "playbooks", "count": 0, "playbooks": [] }),
             ));
         }
     };
@@ -185,12 +195,20 @@ async fn list(State(state): State<std::sync::Arc<owo_agent_server::AppState>>) -
         {
             continue;
         }
+        // 对外只用工作区相对路径（正斜杠）：客户端回传时可以原样作为 `file`。
+        let canonical = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+        let display = canonical
+            .strip_prefix(&workspace_canonical)
+            .map(|value| value.to_path_buf())
+            .unwrap_or_else(|_| path.clone())
+            .to_string_lossy()
+            .replace('\\', "/");
         match load_playbook(&path) {
             Ok(playbook) => match load_run(&path, &playbook) {
                 Ok(run) => playbooks.push(json!({
                     "id": playbook.id,
                     "name": playbook.name,
-                    "path": path.to_string_lossy(),
+                    "path": display,
                     "steps": playbook.steps.len(),
                     "ok": true,
                     "issues": [],
@@ -200,7 +218,7 @@ async fn list(State(state): State<std::sync::Arc<owo_agent_server::AppState>>) -
                 Err(error) => playbooks.push(json!({
                     "id": playbook.id,
                     "name": playbook.name,
-                    "path": path.to_string_lossy(),
+                    "path": display,
                     "steps": playbook.steps.len(),
                     "ok": false,
                     "issues": [json!({"code": "state_invalid", "step": null, "message": error})],
@@ -209,7 +227,7 @@ async fn list(State(state): State<std::sync::Arc<owo_agent_server::AppState>>) -
             Err(error) => playbooks.push(json!({
                 "id": path.file_stem().map(|value| value.to_string_lossy().into_owned()),
                 "name": Value::Null,
-                "path": path.to_string_lossy(),
+                "path": display,
                 "steps": 0,
                 "ok": false,
                 "issues": [json!({"code": "playbook_invalid", "step": null, "message": error})],
@@ -223,7 +241,7 @@ async fn list(State(state): State<std::sync::Arc<owo_agent_server::AppState>>) -
             .cmp(right["id"].as_str().unwrap_or_default())
     });
     Ok(Json(json!({
-        "dir": dir.to_string_lossy(),
+        "dir": "playbooks",
         "count": playbooks.len(),
         "playbooks": playbooks,
     })))

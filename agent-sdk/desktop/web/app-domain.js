@@ -2674,6 +2674,7 @@ const PANEL_ORDER = [
   "plugin-market",
   "workflow",
   "custom-workflows",
+  "playbook",
   "goal",
   "team",
   "eval",

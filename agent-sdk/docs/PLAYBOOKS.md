@@ -150,10 +150,13 @@ owo-agent playbook status --json playbooks/code-review.json
 `clients/ts/src/schema.d.ts`，并由 `route_contract_tests` 校验可达与一致性。
 依赖注入测试见 `crates/owo-agent-server/tests/playbook_api_tests.rs`。
 
-**路径安全**：只接受工作区内相对路径；绝对路径、`..` 逃逸、`*.state.json` 与非 `*.json`
-一律 400。
+**路径安全**：只接受工作区内路径（相对路径或工作区内绝对路径）；`..` 逃逸、
+工作区外路径、`*.state.json` 与非 `*.json` 一律 400。列表下发的 `path` 是
+**工作区相对路径**（正斜杠），客户端可原样回传给 status/record。
 
-桌面「任务剧本」面板（第七轮列表 + 本轮 API 的渲染层）是下一步。
+桌面「任务剧本」面板（`desktop/web/panels/playbook.panel.js`）已接入：工作台
+「自动化 → 任务剧本」。列表显示进度与下一步；展开后逐步展示状态/命令，并提供
+通过/失败/跳过记录（命令执行仍由 Agent 的 `playbook_check` 完成，面板不提供执行入口）。
 
 ## 8. 下一步
 
