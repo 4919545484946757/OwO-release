@@ -127,7 +127,7 @@ struct History {
     }
 };
 
-struct Anchor { std::string_view word; RelationMask allowed{}; };
+struct Anchor { std::string_view word; RelationMask allowed{}; Role role{}; };
 using Context = std::array<Anchor, kWindow>;
 
 [[nodiscard]] inline Context context(std::string_view text, const History& history) noexcept {
@@ -136,7 +136,7 @@ using Context = std::array<Anchor, kWindow>;
     for (std::size_t distance = 0; distance < kWindow; ++distance) {
         const auto [bytes, role] = history.tokens[distance];
         if (bytes == 0 || bytes > text.size()) break;
-        result[distance] = {text.substr(text.size() - bytes), gap_relations(std::span(gap).last(distance))};
+        result[distance] = {text.substr(text.size() - bytes), gap_relations(std::span(gap).last(distance)), role};
         text.remove_suffix(bytes);
         if (distance == kWindow - 1 || role == Role::none) break;
         gap[kWindow - 2 - distance] = role;

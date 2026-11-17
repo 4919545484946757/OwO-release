@@ -63,6 +63,7 @@ struct CandidateGenerationMetrics {
     std::uint64_t lmdg_ns{};
     std::uint64_t lmdg_queries{};
     std::uint64_t lmdg_hits{};
+    std::uint64_t lmdg_cross_word_hits{};
 };
 
 class CandidateGenerator {

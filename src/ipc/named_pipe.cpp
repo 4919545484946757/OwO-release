@@ -2892,6 +2892,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         {"lmdg_ns", static_cast<std::int64_t>(generation_metrics.lmdg_ns)},
                         {"lmdg_queries", static_cast<std::int64_t>(generation_metrics.lmdg_queries)},
                         {"lmdg_hits", static_cast<std::int64_t>(generation_metrics.lmdg_hits)},
+                        {"lmdg_cross_word_hits", static_cast<std::int64_t>(generation_metrics.lmdg_cross_word_hits)},
                         {"lmdg_precedes_external", lmdg_precedes_external},
                         {"model_prepare_us", static_cast<std::int64_t>(model_prepare_us)},
                         {"model_prepared", model_metadata_prepared},
@@ -2927,6 +2928,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         << R"(,"lmdg_ns":)" << generation_metrics.lmdg_ns
                         << R"(,"lmdg_queries":)" << generation_metrics.lmdg_queries
                         << R"(,"lmdg_hits":)" << generation_metrics.lmdg_hits
+                        << R"(,"lmdg_cross_word_hits":)" << generation_metrics.lmdg_cross_word_hits
                         << R"(,"exact_lookup_cache_hits":)" << generation_metrics.exact_lookup_cache_hits
                         << R"(,"coherence_cache_hits":)" << generation_metrics.coherence_cache_hits
                         << R"(,"total_us":)" << total_us

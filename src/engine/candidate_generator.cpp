@@ -1689,7 +1689,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 // even if it extends several surviving beam states.
                 constexpr std::uint16_t unknown_role = 256;
                 std::vector<std::uint16_t> entry_roles;
-                if (syntax_path) entry_roles.resize(entries.size(), unknown_role);
+                if (syntax_path || lmdg_path) entry_roles.resize(entries.size(), unknown_role);
                 const auto entry_role = [&](std::size_t index) {
                     auto& role = entry_roles[index];
                     if (role == unknown_role) {
@@ -1701,8 +1701,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 };
                 for (const auto& state : chart[begin]) {
                     if (cancelled && cancelled()) return {};
-                    const auto syntax_context = syntax_path && syntax_queries < syntax_collocations::kMaximumQueries &&
-                            state.syntax_bonus < syntax_collocations::kMaximumPathBonus
+                    const bool syntax_budget = syntax_path && syntax_queries < syntax_collocations::kMaximumQueries &&
+                            state.syntax_bonus < syntax_collocations::kMaximumPathBonus;
+                    const bool lmdg_budget = lmdg_path && state.lmdg_bonus < RimeLmdg::kMaximumPathBonus &&
+                            lmdg_queries < RimeLmdg::kMaximumQueries && lmdg_time < kLmdgTimeBudget;
+                    const auto syntax_context = syntax_budget || lmdg_budget
                         ? syntax_collocations::context(state.text, state.syntax_history) : syntax_collocations::Context{};
                     for (std::size_t entry_index = 0; entry_index < entries.size(); ++entry_index) {
                         const auto& entry = entries[entry_index];
@@ -1725,7 +1728,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                             score += collocation;
                         }
                         std::int64_t syntax_bonus = 0;
-                        if (syntax_path && syntax_queries < syntax_collocations::kMaximumQueries &&
+                        if (syntax_budget && syntax_queries < syntax_collocations::kMaximumQueries &&
                             !syntax_context.front().word.empty() && reading.size() <= 4 &&
                             entry.text.size() == reading.size() * 3) {
                             const auto room = std::min(syntax_collocations::kMaximumPairBonus,
@@ -1751,25 +1754,59 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         // Apply n-gram evidence on dictionary transitions, before
                         // either the beam or the visible sentence quota can prune them.
                         std::int64_t lmdg_bonus = 0;
-                        if (lmdg_path && reading.size() >= 2 && reading.size() <= 4 &&
-                            !state.segment_lengths.empty() && state.segment_lengths.back() >= 2 &&
-                            state.segment_lengths.back() + reading.size() <= 6 &&
-                            state.previous.size() == state.segment_lengths.back() * 3 && entry.text.size() == reading.size() * 3 &&
-                            state.lmdg_bonus < RimeLmdg::kMaximumPathBonus &&
+                        if (lmdg_budget && reading.size() >= 2 && reading.size() <= 4 &&
+                            !state.segment_lengths.empty() && entry.text.size() == reading.size() * 3 &&
                             lmdg_queries < RimeLmdg::kMaximumQueries && lmdg_time < kLmdgTimeBudget) {
-                            const auto room = std::min(RimeLmdg::kMaximumBonus,
-                                RimeLmdg::kMaximumPathBonus - state.lmdg_bonus);
+                            const auto room = RimeLmdg::kMaximumPathBonus - state.lmdg_bonus;
                             if (chart[end].size() < beam_width || score + room >= chart[end].front().score) {
-                                ++lmdg_queries;
-                                const auto started = std::chrono::steady_clock::now();
-                                lmdg_bonus = std::min(room, lmdg->boundary_bonus(state.previous, entry.text));
-                                const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                    std::chrono::steady_clock::now() - started);
-                                lmdg_time += elapsed;
-                                if (metrics) {
-                                    metrics->lmdg_ns += static_cast<std::uint64_t>(elapsed.count());
-                                    ++metrics->lmdg_queries;
-                                    if (lmdg_bonus) ++metrics->lmdg_hits;
+                                const auto probe = [&](const std::string_view left) {
+                                    if (left.size() < 6 || left.size() > 12 || left.size() + entry.text.size() > 18 ||
+                                        lmdg_queries >= RimeLmdg::kMaximumQueries || lmdg_time >= kLmdgTimeBudget)
+                                        return std::int64_t{0};
+                                    ++lmdg_queries;
+                                    const auto started = std::chrono::steady_clock::now();
+                                    const auto bonus = lmdg->boundary_bonus(left, entry.text);
+                                    const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                        std::chrono::steady_clock::now() - started);
+                                    lmdg_time += elapsed;
+                                    if (metrics) {
+                                        metrics->lmdg_ns += static_cast<std::uint64_t>(elapsed.count());
+                                        ++metrics->lmdg_queries;
+                                        if (bonus) ++metrics->lmdg_hits;
+                                    }
+                                    return bonus;
+                                };
+                                if (state.segment_lengths.back() >= 2 &&
+                                    state.previous.size() == state.segment_lengths.back() * 3) {
+                                    // A determiner can be a standalone object at the end of input.
+                                    // Inside a longer sentence, "verb + these" is not evidence for
+                                    // the verb's compatibility with the noun that comes afterward.
+                                    const auto role = end < path.syllables.size()
+                                        ? entry_role(entry_index) : syntax_collocations::Role::none;
+                                    if (role != syntax_collocations::Role::quantity)
+                                        lmdg_bonus = std::min(room, probe(state.previous));
+                                }
+                                // The n-gram is contiguous corpus evidence for the two endpoints,
+                                // not a parser. Only project it over a syntactically licensed
+                                // object gap (e.g. a determiner, classifier, or aspect particle).
+                                // Unknown endpoints are allowed only with a strong corpus attestation.
+                                std::int64_t best_cross = 0;
+                                for (std::size_t gap = 1; gap < syntax_context.size() && lmdg_bonus < room; ++gap) {
+                                    const auto& anchor = syntax_context[gap];
+                                    if (anchor.word.empty()) break;
+                                    using namespace syntax_collocations;
+                                    if (!(anchor.allowed & flag(Relation::object)) ||
+                                        (anchor.role != Role::none && !has(anchor.role, Role::verb))) continue;
+                                    const auto object_role = entry_role(entry_index);
+                                    if (object_role != Role::none && !has(object_role, Role::nominal)) break;
+                                    const auto attestation = probe(anchor.word);
+                                    if (attestation < RimeLmdg::kConfirmedSentenceBonus) continue;
+                                    const auto projected = attestation * 85 / 100 - 250 * static_cast<std::int64_t>(gap - 1);
+                                    best_cross = std::max(best_cross, projected);
+                                }
+                                if (best_cross) {
+                                    lmdg_bonus += std::min(room - lmdg_bonus, best_cross);
+                                    if (metrics) ++metrics->lmdg_cross_word_hits;
                                 }
                                 score += lmdg_bonus;
                             }
@@ -1779,7 +1816,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 next.collocation_bonus += collocation;
                                 next.syntax_bonus += syntax_bonus;
                                 next.lmdg_bonus += lmdg_bonus;
-                                if (syntax_path && syntax_queries < syntax_collocations::kMaximumQueries) {
+                                if ((syntax_path && syntax_queries < syntax_collocations::kMaximumQueries) ||
+                                    (lmdg_path && lmdg_queries < RimeLmdg::kMaximumQueries && lmdg_time < kLmdgTimeBudget)) {
                                     next.syntax_history = state.syntax_history;
                                     next.syntax_history.push(entry.text.size(), entry_role(entry_index));
                                 }

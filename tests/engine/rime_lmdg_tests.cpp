@@ -20,21 +20,12 @@ void write(const std::filesystem::path& path, const std::vector<unsigned char>& 
     std::ofstream file(path, std::ios::binary | std::ios::trunc);
     file.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
 }
-}
-
-int main(int argc, char** argv) {
-    using namespace owo::engine;
-    if (argc != 2) return 2;
-    const auto directory = std::filesystem::absolute(argv[1]);
-    std::filesystem::create_directories(directory);
-    const auto path = directory / ("fixture-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".gram");
-    struct Cleanup { std::filesystem::path file; ~Cleanup() { std::error_code error; std::filesystem::remove(file, error); } } cleanup{path};
+std::vector<unsigned char> fixture(const std::array<std::uint32_t, 8>& key) {
     auto bytes = std::vector<unsigned char>(kTable + 4 * kUnits);
     constexpr std::string_view version = "Rime::Grammar/1.0";
     std::copy(version.begin(), version.end(), bytes.begin());
     put(bytes, 36, kUnits);
     put(bytes, 40, 4);
-    constexpr std::array<std::uint32_t, 8> key{0xb5, 0x32, 0x8e, 0x59, 0x8e, 0x19, 0x8e, 0x01}; // 甲乙丙丁
     std::uint32_t node = 0, label = 0;
     for (std::size_t i = 0; i < key.size(); ++i) {
         const auto child = static_cast<std::uint32_t>(256 * (i + 1));
@@ -45,13 +36,27 @@ int main(int argc, char** argv) {
     constexpr std::uint32_t leaf = 4'000;
     put(bytes, kTable + 4 * node, ((node ^ leaf) << 10) | 0x100 | label);
     put(bytes, kTable + 4 * leaf, 0x80000000U | 175'000U);
+    return bytes;
+}
+}
+
+int main(int argc, char** argv) {
+    using namespace owo::engine;
+    if (argc != 2) return 2;
+    const auto directory = std::filesystem::absolute(argv[1]);
+    std::filesystem::create_directories(directory);
+    const auto path = directory / ("fixture-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".gram");
+    struct Cleanup { std::filesystem::path file; ~Cleanup() { std::error_code error; std::filesystem::remove(file, error); } } cleanup{path};
+    constexpr std::array<std::uint32_t, 8> key{0xb5, 0x32, 0x8e, 0x59, 0x8e, 0x19, 0x8e, 0x01}; // 甲乙丙丁
+    auto bytes = fixture(key);
     write(path, bytes);
     RimeLmdg model;
     if (!model.load(path).empty() || model.boundary_bonus("甲乙", "丙丁") != 5000 ||
         model.boundary_bonus("甲以", "丙丁") != 0 || model.boundary_bonus("甲，", "丙丁") != 0 ||
         model.boundary_bonus("甲", "乙丙丁") != 0) return 3;
     const MemoryLexicon lexicon({{{"jia", "yi"}, "甲乙", 700}, {{"jia", "yi"}, "甲以", 1600},
-        {{"bing", "ding"}, "丙丁", 1800}});
+        {{"bing", "ding"}, "丙丁", 1800}, {{"zhe", "xie"}, "这些", 1800},
+        {{"le"}, "了", 1800}, {{"yin", "ci"}, "因此", 1800}});
     const CandidateGenerator generator(lexicon);
     const auto parsed = FullPinyinSchema{}.parse("jiayibingding", 16, false);
     CandidateGenerationMetrics metrics;
@@ -61,6 +66,21 @@ int main(int argc, char** argv) {
         assisted.front().lmdg_bonus < RimeLmdg::kConfirmedSentenceBonus ||
         assisted.front().consumed_input_bytes != parsed.normalized_input.size() || !metrics.lmdg_hits ||
         metrics.lmdg_queries > RimeLmdg::kMaximumQueries) return 4;
+    // The fixture covers the endpoint pair only. A syntactic bridge can
+    // carry it across modifiers without changing the original output text.
+    const auto bridge = [&](const std::string_view input, const std::string_view expected, const bool should_cross) {
+        const auto parsed = FullPinyinSchema{}.parse(input, 16, false);
+        CandidateGenerationMetrics metrics;
+        const auto assisted = generator.generate(parsed, 16, false, {}, &metrics, {}, false, 7,
+            true, 0, 0, false, false, &model);
+        return !assisted.empty() && assisted.front().text == expected &&
+            (!!metrics.lmdg_cross_word_hits == should_cross) &&
+            assisted.front().consumed_input_bytes == input.size() &&
+            metrics.lmdg_queries <= RimeLmdg::kMaximumQueries;
+    };
+    if (!bridge("jiayizhexiebingding", "甲乙这些丙丁", true) ||
+        !bridge("jiayilezhexiebingding", "甲乙了这些丙丁", true) ||
+        !bridge("jiayiyincibingding", "甲以因此丙丁", false)) return 8;
     (void)model.load(directory / "intentionally-not-a-model.gram");
     if (model.ready() || model.boundary_bonus("甲乙", "丙丁")) return 5;
     // The header/root opens, but a malicious interior child reference cannot
@@ -72,5 +92,11 @@ int main(int argc, char** argv) {
     put(bytes, 36, 0xffffffffU);
     write(path, bytes);
     if (model.load(path).empty() || model.ready()) return 7;
-    std::cout << "Rime grammar mapping, bounds, and in-beam score contract passed.\n";
+    // A strong "verb + these" attestation is considered at a sentence
+    // endpoint, but not allowed to outvote an unrelated overt object.
+    write(path, fixture({0xb5, 0x32, 0x8e, 0x59, 0xcf, 0xd9, 0x8e, 0x9b})); // 甲乙这些
+    if (!model.load(path).empty() || model.boundary_bonus("甲乙", "这些") != 5000 ||
+        !bridge("jiayizhexie", "甲乙这些", false) ||
+        !bridge("jiayizhexiebingding", "甲以这些丙丁", false)) return 9;
+    std::cout << "Rime grammar mapping, bounds, and adjacent/cross-word in-beam score contract passed.\n";
 }

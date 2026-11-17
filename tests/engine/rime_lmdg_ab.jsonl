@@ -2,3 +2,7 @@
 {"id":"subdue-thief","input":"zhifuxiaotou","expected":["制服小偷"],"tags":["same-reading","verb-object"]}
 {"id":"subdue-rioter","input":"zhifubaotu","expected":["制服暴徒"],"tags":["same-reading","verb-object"]}
 {"id":"pay-fees","input":"zhifufeiyong","expected":["支付费用"],"tags":["control","verb-object"]}
+{"id":"subdue-these-thugs","input":"zhifuzhexiedaitu","expected":["制服这些歹徒"],"tags":["same-reading","verb-object","nonadjacent"]}
+{"id":"subdue-these-robbers","input":"zhifuzhexiejiefei","expected":["制服这些劫匪"],"tags":["same-reading","verb-object","nonadjacent"]}
+{"id":"subdue-those-thugs","input":"zhifunaxiedaitu","expected":["制服那些歹徒"],"tags":["same-reading","verb-object","nonadjacent"]}
+{"id":"pay-these-fees","input":"zhifuzhexiefeiyong","expected":["支付这些费用"],"tags":["control","verb-object","nonadjacent"]}
