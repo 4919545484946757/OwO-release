@@ -44,6 +44,14 @@ pub(crate) enum PluginAction {
     Update { id: String, dir: PathBuf },
     /// 卸载插件
     Uninstall { id: String },
+    /// 从备份回滚到旧版（默认最新备份）
+    Rollback {
+        /// 已安装插件 id
+        id: String,
+        /// 指定备份目录（默认 <data>/plugins/backups/<id>-<version> 中最新的）
+        #[arg(long)]
+        backup: Option<PathBuf>,
+    },
 }
 /// 校验 Agent Plugins 1.0.0 规范包并打印逐组件结果。
 ///
@@ -127,9 +135,7 @@ fn validate_agent_plugin(dir: &std::path::Path) -> Result<(), Box<dyn std::error
 /// 插件市场治理（本地离线模式）：catalog/check/install/update/uninstall/verify。
 /// 签名/扫描/回滚由 core PluginManager 提供；远端拉取走 HTTP 面（POST /plugins/market/refresh）。
 pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Error>> {
-    use owo_agent_core::plugin::{
-        discover_plugins, scan_plugin_for_risks, PluginManager, PluginManifest,
-    };
+    use owo_agent_core::plugin::{discover_plugins, scan_plugin_for_risks, PluginManifest};
 
     let workspace = args.workspace;
     let data_root = if let Some(dir) = args.data_dir {
@@ -203,7 +209,7 @@ pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Err
             if owo_agent_core::agent_plugins::is_agent_plugin_dir(&dir) {
                 return validate_agent_plugin(&dir);
             }
-            let manager = PluginManager::new(data_root.clone(), app_version);
+            let manager = manager_for(&data_root, &app_version);
             match manager.verify_plugin_dir(&dir) {
                 Ok(report) => {
                     println!(
@@ -233,7 +239,7 @@ pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Err
             return Ok(());
         }
         PluginAction::Install { dir } => {
-            let manager = PluginManager::new(data_root.clone(), app_version);
+            let manager = manager_for(&data_root, &app_version);
             match manager.install(&dir) {
                 Ok(report) => {
                     println!(
@@ -251,7 +257,7 @@ pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Err
             }
         }
         PluginAction::Update { id, dir } => {
-            let manager = PluginManager::new(data_root.clone(), app_version);
+            let manager = manager_for(&data_root, &app_version);
             let backup = data_root.join("plugins").join("backups");
             match manager.update(&dir, &backup) {
                 Ok(report) => {
@@ -267,7 +273,7 @@ pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Err
             }
         }
         PluginAction::Uninstall { id } => {
-            let manager = PluginManager::new(data_root.clone(), app_version);
+            let manager = manager_for(&data_root, &app_version);
             match manager.uninstall(&id) {
                 Ok(audit_lines) => {
                     println!("已卸载 {id}");
@@ -281,9 +287,44 @@ pub(crate) fn run_plugin(args: PluginArgs) -> Result<(), Box<dyn std::error::Err
                 }
             }
         }
+        PluginAction::Rollback { id, backup } => {
+            let manager = manager_for(&data_root, &app_version);
+            match manager.rollback(&id, backup.as_deref()) {
+                Ok(report) => {
+                    println!("已回滚：{id} → v{}（{:?}）", report.version, report.state);
+                    for line in report.audit {
+                        println!("  {line}");
+                    }
+                }
+                Err(error) => {
+                    println!("回滚失败：{error}");
+                    std::process::exit(1);
+                }
+            }
+        }
     }
     let _ = PluginManifest::load; // 类型引用保活（防未使用告警变体依赖）。
     Ok(())
+}
+
+/// 默认要求签名；`OWO_PLUGIN_REQUIRE_SIGNATURE=0` 关闭（与 HTTP 市场同一开关）。
+fn require_signature() -> bool {
+    std::env::var("OWO_PLUGIN_REQUIRE_SIGNATURE")
+        .map(|value| value.trim() != "0")
+        .unwrap_or(true)
+}
+
+/// CLI 侧 PluginManager：与市场一致地应用签名策略。
+fn manager_for(
+    data_root: &std::path::Path,
+    app_version: &str,
+) -> owo_agent_core::plugin::PluginManager {
+    let mut manager = owo_agent_core::plugin::PluginManager::new(
+        data_root.to_path_buf(),
+        app_version.to_string(),
+    );
+    manager.set_require_signature(require_signature());
+    manager
 }
 
 /// 解析 Ed25519 私钥：raw 32 字节、hex（可带 0x）或 base64。

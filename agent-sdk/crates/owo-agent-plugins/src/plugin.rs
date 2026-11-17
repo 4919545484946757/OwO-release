@@ -905,8 +905,9 @@ impl PluginManager {
             return Err(format!("插件 {} 未安装，无法更新", report.id));
         }
         let mut audit = report.audit;
-        // 1. 备份旧版。
-        let backup = backup_root.join(format!("{}-{}", report.id, report.version));
+        // 1. 备份旧版（目录名用**已安装版本**，不是待更新版本）。
+        let installed_version = Self::installed_plugin_version(&target)?;
+        let backup = backup_root.join(format!("{}-{}", report.id, installed_version));
         if backup.exists() {
             let _ = std::fs::remove_dir_all(&backup);
         }
@@ -934,6 +935,85 @@ impl PluginManager {
             version: report.version,
             state: PluginInstallState::Activated,
             audit,
+        })
+    }
+
+    /// 读取已安装插件目录的版本（历史 manifest.json 或规范包 plugin.json）。
+    fn installed_plugin_version(dir: &Path) -> Result<String, String> {
+        if dir.join("manifest.json").exists() {
+            return Ok(PluginManifest::load(&dir.join("manifest.json"))?.version);
+        }
+        crate::agent_plugins::load_agent_plugin(dir, None)
+            .map_err(|error| format!("读取已安装插件失败：{error}"))?
+            .manifest
+            .version
+            .clone()
+            .ok_or_else(|| "已安装插件缺少版本".to_string())
+    }
+
+    /// 回滚：用备份恢复旧版（默认选最新备份；备份由 `update` 自动产生）。
+    ///
+    /// 先复制到暂存目录再替换，避免中途失败把插件目录留在半成品状态。
+    pub fn rollback(&self, id: &str, backup: Option<&Path>) -> Result<PluginInstallReport, String> {
+        let backup_root = self.data_root.join("plugins").join("backups");
+        let source = match backup {
+            Some(path) => path.to_path_buf(),
+            None => {
+                let entries = std::fs::read_dir(&backup_root).map_err(|error| {
+                    format!("没有可用的备份目录（{}）：{error}", backup_root.display())
+                })?;
+                let prefix = format!("{id}-");
+                let mut candidates: Vec<(std::time::SystemTime, PathBuf)> = entries
+                    .flatten()
+                    .filter(|entry| entry.file_name().to_string_lossy().starts_with(&prefix))
+                    .filter_map(|entry| {
+                        let path = entry.path();
+                        if !path.is_dir() {
+                            return None;
+                        }
+                        let modified = entry
+                            .metadata()
+                            .ok()
+                            .and_then(|meta| meta.modified().ok())?;
+                        Some((modified, path))
+                    })
+                    .collect();
+                candidates.sort_by_key(|(modified, _)| std::cmp::Reverse(*modified));
+                candidates
+                    .into_iter()
+                    .next()
+                    .map(|(_, path)| path)
+                    .ok_or_else(|| format!("插件 {id} 没有可回滚的备份（先 update 一次）"))?
+            }
+        };
+        if !source.is_dir() {
+            return Err(format!("备份目录不存在：{}", source.display()));
+        }
+        let version = if source.join("manifest.json").exists() {
+            PluginManifest::load(&source.join("manifest.json"))?.version
+        } else {
+            crate::agent_plugins::load_agent_plugin(&source, None)
+                .map_err(|error| format!("备份包无效：{error}"))?
+                .manifest
+                .version
+                .clone()
+                .unwrap_or_else(|| "0.0.0".to_string())
+        };
+        let target = self.data_root.join("plugins").join(id);
+        let staging = self
+            .data_root
+            .join("plugins")
+            .join(format!(".{id}-rollback"));
+        let _ = std::fs::remove_dir_all(&staging);
+        copy_dir(&source, &staging)?;
+        let _ = std::fs::remove_dir_all(&target);
+        copy_dir(&staging, &target).map_err(|error| format!("回滚写入失败：{error}"))?;
+        let _ = std::fs::remove_dir_all(&staging);
+        Ok(PluginInstallReport {
+            id: id.to_string(),
+            version,
+            state: PluginInstallState::Activated,
+            audit: vec![format!("已从备份回滚：{}", source.display())],
         })
     }
 
@@ -1376,5 +1456,51 @@ mod tests {
         assert!(plugin_mcp_config(&manifest_path, &bare).is_none());
         assert!(plugin_mcp_configs(&manifest_path, &bare).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 回滚：update 产生的备份可恢复旧版本，且目标目录落回旧清单。
+    #[test]
+    fn rollback_restores_previous_version_from_backup() {
+        let root = std::env::temp_dir().join(format!("owo-rollback-{}", uuid::Uuid::new_v4()));
+        let data = root.join("data");
+        std::fs::create_dir_all(&data).unwrap();
+        let write_pkg = |dir: &Path, version: &str| {
+            std::fs::create_dir_all(dir).unwrap();
+            let manifest = serde_json::json!({
+                "id": "demo",
+                "name": "Demo",
+                "version": version,
+            });
+            std::fs::write(
+                dir.join("manifest.json"),
+                serde_json::to_string_pretty(&manifest).unwrap(),
+            )
+            .unwrap();
+        };
+        let pkg1 = root.join("pkg1");
+        let pkg2 = root.join("pkg2");
+        write_pkg(&pkg1, "1.0.0");
+        write_pkg(&pkg2, "2.0.0");
+        let mut manager = PluginManager::new(data.clone(), "0.5.0".to_string());
+        manager.set_require_signature(false);
+        manager.install(&pkg1).unwrap();
+        manager
+            .update(&pkg2, &data.join("plugins/backups"))
+            .unwrap();
+        let installed = data.join("plugins/demo/manifest.json");
+        assert_eq!(PluginManifest::load(&installed).unwrap().version, "2.0.0");
+        // 备份目录名应记录被替换的版本（1.0.0），而不是新版本。
+        assert!(
+            data.join("plugins/backups/demo-1.0.0").is_dir(),
+            "备份应命名为 demo-1.0.0"
+        );
+
+        let report = manager.rollback("demo", None).expect("回滚应成功");
+        assert_eq!(report.version, "1.0.0");
+        assert_eq!(PluginManifest::load(&installed).unwrap().version, "1.0.0");
+
+        // 没有备份的插件回滚应给出可读错误。
+        assert!(manager.rollback("missing", None).is_err());
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

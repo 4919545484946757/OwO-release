@@ -76,6 +76,8 @@ owo-demo-kit/
 签名对象是**包摘要**——按相对路径排序，对「路径 \0 文件 sha256 \n」整体再做 sha256，
 排除签名文件本身、隐藏目录与符号链接。签名存在即必须通过，缺失按未签名包处理。
 
+回滚：owo-agent plugin rollback <id>（默认取最新备份；备份由 update 自动产生，目录名记录被替换的版本，如 demo-1.0.0）。CLI 与市场共用签名开关 OWO_PLUGIN_REQUIRE_SIGNATURE=0（默认要求签名）。
+
 作者侧签名：`owo-agent plugin sign <包目录> --key <私钥文件>`（私钥支持 raw 32 字节 /
 hex / base64，只读入内存、不落盘）；`owo-agent plugin check <包目录>` 会显示
 「签名：ed25519 校验通过」或「签名：校验失败」。
