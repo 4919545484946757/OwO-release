@@ -101,6 +101,8 @@ owo-agent playbook archive playbooks/code-review.json --marker 2026-11-18-a   # 
 owo-agent playbook history playbooks/code-review.json
 owo-agent playbook history --json playbooks/code-review.json
 owo-agent playbook diff playbooks/code-review.json --from 2026-11-18-a --to 2026-11-18-b
+# 标记也可用 latest / previous / oldest
+owo-agent playbook diff playbooks/code-review.json --from previous --to latest
 
 # 机器可读（status / next / record / reset / list / init / archive / history / diff 都支持）
 owo-agent playbook status --json playbooks/code-review.json

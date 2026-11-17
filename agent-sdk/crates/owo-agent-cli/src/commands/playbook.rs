@@ -102,13 +102,13 @@ pub(crate) enum PlaybookAction {
     },
     /// 列出历次归档与各自进度
     History { file: PathBuf },
-    /// 对比两次归档（哪一步变化/退化）
+    /// 对比两次归档（哪一步变化/退化；标记可用 latest/previous/oldest）
     Diff {
         file: PathBuf,
-        /// 基准归档标记
+        /// 基准归档标记（或 latest/previous/oldest）
         #[arg(long)]
         from: String,
-        /// 目标归档标记
+        /// 目标归档标记（或 latest/previous/oldest）
         #[arg(long)]
         to: String,
     },
@@ -1324,13 +1324,51 @@ fn load_archive(file: &Path, marker: &str, playbook: &Playbook) -> Result<Playbo
     Ok(run)
 }
 
+/// 归档标记别名：latest / previous / oldest → 实际标记（按标记倒序）。
+fn resolve_archive_alias(file: &Path, marker: &str) -> Result<String, String> {
+    let alias = marker.trim().to_ascii_lowercase();
+    if !matches!(alias.as_str(), "latest" | "previous" | "oldest") {
+        return Ok(marker.to_string());
+    }
+    let dir = runs_dir(file);
+    let entries = std::fs::read_dir(&dir)
+        .map_err(|error| format!("读取归档目录失败（{}）：{error}", dir.display()))?;
+    let mut markers: Vec<String> = entries
+        .flatten()
+        .filter(|entry| entry.path().extension().and_then(|value| value.to_str()) == Some("json"))
+        .filter_map(|entry| {
+            entry
+                .path()
+                .file_stem()
+                .map(|value| value.to_string_lossy().into_owned())
+        })
+        .collect();
+    markers.sort();
+    markers.reverse();
+    let index = match alias.as_str() {
+        "latest" => 0,
+        "previous" => 1,
+        _ => markers.len().saturating_sub(1),
+    };
+    markers.get(index).cloned().ok_or_else(|| {
+        format!(
+            "没有足够的归档可用（`{alias}` 需要至少 {} 个）",
+            if alias == "previous" { 2 } else { 1 }
+        )
+    })
+}
+
 /// 对比两次归档：哪一步变了、哪一步退化。
 fn diff(file: &Path, from: &str, to: &str, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     let playbook = load(file)?;
     ensure_valid(&playbook)?;
-    let from_run = load_archive(file, from, &playbook)
+    let from = resolve_archive_alias(file, from)
         .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
-    let to_run = load_archive(file, to, &playbook)
+    let to = resolve_archive_alias(file, to)
+        .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
+    let from_run = load_archive(file, &from, &playbook)
+        .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
+    let to_run = load_archive(file, &to, &playbook)
         .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
     let (value, regressions) = diff_runs(&playbook, &from_run, &to_run);
     if json {
@@ -1391,6 +1429,28 @@ mod tests {
         )
         .unwrap();
         file
+    }
+
+    #[test]
+    fn archive_aliases_resolve_latest_previous_oldest() {
+        let dir = scratch("alias");
+        let file = write_playbook(&dir);
+        let runs = runs_dir(&file);
+        std::fs::create_dir_all(&runs).unwrap();
+        for marker in ["r1", "r2", "r3"] {
+            std::fs::write(runs.join(format!("{marker}.json")), "{}").unwrap();
+        }
+        assert_eq!(resolve_archive_alias(&file, "latest").unwrap(), "r3");
+        assert_eq!(resolve_archive_alias(&file, "previous").unwrap(), "r2");
+        assert_eq!(resolve_archive_alias(&file, "oldest").unwrap(), "r1");
+        assert_eq!(resolve_archive_alias(&file, "r2").unwrap(), "r2");
+
+        // 只剩一个归档时 previous 不够用。
+        std::fs::remove_file(runs.join("r2.json")).unwrap();
+        std::fs::remove_file(runs.join("r3.json")).unwrap();
+        assert!(resolve_archive_alias(&file, "previous").is_err());
+        assert_eq!(resolve_archive_alias(&file, "latest").unwrap(), "r1");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
