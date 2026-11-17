@@ -19,3 +19,7 @@
 {"id":"robbers-subdued-kidnappers","input":"jiefeizhifulebangfei","expected":["劫匪制服了绑匪"],"tags":["same-reading","subject-verb-object","aspect"]}
 {"id":"robbers-paid-the-bill","input":"jiefeizhifulezhangdan","expected":["劫匪支付了账单"],"tags":["control","aspect"]}
 {"id":"robbers-subdued-robbers","input":"jiefeizhifulejiefei","expected":["劫匪制服了劫匪"],"tags":["subject-verb-object","aspect"]}
+{"id":"set-the-logic-to","input":"jiangluojigaiwei","expected":["将逻辑改为"],"tags":["same-reading","disposal"]}
+{"id":"modify-the-logic-to","input":"jiangluojixiugaiwei","expected":["将逻辑修改为"],"tags":["same-reading","disposal"]}
+{"id":"set-the-config-to","input":"jiangpeizhigaiwei","expected":["将配置改为"],"tags":["control","disposal"]}
+{"id":"discuss-logic","input":"jiangluoji","expected":["讲逻辑"],"tags":["control","disposal"]}

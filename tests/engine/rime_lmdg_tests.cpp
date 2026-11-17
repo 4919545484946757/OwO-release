@@ -143,5 +143,20 @@ int main(int argc, char** argv) {
     const auto packed = CandidateGenerator(packed_lexicon).generate(FullPinyinSchema{}.parse("chulilebingding", 16, false),
         16, false, {}, nullptr, {}, false, 7, true, 0, 0, false, false, &model);
     if (packed.empty() || packed.front().text != "处理了丙丁" || packed.front().lmdg_bonus != 5000) return 15;
+    const MemoryLexicon disposal_lexicon({
+        {{"ba"}, "把", 2000}, {{"ba"}, "爸", 3000},
+        {{"wen", "zhang"}, "文章", 2000}, {{"gai", "wei"}, "改为", 2000},
+        {{"xiu", "gai"}, "修改", 1600}, {{"wei"}, "为", 1800}, {{"wei"}, "位", 1900}});
+    const auto disposal = CandidateGenerator(disposal_lexicon).generate(FullPinyinSchema{}.parse("bawenzhanggaiwei", 16, false),
+        16, false, {}, nullptr, {}, false, 7, true, 0, 0, false, false, &model);
+    if (disposal.empty() || disposal.front().text != "把文章改为" || disposal.front().attached_disposal != 1 ||
+        std::any_of(disposal.begin(), disposal.end(), [](const auto& row) {
+            return row.text.starts_with("爸") && row.attached_disposal != 0;
+        })) return 16;
+    const auto split_result = CandidateGenerator(disposal_lexicon).generate(
+        FullPinyinSchema{}.parse("bawenzhangxiugaiwei", 16, false), 16, false, {}, nullptr, {}, false, 7,
+        true, 0, 0, false, false, &model);
+    if (split_result.empty() || split_result.front().text != "把文章修改为" ||
+        split_result.front().attached_disposal != 1 || split_result.front().attached_result != 6) return 17;
     std::cout << "Rime grammar mapping, bounds, and adjacent/cross-word in-beam score contract passed.\n";
 }

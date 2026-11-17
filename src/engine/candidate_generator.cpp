@@ -41,6 +41,9 @@ struct SearchState {
     // A surface N + possible V adjacency, not a confirmed object relation.
     std::int64_t lmdg_untyped_predicate_bonus{};
     std::uint8_t attached_aspect{};
+    std::uint8_t attached_disposal{};
+    std::uint8_t pending_disposal{};
+    std::uint8_t attached_result{};
     bool pending_aspect{};
     syntax_collocations::History syntax_history;
 };
@@ -402,6 +405,8 @@ void replace_candidate_payload(Candidate& existing, Candidate replacement) {
     existing.shortest_segmentation_bonus = replacement.shortest_segmentation_bonus;
     existing.lmdg_bonus = replacement.lmdg_bonus;
     existing.attached_aspect = replacement.attached_aspect;
+    existing.attached_disposal = replacement.attached_disposal;
+    existing.attached_result = replacement.attached_result;
 }
 
 class CandidateAccumulator {
@@ -1711,6 +1716,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 };
                 for (const auto& state : chart[begin]) {
                     if (cancelled && cancelled()) return {};
+                    using namespace syntax_collocations;
                     const bool syntax_budget = syntax_path && syntax_queries < syntax_collocations::kMaximumQueries &&
                             state.syntax_bonus < syntax_collocations::kMaximumPathBonus;
                     const bool lmdg_budget = lmdg_path && state.lmdg_bonus < RimeLmdg::kMaximumPathBonus &&
@@ -1719,14 +1725,54 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         ? syntax_collocations::context(state.text, state.syntax_history) : syntax_collocations::Context{};
                     const auto lmdg_context = lmdg_budget && reading.size() >= 2 && reading.size() <= 4
                         ? syntax_collocations::context(state.text, state.syntax_history, true) : syntax_collocations::Context{};
+                    std::string_view disposal_object;
+                    std::uint8_t disposal_position = 0;
+                    if (lmdg_path && !state.attached_disposal && reading.size() >= 2 && reading.size() <= 4 &&
+                        !state.segment_lengths.empty() && state.segment_lengths.back() >= 2 &&
+                        state.previous.size() == state.segment_lengths.back() * 3 && state.previous.size() <= 15) {
+                        const auto last = std::string_view(state.previous);
+                        const auto length = state.segment_lengths.back();
+                        if (length >= 3 && disposal_marker(last.substr(0, 3)) &&
+                            has(classify(last.substr(3)), Role::nominal)) {
+                            disposal_object = last.substr(3);
+                            disposal_position = static_cast<std::uint8_t>(begin - length + 1);
+                        } else if (state.segment_lengths.size() >= 2 &&
+                            state.segment_lengths[state.segment_lengths.size() - 2] == 1 &&
+                            state.text.size() >= last.size() + 3 &&
+                            disposal_marker(std::string_view(state.text).substr(state.text.size() - last.size() - 3, 3)) &&
+                            has(classify(last), Role::nominal)) {
+                            disposal_object = last;
+                            disposal_position = static_cast<std::uint8_t>(begin - length);
+                        }
+                    }
                     for (std::size_t entry_index = 0; entry_index < entries.size(); ++entry_index) {
                         const auto& entry = entries[entry_index];
                         auto score = state.score + entry_scores[entry_index];
                         if (!state.previous.empty()) score -= kAdditionalSegmentPenalty;
                         if (bigram_ != nullptr && !state.previous.empty())
                             score += bigram_->score(state.previous, entry.text);
-                        using namespace syntax_collocations;
                         auto attached_aspect = state.attached_aspect;
+                        auto attached_disposal = state.attached_disposal;
+                        auto attached_result = state.attached_result;
+                        std::uint8_t pending_disposal = 0;
+                        const bool disposal_frame = disposal_position != 0 && entry.text.size() == reading.size() * 3 &&
+                            disposal_predicate(entry.text, entry_role(entry_index));
+                        const bool completes_disposal = state.pending_disposal != 0 && reading.size() == 1 &&
+                            resultative_marker(entry.text);
+                        if (disposal_frame || completes_disposal) {
+                            attached_disposal = disposal_frame ? disposal_position : state.pending_disposal;
+                            if (completes_disposal) attached_result = static_cast<std::uint8_t>(end);
+                            // A verified object-fronting marker is a bound
+                            // grammatical component, not an isolated word.
+                            constexpr std::int64_t kDisposalFrameBonus = 2'500;
+                            score += kDisposalFrameBonus;
+                        } else if (disposal_position != 0 && end < path.syllables.size() &&
+                            entry.text.size() == reading.size() * 3 && entry_role(entry_index) == Role::none &&
+                            resultative_stem(entry.text)) {
+                            // E.g. a packed compound stem may only be licensed
+                            // by a separate resultative character on the next edge.
+                            pending_disposal = disposal_position;
+                        }
                         bool pending_aspect = false;
                         if (lmdg_path && !attached_aspect) {
                             if (state.pending_aspect && reading.size() >= 2 && reading.size() <= 4 &&
@@ -1862,6 +1908,10 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                     if (can_be_nominal(left_role) && (role == Role::none || has(role, Role::verb)))
                                         untyped_predicate_bonus = lmdg_bonus;
                                 }
+                                // A packed marker+object must get the same
+                                // ordered object–predicate check as separate words.
+                                if (disposal_frame && disposal_object != state.previous)
+                                    lmdg_bonus = std::max(lmdg_bonus, std::min(room, probe(disposal_object)));
                                 // The n-gram is contiguous corpus evidence for the two endpoints,
                                 // not a parser. Only project it over a syntactically licensed
                                 // object gap (e.g. a determiner, classifier, or aspect particle).
@@ -1931,6 +1981,9 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 next.lmdg_relative_bonus = relative_bonus;
                                 next.lmdg_untyped_predicate_bonus = untyped_predicate_bonus;
                                 next.attached_aspect = attached_aspect;
+                                next.attached_disposal = attached_disposal;
+                                next.pending_disposal = pending_disposal;
+                                next.attached_result = attached_result;
                                 next.pending_aspect = pending_aspect;
                                 if ((syntax_path && syntax_queries < syntax_collocations::kMaximumQueries) ||
                                     (lmdg_path && lmdg_queries < RimeLmdg::kMaximumQueries && lmdg_time < kLmdgTimeBudget)) {
@@ -1969,6 +2022,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             candidate.segment_lengths = std::move(state.segment_lengths);
             candidate.lmdg_bonus = state.lmdg_bonus;
             candidate.attached_aspect = state.attached_aspect;
+            candidate.attached_disposal = state.attached_disposal;
+            candidate.attached_result = state.attached_result;
             if (path.match_kind == InputMatchKind::exact) exact_candidate_found = true;
             store_candidate(std::move(candidate));
         }
@@ -2396,14 +2451,16 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             // dictionary bigram. Keep half the unsupported-character cost:
             // this is bounded evidence, not a prefix whitelist or a free edge
             // for arbitrary character permutations.
-            const bool bound_aspect = candidate.attached_aspect != 0 &&
-                static_cast<std::size_t>(candidate.attached_aspect - 1) == begin;
-            const auto singleton_score = bound_aspect ? kMaximumBoundaryCoherenceBonus / 2 :
+            const bool bound_marker = (candidate.attached_aspect != 0 &&
+                static_cast<std::size_t>(candidate.attached_aspect - 1) == begin) ||
+                (candidate.attached_disposal != 0 && static_cast<std::size_t>(candidate.attached_disposal - 1) == begin) ||
+                (candidate.attached_result != 0 && static_cast<std::size_t>(candidate.attached_result - 1) == begin);
+            const auto singleton_score = bound_marker ? kMaximumBoundaryCoherenceBonus / 2 :
                 dominant_character == begin ? -kUncoveredBoundaryCharacterPenalty / 2 : -kUncoveredBoundaryCharacterPenalty;
             best[begin + 1] = std::max(
                 best[begin + 1],
                 best[begin] + singleton_score);
-            if (bound_aspect) {
+            if (bound_marker) {
                 if (dictionary_chain[begin]) dictionary_chain[begin + 1] = true;
                 dictionary_covered[begin] = true;
                 if (begin < prefix_dictionary_covered.size()) prefix_dictionary_covered[begin] = true;

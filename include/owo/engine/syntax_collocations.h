@@ -62,6 +62,29 @@ inline constexpr RoleRecord kRoles[]{
     return role;
 }
 
+[[nodiscard]] inline bool disposal_marker(const std::string_view word) noexcept {
+    return word == "把" || word == "将";
+}
+
+[[nodiscard]] inline bool resultative_marker(const std::string_view word) noexcept {
+    return word == "为" || word == "成" || word == "作";
+}
+
+[[nodiscard]] inline bool resultative_stem(const std::string_view word) noexcept {
+    if (word.size() < 3 || word.size() > 9 || word.size() % 3 != 0) return false;
+    return has(atomic_role(word), Role::verb) ||
+        (word.size() > 3 && has(atomic_role(word.substr(word.size() - 3)), Role::verb));
+}
+
+[[nodiscard]] inline bool disposal_predicate(const std::string_view word, const Role role) noexcept {
+    if (has(role, Role::verb)) return true;
+    if (word.size() < 6 || word.size() > 12 || word.size() % 3 != 0) return false;
+    // A packed resultative can have no POS entry of its own. The final
+    // complement licenses a verbal stem, not arbitrary same-reading nouns.
+    return resultative_marker(word.substr(word.size() - 3)) &&
+        resultative_stem(word.substr(0, word.size() - 3));
+}
+
 using RelationMask = std::uint8_t;
 constexpr RelationMask flag(const Relation relation) noexcept {
     return static_cast<RelationMask>(1U << static_cast<unsigned>(relation));

@@ -43,6 +43,8 @@ struct Candidate {
     std::int64_t lmdg_bonus{};
     // One-based syllable index of a verified, lexically separate aspect marker.
     std::uint8_t attached_aspect{};
+    std::uint8_t attached_disposal{};
+    std::uint8_t attached_result{};
     [[nodiscard]] bool user_preferred() const noexcept {
         return user_lexicon && !provisional_user_word;
     }
