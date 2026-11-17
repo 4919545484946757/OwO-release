@@ -160,6 +160,53 @@ fn write_signed_plugin(root: &std::path::Path) -> std::path::PathBuf {
     dir
 }
 
+/// 规范包（Agent Plugins 1.0.0）：plugin.json + skills/ + mcp.json。
+fn write_agent_plugin(root: &std::path::Path, dir_name: &str) -> std::path::PathBuf {
+    let dir = root.join(dir_name);
+    std::fs::create_dir_all(dir.join("skills/demo")).unwrap();
+    std::fs::write(
+        dir.join("plugin.json"),
+        serde_json::to_string_pretty(&json!({
+            "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+            "name": "pkg-demo",
+            "version": "1.0.0",
+            "description": "规范包示例"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("skills/demo/SKILL.md"),
+        "---\nname: demo\ndescription: 演示技能\n---\n\n# Demo\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("mcp.json"),
+        r#"{"servers": {"demo": {"command": "python", "args": ["server.py"]}}}"#,
+    )
+    .unwrap();
+    std::fs::write(dir.join("server.py"), "print('demo')\n").unwrap();
+    dir
+}
+
+#[tokio::test]
+async fn install_accepts_agent_plugin_normative_package() {
+    let (state, temp) = test_state();
+    let package = write_agent_plugin(&temp.path().join("ws"), "agent-pkg");
+    assert!(package.join("plugin.json").exists());
+    let (status, body) = call(
+        &router(state),
+        request(
+            "POST",
+            "/plugins/market/install",
+            Some(r#"{"dir":"agent-pkg"}"#),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["report"]["id"], "pkg-demo", "{body}");
+}
+
 // ---------- 目录 / seed / versions ----------
 
 #[tokio::test]
