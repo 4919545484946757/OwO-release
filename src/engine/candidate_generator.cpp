@@ -38,6 +38,8 @@ struct SearchState {
     std::int64_t lmdg_held_object_bonus{};
     // An independently licensed predicate+object can also be a relative clause.
     std::int64_t lmdg_relative_bonus{};
+    // A surface N + possible V adjacency, not a confirmed object relation.
+    std::int64_t lmdg_untyped_predicate_bonus{};
     syntax_collocations::History syntax_history;
 };
 
@@ -1762,13 +1764,22 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         // either the beam or the visible sentence quota can prune them.
                         auto lmdg_total = state.lmdg_bonus;
                         std::int64_t lmdg_object_bonus = 0, held_object_bonus = 0, relative_bonus = 0;
+                        std::int64_t untyped_predicate_bonus = 0;
                         std::int64_t qualified_relative = 0;
                         using namespace syntax_collocations;
                         const auto can_be_nominal = [](const Role role) {
                             return role == Role::none || has(role, Role::nominal);
                         };
-                        if (lmdg_path && (state.lmdg_object_bonus || state.lmdg_held_object_bonus)) {
+                        if (lmdg_path && (state.lmdg_object_bonus || state.lmdg_held_object_bonus ||
+                                state.lmdg_untyped_predicate_bonus)) {
                             const auto role = entry_role(entry_index);
+                            if (state.lmdg_untyped_predicate_bonus && role == Role::quantity &&
+                                end < path.syllables.size()) {
+                                // N + homophone is compatible with either a verbal
+                                // reading or a nominal compound. A new quantified
+                                // object must be scored independently of that prefix.
+                                lmdg_total -= state.lmdg_untyped_predicate_bonus * 3 / 4;
+                            }
                             if (state.lmdg_object_bonus && end < path.syllables.size() && has(role, Role::link)) {
                                 // Compare competing paths neutrally while the nominal head is
                                 // unresolved. A sentence-final linker may instead nominalize X.
@@ -1823,6 +1834,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                             lmdg_bonus >= RimeLmdg::kConfirmedSentenceBonus))
                                             lmdg_object_bonus = lmdg_bonus;
                                     }
+                                    if (can_be_nominal(left_role) && (role == Role::none || has(role, Role::verb)))
+                                        untyped_predicate_bonus = lmdg_bonus;
                                 }
                                 // The n-gram is contiguous corpus evidence for the two endpoints,
                                 // not a parser. Only project it over a syntactically licensed
@@ -1880,6 +1893,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 next.lmdg_object_bonus = lmdg_object_bonus;
                                 next.lmdg_held_object_bonus = held_object_bonus;
                                 next.lmdg_relative_bonus = relative_bonus;
+                                next.lmdg_untyped_predicate_bonus = untyped_predicate_bonus;
                                 if ((syntax_path && syntax_queries < syntax_collocations::kMaximumQueries) ||
                                     (lmdg_path && lmdg_queries < RimeLmdg::kMaximumQueries && lmdg_time < kLmdgTimeBudget)) {
                                     next.syntax_history = state.syntax_history;

@@ -115,5 +115,18 @@ int main(int argc, char** argv) {
     // noun even when the model lacks a verb–noun link for the outer head.
     if (!model.load(path).empty() || model.boundary_bonus("处理", "丙丁") != 5000 ||
         !bridge("chulizhexiebingdingdezhangdan", "处理这些丙丁的账单", true)) return 11;
+    (void)model.load(directory / "intentionally-not-a-model.gram");
+    write(path, fixture({0xb5, 0x32, 0x8e, 0x59, 0x99, 0x04, 0xb4, 0x06})); // 甲乙处理
+    const MemoryLexicon subject_lexicon({{{"jia", "yi"}, "甲乙", 1600}, {{"chu", "li"}, "处理", 1600},
+        {{"zhe", "xie"}, "这些", 1800}, {{"bing", "ding"}, "丙丁", 1800}});
+    const CandidateGenerator subject_generator(subject_lexicon);
+    const auto prefix_bonus = [&](const std::string_view input, const std::string_view expected) {
+        const auto result = subject_generator.generate(FullPinyinSchema{}.parse(input, 16, false),
+            16, false, {}, nullptr, {}, false, 7, true, 0, 0, false, false, &model);
+        return !result.empty() && result.front().text == expected ? result.front().lmdg_bonus : -1;
+    };
+    if (!model.load(path).empty() || prefix_bonus("jiayichuli", "甲乙处理") != 5000 ||
+        prefix_bonus("jiayichulizhexie", "甲乙处理这些") != 5000 ||
+        prefix_bonus("jiayichulizhexiebingding", "甲乙处理这些丙丁") != 1250) return 12;
     std::cout << "Rime grammar mapping, bounds, and adjacent/cross-word in-beam score contract passed.\n";
 }
