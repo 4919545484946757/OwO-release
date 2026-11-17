@@ -175,13 +175,35 @@ cargo run -p owo-agent-cli -- plugin --workspace . catalog
 
 ## 7. 与历史格式的关系
 
+### 7.1 安装与治理
+
+规范包与历史格式共用同一套安装生命周期（`PluginManager`）：
+
+```powershell
+owo-agent plugin install <包目录>     # 校验 → 拷贝到 <data>/plugins/<name> → 激活
+owo-agent plugin update <name> <目录> # 备份旧版 → 校验新版 → 替换；失败自动回滚
+owo-agent plugin uninstall <name>
+```
+
+规范包在 `verify_plugin_dir` 里走独立分支（`verify_agent_plugin_dir`），审计逐项留痕：
+
+| 校验项 | 规范包的行为 |
+|---|---|
+| 清单 | `load_agent_plugin` 规范校验；组件级降级写进审计 |
+| 吊销 | 与历史格式同口径（id + version，`*` 匹配全部） |
+| 路径 | 与历史格式同口径：拒绝 zip-slip 变体与符号链接 |
+| 签名 | 规范包**没有签名字段**：不参与签名策略，审计明确记「按未签名包处理」，不谎报已验签 |
+| 最低版本 | 规范没有该字段，跳过 |
+| 静态扫描 | 只扫可执行内容（技能 `scripts/`、`servers/`、脚本后缀） |
+| 沙箱门卫 | 每个 MCP 服务器都要过（与历史格式同一出口） |
+
 | | 历史 `manifest.json` | Agent Plugins `plugin.json` |
 |---|---|---|
 | 清单 | 扁平字段（id/name/version/permissions/mcp/signature） | 闭模式元数据 + `extensions` 命名空间 |
 | MCP | 单个 `mcp` | `mcp.json` 多服务器 |
 | 技能 | 独立 `skills/` 目录（宿主技能库） | 包内 `skills/`（随插件分发） |
 | 签名/市场/吊销 | ✅ | ⛔（按未签名包处理） |
-| 安装/更新/回滚 | ✅ `PluginManager` | 目录发现（放入 `plugins/` 即生效） |
+| 安装/更新/回滚 | ✅ `PluginManager` | ✅ 同一生命周期：`plugin install/update/uninstall`（规范包走 `verify_agent_plugin_dir`） |
 
 两种格式可以并存：同一目录里 `plugin.json` 优先；不同目录互不影响。宿主侧统一用
 `PluginManifest::all_mcp_servers()` / `plugin_mcp_configs()` 取服务器，调用方不必区分格式。

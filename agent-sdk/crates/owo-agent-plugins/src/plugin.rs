@@ -680,6 +680,11 @@ impl PluginManager {
     /// 校验项：manifest 可解析、min_app_version 兼容、静态扫描零风险、
     /// 签名存在且有效（require_signature 时）。返回校验报告。
     pub fn verify_plugin_dir(&self, plugin_dir: &Path) -> Result<PluginInstallReport, String> {
+        // Agent Plugins 1.0.0 可移植包：走规范校验 + 可执行内容扫描（没有签名字段，
+        // 也不接受历史 `manifest.json` 的签名/最低版本语义）。
+        if crate::agent_plugins::is_agent_plugin_dir(plugin_dir) {
+            return self.verify_agent_plugin_dir(plugin_dir);
+        }
         let mut audit = Vec::new();
         let manifest_path = plugin_dir.join("manifest.json");
         let manifest = PluginManifest::load(&manifest_path)?;
@@ -763,6 +768,85 @@ impl PluginManager {
             audit.push(format!("插件宿主沙箱策略通过（{gated} 个 MCP 服务器）"));
         }
 
+        Ok(PluginInstallReport {
+            id: manifest.id.clone(),
+            version: manifest.version.clone(),
+            state: PluginInstallState::Verified,
+            audit,
+        })
+    }
+
+    /// 校验 Agent Plugins 1.0.0 可移植包目录。
+    ///
+    /// 与历史格式的差异：
+    /// * 清单用规范校验（`load_agent_plugin`），组件级问题按规范降级并写进审计；
+    /// * 没有 `signature` / `min_app_version` 字段：不参与签名策略（审计留痕），
+    ///   也不做最低版本判断——这是规范包的固有形态，不是校验失败；
+    /// * 静态扫描只扫可执行内容（技能 `scripts/`、`servers/`、脚本后缀）。
+    fn verify_agent_plugin_dir(&self, plugin_dir: &Path) -> Result<PluginInstallReport, String> {
+        use crate::agent_plugins::{
+            load_agent_plugin, scan_agent_plugin_for_risks, DiagnosticLevel,
+            AGENT_PLUGINS_SPEC_VERSION,
+        };
+
+        let mut audit = Vec::new();
+        let loaded = load_agent_plugin(plugin_dir, None)
+            .map_err(|error| format!("Agent Plugins 包校验失败：{error}"))?;
+        for diagnostic in &loaded.diagnostics {
+            if diagnostic.level >= DiagnosticLevel::Warning {
+                audit.push(format!("{diagnostic}"));
+            }
+        }
+        let manifest = agent_plugin_to_manifest(&loaded);
+        audit.push(format!(
+            "Agent Plugins {AGENT_PLUGINS_SPEC_VERSION} 包：{} v{}（skills={} mcp_servers={} hooks={}）",
+            manifest.id,
+            manifest.version,
+            loaded.skills.len(),
+            loaded.mcp_servers.len(),
+            loaded.hooks.len()
+        ));
+
+        // 0. 吊销检查与历史格式同口径。
+        if self.is_revoked(&manifest.id, &manifest.version) {
+            record_plugin_rejection(&manifest, "命中吊销列表".to_string());
+            return Err(format!(
+                "插件 {} {} 已被吊销，拒绝加载",
+                manifest.id, manifest.version
+            ));
+        }
+
+        // 0.5 路径校验（拷贝前拦截 zip-slip 变体与符号链接）。
+        validate_plugin_paths(&manifest, plugin_dir)?;
+        audit.push("路径校验通过（无 zip-slip / 符号链接）".to_string());
+
+        // 1. 签名：可移植包没有签名字段，签名策略不适用于它（如实留痕，不谎报已验签）。
+        if self.require_signature {
+            audit.push("签名：可移植包无签名字段，按未签名包处理（审计留痕）".to_string());
+        }
+
+        // 2. 静态扫描：只扫可执行内容，清单元数据里的 URL 不算网络请求。
+        let risks = scan_agent_plugin_for_risks(plugin_dir, &manifest.network_allowlist);
+        if !risks.is_empty() {
+            record_plugin_rejection(&manifest, format!("静态扫描未通过：{}", risks.join("；")));
+            return Err(format!(
+                "插件 {} 静态扫描未通过：{}",
+                manifest.id,
+                risks.join("；")
+            ));
+        }
+        audit.push("静态扫描通过（仅可执行内容）".to_string());
+
+        // 3. 沙箱门卫：每个 MCP 服务器都要过（与历史格式同一出口）。
+        for mcp in manifest.all_mcp_servers() {
+            sandbox_gate_for_mcp(&manifest, mcp, self.egress_enabled)?;
+        }
+        if !manifest.hooks.is_empty() {
+            audit.push(format!(
+                "插件贡献 hooks {} 条（与 settings hooks 合并执行）",
+                manifest.hooks.len()
+            ));
+        }
         Ok(PluginInstallReport {
             id: manifest.id.clone(),
             version: manifest.version.clone(),

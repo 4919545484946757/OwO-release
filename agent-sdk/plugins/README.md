@@ -28,6 +28,13 @@
 cargo run -p owo-agent-cli -- plugin validate plugins/owo-demo-kit
 ```
 
+安装（校验 → 拷贝到 `<data>/plugins` → 纳入发现；`update` 失败自动回滚）：
+
+```powershell
+cargo run -p owo-agent-cli -- plugin install plugins/owo-demo-kit
+cargo run -p owo-agent-cli -- plugin uninstall owo-demo-kit
+```
+
 ## 运行要求
 
 - 需要 `python` 在 PATH 中（示例服务器为 Python 标准库实现，无第三方依赖）。
