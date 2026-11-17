@@ -493,6 +493,16 @@ impl PlaybookRun {
         }
     }
 
+    /// 失败分类对应的恢复建议（给模型/人看的下一步动作）。
+    pub fn failure_recovery_hint(&self, step_id: &str) -> Option<&'static str> {
+        match self.failure_kind(step_id)? {
+            "exit_nonzero" => Some("看证据尾部定位失败点；必要时缩小检查范围"),
+            "timeout" => Some("命令耗时过长：拆分检查或提高工具超时"),
+            "command_unavailable" => Some("命令不可用：确认依赖已安装、路径正确"),
+            _ => None,
+        }
+    }
+
     /// 记录跳过。
     pub fn record_skip(&mut self, step_id: &str, reason: impl Into<String>) {
         self.states.insert(
@@ -786,6 +796,20 @@ mod tests {
             run.next_ready(&playbook).map(|step| step.id.as_str()),
             Some("review")
         );
+    }
+
+    #[test]
+    fn failure_recovery_hint_maps_known_kinds() {
+        let playbook = playbook();
+        let mut run = PlaybookRun::new(&playbook);
+        run.record_fail_kind("check", "exit 1", Some("exit_nonzero"));
+        assert!(run.failure_recovery_hint("check").unwrap().contains("证据"));
+        run.record_fail_kind("check", "slow", Some("timeout"));
+        assert!(run.failure_recovery_hint("check").unwrap().contains("拆分"));
+        run.record_fail_kind("check", "missing", Some("command_unavailable"));
+        assert!(run.failure_recovery_hint("check").unwrap().contains("依赖"));
+        run.record_fail_kind("check", "custom", Some("custom_kind"));
+        assert_eq!(run.failure_recovery_hint("check"), None);
     }
 
     #[test]

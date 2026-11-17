@@ -222,14 +222,17 @@ fn next_json(playbook: &Playbook, run: &PlaybookRun) -> Value {
     let mut next = run.next_ready(playbook).map(step_json);
     // 把风险提示随下一步一起交给模型：执行前就能看到"这条命令危险"。
     if let Some(value) = next.as_mut() {
-        if let Some(step_id) = value.get("id").and_then(Value::as_str) {
+        if let Some(step_id) = value.get("id").and_then(Value::as_str).map(str::to_string) {
             let warnings: Vec<String> = playbook
                 .risk_warnings()
                 .into_iter()
-                .filter(|warning| warning.step.as_deref() == Some(step_id))
+                .filter(|warning| warning.step.as_deref() == Some(step_id.as_str()))
                 .map(|warning| warning.message)
                 .collect();
             value["warnings"] = json!(warnings);
+            if let Some(hint) = run.failure_recovery_hint(&step_id) {
+                value["failure_recovery_hint"] = json!(hint);
+            }
         }
     }
     let blocked: Vec<String> = playbook

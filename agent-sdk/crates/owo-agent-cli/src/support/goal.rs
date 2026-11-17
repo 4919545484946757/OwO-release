@@ -171,6 +171,9 @@ pub(crate) fn playbook_prompt(
     }
     if let Some(kind) = run.failure_kind(&step.id) {
         prompt.push_str(&format!("\n上次失败类型：{kind}"));
+        if let Some(hint) = run.failure_recovery_hint(&step.id) {
+            prompt.push_str(&format!("\n恢复建议：{hint}"));
+        }
     }
     prompt.push_str(
         "\n要求：本轮只推进这一步；完成后用 playbook_record（或 playbook_check）记录结果，\
