@@ -69,7 +69,7 @@ CLI turn / 默认 REPL / TUI / 桌面 HTTP 客户端
 | 模型流式输出 | `gateway/provider.rs` 在收到 chunk 时调用 `consume_stream_buffer` 并转发回调 | 已有增量处理，不能沿用历史“全部缓冲后回放”的判断；首字延迟、取消与错误恢复需运行验证 |
 | 服务启动 | CLI `commands/serve.rs` 在监听前 await MCP；`support.rs::connect_mcp_clients` 已并发连接并设置全局 3 秒上限 | 已有限时降级，不属于无限挂起；仍可能给 ready 增加约 3 秒等待，需验证坏 MCP 下的完整启动时延与状态诊断 |
 | SSE 资源边界 | Turn 队列有 128 事件/1 MiB 上限；`event_stream.rs`、`sse.rs` HTTP 转发仍使用 unbounded channel | 不能宣称所有 SSE 都有背压；慢客户端可能在转发层积压，需端到端有界与断连回收验证 |
-| 流式用量与预算 | `gateway/stream.rs::parse_sse_payload` 在读 usage 前要求 `/choices/0/delta` 存在；现有 usage 单测使用非空 choices | 输入 `{"choices":[],"usage":{...}}` 会提前返回 None，漏记该帧用量并影响依赖用量的预算判断；需真实格式回归测试 |
+| 流式用量与预算 | `gateway/stream.rs::parse_sse_payload` 不再要求 `/choices/0/delta`；`gateway/tests.rs` 有 `choices=[]` 的 usage-only 尾帧断言 | **2026-11-18 复核：已修复**（空 choices 的 usage 帧会进入账本）。回归测试已存在，勿回退为"先取 delta 再读 usage" |
 | 架构维护性 | `tools.rs` 约 3,765 行，`agent/mod.rs` 约 1,776 行，server `lib.rs` 约 1,533 行 | 拆包已有进展，但工具与装配仍集中；优先按职责拆分并保留行为契约，不为拆分继续增加门面层 |
 | 重依赖与评测隔离 | core 直接依赖 perception，后者默认启用 STT 并依赖 ORT；server/cli 依赖 eval-facade | 仅凭 core 清单不再直接列 ORT，不能证明传递依赖或最终链接已消除；按实际 feature/构建结果判断 |
 | 能力成熟度与旧文档 | server `capabilities.rs` 当前登记 5 个 Beta、2 个 Experimental、0 个 Stable；README 仍沿用 v0.6 和旧验收声明 | 登记表也只覆盖部分能力；文档不可自动把有模块/测试的功能提升为 Stable，README 的旧测试路径也需按现文件核对 |
