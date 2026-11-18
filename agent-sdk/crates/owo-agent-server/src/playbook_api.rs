@@ -32,6 +32,9 @@ pub fn router(state: std::sync::Arc<owo_agent_server::AppState>) -> axum::Router
 
 type ApiResult = Result<Json<Value>, (StatusCode, Json<Value>)>;
 
+/// 单次列表/归档读取上限（避免超大目录造成读放大）。
+const MAX_PLAYBOOK_FILES: usize = 500;
+
 fn err(status: StatusCode, message: impl AsRef<str>) -> (StatusCode, Json<Value>) {
     (status, Json(json!({ "error": message.as_ref() })))
 }
@@ -186,7 +189,13 @@ async fn list(State(state): State<std::sync::Arc<owo_agent_server::AppState>>) -
         }
     };
     let mut playbooks: Vec<Value> = Vec::new();
+    let mut truncated = false;
     for entry in entries.flatten() {
+        // 目录规模上限：避免超大目录造成读放大（残余风险见 REVIEW-playbooks-api.md）。
+        if playbooks.len() >= MAX_PLAYBOOK_FILES {
+            truncated = true;
+            break;
+        }
         let path = entry.path();
         let name = path
             .file_name()
@@ -250,6 +259,7 @@ async fn list(State(state): State<std::sync::Arc<owo_agent_server::AppState>>) -
     Ok(Json(json!({
         "dir": "playbooks",
         "count": playbooks.len(),
+        "truncated": truncated,
         "playbooks": playbooks,
     })))
 }
@@ -316,8 +326,13 @@ async fn history(
     let playbook = load_playbook(&file).map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
     let dir = file.with_extension("runs");
     let mut runs: Vec<Value> = Vec::new();
+    let mut truncated = false;
     if let Ok(entries) = std::fs::read_dir(&dir) {
         for entry in entries.flatten() {
+            if runs.len() >= MAX_PLAYBOOK_FILES {
+                truncated = true;
+                break;
+            }
             let path = entry.path();
             if path.extension().and_then(|value| value.to_str()) != Some("json") {
                 continue;
@@ -366,6 +381,7 @@ async fn history(
         "id": playbook.id,
         "name": playbook.name,
         "count": runs.len(),
+        "truncated": truncated,
         "runs": runs,
     })))
 }

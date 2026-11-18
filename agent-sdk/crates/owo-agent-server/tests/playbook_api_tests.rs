@@ -225,6 +225,25 @@ async fn record_writes_state_and_advances() {
 }
 
 #[tokio::test]
+async fn list_truncates_oversized_directories() {
+    let (state, _temp) = test_state();
+    let dir = state.workspace.join("playbooks");
+    std::fs::create_dir_all(&dir).unwrap();
+    for index in 0..505 {
+        std::fs::write(
+            dir.join(format!("p{index}.json")),
+            format!(r#"{{"id":"p{index}","name":"p{index}","steps":[{{"id":"a","title":"A"}}]}}"#),
+        )
+        .unwrap();
+    }
+    let router = playbook_api::router(state);
+    let (status, body) = call(&router, "GET", "/playbooks", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["count"], 500, "{body}");
+    assert_eq!(body["truncated"], true, "{body}");
+}
+
+#[tokio::test]
 async fn reset_snapshots_then_clears_progress() {
     let (state, _temp) = test_state();
     let workspace = state.workspace.clone();

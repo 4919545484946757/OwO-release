@@ -49,6 +49,7 @@
 - 功能目录登记「Agent Plugins 规范包」与「任务剧本」两项能力（CLI 与面板同源）。
 - 风险提示覆盖 6 类危险命令并附替代建议；`playbook list/plan/next/status` 均可见。
 - 所有剧本 `--json` 输出可被机器解析（修复目录校验 stdout 混入提示）。
+- `/playbooks` 与 `/playbooks/history` 读取上限 500 条，超出返回 `truncated`，避免超大目录读放大。
 - 状态/归档/剧本文件读取容忍 UTF-8 BOM（Windows 编辑器）。
 - 工具面 token 预算回归阈值：默认 ≤6k、剧本组增量 ≤0.8k、全能力 ≤10k。
 
