@@ -167,6 +167,17 @@ test("compareMaps() compares two archives including failure kinds", () => {
   assert.match(same, /两次运行一致/);
 });
 
+test("truncated lists are labelled", async () => {
+  const { panel } = harness();
+  const view = fakeRoot();
+  await panel.mount(view, {
+    get: async () => ({ ...listPayload, truncated: true }),
+    esc,
+  });
+  await flush();
+  assert.match(view.querySelector(".owo-pb-meta").textContent, /已截断/);
+});
+
 test("mount fetches the list and renders cards", async () => {
   const { panel } = harness();
   const view = fakeRoot();

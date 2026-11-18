@@ -139,9 +139,11 @@
       var playbooks = (data && data.playbooks) || [];
       lastList = data;
       if (meta) {
-        meta.textContent = playbooks.length
+        var summary = playbooks.length
           ? "共 " + playbooks.length + " 个剧本 · " + (data.dir || "")
           : "工作区 playbooks/ 下暂无剧本";
+        if (data && data.truncated) summary += "（已截断，仅显示前 " + playbooks.length + " 条）";
+        meta.textContent = summary;
       }
       if (!list) return;
       list.innerHTML = playbooks.length
