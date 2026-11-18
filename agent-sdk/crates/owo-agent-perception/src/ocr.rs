@@ -267,7 +267,8 @@ fn encode_bmp32(width: i32, height: i32, bgra: &[u8]) -> Vec<u8> {
     out.extend_from_slice(&54u32.to_le_bytes());
     out.extend_from_slice(&40u32.to_le_bytes());
     out.extend_from_slice(&width.to_le_bytes());
-    out.extend_from_slice(&height.to_le_bytes());
+    // The crop writes rows from top to bottom.
+    out.extend_from_slice(&(-height).to_le_bytes());
     out.extend_from_slice(&1u16.to_le_bytes());
     out.extend_from_slice(&32u16.to_le_bytes());
     out.extend_from_slice(&0u32.to_le_bytes());
@@ -304,12 +305,15 @@ mod tests {
 
     #[test]
     fn crop_scale_bmp_produces_scaled_32bpp_bmp() {
-        let bmp = encode_bmp32(4, 4, &[0u8; 64]);
+        let pixels: Vec<u8> = (0..64).collect();
+        let bmp = encode_bmp32(4, 4, &pixels);
         let cropped = crop_scale_bmp(&bmp, 1, 1, 2, 2, 3).unwrap();
         assert_eq!(&cropped[..2], b"BM");
         let width = i32::from_le_bytes([cropped[18], cropped[19], cropped[20], cropped[21]]);
         let height = i32::from_le_bytes([cropped[22], cropped[23], cropped[24], cropped[25]]);
-        assert_eq!((width, height.abs()), (6, 6));
+        assert_eq!((width, height), (6, -6));
+        assert_eq!(&cropped[54..58], &pixels[20..24]);
+        assert_eq!(&cropped[126..130], &pixels[36..40]);
         assert!(crop_scale_bmp(&bmp, 0, 0, 10, 10, 1).is_ok());
         assert!(crop_scale_bmp(&[0u8; 10], 0, 0, 1, 1, 1).is_err());
     }

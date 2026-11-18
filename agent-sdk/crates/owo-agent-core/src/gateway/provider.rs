@@ -421,6 +421,7 @@ impl OpenAiCompatibleProvider {
                 })
             })
             .collect();
+        let effective_model = self.effective_model(model);
         let messages_payload: Vec<Value> = messages
             .iter()
             .map(|message| {
@@ -465,11 +466,23 @@ impl OpenAiCompatibleProvider {
                         .collect();
                     wire["tool_calls"] = Value::Array(wire_calls);
                 }
+                if message.role == "assistant"
+                    && effective_model.to_ascii_lowercase().starts_with("deepseek")
+                {
+                    if let Some(replay) = &message.reasoning_replay {
+                        if replay.model == effective_model {
+                            wire["reasoning_content"] = Value::String(replay.content.clone());
+                        }
+                    }
+                    // DeepSeek tool-call assistant content must be a string, even when empty.
+                    if wire["content"].is_null() {
+                        wire["content"] = Value::String(String::new());
+                    }
+                }
                 wire
             })
             .collect();
 
-        let effective_model = self.effective_model(model);
         let mut body = json!({
             "model": effective_model.clone(),
             "messages": messages_payload,
@@ -984,6 +997,7 @@ impl OpenAiCompatibleProvider {
             return Err("模型流式响应未收到结束标记，且缺少正常 finish_reason".to_string());
         }
 
+        state.validate_resource_bounds()?;
         let output = if let Some(tool_calls) = build_tool_calls(&mut state.tool_call_accumulators)?
         {
             ModelOutput::ToolCalls(validate_tool_calls(tool_calls, tools)?)
@@ -991,6 +1005,7 @@ impl OpenAiCompatibleProvider {
             ModelOutput::Text(state.content)
         };
         Ok(ObservedModelOutput {
+            reasoning_replay: ReasoningReplay::for_model(&admitted_model, state.reasoning),
             output,
             metadata: ModelCallMetadata {
                 request_id: state.request_id,
@@ -1207,7 +1222,18 @@ impl OpenAiCompatibleProvider {
         } else {
             return Err("模型响应既无文本也无工具调用".to_string());
         };
+        let reasoning_replay = request_model.as_deref().and_then(|model| {
+            ReasoningReplay::for_model(
+                model,
+                message
+                    .get("reasoning_content")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+            )
+        });
         Ok(ObservedModelOutput {
+            reasoning_replay,
             output,
             metadata: ModelCallMetadata {
                 request_id,

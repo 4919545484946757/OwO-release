@@ -29,12 +29,39 @@ struct ApprovedWriteThenFinalProvider {
 impl owo_agent_core::gateway::ModelProvider for ApprovedWriteThenFinalProvider {
     async fn complete(
         &self,
-        _messages: &[owo_agent_core::ChatMessage],
+        messages: &[owo_agent_core::ChatMessage],
         _tools: &[owo_agent_core::ToolSpec],
     ) -> Result<owo_agent_core::ModelOutput, String> {
         use std::sync::atomic::Ordering;
 
-        if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+        let step = self.calls.fetch_add(1, Ordering::SeqCst);
+        if step == 0 {
+            let request = messages
+                .iter()
+                .rev()
+                .find(|message| message.role == "user")
+                .and_then(|message| message.content.as_deref())
+                .expect("synthetic write fixture requires the original user request");
+            Ok(owo_agent_core::ModelOutput::ToolCalls(vec![
+                owo_agent_core::gateway::ToolCall {
+                    id: "verification-plan-1".into(),
+                    name: "verification_plan".into(),
+                    arguments: serde_json::json!({"plan":{
+                        "plan_id":"approved-text-write",
+                        "requirements":[{
+                            "requirement_id":"approved-text-content",
+                            "covers_requirement_ids":[format!("user-request:{request}")],
+                            "validator_id":"workspace-file-contains-v1",
+                            "validator_version":"1",
+                            "scope":{"kind":"workspace_paths","relative_paths":["approved-output.txt"]},
+                            "arguments":{"text":"approved content"},
+                            "required":true,
+                            "resources":{"cpu_slots":1,"memory_mb":16,"exclusive_workspace":false,"timeout_ms":10000}
+                        }]
+                    }}),
+                },
+            ]))
+        } else if step == 1 {
             Ok(owo_agent_core::ModelOutput::ToolCalls(vec![
                 owo_agent_core::gateway::ToolCall {
                     id: "write-1".to_string(),
@@ -163,6 +190,8 @@ async fn http_turn_readonly_is_request_scoped_and_never_relaxes_parent_policy() 
         .unwrap()
         .unwrap();
         assert!(String::from_utf8_lossy(&bytes).contains("turn_stats"));
+        assert!(String::from_utf8_lossy(&bytes).contains("\"tool\":\"verification_plan\""));
+        assert!(!String::from_utf8_lossy(&bytes).contains("tool/verification_plan_required"));
         assert_eq!(workspace.join("approved-output.txt").exists(), should_write);
         assert_eq!(state.agent.permission_profile(), profile);
     }

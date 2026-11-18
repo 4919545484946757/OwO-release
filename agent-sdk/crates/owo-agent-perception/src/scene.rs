@@ -778,6 +778,7 @@ mod tests {
                 y: 20,
                 width: 80,
                 height: 30,
+                value_safety: None,
             }],
             "qq",
         );

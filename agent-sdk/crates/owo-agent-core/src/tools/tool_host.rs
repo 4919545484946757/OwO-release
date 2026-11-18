@@ -397,13 +397,14 @@ impl ToolHostService {
             .as_ref()
             .ok()
             .map(|value| crate::CasStore::hash_of(value.to_string().as_bytes()));
+        let execution_ok = super::execution_error(&capability.tool, &outcome).is_none();
         self.receipt_sink.record(ToolReceipt {
             tool: capability.tool,
             tool_version: capability.tool_version,
             session_id: ctx.session.id.clone(),
             turn_id: capability.turn_id,
             approved: true,
-            ok: outcome.is_ok(),
+            ok: execution_ok,
             effect: capability.effect,
             scope_sha256: crate::CasStore::hash_of(capability.scope.as_bytes()),
             args_sha256: capability.args_sha256,

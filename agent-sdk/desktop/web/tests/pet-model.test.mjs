@@ -12,12 +12,15 @@ const pink = index.skins.find((skin) => skin.id === "pink-squid");
 
 test("3D 墨鱼皮肤以默认形象登记并携带用户 GLB", () => {
   assert.equal(index.default, "owo-squid");
-  // 用户提供的 3D 墨鱼排在最前；agent-frame 上的 petdex 精灵图形象也一并保留。
-  assert.deepEqual(index.skins.map((skin) => skin.id).slice(0, 2), ["owo-squid", "pink-squid"]);
-  assert.ok(
-    index.skins.filter((skin) => String(skin.id).startsWith("petdex-")).length >= 16,
-    "petdex 精灵图形象不能被合并丢掉"
-  );
+  assert.deepEqual(index.skins.map((skin) => skin.id), ["owo-squid", "pink-squid", "owo-figurine"]);
+  const figurine = index.skins[2];
+  assert.equal(figurine.kind, "gltf");
+  assert.equal(figurine.motion, "figurine");
+  assert.equal(figurine.studioLighting, true);
+  assert.deepEqual(figurine.contentInsets, { left: 63, right: 63, top: 43, bottom: 12 });
+  assert.deepEqual(squid?.contentInsets, { left: 76, right: 74, top: 116, bottom: 54 });
+  assert.equal(readFileSync(join(PET, "assets", "skins", figurine.id, figurine.model))
+    .subarray(0, 4).toString("ascii"), "glTF");
   assert.equal(squid?.kind, "gltf");
   assert.equal(squid?.model, "Squid.glb");
   const model = join(PET, "assets", "skins", "owo-squid", squid.model);

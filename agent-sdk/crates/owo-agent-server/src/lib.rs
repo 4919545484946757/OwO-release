@@ -37,7 +37,13 @@ pub use audit_api::flush_audit;
 pub mod backup;
 pub mod capabilities;
 mod cloud_api;
+/// Agent V2：CloudRemote 执行后端（统一 Task Runtime 的第五个 Adapter）。
+/// 提交需要数据根、取消信号表与队列锁，因此在 `build_router` 拿到 Arc 后注册。
+pub mod cloud_remote_backend;
 mod computer_api;
+/// Agent V2：Computer Use 执行后端（统一 Task Runtime 的第二个 Adapter）。
+/// `pub` 仅为契约测试可注入 Mock 桌面面（同 `request_ledger_api` 先例）。
+pub mod computer_use_backend;
 mod desktop_api;
 mod desktop_model_credentials;
 mod desktop_world_api;
@@ -53,6 +59,7 @@ mod fleet_api;
 mod fs_api;
 mod goal_api;
 mod idempotency;
+mod ime_task_api;
 mod intent_api;
 mod learn_api;
 mod locate_api;
@@ -72,9 +79,18 @@ mod plugin_market_api;
 pub mod product_eval_api;
 mod project_api;
 mod prompt_api;
+mod prompt_enhance_api;
 mod rate_limit;
 mod routes;
+/// Agent V2：WorkSwarm 执行后端（统一 Task Runtime 的第三个 Adapter）。
+/// 团队运行循环需要 `Arc<AppState>`，因此在 `build_router` 拿到 Arc 后注册（见 `routes.rs`）。
+pub mod work_swarm_backend;
+/// Agent V2：Workflow 执行后端（统一 Task Runtime 的第四个 Adapter）。
+/// 复用 `/workflow/{name}/run` 的运行装配，因此在 `build_router` 拿到 Arc 后注册。
+pub mod workflow_task_backend;
 pub use routes::build_router;
+/// Agent V2 Phase 7：输入法/桌宠协调协议（/agent-bridge）。
+mod agent_bridge_api;
 mod media_profiles_api;
 /// R3（§8.1）：安全请求 ledger（六字段白名单，/diagnostics/requests 消费）。
 /// `pub` 仅为契约测试可用 `reset_for_test` 取得干净窗口（同 event_stream 先例）。
@@ -85,12 +101,16 @@ mod session_goal_api;
 mod session_hunks_api;
 mod settings_api;
 pub mod shutdown;
+/// Agent V2：Single Agent 真实执行后端（统一 Task Runtime 的第一个 Adapter）。
+mod single_agent_backend;
 mod skills_api;
 mod slo;
 #[doc(hidden)]
 pub mod sse;
 mod subagent_api;
 mod symbols_api;
+/// Agent V2 统一 Task Runtime HTTP 面（/agent-tasks）。
+mod task_api;
 mod team_api;
 mod team_template_catalog_api;
 mod traces_api;
@@ -106,6 +126,8 @@ mod workflow_read_tools;
 mod workflow_stats_api;
 pub mod workflow_write_service;
 mod workflows_share_api;
+/// Agent V2 Phase 6：隔离执行工作区（/workspaces）。
+mod workspace_api;
 mod workspace_trust_api;
 mod workswarm_api;
 
@@ -190,6 +212,14 @@ pub struct AppState {
     pub scene: Arc<Mutex<owo_agent_core::scene::SceneGraph>>,
     /// computer-use 任务注册表（任务级审批 + 熔断，m4d 前奏）。
     pub computer_tasks: Arc<owo_agent_core::ComputerTaskRegistry>,
+    /// Agent V2 统一 Task Runtime：任务身份/状态/事件/检查点/审批/产物。
+    /// 独立 SQLite（`<data_root>/agent_tasks.db`），不与 Session 表混用。
+    pub tasks: Arc<owo_agent_core::task_runtime::TaskRuntime>,
+    /// Agent V2 Phase 6：任务执行工作区租约（Git Worktree 隔离 + Diff 审核）。
+    /// worktree 目录固定在 `<data_root>/workspaces`，不污染用户原工作区。
+    pub workspaces: Arc<workspace_api::WorkspaceRegistry>,
+    /// Agent V2 Phase 7：输入法/桌宠协调（消息幂等 + 通知开关）。
+    pub bridge: Arc<agent_bridge_api::AgentBridgeState>,
     /// 云端执行队列（/cloud/* 路由；懒初始化，传输由环境变量决定）。
     /// tokio Mutex：异步 handler 内跨 await 持锁（std MutexGuard 非 Send）。
     pub cloud_queue: Arc<tokio::sync::Mutex<Option<owo_agent_core::cloud_exec::CloudTaskQueue>>>,
@@ -230,6 +260,7 @@ pub struct AppState {
     pub trust_store: Arc<owo_agent_core::trust::TrustStore>,
     /// 启动时是否因未信任而进入受限模式（跳过 hooks/权限放宽/白名单）。
     pub workspace_trust_gated: bool,
+    pub(crate) ime_task_gate: ime_task_api::ImeTaskGate,
     pub(crate) expression_origin: Arc<Mutex<expression_origin::OriginVerifier>>,
 }
 
@@ -378,10 +409,50 @@ impl AppState {
                 workswarm_db_root.join("cas"),
             ),
         ));
+        // Agent V2：统一 Task Runtime。任务库独立于会话库；落盘失败时降级内存库，
+        // 保证服务仍可启动（恢复报告会写进任务事件，前端能看到"未持久化"的实际状态）。
+        let task_store =
+            owo_agent_core::task_runtime::TaskStore::open(&data_root.join("agent_tasks.db"))
+                .or_else(|error| {
+                    tracing::warn!("任务库打开失败，降级内存库：{error}");
+                    owo_agent_core::task_runtime::TaskStore::open_in_memory()
+                })
+                .expect("内存任务库初始化失败");
+        let tasks = Arc::new(owo_agent_core::task_runtime::TaskRuntime::new(task_store));
+        if let Err(error) = tasks.recover_on_start() {
+            tracing::warn!("任务启动恢复失败：{error}");
+        }
+        // Agent V2 Phase 6：工作区租约登记表；worktree 落在数据目录，原工作区只读基线。
+        let workspaces = Arc::new(workspace_api::WorkspaceRegistry::new(
+            data_root.join("workspaces"),
+            workspace.clone(),
+        ));
+        // Agent V2 Phase 7：输入法/桌宠协调状态（幂等缓存与通知开关，进程内即可）。
+        let bridge = Arc::new(agent_bridge_api::AgentBridgeState::new());
+        // Agent V2：注册 Single Agent 真实执行后端。后端只持有运行时弱引用，
+        // 不会与 `tasks` 形成引用环；执行复用同一个 Agent/会话库/工作区策略。
+        let store: Arc<dyn owo_agent_core::SessionStore> = Arc::new(store);
+        let sessions = Arc::new(Mutex::new(HashMap::new()));
+        tasks.register_backend(Arc::new(single_agent_backend::SingleAgentBackend::new(
+            Arc::downgrade(&tasks),
+            Arc::clone(&agent),
+            Arc::clone(&store),
+            Arc::clone(&sessions),
+            workspace.clone(),
+        )));
+        // Agent V2：注册 Computer Use 执行后端。与 `/computer-use/*` 共用同一个
+        // ComputerTask 注册表，审批仍在既有接口里完成；后端只负责把已批准的任务
+        // 交给感知闭环执行，并把执行事实回报给统一 Task Runtime。
+        let computer_tasks = Arc::new(owo_agent_core::ComputerTaskRegistry::new());
+        tasks.register_backend(Arc::new(computer_use_backend::ComputerUseBackend::new(
+            Arc::downgrade(&tasks),
+            Arc::clone(&computer_tasks),
+            agent.audit_log(),
+        )));
         Self {
             agent,
-            store: Arc::new(store),
-            sessions: Arc::new(Mutex::new(HashMap::new())),
+            store,
+            sessions,
             pending_approvals: Arc::new(Mutex::new(HashMap::new())),
             pending_approval_sessions: Arc::new(Mutex::new(HashMap::new())),
             grants: Arc::clone(&grants),
@@ -408,7 +479,7 @@ impl AppState {
                 Some(data_root.join("plugin_state.json")),
             ))),
             scene: Arc::new(Mutex::new(owo_agent_core::scene::SceneGraph::new())),
-            computer_tasks: Arc::new(owo_agent_core::ComputerTaskRegistry::new()),
+            computer_tasks,
             cloud_queue: Arc::new(tokio::sync::Mutex::new(None)),
             cloud_submit_lock: Arc::new(tokio::sync::Mutex::new(())),
             cloud_cancel_signals: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
@@ -468,6 +539,10 @@ impl AppState {
             shutdown_gate,
             // V1 四期（第三路）：评审闭环复用 WorkSwarm 的 space.db（独立连接 + busy_timeout）。
             artifact_review,
+            // Agent V2 统一 Task Runtime（启动恢复已在构造前完成）。
+            tasks,
+            workspaces,
+            bridge,
             // A8-2 / A8-3（取优合并自远端 engine）。
             activities: Arc::new(Mutex::new(HashMap::new())),
             pet_state: Arc::new(Mutex::new(PetState::default())),
@@ -476,6 +551,7 @@ impl AppState {
             pending_question_sessions: Arc::new(Mutex::new(HashMap::new())),
             trust_store,
             workspace_trust_gated,
+            ime_task_gate: ime_task_api::ImeTaskGate::from_env(),
             expression_origin: Arc::new(Mutex::new(expression_origin::OriginVerifier::from_env())),
         }
     }
@@ -891,8 +967,32 @@ fn reserve_automation_prompt_slot(
     Arc::clone(slots).try_acquire_owned()
 }
 
+/// 开关解析：`0/false/no/off` 为关闭，其余为开启；未设置取默认值。
+fn parse_env_flag(value: Option<&str>, default: bool) -> bool {
+    match value.map(str::trim) {
+        Some(value) => !matches!(
+            value.to_ascii_lowercase().as_str(),
+            "0" | "false" | "no" | "off"
+        ),
+        None => default,
+    }
+}
+
+/// 自动化常驻循环开关：`OWO_AUTOMATION_ENABLED=false` 时不启动循环，
+/// 已配置的定时任务保持落盘但不会被触发（回滚/排障用）。
+pub fn automation_loop_enabled() -> bool {
+    parse_env_flag(
+        std::env::var("OWO_AUTOMATION_ENABLED").ok().as_deref(),
+        true,
+    )
+}
+
 /// 自动化常驻循环：到期提醒即时入列；无人值守 Agent 任务最多并发 2 个。
 pub async fn start_automation_loop(state: Arc<AppState>) {
+    if !automation_loop_enabled() {
+        tracing::info!("automation loop disabled by OWO_AUTOMATION_ENABLED");
+        return;
+    }
     let mut interval = tokio::time::interval(Duration::from_secs(1));
     let prompt_slots = Arc::new(tokio::sync::Semaphore::new(
         MAX_CONCURRENT_AUTOMATION_PROMPTS,
@@ -901,6 +1001,7 @@ pub async fn start_automation_loop(state: Arc<AppState>) {
         interval.tick().await;
         // Agent 执行始终在锁外；每个运行任务持有一个 permit，完成后自动释放。
         let mut pending_prompts: Vec<(
+            String,
             String,
             String,
             String,
@@ -915,8 +1016,13 @@ pub async fn start_automation_loop(state: Arc<AppState>) {
             let now = chrono::Utc::now();
             let mut fired = Vec::new();
             for id in automations.due_tasks(now) {
-                let (task_name, action) = match automations.get(&id) {
-                    Some(task) => (task.name.clone(), task.action.clone()),
+                let (task_name, action, occurrence) = match automations.get(&id) {
+                    // 幂等键用日程时段而不是墙钟时间：同一时段重复 tick 必须是同一个键。
+                    Some(task) => (
+                        task.name.clone(),
+                        task.action.clone(),
+                        task.occurrence_key(now),
+                    ),
                     None => continue,
                 };
                 let at = now.to_rfc3339();
@@ -925,9 +1031,8 @@ pub async fn start_automation_loop(state: Arc<AppState>) {
                         let slot = reserve_automation_prompt_slot(&prompt_slots);
                         match automations.fire(&id, now) {
                             Ok(_) => match slot {
-                                Ok(permit) => {
-                                    pending_prompts.push((id, task_name, at, prompt, permit))
-                                }
+                                Ok(permit) => pending_prompts
+                                    .push((id, task_name, at, occurrence, prompt, permit)),
                                 Err(_) => {
                                     let _ = automations.record_run(AutomationRun {
                                         task_id: id,
@@ -976,12 +1081,13 @@ pub async fn start_automation_loop(state: Arc<AppState>) {
             }
             fired
         };
-        for (task_id, task_name, at, prompt, permit) in pending_prompts {
+        for (task_id, task_name, at, occurrence, prompt, permit) in pending_prompts {
             tokio::spawn(run_automation_prompt(
                 state.clone(),
                 task_id,
                 task_name,
                 at,
+                occurrence,
                 prompt,
                 permit,
             ));
@@ -997,8 +1103,22 @@ pub async fn start_automation_loop(state: Arc<AppState>) {
 
 #[cfg(test)]
 mod automation_scheduler_tests {
-    use super::{reserve_automation_prompt_slot, MAX_CONCURRENT_AUTOMATION_PROMPTS};
+    use super::{
+        parse_env_flag, reserve_automation_prompt_slot, MAX_CONCURRENT_AUTOMATION_PROMPTS,
+    };
     use std::sync::Arc;
+
+    #[test]
+    fn automation_switch_only_accepts_explicit_false_values() {
+        for value in ["0", "false", "FALSE", " no ", "off"] {
+            assert!(!parse_env_flag(Some(value), true), "{value} 应关闭");
+        }
+        for value in ["1", "true", "yes", "on", ""] {
+            assert!(parse_env_flag(Some(value), true), "{value} 应保持开启");
+        }
+        assert!(parse_env_flag(None, true), "未设置时默认开启");
+        assert!(!parse_env_flag(None, false), "默认值必须生效");
+    }
 
     #[test]
     fn automation_prompt_slots_are_bounded_and_released() {
@@ -1027,22 +1147,55 @@ async fn run_automation_prompt(
     task_id: String,
     task_name: String,
     at: String,
+    occurrence: String,
     prompt: String,
     _permit: tokio::sync::OwnedSemaphorePermit,
 ) {
-    // `_permit` 的生命周期覆盖整个 Agent 执行，完成/异常退出后自动归还并发槽。
-    // `agent_worker` 声明在 `goal_api` 之下（goal_api/mod.rs: `pub mod agent_worker;`），
-    // 根作用域里没有这个名字，必须写全路径。
-    let worker =
-        goal_api::agent_worker::AgentWorker::new(Arc::clone(&state.agent), state.workspace.clone());
-    // `AgentWorker::run` 由 `Worker` trait 提供，作用域内必须引入（局部 use 最小污染）。
-    use owo_agent_core::goal::Worker as _;
-    let outcome = worker
-        .run(&serde_json::json!({ "prompt": prompt, "read_only": true }))
-        .await;
-    let (status, output) = match outcome {
-        Ok(text) => ("ok".to_string(), text),
-        Err(error) => ("failed".to_string(), format!("执行失败：{error}")),
+    // Agent V2 Phase 6：到期触发不再直接跑模型，而是创建统一 Task 进入任务中心。
+    // 无人值守任务默认不自动开始：写入/命令需要用户在任务中心显式发起，避免后台
+    // 静默执行副作用。`_permit` 仍然限制同一时刻最多 2 个自动化触发在创建任务。
+    let idempotency_key = format!("automation:{task_id}:{occurrence}");
+    if let Ok(Some((existing_id, _))) = state.tasks.store().get_idempotency(&idempotency_key) {
+        let _ = state.automations.lock().map(|mut automations| {
+            let _ = automations.record_run(AutomationRun {
+                task_id,
+                task_name: task_name.clone(),
+                at,
+                status: "queued".to_string(),
+                output: Some(format!(
+                    "本次触发已创建过统一任务 {existing_id}（幂等重放）"
+                )),
+            });
+        });
+        return;
+    }
+    let mut request = owo_agent_core::task_runtime::CreateTaskRequest::new(prompt);
+    request.title = Some(format!("自动任务：{task_name}"));
+    request.execution_strategy = owo_agent_core::task_runtime::ExecutionStrategy::SingleAgent;
+    request.payload = Some(serde_json::json!({
+        "automation_id": task_id,
+        "automation_name": task_name,
+        "scheduled_at": at,
+        "unattended": true,
+    }));
+    let (status, output) = match state.tasks.create_task(request) {
+        Ok(task) => {
+            if let Err(error) = state.tasks.store().put_idempotency(
+                &idempotency_key,
+                task.task_id.as_str(),
+                &serde_json::json!({"task_id": task.task_id, "automation_id": task_id}),
+            ) {
+                tracing::warn!("自动化任务幂等键写入失败：{error}");
+            }
+            (
+                "queued".to_string(),
+                format!(
+                    "已创建统一任务 {}（默认只读，等待人工在任务中心开始；后台不自动执行写操作）",
+                    task.task_id
+                ),
+            )
+        }
+        Err(error) => ("failed".to_string(), format!("创建任务失败：{error}")),
     };
     // 截断到 4000 字符：runs 是给人看的执行台账，不该被一次长回答撑爆。
     let output: String = output.chars().take(4000).collect();

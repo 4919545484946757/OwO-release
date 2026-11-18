@@ -310,9 +310,7 @@ mod tests {
         add_block(
             &mut doc,
             &root,
-            BlockKind::Paragraph {
-                text: body.into(),
-            },
+            BlockKind::Paragraph { text: body.into() },
             BTreeMap::new(),
         )
         .unwrap();

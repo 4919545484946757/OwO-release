@@ -135,9 +135,9 @@ test("真故障终态不被引导页盖掉归因：failed 直接放行错误卡�
   assert.equal(sandbox.httpCalls.filter(call => call === "http").length, 0, "设置门探测不得调用 HTTP");
 });
 
-test("未选工作区仍是即时终态；稳定码 provider/not_configured 也直接进引导", async () => {
+test("未选工作区不再强制引导页；稳定码 provider/not_configured 仍直接进引导", async () => {
   const workspace = makeHarness({ states: [{ state: "no_workspace" }] });
-  assert.equal(await workspace.__run(), true);
+  assert.equal(await workspace.__run(), false, "无工作区允许进入主界面，由顶部入口/空状态引导");
   assert.deepEqual(workspace.invoked, [], "no_workspace 不必再查提供商（省一次 IPC）");
 
   const code = makeHarness({
@@ -147,12 +147,12 @@ test("未选工作区仍是即时终态；稳定码 provider/not_configured 也�
 });
 
 
-test("workspace 为空时必须进引导；已明确稍后配置模型时只要求工作区", async () => {
+test("workspace 为空时放行主界面；已明确稍后配置模型时同样放行", async () => {
   const missingWorkspace = makeHarness({ states: [{ state: "ready" }], workspace: { workspace: "" } });
-  assert.equal(await missingWorkspace.__run(), true, "没有项目工作区时不得进入 Agent 主界面");
+  assert.equal(await missingWorkspace.__run(), false, "没有项目工作区时进入主界面的空状态，不再顶到首次配置");
 
   const fallbackOnly = makeHarness({ states: [{ state: "ready" }], workspace: { workspace: "C:\\Users\\23843", configured: false } });
-  assert.equal(await fallbackOnly.__run(), true, "核心启动回退目录不能冒充用户项目工作区");
+  assert.equal(await fallbackOnly.__run(), false, "核心启动回退目录不能冒充用户项目工作区");
   assert.equal(fallbackOnly.__workspaceInput.value, "", "未配置时应清空旧 UI 选择");
 
   const deferred = makeHarness({ states: [{ state: "ready" }], workspace: { workspace: "C:\\projects\\demo" }, providerStatus: { ready: false }, providerDeferred: true });

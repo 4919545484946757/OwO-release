@@ -36,6 +36,7 @@ fn node(name: &str, x: i32, y: i32) -> UiNode {
         y,
         width: 80,
         height: 30,
+        value_safety: None,
     }
 }
 

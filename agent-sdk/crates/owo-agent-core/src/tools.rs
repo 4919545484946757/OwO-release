@@ -32,6 +32,9 @@ use std::sync::{Arc, Mutex};
 
 #[path = "tools/command.rs"]
 mod command_tools;
+#[path = "tools/execution_result.rs"]
+mod execution_result;
+pub(crate) use execution_result::execution_error;
 #[path = "tools/mcp_adapters.rs"]
 mod mcp_adapters;
 use command_tools::{KillShellTool, RunCommandTool, ShellOutputTool};

@@ -131,6 +131,13 @@ pub(super) fn assess_single_turn_completion(
             && execution.status == "executed"
             && !execution.changed_files.is_empty()
     });
+    if plan.is_none() && single_unplanned_write_rejected(events) {
+        return crate::completion::decide_completion(crate::completion::CompletionEvidence {
+            response_finished: true,
+            blocking_issue_count: 1,
+            ..crate::completion::CompletionEvidence::default()
+        });
+    }
     if !has_current_turn_candidate && plan.is_none() {
         // Unaccepted files from prior turns do not turn ordinary conversation into a
         // code candidate. A user can explicitly start a new verification turn by
@@ -162,6 +169,16 @@ pub(super) fn assess_single_turn_completion(
         &pending_hashes,
         &root,
     )
+}
+
+/// Only host-generated admission failures carry this stable code. Model prose
+/// and unrelated tool previews never decide whether a write was executed.
+pub(super) fn single_unplanned_write_rejected(events: &[TurnEvent]) -> bool {
+    events.iter().any(|event| {
+        matches!(event,
+        TurnEvent::ToolResult { error: Some(error), .. }
+            if error.starts_with("tool/verification_plan_required:"))
+    })
 }
 
 pub(super) fn single_verification_plan_matches_turn(

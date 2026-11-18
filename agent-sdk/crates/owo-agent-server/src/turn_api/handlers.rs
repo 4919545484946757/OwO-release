@@ -897,7 +897,7 @@ impl owo_agent_core::question::Questioner for TurnQuestioner {
 }
 
 /// 回合总时长上限（回合级 watchdog）。
-fn turn_watchdog_budget() -> std::time::Duration {
+pub(crate) fn turn_watchdog_budget() -> std::time::Duration {
     let secs = std::env::var("OWO_TURN_MAX_DURATION_SECS")
         .ok()
         .and_then(|value| value.parse::<u64>().ok())

@@ -70,3 +70,25 @@ test("specific configuration failures survive subsequent child exit", async () =
     assert.match(connection.status().message, /插件设置文件/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("fragmented unified task references stay separate from legacy sessions and expose no child text", async () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"owo-ime-task-link-"));
+  const tasks=[],sessions=[];
+  try {
+    const proc=new EventEmitter();proc.stdout=new PassThrough();proc.stderr=new PassThrough();
+    proc.exitCode=null;proc.kill=()=>{};
+    const connection=create({runtime:()=>({owned:true,port:1234,dataRoot:dir}),
+      executable:()=>process.execPath,localAppData:()=>dir,dataRoot:()=>dir,originKey:"synthetic",
+      discoverConnector:async()=>({pid:1,sha256:"synthetic"}),spawnGateway:()=>proc,
+      onOpenTask:id=>tasks.push(id),onOpenSession:id=>sessions.push(id)});
+    await connection.start();
+    proc.stdout.write('private-child-text\nOWO_DESKTOP_OPEN_T');
+    proc.stdout.write('ASK {"task_id":"11111111-1111-4111-8111-111111111111"}\n');
+    proc.stdout.write('OWO_DESKTOP_OPEN_TASK {"task_id":"../../session/escape"}\n');
+    proc.stdout.write('OWO_DESKTOP_OPEN_TASKS\n');
+    assert.deepEqual(tasks,["11111111-1111-4111-8111-111111111111",null]);
+    assert.deepEqual(sessions,[]);
+    assert.doesNotMatch(JSON.stringify(connection.status()),/private-child-text/);
+    proc.emit("exit",0);
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});

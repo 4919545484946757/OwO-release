@@ -173,6 +173,18 @@ impl ComputerTaskRegistry {
         })
     }
 
+    /// 异常退出时只暂停仍可执行的任务；同一把锁内保留取消、熔断及其他状态。
+    pub fn pause_if_executable(&self, id: &str, reason: &str) -> Result<TaskState, String> {
+        self.transition(id, |task| {
+            if task.state.can_execute() {
+                task.fuse_reason = Some(reason.to_string());
+                Ok(TaskState::Paused)
+            } else {
+                Ok(task.state)
+            }
+        })
+    }
+
     /// 熔断（敏感 UI）：任何非终态 → Fused，要求人工接管。
     pub fn fuse(&self, id: &str, reason: &str) -> Result<TaskState, String> {
         self.transition(id, |task| {

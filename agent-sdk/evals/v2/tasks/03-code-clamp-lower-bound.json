@@ -3,7 +3,7 @@
   "id": "code-clamp-lower-bound",
   "category": "code",
   "title": "修复下边界夹取方向错误",
-  "instruction": "请只修改 src/solution.py 完成“修复下边界夹取方向错误”，保持函数签名和调用方输入不变。不要修改 tests/check.py。实现后运行白名单命令 python tests/check.py，并创建 out/change-report.md，写明具体根因、修改方案、边界条件和真实测试结果。验收规则：夹取结果必须落在闭区间内。",
+  "instruction": "请只修改 src/solution.py 完成“修复下边界夹取方向错误”，保持函数签名和调用方输入不变。不要修改 tests/check.py。实现后运行白名单命令 python tests/check.py，并创建 out/change-report.md，写明具体根因、修改方案、边界条件和真实测试结果。验收规则：夹取结果必须落在闭区间内。 out/change-report.md 必须使用二级标题组织，并逐字包含以下四个小节标题：`## 根因`、`## 修复方案`、`## 边界条件`、`## 测试结果`。",
   "inputs": [
     {
       "path": "src/solution.py",

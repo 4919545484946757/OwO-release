@@ -92,7 +92,7 @@ function loadPet(options) {
 
   const documentListeners = {};
   const windowListeners = {};
-  const calls = { moveBy: [], setVisible: [], showMenu: [], ignoreMouse: [], hover: [], chatFocus: [], releaseFocus: 0, showWorkbench: 0, resetPosition: 0, requests: [] };
+  const calls = { moveBy: [], setVisible: [], showMenu: [], regions: [], dragging: [], chatFocus: [], releaseFocus: 0, showWorkbench: 0, resetPosition: 0, requests: [] };
 
   const documentStub = {
     body: makeElement("body"),
@@ -148,8 +148,8 @@ function loadPet(options) {
       setVisible: async (visible) => { calls.setVisible.push(visible); },
       moveBy: (dx, dy) => { calls.moveBy.push([dx, dy]); },
       showMenu: async (items) => { calls.showMenu.push(items); return opts.menuSelection || null; },
-      setIgnoreMouseEvents: async (ignore) => { calls.ignoreMouse.push(ignore); },
-      setHover: async (inside) => { calls.hover.push(inside); },
+      setRegion: async (rect) => { calls.regions.push(rect); },
+      setDragging: async (value) => { calls.dragging.push(value); },
       releaseFocus: async () => { calls.releaseFocus += 1; },
       setChatFocus: async (open) => { calls.chatFocus.push(open); },
       showWorkbench: () => { calls.showWorkbench += 1; },
@@ -230,17 +230,19 @@ test("左键点击＝只互动：happy 摇动 + ❤×4 + 互动台词，且不�
   assert.equal(pet.calls.releaseFocus, 1, "互动结束必须把键盘还给原来的前台窗口");
 });
 
-test("透明区域穿透鼠标，只有进入形象命中区才接管交互", async () => {
+test("命中区只上报几何，穿透由壳判定（页面自己关掉的开关自己拧不回来）", async () => {
   const pet = loadPet({ shell: true });
   await flush();
-  pet.document.dispatch("mousemove", { clientX: 200, clientY: 200 });
-  pet.document.dispatch("mousemove", { clientX: 20, clientY: 20 });
-  pet.document.dispatch("mousemove", { clientX: 30, clientY: 30 });
-  pet.document.dispatch("mousemove", { clientX: 200, clientY: 200 });
-  assert.deepEqual(pet.calls.ignoreMouse, [true, false, true]);
-  // 命中区内还要临时去掉 Windows 的不可激活样式，否则 Chromium 只收到 mouseup，
-  // 单击/双击/× 都会时灵时不灵（输入框也就拿不到键盘焦点）。
-  assert.deepEqual(pet.calls.hover, [false, true, false]);
+  // 页面把形象命中区的窗口内坐标报给壳；壳再按指针位置决定是否接管鼠标。
+  // 页面**不得**自己调用 setIgnoreMouseEvents：窗口一旦穿透，Windows 就把鼠标消息
+  // 发给下面的窗口，本页再也收不到 mousemove，也就没有机会把穿透关回去。
+  assert.ok(pet.calls.regions.length >= 1, "启动后必须上报命中区");
+  const region = pet.calls.regions.at(-1);
+  assert.equal(region.hold, false, "常态下只接管形象命中区");
+  assert.equal(region.x, 0);
+  assert.equal(region.y, 0);
+  assert.equal(region.width, 120);
+  assert.equal(region.height, 80);
 });
 
 test("聊天在边缘打开时移入完整面板，关闭后恢复透明穿透", async () => {
@@ -255,13 +257,13 @@ test("聊天在边缘打开时移入完整面板，关闭后恢复透明穿透",
   await pet.run("toggleChat(true)");
   assert.deepEqual(pet.calls.moveBy, [[74, 110]], "只移动面板越出工作区的距离");
   assert.equal(panel.hidden, false);
-  assert.deepEqual(pet.calls.ignoreMouse, [false], "聊天打开时整个面板都必须可交互");
+  assert.equal(pet.calls.regions.at(-1).hold, true, "聊天打开时整窗都要可交互（输入框、×、拖动把手）");
   assert.deepEqual(pet.calls.chatFocus, [true], "聊天期间窗口必须临时可聚焦，否则键盘发送不到输入框");
   assert.ok(pet.ids["chat-input"].focused >= 1, "打开面板后输入框要拿到焦点");
 
   await pet.run("toggleChat(false)");
   assert.equal(panel.hidden, true);
-  assert.deepEqual(pet.calls.ignoreMouse, [false, true], "关闭聊天后恢复模型命中区穿透");
+  assert.equal(pet.calls.regions.at(-1).hold, false, "关闭聊天后回到形象命中区");
   assert.deepEqual(pet.calls.chatFocus, [true, false], "关闭聊天后窗口恢复不可聚焦，不再抢键盘");
 });
 
@@ -289,11 +291,26 @@ test("拖动＝纯移动：交给壳 moveBy，不互动、不弹菜单", async (
   petElement.dispatch("pointermove", pointerEvent("pointermove", 160, 140));
   petElement.dispatch("pointerup", pointerEvent("pointerup", 160, 140));
 
-  assert.deepEqual(pet.calls.moveBy, [[60, 40]], "拖动必须按 dpr 折算后交给壳移动真实窗口");
+  // screenX 与壳的 setPosition 都是 DIP，位移必须原样交出去。
+  assert.deepEqual(pet.calls.moveBy, [[60, 40]], "拖动位移不得乘 devicePixelRatio（200% 缩放下会甩开指针）");
+  assert.deepEqual(pet.calls.dragging, [true, false], "拖动期间必须声明握住输入权，结束再交还");
   assert.equal(petElement.classList.contains("dropped"), true, "松手要有掉落反馈");
   assert.equal(petElement.classList.contains("happy"), false, "拖动不是互动，不得触发摸摸头");
   assert.equal(pet.ids.fx.children.length, 0, "拖动不得飘 ❤");
   assert.equal(pet.calls.showMenu.length, 0, "拖动不得弹菜单");
+});
+
+test("高 DPI 缩放（dpr=2）下拖动仍然是 1:1，不得把位移放大一倍", async () => {
+  // 回归守卫：旧实现乘了 devicePixelRatio，2560×1600@200% 的机器上窗口会以 2 倍速度
+  // 甩开指针，几帧就撞进工作区边缘卡住——用户看到的就是"桌宠卡在右上角"。
+  const pet = loadPet({ shell: true });
+  await flush();
+  pet.sandbox.devicePixelRatio = 2;
+  const petElement = pet.ids.pet;
+  petElement.dispatch("pointerdown", pointerEvent("pointerdown", 400, 400));
+  petElement.dispatch("pointermove", pointerEvent("pointermove", 430, 420));
+  petElement.dispatch("pointerup", pointerEvent("pointerup", 430, 420));
+  assert.deepEqual(pet.calls.moveBy, [[30, 20]], "dpr 不影响位移：setPosition 收的就是 DIP");
 });
 
 test("右键＝原生功能菜单：按当前状态列动作，取消后可再次打开", async () => {

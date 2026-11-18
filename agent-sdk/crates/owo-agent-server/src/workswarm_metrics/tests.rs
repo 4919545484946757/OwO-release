@@ -883,6 +883,7 @@ async fn measured_provider_preserves_request_metadata_once() {
         ) -> Result<ObservedModelOutput, String> {
             tokio::time::sleep(std::time::Duration::from_millis(5)).await;
             Ok(ObservedModelOutput {
+                reasoning_replay: None,
                 output: ModelOutput::Text("ok".to_string()),
                 metadata: ModelCallMetadata {
                     request_id: Some("req-42".to_string()),
@@ -986,6 +987,7 @@ async fn concurrent_measured_providers_keep_request_usage_scoped_to_each_step() 
         ) -> Result<ObservedModelOutput, String> {
             tokio::task::yield_now().await;
             Ok(ObservedModelOutput {
+                reasoning_replay: None,
                 output: ModelOutput::Text("ok".to_string()),
                 metadata: ModelCallMetadata {
                     request_id: Some(self.request_id.to_string()),

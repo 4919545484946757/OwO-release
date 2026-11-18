@@ -178,13 +178,18 @@ pub(super) async fn ocr_screen(max_boxes: usize) -> Result<Value, String> {
     Ok(result)
 }
 
-/// 在 OCR lines 中查找包含目标文本的行（可带 role_hint 过滤）。
-pub(super) fn find_ocr_line(ocr: &Value, needle: &str, role: &str) -> Option<Value> {
+/// 在 OCR lines 中查找包含目标文本的所有行（可带 role_hint 过滤）。
+///
+/// 保留全量候选而不是只取第一个：动作定位需要判断"锚点是否歧义"，
+/// 命中多个候选时不得静默选择第一个（Agent V2 §5 任务 1.4）。
+pub(super) fn find_ocr_lines(ocr: &Value, needle: &str, role: &str) -> Vec<Value> {
     let needle_lower = needle.to_lowercase();
-    let lines = ocr.get("lines")?.as_array()?;
+    let Some(lines) = ocr.get("lines").and_then(Value::as_array) else {
+        return Vec::new();
+    };
     lines
         .iter()
-        .find(|line| {
+        .filter(|line| {
             let text = line
                 .get("text")
                 .and_then(Value::as_str)
@@ -199,4 +204,10 @@ pub(super) fn find_ocr_line(ocr: &Value, needle: &str, role: &str) -> Option<Val
             role_ok && text.contains(&needle_lower)
         })
         .cloned()
+        .collect()
+}
+
+/// 在 OCR lines 中查找包含目标文本的第一行（单结果调用方的便捷入口）。
+pub(super) fn find_ocr_line(ocr: &Value, needle: &str, role: &str) -> Option<Value> {
+    find_ocr_lines(ocr, needle, role).into_iter().next()
 }

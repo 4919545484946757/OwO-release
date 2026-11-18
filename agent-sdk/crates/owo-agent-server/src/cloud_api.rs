@@ -11,7 +11,14 @@ use axum::Json;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
+use owo_agent_core::cloud_exec::{CloudTaskQueue, CloudTaskSpec, TaskRecord};
 use owo_agent_server::AppState;
+
+/// 一次云端任务的启动结果（HTTP 入口与统一任务后端共用）。
+pub(crate) struct CloudTaskStart {
+    pub(crate) record: TaskRecord,
+    pub(crate) transport: String,
+}
 
 /// 按当前配置构造云端传输；提交入口用它提前验证配置，执行 owner 则持有自己的实例。
 fn cloud_transport(
@@ -66,13 +73,31 @@ pub(super) async fn cloud_task_submit(
     State(state): State<Arc<AppState>>,
     Json(spec): Json<owo_agent_core::cloud_exec::CloudTaskSpec>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let transport = cloud_transport(&state).map_err(|error| (StatusCode::BAD_REQUEST, error))?;
-    let transport_kind = transport.kind();
+    let started = start_cloud_task(&state, spec)
+        .await
+        .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+    Ok(Json(json!({
+        "ok": true,
+        "task": started.record,
+        "transport": started.transport,
+    })))
+}
+
+/// 提交并启动一次云端任务（HTTP 入口与统一任务后端共用）。
+///
+/// 只负责持久化入队与启动 runner，执行过程不占用调用方；调用方用 task_id
+/// 查询持久化快照或订阅 SSE。
+#[allow(dead_code)] // 独立编译的 cloud_task_api_tests 目标不调用它
+pub(crate) async fn start_cloud_task(
+    state: &Arc<AppState>,
+    spec: CloudTaskSpec,
+) -> Result<CloudTaskStart, String> {
+    let transport = cloud_transport(state)?;
+    let transport_kind = transport.kind().to_string();
     drop(transport);
     let _submit_guard = state.cloud_submit_lock.lock().await;
     let queue_dir = state.data_root.join("cloud").join("queue");
-    let task = owo_agent_core::cloud_exec::CloudTaskQueue::submit_persisted(&queue_dir, spec, &[])
-        .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+    let task = CloudTaskQueue::submit_persisted(&queue_dir, spec, &[])?;
     let task_id = task.task_id.clone();
     // Register the SSE stream before the persisted task ID is returned. The client
     // can subscribe immediately even if the background runner has not emitted yet.
@@ -86,9 +111,16 @@ pub(super) async fn cloud_task_submit(
         .insert(task_id.clone(), cancel_tx);
     drop(_submit_guard);
 
+    spawn_cloud_runner(Arc::clone(state), task_id);
+    Ok(CloudTaskStart {
+        record: task,
+        transport: transport_kind,
+    })
+}
+
+fn spawn_cloud_runner(worker_state: Arc<AppState>, task_id: String) {
     // 每个请求只负责持久化入队与启动 runner；执行过程不占用 HTTP handler，
     // 客户端可立即用 task_id 订阅 SSE。队列锁仍保证单写者和串行 transport。
-    let worker_state = Arc::clone(&state);
     tokio::spawn(async move {
         let mut queue_guard = match cloud_queue(&worker_state).await {
             Ok(guard) => guard,
@@ -179,13 +211,11 @@ pub(super) async fn cloud_task_submit(
             }
         }
     });
-
-    Ok(Json(
-        json!({ "ok": true, "task": task, "transport": transport_kind }),
-    ))
 }
 
-fn read_persisted_task(
+/// 读取持久化快照（提交方与统一任务后端都不等 transport 写锁）。
+#[allow(dead_code)] // 独立编译的 cloud_task_api_tests 目标不调用它
+pub(crate) fn read_persisted_task(
     state: &AppState,
     task_id: &str,
 ) -> Result<Option<owo_agent_core::cloud_exec::TaskRecord>, String> {
@@ -259,16 +289,27 @@ pub(super) async fn cloud_task_cancel(
     State(state): State<Arc<AppState>>,
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    if let Some(signal) = state.cloud_cancel_signals.lock().await.get(&id).cloned() {
+    let state_str = request_cloud_cancel(&state, &id).await?;
+    Ok(Json(
+        json!({ "ok": true, "task_id": id, "state": state_str }),
+    ))
+}
+
+/// 请求取消一次云端任务（HTTP 入口与统一任务后端共用）。
+///
+/// 活动运行（信号表里有条目）只投递取消信号，由唯一 runner 收口；否则直接
+/// 在队列上取消。返回取消后的线上状态字符串。
+#[allow(dead_code)] // 独立编译的 cloud_task_api_tests 目标不调用它
+pub(crate) async fn request_cloud_cancel(
+    state: &Arc<AppState>,
+    id: &str,
+) -> Result<&'static str, (StatusCode, String)> {
+    if let Some(signal) = state.cloud_cancel_signals.lock().await.get(id).cloned() {
         signal.send_replace(true);
-        return Ok(Json(json!({
-            "ok": true,
-            "task_id": id,
-            "state": "cancel_requested"
-        })));
+        return Ok("cancel_requested");
     }
 
-    let mut guard = cloud_queue(&state)
+    let mut guard = cloud_queue(state)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     let queue = guard.as_mut().ok_or((
@@ -276,23 +317,21 @@ pub(super) async fn cloud_task_cancel(
         "云端队列未初始化".to_string(),
     ))?;
     let was_canceled = queue
-        .record(&id)
+        .record(id)
         .is_some_and(|record| record.state == owo_agent_core::cloud_exec::TaskState::Canceled);
     queue
-        .cancel(&id)
+        .cancel(id)
         .await
         .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
-    state.cloud_cancel_signals.lock().await.remove(&id);
+    state.cloud_cancel_signals.lock().await.remove(id);
     if !was_canceled {
         owo_agent_server::sse::hub().publish(
-            &id,
+            id,
             json!({ "task_id": id, "event": "canceled", "kind": "canceled" }).to_string(),
         );
-        owo_agent_server::sse::hub().mark_completed(&id);
+        owo_agent_server::sse::hub().mark_completed(id);
     }
-    Ok(Json(
-        json!({ "ok": true, "task_id": id, "state": "canceled" }),
-    ))
+    Ok("canceled")
 }
 // 注：`GET /cloud/tasks/{id}/events` 的处理器由 sse.rs::router 单一提供
 //（lib.rs 仅经 merge(sse::router) 注册一处）。本模块曾补齐一份带 404 校验

@@ -406,19 +406,19 @@ fn research_brief_v1() -> BuiltinTemplateDescriptor {
         budget_calls_per_role: vec![
             RoleBudget {
                 role: "researcher_a".to_string(),
-                budget_calls: 4,
+                budget_calls: 6,
             },
             RoleBudget {
                 role: "researcher_b".to_string(),
-                budget_calls: 4,
+                budget_calls: 6,
             },
             RoleBudget {
                 role: "evidence_verifier".to_string(),
-                budget_calls: 3,
+                budget_calls: 6,
             },
             RoleBudget {
                 role: "brief_writer".to_string(),
-                budget_calls: 4,
+                budget_calls: 6,
             },
         ],
         budget: json!({
@@ -484,15 +484,15 @@ fn document_delivery_v1() -> BuiltinTemplateDescriptor {
         budget_calls_per_role: vec![
             RoleBudget {
                 role: "drafter".to_string(),
-                budget_calls: 4,
+                budget_calls: 6,
             },
             RoleBudget {
                 role: "content_reviewer".to_string(),
-                budget_calls: 3,
+                budget_calls: 5,
             },
             RoleBudget {
                 role: "finalizer".to_string(),
-                budget_calls: 4,
+                budget_calls: 6,
             },
         ],
         budget: json!({
@@ -886,6 +886,7 @@ pub fn prompt_sections_for(template_id: &str, role: &str) -> Option<RolePromptSe
         (DOCUMENT_DELIVERY_V1, "finalizer") => RolePromptSections {
             must_do: vec![
                 "吸收审查意见产出终稿（结构化 Markdown），用 write_file 落盘。".to_string(),
+                "预期产物有多个路径时逐个 write_file 落盘，不能合并成一个文件或省略路径。".to_string(),
                 "附修订说明：采纳/驳回逐条意见的理由。".to_string(),
             ],
             must_not_do: vec![

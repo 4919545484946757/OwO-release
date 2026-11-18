@@ -1443,6 +1443,7 @@ impl crate::gateway::ModelProvider for RequestUsageProvider {
             .unwrap_or_default();
         let tokens = if user_text == "worker-a" { 11 } else { 101 };
         Ok(crate::gateway::ObservedModelOutput {
+            reasoning_replay: None,
             output: ModelOutput::Text("ok".to_string()),
             metadata: crate::gateway::ModelCallMetadata {
                 usage: Some(crate::gateway::TokenUsage {
@@ -2276,6 +2277,19 @@ async fn readonly_request_cannot_write_or_relax_a_parent_and_does_not_affect_nex
     let outputs = VecDeque::from(vec![
         write("readonly"),
         ModelOutput::Text("readonly finished".into()),
+        ModelOutput::ToolCalls(vec![crate::gateway::ToolCall {
+            id: "normal-plan".into(),
+            name: "verification_plan".into(),
+            arguments: serde_json::json!({"plan": {
+                "plan_id":"normal-scope", "requirements":[{
+                    "requirement_id":"scope-file", "covers_requirement_ids":["user-request:normal write"],
+                    "validator_id":"workspace-file-exists-v1", "validator_version":"1",
+                    "scope":{"kind":"workspace_paths","relative_paths":["scope-fixture.txt"]},
+                    "arguments":{}, "required":true,
+                    "resources":{"cpu_slots":1,"memory_mb":16,"exclusive_workspace":false,"timeout_ms":10000}
+                }]
+            }}),
+        }]),
         write("normal"),
         ModelOutput::Text("normal finished".into()),
         write("parent-readonly"),

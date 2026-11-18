@@ -685,6 +685,7 @@ mod independent_case_sample_tests {
             started_at: String::new(),
             finished_at: String::new(),
             error: None,
+            external_evidence: None,
         }
     }
 

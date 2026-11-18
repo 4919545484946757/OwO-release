@@ -346,6 +346,37 @@ async fn run_outcome_persisted_to_disk() {
 }
 
 #[tokio::test]
+async fn real_backend_rejects_nested_rollback_before_workspace_write() {
+    let (state, temp) = test_state().await;
+    let mut definition = rollback_flow();
+    definition["steps"] = json!([
+        {"kind": "act", "id": "write", "scope": "fs.write",
+         "spec": {"action": "write_file", "target": "original.txt", "value": "after"}},
+        {"kind": "cond", "id": "branch", "expr": "true",
+         "then": [{"kind": "rollback_point", "id": "snapshot"}], "otherwise": []}
+    ]);
+    let target = state.workspace.join("original.txt");
+    std::fs::write(&target, "before").unwrap();
+    write_flow(&state.workspace, "rb-real", &definition);
+
+    let response = send(
+        state,
+        "POST",
+        "/workflow/rb-real/run",
+        Some(r#"{"backend":"real"}"#),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body = body_json(response).await;
+    assert!(body["error"]
+        .as_str()
+        .unwrap()
+        .contains("WORKFLOW_REAL_ROLLBACK_UNSUPPORTED"));
+    assert_eq!(std::fs::read_to_string(target).unwrap(), "before");
+    assert!(!temp.path().join("workflow-runs").exists());
+}
+
+#[tokio::test]
 async fn rollback_to_nearest_checkpoint_on_failure() {
     let (state, temp) = test_state().await;
     write_flow(&state.workspace.clone(), "rb", &rollback_flow());
@@ -412,6 +443,92 @@ async fn abort_marks_aborted() {
 
     let snapshot = poll_run(state.clone(), &run_id).await;
     assert_eq!(snapshot["state"], json!("aborted"));
+    drop(temp);
+}
+
+/// 执行中的 abort 必须真的让引擎停下，而不是只在启动窗口内有效。
+#[tokio::test]
+async fn abort_stops_a_running_workflow_at_the_next_step_boundary() {
+    let (state, temp) = test_state().await;
+    write_flow(&state.workspace.clone(), "appr", &approval_flow());
+    // 人审超时 700ms：abort 置位后，引擎在超时点（步骤边界）看到取消标志。
+    let response = send(
+        state.clone(),
+        "POST",
+        "/workflow/appr/run",
+        Some(r#"{"backend": "real", "approval_timeout_ms": 700}"#),
+    )
+    .await;
+    let run_id = body_json(response).await["run_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    // 等运行停在人审节点，再中止。
+    let mut snapshot = serde_json::json!({});
+    for _ in 0..100 {
+        snapshot = body_json(
+            send(
+                state.clone(),
+                "GET",
+                &format!("/workflow/run/{run_id}"),
+                None,
+            )
+            .await,
+        )
+        .await;
+        if snapshot["state"] == json!("waiting_approval") {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert_eq!(snapshot["state"], json!("waiting_approval"));
+    let response = send(
+        state.clone(),
+        "POST",
+        &format!("/workflow/run/{run_id}/abort"),
+        None,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        snapshot = body_json(
+            send(
+                state.clone(),
+                "GET",
+                &format!("/workflow/run/{run_id}"),
+                None,
+            )
+            .await,
+        )
+        .await;
+        if snapshot["state"] == json!("aborted") {
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "执行中的 aborted 运行没有停下：{snapshot}"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    // 人审之后的步骤没有执行：运行在门禁处中止并记录原因。
+    let audit = body_json(
+        send(
+            state.clone(),
+            "GET",
+            &format!("/workflow/run/{run_id}/audit"),
+            None,
+        )
+        .await,
+    )
+    .await;
+    let aborted =
+        audit["audit"].as_array().unwrap().iter().any(|entry| {
+            entry["event"] == "workflow.abort" && entry["detail"] == "执行中收到中止请求"
+        });
+    assert!(aborted, "应记录执行中中止：{audit}");
     drop(temp);
 }
 

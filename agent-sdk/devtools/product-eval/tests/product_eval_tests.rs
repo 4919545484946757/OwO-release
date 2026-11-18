@@ -68,6 +68,9 @@ fn make_case(id: &str, category: EvalCategory) -> ProductEvalCase {
         max_model_calls: None,
         repetitions: None,
         allow_commands: Vec::new(),
+        failure_classes: Vec::new(),
+        expected_side_effects: Vec::new(),
+        fault_injection: None,
     }
 }
 
@@ -98,6 +101,9 @@ fn make_json_case(id: &str) -> ProductEvalCase {
         max_model_calls: None,
         repetitions: None,
         allow_commands: Vec::new(),
+        failure_classes: Vec::new(),
+        expected_side_effects: Vec::new(),
+        fault_injection: None,
     }
 }
 
@@ -129,6 +135,7 @@ fn dummy_run(key: MatrixKey, status: RunStatus) -> ProductEvalRun {
         started_at: "2026-01-01T00:00:00Z".to_string(),
         finished_at: "2026-01-01T00:00:01Z".to_string(),
         error: None,
+        external_evidence: None,
     }
 }
 
@@ -930,6 +937,37 @@ async fn live_single_mode_generates_and_passes() {
 }
 
 #[tokio::test]
+async fn live_generator_rejects_cases_that_need_external_execution() {
+    let mut desktop = live_case("external-desktop");
+    desktop.category = EvalCategory::Desktop;
+    let mut long_horizon = live_case("external-long-horizon");
+    long_horizon.category = EvalCategory::LongHorizon;
+    let out = temp_out("live-external-execution");
+    let runner = MatrixRunner::new(bundle(vec![desktop, long_horizon]), &out);
+    let provider = QueueProvider::new(vec![]);
+    let executor = Arc::new(GenerativeExecutor {
+        provider: provider.clone(),
+        model: "stub-model".to_string(),
+    });
+    let opts = opts1(vec![AgentMode::Single]);
+    let report = run_matrix(&runner, executor, "live-stub", &opts, no_cancel()).await;
+
+    assert_eq!(provider.calls(), 0);
+    assert_eq!(report.runs.len(), 2);
+    for run in &report.runs {
+        let code = match run.category {
+            EvalCategory::Desktop => "EVAL_REAL_DESKTOP_DRIVER_REQUIRED",
+            EvalCategory::LongHorizon => "EVAL_FAULT_INJECTION_DRIVER_REQUIRED",
+            other => panic!("unexpected category: {other:?}"),
+        };
+        assert_eq!(run.status, RunStatus::Error);
+        assert_eq!(run.error.as_deref(), Some(code));
+        assert_eq!(run.tool_calls, Some(0));
+        assert!(run.artifact_refs.is_empty());
+    }
+}
+
+#[tokio::test]
 async fn live_multi_mode_planner_reviewer_and_rework() {
     let b = bundle(vec![live_case("live-m")]);
     let out = temp_out("live-multi");
@@ -1071,6 +1109,7 @@ fn compare_reports_flags_regressions_and_mismatched_execution() {
         model: None,
         batch_label: None,
         tags: vec![],
+        repair_attempts: 0,
         run_contract_sha256: None,
         evaluator_binary_sha256: None,
         provider_endpoint_sha256: None,
@@ -1310,6 +1349,7 @@ fn paired_report_json_matches_route3_paired_stats_contract() {
         model: Some("glm-5.3-flash".into()),
         batch_label: Some("b1".into()),
         tags: vec!["tag1".into()],
+        repair_attempts: 0,
         run_contract_sha256: Some("contract-v1".into()),
         evaluator_binary_sha256: Some("binary-v1".into()),
         provider_endpoint_sha256: Some("endpoint-v1".into()),
@@ -1328,6 +1368,7 @@ fn paired_report_json_matches_route3_paired_stats_contract() {
         model: Some("glm-5.3-flash".into()),
         batch_label: Some("b1".into()),
         tags: vec!["tag1".into()],
+        repair_attempts: 0,
         run_contract_sha256: Some("contract-v1".into()),
         evaluator_binary_sha256: Some("binary-v1".into()),
         provider_endpoint_sha256: Some("endpoint-v1".into()),
@@ -1691,7 +1732,11 @@ async fn batch_label_enforced_and_tags_recorded() {
         fresh: false,
         batch_label: Some("acceptance-01".into()),
         tags: vec!["formal".into(), "b1".into()],
+        repair_attempts: 0,
         provider_endpoint_sha256: None,
+        desktop_driver: None,
+        fault_driver: None,
+        driver_config: None,
     };
     let report = run_matrix(
         &runner,
@@ -1712,7 +1757,11 @@ async fn batch_label_enforced_and_tags_recorded() {
         fresh: false,
         batch_label: Some("acceptance-02".into()),
         tags: vec![],
+        repair_attempts: 0,
         provider_endpoint_sha256: None,
+        desktop_driver: None,
+        fault_driver: None,
+        driver_config: None,
     };
     let result = runner
         .run(
@@ -1851,4 +1900,114 @@ fn mode_statistics_and_report_statistics_shapes() {
     let text = format_mode_statistics(&runs);
     assert!(text.contains("CI95"));
     assert!(text.contains("多 Agent 启用条件"));
+}
+
+// ---------------------------------------------------------------------------
+// 验证/修复组：检查器失败反馈 → 第二次尝试
+// ---------------------------------------------------------------------------
+
+/// 第一次产出坏内容（检查器失败），收到反馈后第二次产出正确内容。
+struct RepairingExecutor {
+    attempts: AtomicU32,
+    seen_feedback: Mutex<Vec<Option<String>>>,
+}
+
+#[async_trait]
+impl CaseExecutor for RepairingExecutor {
+    async fn execute<'ctx>(&self, ctx: &mut ExecContext<'ctx>) -> RawExecOutcome {
+        let attempt = self.attempts.fetch_add(1, Ordering::Relaxed) + 1;
+        let owner = ctx
+            .matrix_attempt()
+            .expect("matrix runner must identify the attempt");
+        assert_eq!(owner.key.case_id, ctx.case.id);
+        assert_eq!(owner.key.agent_mode, ctx.mode);
+        assert_eq!(owner.key.repetition, 0);
+        assert_eq!(owner.repair_index, attempt - 1);
+        assert!(owner.repair_index <= owner.repair_limit);
+        self.seen_feedback
+            .lock()
+            .unwrap()
+            .push(ctx.repair_feedback().map(str::to_string));
+        let artifact = ctx.case.expected_artifacts[0].clone();
+        let content = if attempt == 1 {
+            "# 报告\n（缺少关键词）\n".to_string()
+        } else {
+            "# 报告\n结论 ok\n".to_string()
+        };
+        let mut outcome = RawExecOutcome {
+            model_calls: 1,
+            usage_known: true,
+            usage: TokenUsage {
+                prompt_tokens: 10,
+                completion_tokens: 5,
+                total_tokens: 15,
+            },
+            ..RawExecOutcome::default()
+        };
+        if let Err(error) = ctx.write_file(&artifact, &content) {
+            outcome.error = Some(error);
+        }
+        outcome
+    }
+}
+
+fn repairing_executor() -> Arc<RepairingExecutor> {
+    Arc::new(RepairingExecutor {
+        attempts: AtomicU32::new(0),
+        seen_feedback: Mutex::new(Vec::new()),
+    })
+}
+
+#[tokio::test]
+async fn repair_attempts_feed_checker_failures_and_aggregate_usage() {
+    let out = temp_out("repair-loop");
+    let runner = MatrixRunner::new(bundle(vec![make_case("repair", EvalCategory::Code)]), &out);
+    let opts = RunOptions {
+        modes: vec![AgentMode::Single],
+        reps_override: Some(1),
+        fresh: true,
+        repair_attempts: 1,
+        ..Default::default()
+    };
+    let executor = repairing_executor();
+    let report = run_matrix(&runner, executor.clone(), "repair-test", &opts, no_cancel()).await;
+
+    assert_eq!(report.repair_attempts, 1);
+    let run = &report.runs[0];
+    assert_eq!(run.status, RunStatus::Passed);
+    assert_eq!(run.model_calls, 2, "修复尝试必须计入模型调用");
+    assert_eq!(run.total_tokens, Some(30), "两轮用量必须累加");
+    assert!(
+        run.failed_steps
+            .iter()
+            .any(|step| step.contains("repair:1")),
+        "修复轮次必须留在失败步骤里，不能只保留最终成功"
+    );
+    let seen = executor.seen_feedback.lock().unwrap();
+    assert_eq!(seen.len(), 2);
+    assert!(seen[0].is_none(), "首次尝试不应带修复反馈");
+    let feedback = seen[1].as_deref().expect("第二次尝试必须带检查器反馈");
+    assert!(feedback.contains("修复请求（第 1 次）"));
+    assert!(
+        feedback.contains("out/report.md"),
+        "反馈必须点名未通过的产物"
+    );
+}
+
+#[tokio::test]
+async fn repair_is_opt_in_and_zero_attempts_keeps_single_run() {
+    let out = temp_out("repair-off");
+    let runner = MatrixRunner::new(bundle(vec![make_case("repair", EvalCategory::Code)]), &out);
+    let opts = RunOptions {
+        modes: vec![AgentMode::Single],
+        reps_override: Some(1),
+        fresh: true,
+        ..Default::default()
+    };
+    let executor = repairing_executor();
+    let report = run_matrix(&runner, executor.clone(), "repair-off", &opts, no_cancel()).await;
+    assert_eq!(report.repair_attempts, 0);
+    assert_eq!(report.runs[0].status, RunStatus::Failed);
+    assert_eq!(report.runs[0].model_calls, 1);
+    assert_eq!(executor.attempts.load(Ordering::Relaxed), 1);
 }

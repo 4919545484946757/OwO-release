@@ -38,6 +38,8 @@
 
 pub mod dataset_builder;
 pub mod eval;
+#[path = "product_eval/external_drivers.rs"]
+pub mod external_drivers;
 pub mod product_eval;
 
 // 顶层再导出：与拆分前 `owo-agent-core` 的 `pub use` 面保持兼容。

@@ -28,6 +28,7 @@ impl ModelProvider for ObservedGatewayTestProvider {
         _tools: &[ToolSpec],
     ) -> Result<ObservedModelOutput, String> {
         Ok(ObservedModelOutput {
+            reasoning_replay: None,
             output: ModelOutput::Text("ok".into()),
             metadata: ModelCallMetadata {
                 request_id: Some("req-observed".into()),
@@ -50,6 +51,7 @@ impl ModelProvider for ObservedGatewayTestProvider {
         _on_chunk: &mut (dyn FnMut(StreamChunk) + Send),
     ) -> Result<ObservedModelOutput, String> {
         Ok(ObservedModelOutput {
+            reasoning_replay: None,
             output: ModelOutput::Text("ok".into()),
             metadata: ModelCallMetadata {
                 request_id: Some("req-observed".into()),

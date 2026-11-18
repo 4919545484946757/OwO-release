@@ -33,8 +33,10 @@ const LEGACY_KEY_ENV = "DASHSCOPE_API_KEY";
 
 // 旧壳的 14 个命令名。加命令必须同步这里（测试据此对账 web 侧的实际调用）。
 const SHELL_COMMANDS = [
+  "apply_relay_trial",
   "choose_data_directory",
   "choose_project_directory",
+  "clear_workspace",
   "create_project_workspace",
   "desktop_pairing",
   "get_core_connection",
@@ -42,6 +44,8 @@ const SHELL_COMMANDS = [
   "get_provider_status",
   "get_workspace",
   "open_core_logs",
+  "open_project_directory",
+  "relay_trial_status",
   "reload_model_config",
   "retry_core_start",
   "reveal_model_config",

@@ -351,15 +351,27 @@ pub fn parse_worker_output(text: &str) -> WorkerOutputParse {
     // 确定性归一化，避免触发一次昂贵的模型修复调用。
     let normalized = strip_code_fences(text);
     let trimmed = normalized.trim();
-    // 快速排除：非 `{` 开头不可能是契约 JSON（自由文本直接 Legacy）。
-    if !trimmed.starts_with('{') {
-        return WorkerOutputParse::Legacy;
-    }
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed) else {
-        // 以 { 开头但非法 JSON：多半是模型想按契约输出但格式坏了。
-        return WorkerOutputParse::Invalid {
-            error: "输出以 { 开头但不是合法 JSON".to_string(),
-        };
+    let value = if trimmed.starts_with('{') {
+        match serde_json::from_str::<serde_json::Value>(trimmed) {
+            Ok(value) => value,
+            // 以 { 开头但整份不是合法 JSON（常见：末尾多一段说明）。再尝试只取
+            // 第一个完整 JSON 值；仍失败才判契约非法。
+            Err(strict) => match parse_first_json_value(trimmed) {
+                Ok(value) => value,
+                Err(_) => {
+                    return WorkerOutputParse::Invalid {
+                        error: format!("输出以 {{ 开头但不是合法 JSON：{strict}"),
+                    }
+                }
+            },
+        }
+    } else {
+        // 非 `{` 开头：允许「说明文字 + 契约 JSON」的写法，但只有确实含
+        // status 字段的 JSON 对象才算契约，其余仍走 Legacy（自由文本）。
+        match parse_first_json_value(trimmed) {
+            Ok(value) if value.is_object() && value.get("status").is_some() => value,
+            _ => return WorkerOutputParse::Legacy,
+        }
     };
     if value.get("status").is_none() {
         // 有结构但不是本契约（其他 JSON 用途）→ Legacy。
@@ -674,6 +686,24 @@ fn normalize_review_verdict_aliases(value: &mut serde_json::Value) {
     }
 }
 
+/// 从模型输出中提取第一个完整 JSON 值。
+///
+/// 模型常把契约 JSON 与说明文字、第二个对象或多余字符拼在一起。只取第一个值，
+/// 其后的内容不参与解析——"trailing characters" 不应让一份合法交付物整步失败。
+pub fn parse_first_json_value(text: &str) -> Result<serde_json::Value, String> {
+    let trimmed = text.trim();
+    let Some(start) = trimmed.find(|ch| ch == '{' || ch == '[') else {
+        return Err("未找到 JSON 起始符".to_string());
+    };
+    let mut stream =
+        serde_json::Deserializer::from_str(&trimmed[start..]).into_iter::<serde_json::Value>();
+    match stream.next() {
+        Some(Ok(value)) => Ok(value),
+        Some(Err(error)) => Err(error.to_string()),
+        None => Err("未找到 JSON 值".to_string()),
+    }
+}
+
 pub fn strip_code_fences(text: &str) -> String {
     let trimmed = text.trim();
     let Some(rest) = trimmed.strip_prefix("```") else {
@@ -739,6 +769,45 @@ mod tests {
             WorkerOutputParse::Parsed(output) => assert!(output.validate().is_ok()),
             other => panic!("围栏内的合法契约应直接解析，不触发模型修复：{other:?}"),
         }
+    }
+
+    #[test]
+    fn contract_json_with_trailing_text_is_parsed_without_repair() {
+        // 真实模型常在契约 JSON 后补一段说明。旧解析把它判成非法 JSON，
+        // 白跑一次定点修复；现在只取第一个完整 JSON 值。
+        let text = format!(
+            "{}\n\n补充说明：以上为最终交付。",
+            producer_json("# 交付 正文")
+        );
+        match parse_worker_output(&text) {
+            WorkerOutputParse::Parsed(output) => assert!(output.validate().is_ok()),
+            other => panic!("尾部说明不应让合法契约失败：{other:?}"),
+        }
+    }
+
+    #[test]
+    fn contract_json_after_leading_explanation_is_parsed() {
+        let text = format!("结果如下：\n{}", producer_json("# 交付 正文"));
+        match parse_worker_output(&text) {
+            WorkerOutputParse::Parsed(output) => assert!(output.validate().is_ok()),
+            other => panic!("前置说明不应让合法契约失败：{other:?}"),
+        }
+    }
+
+    #[test]
+    fn free_text_and_broken_json_keep_legacy_and_invalid_semantics() {
+        assert!(matches!(
+            parse_worker_output("实现符合要求，测试通过"),
+            WorkerOutputParse::Legacy
+        ));
+        assert!(matches!(
+            parse_worker_output("说明 {not json}"),
+            WorkerOutputParse::Legacy
+        ));
+        assert!(matches!(
+            parse_worker_output("{\"status\":\"done\","),
+            WorkerOutputParse::Invalid { .. }
+        ));
     }
 
     #[test]

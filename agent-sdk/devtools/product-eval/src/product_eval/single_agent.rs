@@ -727,6 +727,8 @@ fn build_user_prompt(case: &ProductEvalCase) -> String {
         EvalCategory::Code => "执行建议：先 list_dir/read_file 了解输入与结构，再实现，产物需能通过静态检查；白名单内的测试命令可用来自检。".to_string(),
         EvalCategory::Research => "执行建议：完整读取全部输入材料，提炼/结构化后写入产物，引用材料中的事实而非编造。".to_string(),
         EvalCategory::Document => "执行建议：读取输入材料与格式要求，按要求撰写文档并写入产物。".to_string(),
+        EvalCategory::Desktop => "执行建议：在真实 Windows 桌面环境中通过 UI 完成操作并记录证据；模拟器结果不计入。".to_string(),
+        EvalCategory::LongHorizon => "执行建议：按检查点推进，遇到注入故障时沿恢复路径续跑，说明副作用未重复执行。".to_string(),
     });
     if case.category == EvalCategory::Code && case.expected_artifacts.len() > 1 {
         sections.push(
@@ -824,6 +826,18 @@ impl CaseExecutor for SingleAgentExecutor {
                 ..RawExecOutcome::default()
             };
         }
+        if let Some(outcome) = super::registered_external_driver_outcome(ctx) {
+            return outcome;
+        }
+        if !ctx.external_drivers_registered() {
+            if let Some(error) = super::external_execution_required(ctx.case) {
+                return RawExecOutcome {
+                    error: Some(error.to_string()),
+                    tool_calls: Some(0),
+                    ..RawExecOutcome::default()
+                };
+            }
+        }
         let scope = Arc::new(ProductEvalScope::from_case(ctx.case));
         let tool_log: ToolLog = Arc::new(Mutex::new(Vec::new()));
         let state = Arc::new(Mutex::new(RunState::default()));
@@ -867,7 +881,11 @@ impl CaseExecutor for SingleAgentExecutor {
             self.model.as_str(),
             Some(SYSTEM_PROMPT.to_string()),
         );
-        let prompt = build_user_prompt(ctx.case);
+        let mut prompt = build_user_prompt(ctx.case);
+        if let Some(feedback) = ctx.repair_feedback() {
+            // 验证/修复组：同一沙盒的第二次尝试带上检查器失败项。
+            prompt.push_str(feedback);
+        }
 
         // TurnEvent 遥测：预算计数器只记账不中止——回合上限已由 max_turns 收口，
         // 预算耗尽绝不触碰共享取消令牌（防止一次超限毒化整个矩阵的后续单元格）。
@@ -1001,6 +1019,7 @@ impl CaseExecutor for SingleAgentExecutor {
             delivery_gate_wall_ms: 0,
             retries: 0,
             tool_log: log_entries.clone(),
+            external_evidence: None,
         };
         match result {
             Err(AgentError::Aborted) => {
@@ -1092,6 +1111,9 @@ mod prompt_tests {
             max_model_calls: Some(20),
             repetitions: Some(1),
             allow_commands: Vec::new(),
+            failure_classes: Vec::new(),
+            expected_side_effects: Vec::new(),
+            fault_injection: None,
         }
     }
 

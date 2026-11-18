@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import commands from "../src/main/shell-commands.js";
+import imeTaskAccessModule from "../src/main/ime-task-access.js";
 
 function actualCoreEnv(config, inherited = {}) {
   const source = readFileSync(new URL("../src/main/main.js", import.meta.url), "utf8");
@@ -10,7 +11,7 @@ function actualCoreEnv(config, inherited = {}) {
   const end = source.indexOf("// ---------- HTTP", start);
   assert.ok(start >= 0 && end > start);
   const context = {
-    process: { env: inherited }, shellCommands: commands,
+    process: { env: inherited }, shellCommands: commands, imeTaskAccessModule,
     agentDataDir: () => "fixture-data", PAIRING_SECRET: "fixture-pairing", IME_ORIGIN_KEY: "fixture-origin",
   };
   vm.createContext(context);

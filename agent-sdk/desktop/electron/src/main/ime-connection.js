@@ -55,7 +55,7 @@ function gatewayFailure(code, reason) {
     5: "本机配对失败，请确认连接器仍在运行且配对目录可写，然后重新连接。",
   })[code] || "输入法网关意外退出，请检查连接器进程和管道占用后重新连接。";
 }
-function create({ runtime, executable, localAppData, dataRoot, originKey, onOpenSession = () => {}, discoverConnector = installedConnector, spawnGateway = spawn }) {
+function create({ runtime, executable, localAppData, dataRoot, originKey, onOpenSession = () => {}, onOpenTask = () => {}, discoverConnector = installedConnector, spawnGateway = spawn }) {
   let current = null, starting = false, generation = 0;
   let state = { state: "disconnected", message: "尚未连接输入法" };
   function cleanup(item) {
@@ -110,7 +110,12 @@ function create({ runtime, executable, localAppData, dataRoot, originKey, onOpen
         let end;
         while ((end = lineBuffer.indexOf("\n")) >= 0) {
           const line = lineBuffer.slice(0, end).trim(); lineBuffer = lineBuffer.slice(end + 1);
-          if (line.startsWith("OWO_DESKTOP_OPEN_SESSION ")) {
+          if (line.startsWith("OWO_DESKTOP_OPEN_TASK ")) {
+            const ref = JSON.parse(line.slice("OWO_DESKTOP_OPEN_TASK ".length));
+            if (typeof ref.task_id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(ref.task_id)) onOpenTask(ref.task_id);
+          } else if (line === "OWO_DESKTOP_OPEN_TASKS") {
+            onOpenTask(null);
+          } else if (line.startsWith("OWO_DESKTOP_OPEN_SESSION ")) {
             const ref = JSON.parse(line.slice("OWO_DESKTOP_OPEN_SESSION ".length));
             if (/^[0-9a-f-]{36}$/.test(ref.session_id)) onOpenSession(ref.session_id);
           }
@@ -123,7 +128,7 @@ function create({ runtime, executable, localAppData, dataRoot, originKey, onOpen
           item.restore = patchPairing(connectorSettings(localAppData()), credential);
         }
         if (item.credential && output.includes("IME Agent 管道服务启动")) {
-          state = { state: "connected", message: "输入法已连接 · 在候选框确认任务即可执行（配对有效一小时）" };
+          state = { state: "connected", message: "输入法已连接 · 可在工作台查看和处理任务（配对有效一小时）" };
           if (!item.expiry) item.expiry = setTimeout(() => { void stop(); }, 3600 * 1000);
         }
       } catch {

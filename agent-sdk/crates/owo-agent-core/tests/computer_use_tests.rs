@@ -52,6 +52,10 @@ struct MockTaskSurface {
     keys: Vec<String>,
     /// 输入包含该关键词时下一帧弹出敏感对话框（密码框）。
     sensitive_after_typing: Option<String>,
+    /// 是否提供真实窗口身份（模拟 Agent V2 的动作前复核）。
+    identity_enabled: bool,
+    /// 第一次点击后模拟用户切走窗口。
+    switch_after_first_click: bool,
 }
 
 impl MockTaskSurface {
@@ -69,6 +73,8 @@ impl MockTaskSurface {
             typed: Vec::new(),
             keys: Vec::new(),
             sensitive_after_typing: None,
+            identity_enabled: false,
+            switch_after_first_click: false,
         }
     }
 
@@ -83,12 +89,30 @@ impl TaskSurface for MockTaskSurface {
         self.app.clone()
     }
 
+    fn window_identity(&self) -> Option<owo_agent_core::task_surface::WindowIdentity> {
+        if !self.identity_enabled {
+            return None;
+        }
+        Some(owo_agent_core::task_surface::WindowIdentity {
+            app: self.app.clone(),
+            pid: 42,
+            hwnd: 7,
+            title: "模拟窗口".to_string(),
+            foreground: true,
+            observed_at: "2026-11-03T00:00:00Z".to_string(),
+        })
+    }
+
     async fn ocr(&mut self) -> Result<Value, String> {
         Ok(json!({ "lines": self.lines, "surface": "mock" }))
     }
 
     async fn click(&mut self, x: i32, y: i32) -> Result<(), String> {
         self.clicks.push((x, y));
+        if self.switch_after_first_click && self.clicks.len() == 1 {
+            // 模拟用户切走窗口：应用与窗口身份都变了。
+            self.app = "notepad".to_string();
+        }
         // 点击输入框行 → 聚焦（无副作用即可）。
         Ok(())
     }
@@ -458,6 +482,493 @@ fn gate_and_sensitive_pure_function_semantics() {
     assert!(scan_ui_sensitive(&clean).is_none());
     let dirty = json!({ "lines": [line("请输入支付密码", 0, 0, "edit")] });
     assert!(scan_ui_sensitive(&dirty).is_some());
+}
+
+#[tokio::test]
+async fn empty_goals_are_rejected_without_touching_the_desktop() {
+    let registry = ComputerTaskRegistry::new();
+    registry.create(sample_task("e1")).unwrap();
+    approved_running(&registry, "e1");
+    let mut audit = AuditLog::default();
+    let mut surface = MockTaskSurface::chat();
+
+    let error = run_approved_task_on(&registry, &mut audit, "s", "e1", &[], &mut surface)
+        .await
+        .unwrap_err();
+    assert!(error.starts_with("EMPTY_GOALS"), "{error}");
+    assert!(surface.clicks.is_empty());
+    assert!(surface.typed.is_empty());
+    // 空目标不能把任务带到终态。
+    assert_eq!(registry.get("e1").unwrap().state, TaskState::Running);
+}
+
+#[tokio::test]
+async fn invalid_goal_payload_is_rejected() {
+    let registry = ComputerTaskRegistry::new();
+    registry.create(sample_task("e2")).unwrap();
+    approved_running(&registry, "e2");
+    let mut audit = AuditLog::default();
+    let mut surface = MockTaskSurface::chat();
+    let goals = vec![TaskGoal {
+        anchor_text: "发送".to_string(),
+        action: "type".to_string(),
+        value: String::new(),
+        verify_text: None,
+    }];
+
+    let error = run_approved_task_on(&registry, &mut audit, "s", "e2", &goals, &mut surface)
+        .await
+        .unwrap_err();
+    assert!(error.contains("INVALID_ACTION"), "{error}");
+    assert!(surface.typed.is_empty());
+}
+
+#[tokio::test]
+async fn ambiguous_anchor_is_rejected_instead_of_picking_the_first() {
+    let registry = ComputerTaskRegistry::new();
+    registry.create(sample_task("e3")).unwrap();
+    approved_running(&registry, "e3");
+    let mut audit = AuditLog::default();
+    let mut surface = MockTaskSurface::chat();
+    surface.lines.push(line("发送给张子豪", 400, 300, "button"));
+    let goals = vec![TaskGoal {
+        anchor_text: "发送".to_string(),
+        action: "click".to_string(),
+        value: String::new(),
+        verify_text: None,
+    }];
+
+    let error = run_approved_task_on(&registry, &mut audit, "s", "e3", &goals, &mut surface)
+        .await
+        .unwrap_err();
+    assert!(error.starts_with("ANCHOR_AMBIGUOUS"), "{error}");
+    assert!(surface.clicks.is_empty());
+}
+
+#[tokio::test]
+async fn foreground_window_switch_pauses_before_the_next_action() {
+    let registry = ComputerTaskRegistry::new();
+    registry.create(sample_task("e4")).unwrap();
+    approved_running(&registry, "e4");
+    let mut audit = AuditLog::default();
+    let mut surface = MockTaskSurface::chat();
+    surface.identity_enabled = true;
+    surface.switch_after_first_click = true;
+
+    let error = run_approved_task_on(
+        &registry,
+        &mut audit,
+        "s",
+        "e4",
+        &closed_loop_goals("切换窗口-001"),
+        &mut surface,
+    )
+    .await
+    .unwrap_err();
+    assert!(error.starts_with("STALE_WINDOW_IDENTITY"), "{error}");
+    // 只执行了第一次点击，之后的输入没有发到新窗口。
+    assert_eq!(surface.clicks.len(), 1);
+    assert!(surface.typed.is_empty());
+    assert_eq!(registry.get("e4").unwrap().state, TaskState::Paused);
+}
+
+#[tokio::test]
+async fn every_action_produces_a_receipt() {
+    let registry = ComputerTaskRegistry::new();
+    registry.create(sample_task("e5")).unwrap();
+    approved_running(&registry, "e5");
+    let mut audit = AuditLog::default();
+    let mut surface = MockTaskSurface::chat();
+
+    let report = run_approved_task_on(
+        &registry,
+        &mut audit,
+        "s",
+        "e5",
+        &closed_loop_goals("回执-001"),
+        &mut surface,
+    )
+    .await
+    .unwrap();
+    assert_eq!(report.receipts.len(), 4);
+    assert!(report
+        .receipts
+        .iter()
+        .all(|receipt| receipt.observed_window.is_some() || !surface.identity_enabled));
+    assert!(matches!(
+        report.receipts.last().unwrap().verification,
+        owo_agent_core::ActionVerification::Verified
+    ));
+}
+
+/// OCR 为空但窗口绑定 UIA 控件有效时，`set_value` 可以使用 UIA 观察，
+/// 且动作执行回执仍带前后观察和窗口身份。
+struct UiaValueSurface {
+    identity: owo_agent_core::task_surface::WindowIdentity,
+    name: String,
+    hwnd: i64,
+    value: String,
+    readback_override: Option<String>,
+    duplicate_uia_control: bool,
+    missing_uia_control: bool,
+    write_count: usize,
+    observed_hwnds: Vec<i64>,
+    set_names: Vec<String>,
+}
+
+impl UiaValueSurface {
+    fn new(name: &str, hwnd: i64, identity_hwnd: i64) -> Self {
+        Self {
+            identity: owo_agent_core::task_surface::WindowIdentity {
+                app: "owo-sim-qq".to_string(),
+                pid: 42,
+                hwnd: identity_hwnd,
+                title: "打开".to_string(),
+                foreground: true,
+                observed_at: "2026-11-07T00:00:00Z".to_string(),
+            },
+            name: name.to_string(),
+            hwnd,
+            value: String::new(),
+            readback_override: None,
+            duplicate_uia_control: false,
+            missing_uia_control: false,
+            write_count: 0,
+            observed_hwnds: Vec::new(),
+            set_names: Vec::new(),
+        }
+    }
+
+    fn observation(&self) -> Value {
+        let control = json!({
+            "text": self.name,
+            "x": 10,
+            "y": 20,
+            "width": 120,
+            "height": 24,
+            "role_hint": "edit",
+            "control_type": 50004,
+            "has_value_pattern": true,
+            "has_keyboard_focus": true,
+            "automation_id": "File name",
+            "process_id": 42,
+            "native_window_handle": 0,
+            "hwnd": self.hwnd,
+        });
+        let lines = if self.duplicate_uia_control {
+            vec![control.clone(), control]
+        } else if self.missing_uia_control {
+            Vec::new()
+        } else {
+            vec![control]
+        };
+        json!({
+            "surface": "uia",
+            "text": self.name,
+            "observation_ref": "sha256:bound-uia-observation",
+            "lines": lines,
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl TaskSurface for UiaValueSurface {
+    fn app(&self) -> String {
+        self.identity.app.clone()
+    }
+
+    fn window_identity(&self) -> Option<owo_agent_core::task_surface::WindowIdentity> {
+        Some(self.identity.clone())
+    }
+
+    async fn ocr(&mut self) -> Result<Value, String> {
+        Err("识别结果为空".to_string())
+    }
+
+    async fn accessible_observation(
+        &mut self,
+        hwnd: i64,
+        name: &str,
+    ) -> Result<Option<Value>, String> {
+        self.observed_hwnds.push(hwnd);
+        Ok((hwnd == self.identity.hwnd && name == self.name).then(|| self.observation()))
+    }
+
+    async fn accessible_anchors(&mut self, _hwnd: i64, _name: &str) -> Result<Vec<Value>, String> {
+        Ok(Vec::new())
+    }
+
+    async fn click(&mut self, _x: i32, _y: i32) -> Result<(), String> {
+        Ok(())
+    }
+
+    async fn type_text(&mut self, _text: &str) -> Result<(), String> {
+        Ok(())
+    }
+
+    async fn set_value(
+        &mut self,
+        identity: &owo_agent_core::task_surface::UiaEditIdentity,
+        value: &str,
+    ) -> Result<String, String> {
+        self.set_names.push(identity.name.clone());
+        if identity.hwnd != self.identity.hwnd
+            || identity.pid != self.identity.pid
+            || identity.name != self.name
+            || identity.automation_id != "File name"
+        {
+            return Err("错误窗口或控件，拒绝写值".to_string());
+        }
+        self.value = value.to_string();
+        self.write_count += 1;
+        Ok(self
+            .readback_override
+            .clone()
+            .unwrap_or_else(|| self.value.clone()))
+    }
+
+    async fn key(&mut self, _key: &str) -> Result<(), String> {
+        Ok(())
+    }
+
+    async fn launch(&mut self, _target: &str) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+fn uia_set_value_goal(name: &str) -> Vec<TaskGoal> {
+    vec![TaskGoal {
+        anchor_text: format!("uia:{name}"),
+        action: "set_value".to_string(),
+        value: "D:/OwO/acceptance/notice.txt".to_string(),
+        verify_text: None,
+    }]
+}
+
+fn approved_uia_task(registry: &ComputerTaskRegistry, id: &str) {
+    let mut task = sample_task(id);
+    task.allowed_actions = vec!["desktop_type".to_string()];
+    registry.create(task).unwrap();
+    approved_running(registry, id);
+}
+
+#[tokio::test]
+async fn ordinary_actions_still_require_ocr() {
+    let registry = ComputerTaskRegistry::new();
+    approved_uia_task(&registry, "uia-ocr-required");
+    let mut audit = AuditLog::default();
+    let mut surface = UiaValueSurface::new("文件名", 7, 7);
+    let goals = vec![TaskGoal {
+        anchor_text: "文件名".to_string(),
+        action: "type".to_string(),
+        value: "text".to_string(),
+        verify_text: None,
+    }];
+
+    let error = run_approved_task_on(
+        &registry,
+        &mut audit,
+        "s",
+        "uia-ocr-required",
+        &goals,
+        &mut surface,
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(error, "识别结果为空");
+    assert_eq!(surface.write_count, 0);
+}
+
+#[tokio::test]
+async fn empty_ocr_with_valid_bound_uia_control_sets_value_and_records_receipt() {
+    let registry = ComputerTaskRegistry::new();
+    approved_uia_task(&registry, "uia-ok");
+    let mut audit = AuditLog::default();
+    let mut surface = UiaValueSurface::new("文件名", 7, 7);
+    let goals = uia_set_value_goal("文件名");
+
+    let report = run_approved_task_on(&registry, &mut audit, "s", "uia-ok", &goals, &mut surface)
+        .await
+        .unwrap();
+    assert_eq!(report.steps, 1);
+    assert_eq!(surface.write_count, 1);
+    assert_eq!(surface.set_names, vec!["文件名".to_string()]);
+    assert_eq!(surface.observed_hwnds, vec![7]);
+    assert_eq!(surface.value, goals[0].value);
+    assert_eq!(report.receipts.len(), 1);
+    let receipt = &report.receipts[0];
+    assert!(matches!(
+        receipt.outcome,
+        owo_agent_core::ActionOutcome::Executed
+    ));
+    assert_eq!(
+        receipt.before_observation_ref.as_deref(),
+        Some("sha256:bound-uia-observation")
+    );
+    assert_eq!(receipt.observed_window.as_ref().unwrap().hwnd, 7);
+    assert_eq!(
+        receipt.value_readback.as_deref(),
+        Some(goals[0].value.as_str())
+    );
+    assert_eq!(
+        receipt.after_observation_ref.as_deref(),
+        Some("sha256:bound-uia-observation")
+    );
+    assert!(matches!(
+        receipt.verification,
+        owo_agent_core::ActionVerification::Verified
+    ));
+}
+
+#[tokio::test]
+async fn uia_set_value_refuses_a_wrong_window_before_any_write() {
+    let registry = ComputerTaskRegistry::new();
+    approved_uia_task(&registry, "uia-wrong-window");
+    let mut audit = AuditLog::default();
+    let mut surface = UiaValueSurface::new("文件名", 9, 7);
+    // The approved window is HWND 7; a control from HWND 9 must never be used.
+    let goals = uia_set_value_goal("文件名");
+
+    let error = run_approved_task_on(
+        &registry,
+        &mut audit,
+        "s",
+        "uia-wrong-window",
+        &goals,
+        &mut surface,
+    )
+    .await
+    .unwrap_err();
+    assert!(error.starts_with("TARGET_NOT_FOUND"), "{error}");
+    assert_eq!(surface.write_count, 0);
+    assert_eq!(
+        registry.get("uia-wrong-window").unwrap().state,
+        TaskState::Paused
+    );
+}
+
+#[tokio::test]
+async fn duplicate_uia_candidates_refuse_set_value() {
+    let registry = ComputerTaskRegistry::new();
+    approved_uia_task(&registry, "uia-ambiguous");
+    let mut audit = AuditLog::default();
+    let mut surface = UiaValueSurface::new("文件名", 7, 7);
+    surface.duplicate_uia_control = true;
+    let goals = uia_set_value_goal("文件名");
+
+    let error = run_approved_task_on(
+        &registry,
+        &mut audit,
+        "s",
+        "uia-ambiguous",
+        &goals,
+        &mut surface,
+    )
+    .await
+    .unwrap_err();
+    assert!(error.starts_with("ANCHOR_AMBIGUOUS"), "{error}");
+    assert_eq!(surface.write_count, 0);
+}
+
+#[tokio::test]
+async fn uia_observation_requires_bound_identity() {
+    let empty_ocr = json!({"lines": []});
+    let missing_identity = json!({"lines": [{
+        "control_type": 50004,
+        "has_value_pattern": true,
+        "hwnd": 7,
+    }]});
+    assert!(!owo_agent_core::uia_observation_is_safe(
+        &empty_ocr,
+        &missing_identity
+    ));
+    let bound = json!({"lines": [{
+        "control_type": 50004,
+        "has_value_pattern": true,
+        "hwnd": 7,
+        "automation_id": "File name",
+        "process_id": 42,
+    }]});
+    assert!(owo_agent_core::uia_observation_is_safe(&empty_ocr, &bound));
+}
+
+#[tokio::test]
+async fn empty_uia_observation_refuses_set_value() {
+    let registry = ComputerTaskRegistry::new();
+    approved_uia_task(&registry, "uia-empty-observation");
+    let mut audit = AuditLog::default();
+    let mut surface = UiaValueSurface::new("文件名", 7, 7);
+    surface.missing_uia_control = true;
+    let goals = uia_set_value_goal("文件名");
+
+    let error = run_approved_task_on(
+        &registry,
+        &mut audit,
+        "s",
+        "uia-empty-observation",
+        &goals,
+        &mut surface,
+    )
+    .await
+    .unwrap_err();
+    assert!(error.starts_with("TARGET_NOT_FOUND"), "{error}");
+    assert_eq!(surface.write_count, 0);
+}
+
+#[tokio::test]
+async fn uia_set_value_readback_mismatch_is_refused() {
+    let registry = ComputerTaskRegistry::new();
+    approved_uia_task(&registry, "uia-readback-mismatch");
+    let mut audit = AuditLog::default();
+    let mut surface = UiaValueSurface::new("文件名", 7, 7);
+    surface.readback_override = Some("unexpected".to_string());
+    let goals = uia_set_value_goal("文件名");
+
+    let error = run_approved_task_on(
+        &registry,
+        &mut audit,
+        "s",
+        "uia-readback-mismatch",
+        &goals,
+        &mut surface,
+    )
+    .await
+    .unwrap_err();
+    assert!(error.starts_with("POST_ACTION_VERIFY_FAILED"), "{error}");
+    assert_eq!(
+        registry.get("uia-readback-mismatch").unwrap().state,
+        TaskState::Paused
+    );
+}
+
+#[tokio::test]
+async fn password_edit_is_not_a_valid_uia_observation() {
+    let node = owo_agent_core::UiNode {
+        name: "密码".to_string(),
+        control_type: 50004,
+        class: "Edit".to_string(),
+        depth: 2,
+        x: 10,
+        y: 20,
+        width: 120,
+        height: 24,
+        value_safety: Some(owo_agent_core::UiValueSafety {
+            is_password: true,
+            is_enabled: true,
+            is_read_only: false,
+            is_offscreen: false,
+            has_keyboard_focus: true,
+            has_value_pattern: true,
+            automation_id: "Password".into(),
+            process_id: 42,
+            native_window_handle: 0,
+        }),
+    };
+    assert!(!owo_agent_core::safe_value_target(&node, "密码", false));
+    assert!(owo_agent_core::scan_ui_sensitive(&json!({
+        "lines": [{"text": "密码", "role_hint": "edit"}]
+    }))
+    .is_some());
 }
 
 #[tokio::test]

@@ -10,7 +10,7 @@ use crate::storage_crypto::{decrypt_file_envelope, encrypt_file_envelope, Storag
 use owo_agent_protocol::SseEvent;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension, TransactionBehavior};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 /// 库文件信封加密（R9）：整库拷贝加密（备份/导出面），运行时 SQLite 保持原语义。
@@ -58,6 +58,8 @@ pub struct MigrationStatus {
     pub read_only: bool,
     /// 迁移失败原因（read_only 时的提示）。
     pub last_error: Option<String>,
+    /// 本次迁移前自动备份的数据库副本（`<db>.v{旧版本}.bak`）；新建库或无需迁移时为空。
+    pub backup_path: Option<String>,
 }
 
 pub struct SqliteSessionStore {
@@ -84,23 +86,78 @@ fn like_escape(text: &str) -> String {
         .replace('_', "\\_")
 }
 
+/// 迁移快照文件名：与库同目录的 `<db>.v{旧版本}.bak`。
+fn migration_backup_path(path: &Path, from_version: i64) -> PathBuf {
+    let mut name = path
+        .file_name()
+        .map(|value| value.to_os_string())
+        .unwrap_or_default();
+    name.push(format!(".v{from_version}.bak"));
+    path.with_file_name(name)
+}
+
+/// 迁移前落一致性快照：`VACUUM INTO` 包含 WAL 中已提交的内容，且不需要停库。
+///
+/// 已存在同名快照时直接复用：上一次迁移失败后重试，最早那份才对应迁移前的状态，
+/// 不能被半迁移的库覆盖。回滚方式见 `docs/agent-v2/数据库迁移备份与回滚-2026-11-04.md`。
+fn backup_before_migration(
+    conn: &Connection,
+    path: &Path,
+    from_version: i64,
+) -> Result<PathBuf, AgentError> {
+    let target = migration_backup_path(path, from_version);
+    if target.exists() {
+        return Ok(target);
+    }
+    conn.execute("VACUUM INTO ?1", params![target.to_string_lossy()])
+        .map_err(sqlite_error)?;
+    Ok(target)
+}
+
 impl SqliteSessionStore {
     pub fn open(path: &Path) -> Result<Self, AgentError> {
         Self::open_with_migrations(path, MIGRATIONS)
     }
 
     /// 打开并自动迁移（MIGRATIONS 或测试注入的迁移表）；迁移失败降级只读。
+    ///
+    /// 已有数据的库在自动迁移前先落一份 `<db>.v{旧版本}.bak` 快照；
+    /// 备份失败则拒绝迁移并降级只读，避免在无法回滚的情况下改 schema。
     fn open_with_migrations(path: &Path, migrations: &[Migration]) -> Result<Self, AgentError> {
+        let existing_file = std::fs::metadata(path)
+            .map(|metadata| metadata.len() > 0)
+            .unwrap_or(false);
         let mut conn = Connection::open(path).map_err(sqlite_error)?;
         // 多连接（会话库 + 审计 + 并发回合）共存：写锁竞争在 busy_timeout 内自旋等待，
         // 避免瞬时 SQLITE_BUSY 被当成永久失败。
         conn.busy_timeout(std::time::Duration::from_millis(5000))
             .map_err(sqlite_error)?;
         conn.execute_batch(base_schema()).map_err(sqlite_error)?;
+        let from_version = user_version(&conn)?;
         let mut status = MigrationStatus {
-            schema_version: user_version(&conn)?,
+            schema_version: from_version,
             ..MigrationStatus::default()
         };
+        let has_pending = migrations
+            .iter()
+            .any(|migration| migration.version > from_version);
+        if existing_file && has_pending && path != Path::new(":memory:") {
+            match backup_before_migration(&conn, path, from_version) {
+                Ok(backup) => status.backup_path = Some(backup.to_string_lossy().into_owned()),
+                Err(error) => {
+                    status.read_only = true;
+                    status.last_error = Some(format!("迁移前备份失败，已拒绝自动迁移：{error}"));
+                    let read_only_conn =
+                        Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                            .map_err(sqlite_error)?;
+                    let _ = read_only_conn.busy_timeout(std::time::Duration::from_millis(5000));
+                    return Ok(Self {
+                        conn: Mutex::new(read_only_conn),
+                        status,
+                    });
+                }
+            }
+        }
         match run_migrations(&mut conn, migrations) {
             Ok(applied) => {
                 status.applied = applied;
@@ -989,8 +1046,10 @@ mod tests {
     /// 缺少列时 `POST /session` 直接 500，v14 必须把列幂等补回来。
     #[test]
     fn repairs_mode_column_when_schema_version_already_past_v11() {
-        let path = std::env::temp_dir()
-            .join(format!("owo-sqlite-mode-repair-{}.db", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!(
+            "owo-sqlite-mode-repair-{}.db",
+            uuid::Uuid::new_v4()
+        ));
         let conn = Connection::open(&path).unwrap();
         conn.execute_batch(
             "CREATE TABLE sessions (
@@ -1237,6 +1296,49 @@ mod tests {
         );
         assert_eq!(store.list().len(), 0, "读取仍可用");
         let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(format!("{}-wal", path.display()));
+        let _ = std::fs::remove_file(format!("{}-shm", path.display()));
+    }
+
+    #[test]
+    fn pending_migration_backs_up_existing_database_before_running() {
+        let path = std::env::temp_dir().join(format!("owo-sqlite-bak-{}.db", uuid::Uuid::new_v4()));
+        let store = SqliteSessionStore::open(&path).unwrap();
+        assert!(
+            store.migration_status().backup_path.is_none(),
+            "新建库没有迁移前状态可备份"
+        );
+        let session = store.create(Path::new("."), "mock", None).unwrap();
+        drop(store);
+
+        let failing = Migration {
+            version: 99,
+            name: "boom",
+            run: |_| Err(AgentError::Session("boom".into())),
+        };
+        let store = SqliteSessionStore::open_with_migrations(&path, &[failing]).unwrap();
+        assert!(store.is_read_only(), "迁移失败仍应降级只读");
+        let backup = store
+            .migration_status()
+            .backup_path
+            .expect("已有数据的库在迁移前必须留下快照");
+        assert!(Path::new(&backup).exists(), "快照文件必须真实落盘");
+        drop(store);
+
+        // 快照是迁移前的库：原始会话仍在，可以据此手工回滚。
+        let conn = Connection::open(&backup).unwrap();
+        let restored: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sessions WHERE id = ?1",
+                [&session.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(restored, 1, "快照必须包含迁移前写入的会话");
+        drop(conn);
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&backup);
         let _ = std::fs::remove_file(format!("{}-wal", path.display()));
         let _ = std::fs::remove_file(format!("{}-shm", path.display()));
     }

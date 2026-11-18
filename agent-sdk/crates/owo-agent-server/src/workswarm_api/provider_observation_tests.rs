@@ -34,6 +34,7 @@ impl ModelProvider for Fixture {
     ) -> Result<ObservedModelOutput, String> {
         assert_eq!(model, Some("model-override"));
         Ok(ObservedModelOutput {
+            reasoning_replay: None,
             output: self.complete(messages, tools).await?,
             metadata: ModelCallMetadata {
                 request_id: Some("PRIVATE_REQUEST_ID".into()),

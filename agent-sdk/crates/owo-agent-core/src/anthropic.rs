@@ -896,6 +896,7 @@ impl AnthropicProvider {
         }
         let output = parse_response_content(&payload, tools)?;
         Ok(ObservedModelOutput {
+            reasoning_replay: None,
             output,
             metadata: ModelCallMetadata {
                 request_id,
@@ -990,6 +991,7 @@ impl AnthropicProvider {
         let usage = state.usage.as_ref().and_then(parse_anthropic_usage);
         let output = state.into_output(tools)?;
         Ok(ObservedModelOutput {
+            reasoning_replay: None,
             output,
             metadata: ModelCallMetadata {
                 request_id,

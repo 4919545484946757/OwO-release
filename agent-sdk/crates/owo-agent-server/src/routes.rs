@@ -7,6 +7,45 @@ use super::desktop_model_credentials::register as register_model_credential;
 use super::*;
 
 pub fn build_router(state: Arc<AppState>) -> Router {
+    // Agent V2：WorkSwarm 执行后端在拿到 `Arc<AppState>` 后才能注册——团队运行循环
+    // 需要服务状态构建 Worker 注册表。后端只持有弱引用；同一状态重复装配时保留已有
+    // 实例（它记着「任务 → 团队运行」的映射与在飞的监控器，重建会丢掉这些）。
+    if !state
+        .tasks
+        .backend_registered(owo_agent_core::task_runtime::ExecutionStrategy::WorkSwarm)
+    {
+        state
+            .tasks
+            .register_backend(Arc::new(work_swarm_backend::WorkSwarmBackend::new(
+                Arc::downgrade(&state),
+                Arc::downgrade(&state.tasks),
+            )));
+    }
+    // Agent V2：Workflow 执行后端同样在拿到 `Arc<AppState>` 后注册（运行装配需要
+    // 工作区与数据根）。幂等守卫与上一段一致：重复装配保留既有实例。
+    if !state
+        .tasks
+        .backend_registered(owo_agent_core::task_runtime::ExecutionStrategy::Workflow)
+    {
+        state
+            .tasks
+            .register_backend(Arc::new(workflow_task_backend::WorkflowTaskBackend::new(
+                Arc::downgrade(&state),
+                Arc::downgrade(&state.tasks),
+            )));
+    }
+    // Agent V2：CloudRemote 执行后端同样在拿到 `Arc<AppState>` 后注册。
+    if !state
+        .tasks
+        .backend_registered(owo_agent_core::task_runtime::ExecutionStrategy::CloudRemote)
+    {
+        state
+            .tasks
+            .register_backend(Arc::new(cloud_remote_backend::CloudRemoteBackend::new(
+                Arc::downgrade(&state),
+                Arc::downgrade(&state.tasks),
+            )));
+    }
     // R7：SSE→可观测性指标桥接（Agent 4 钩子）：/events/stream 的采样样本
     // 转发到 observability_api（/metrics/runtime 呈现真实运行期数值）；
     // SLO 报告探针注册（/metrics/slo 反映全局 SLO 状态）。幂等：重复调用仅替换。
@@ -51,6 +90,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     let protected = Router::new()
         .route("/owobot/open", post(owobot::open))
         .route("/expression", post(expression_api::expression))
+        .route("/prompt/enhance", post(prompt_enhance_api::enhance))
         .route("/input/preflight", post(turn_api::input_preflight))
         .route("/audit", get(audit_api::audit_list))
         .route("/session", post(session_api::create_session))
@@ -414,6 +454,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .merge(observability_api::router(state.clone()))
         .merge(memory_graph_api::router(state.clone()))
         .merge(intent_api::router(state.clone()))
+        // Agent V2（Phase 2/3）：统一 Task Runtime（/agent-tasks/*，独立任务库）。
+        .merge(task_api::router(state.clone()))
+        .merge(workspace_api::router(state.clone()))
+        .merge(agent_bridge_api::router(state.clone()))
+        .merge(ime_task_api::router(state.clone()))
         // R8 存储运维（备份/恢复/导出/清空）。
         .merge(backup::router(state.clone()))
         // R3（§8.1）：冷启动诊断 ledger（GET /diagnostics/requests，仅六字段）。

@@ -21,6 +21,25 @@ impl MessageImage {
     }
 }
 
+/// Provider protocol continuation, kept separate from visible assistant content.
+/// Bound to the requested model; never replayed to a different model.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReasoningReplay {
+    pub model: String,
+    pub content: String,
+}
+impl ReasoningReplay {
+    pub(crate) fn for_model(model: &str, content: String) -> Option<Self> {
+        model
+            .to_ascii_lowercase()
+            .starts_with("deepseek")
+            .then(|| Self {
+                model: model.to_string(),
+                content,
+            })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String,
@@ -38,9 +57,17 @@ pub struct ChatMessage {
     /// Original user input and host-validated refs; never serialized into provider wire content.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub input: Option<owo_agent_protocol::StoredUserInput>,
+    /// Required by DeepSeek thinking/tool continuation. Older sessions default to None.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_replay: Option<ReasoningReplay>,
 }
 
 impl ChatMessage {
+    pub fn with_reasoning_replay(mut self, replay: Option<ReasoningReplay>) -> Self {
+        self.reasoning_replay = replay;
+        self
+    }
+
     pub fn system(content: String) -> Self {
         Self {
             role: "system".into(),
@@ -49,6 +76,7 @@ impl ChatMessage {
             tool_call_id: None,
             images: Vec::new(),
             input: None,
+            reasoning_replay: None,
         }
     }
 
@@ -60,6 +88,7 @@ impl ChatMessage {
             tool_call_id: None,
             images: Vec::new(),
             input: None,
+            reasoning_replay: None,
         }
     }
     /// 带图片的用户消息（多模态：截图/贴图进主对话上下文）。
@@ -71,6 +100,7 @@ impl ChatMessage {
             tool_call_id: None,
             images,
             input: None,
+            reasoning_replay: None,
         }
     }
 
@@ -82,6 +112,7 @@ impl ChatMessage {
             tool_call_id: None,
             images: Vec::new(),
             input: None,
+            reasoning_replay: None,
         }
     }
 
@@ -93,6 +124,7 @@ impl ChatMessage {
             tool_call_id: None,
             images: Vec::new(),
             input: None,
+            reasoning_replay: None,
         }
     }
 
@@ -104,6 +136,7 @@ impl ChatMessage {
             tool_call_id: Some(tool_call_id),
             images: Vec::new(),
             input: None,
+            reasoning_replay: None,
         }
     }
 }
@@ -204,7 +237,7 @@ pub enum ModelOutput {
     ToolCalls(Vec<ToolCall>),
 }
 
-/// 流式增量块：正文（对用户可见的回答）或思考（深度思考过程，不写入对话历史）。
+/// 流式增量块：正文（对用户可见的回答）或思考（深度思考过程，不混入可见正文；协议续接单独保存）。
 #[derive(Debug, Clone, PartialEq)]
 pub enum StreamChunk {
     Content(String),
@@ -225,6 +258,7 @@ pub struct ModelCallMetadata {
 pub struct ObservedModelOutput {
     pub output: ModelOutput,
     pub metadata: ModelCallMetadata,
+    pub reasoning_replay: Option<ReasoningReplay>,
 }
 
 #[async_trait]
@@ -288,6 +322,7 @@ pub trait ModelProvider: Send + Sync {
     ) -> Result<ObservedModelOutput, String> {
         let output = self.complete_with_model(model, messages, tools).await?;
         Ok(ObservedModelOutput {
+            reasoning_replay: None,
             output,
             metadata: ModelCallMetadata::default(),
         })
@@ -344,6 +379,7 @@ pub trait ModelProvider: Send + Sync {
             .complete_stream_with_reasoning_and_model(model, messages, tools, on_chunk)
             .await?;
         Ok(ObservedModelOutput {
+            reasoning_replay: None,
             output,
             metadata: ModelCallMetadata::default(),
         })

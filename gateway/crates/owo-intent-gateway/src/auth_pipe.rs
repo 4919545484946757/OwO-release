@@ -326,6 +326,7 @@ mod tests {
             .arg(&credential)
             .arg(&name)
             .arg(&fixture)
+            .creation_flags(0x0800_0000) // headless C++ acceptance child
             .kill_on_drop(true)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
@@ -372,6 +373,7 @@ mod tests {
             .arg(&credential)
             .arg(&name)
             .arg(&fixture)
+            .creation_flags(0x0800_0000) // headless C++ acceptance child
             .kill_on_drop(true)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
@@ -415,6 +417,7 @@ mod tests {
             .arg(store.credential_path(&corrupt_id).unwrap())
             .arg(&absent)
             .arg(&fixture)
+            .creation_flags(0x0800_0000) // headless C++ acceptance child
             .kill_on_drop(true)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
@@ -490,6 +493,7 @@ mod tests {
             .arg(&credential)
             .arg(&absent)
             .arg(&fixture)
+            .creation_flags(0x0800_0000) // headless C++ acceptance child
             .kill_on_drop(true)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())

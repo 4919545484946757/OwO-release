@@ -34,6 +34,51 @@ pub fn poll_foreground_app() -> Option<(String, String)> {
     }
 }
 
+/// 当前前台窗口的完整身份快照（Agent V2 §5 任务 1.1）。
+///
+/// 与 [`poll_foreground_app`] 的区别：这里保留 PID 与窗口句柄，执行器可以在每个
+/// 有副作用的动作前用它做一致性复核，识别"用户切走窗口"和"PID 被复用"。
+#[cfg(target_os = "windows")]
+pub fn foreground_window_identity() -> Option<crate::task_surface::WindowIdentity> {
+    use windows_sys::Win32::Foundation::HWND;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
+    };
+
+    unsafe {
+        let hwnd: HWND = GetForegroundWindow();
+        if hwnd.is_null() {
+            return None;
+        }
+        let length = GetWindowTextLengthW(hwnd);
+        let title = if length > 0 {
+            let mut buffer = vec![0u16; (length + 1) as usize];
+            let written = GetWindowTextW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32);
+            String::from_utf16_lossy(&buffer[..written.max(0) as usize])
+                .trim()
+                .to_string()
+        } else {
+            String::new()
+        };
+        let mut pid: u32 = 0;
+        GetWindowThreadProcessId(hwnd, &mut pid);
+        let app = process_name(pid).unwrap_or_else(|| format!("pid:{pid}"));
+        Some(crate::task_surface::WindowIdentity {
+            app,
+            pid,
+            hwnd: hwnd as isize as i64,
+            title,
+            foreground: true,
+            observed_at: chrono::Utc::now().to_rfc3339(),
+        })
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn foreground_window_identity() -> Option<crate::task_surface::WindowIdentity> {
+    None
+}
+
 #[cfg(target_os = "windows")]
 pub(crate) fn process_name(pid: u32) -> Option<String> {
     use windows_sys::Win32::Foundation::CloseHandle;
@@ -540,25 +585,30 @@ pub fn capture_screen_region(_width: i32, _height: i32) -> Option<Vec<u8>> {
 }
 
 #[cfg(target_os = "windows")]
-fn screen_size() -> Option<(i32, i32)> {
-    use windows_sys::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, ReleaseDC, HORZRES, VERTRES};
-    unsafe {
-        let screen = GetDC(std::ptr::null_mut());
-        if screen.is_null() {
-            return None;
-        }
-        let width = GetDeviceCaps(screen, HORZRES as i32);
-        let height = GetDeviceCaps(screen, VERTRES as i32);
-        ReleaseDC(std::ptr::null_mut(), screen);
-        if width <= 0 || height <= 0 {
-            None
-        } else {
-            Some((width, height))
-        }
-    }
+/// Primary display dimensions in physical pixels, independent of caller DPI awareness.
+pub fn physical_screen_size() -> Option<(i32, i32)> {
+    screen_size()
 }
 
-/// 内存 BMP 封装（14 字节文件头 + 40 字节 DIB 头 + BGRA 像素）。
+#[cfg(target_os = "windows")]
+fn screen_size() -> Option<(i32, i32)> {
+    use windows_sys::Win32::Graphics::Gdi::{
+        EnumDisplaySettingsW, DEVMODEW, ENUM_CURRENT_SETTINGS,
+    };
+    let mut mode: DEVMODEW = unsafe { std::mem::zeroed() };
+    mode.dmSize = std::mem::size_of::<DEVMODEW>() as u16;
+    // Display modes report physical pixels regardless of the process's DPI
+    // awareness. Virtualized DC caps can truncate the bitmap to half its width
+    // and height at 200% scaling, losing valid OCR anchors on the right/bottom.
+    if unsafe { EnumDisplaySettingsW(std::ptr::null(), ENUM_CURRENT_SETTINGS, &mut mode) } == 0 {
+        return None;
+    }
+    let width = i32::try_from(mode.dmPelsWidth).ok()?;
+    let height = i32::try_from(mode.dmPelsHeight).ok()?;
+    (width > 0 && height > 0).then_some((width, height))
+}
+
+/// 内存 BMP 封装（14 字节文件头 + 40 字节 DIB 头 + 自上而下的 BGRA 像素）。
 fn encode_bmp(width: i32, height: i32, bgra: &[u8]) -> Vec<u8> {
     let pixel_bytes = bgra.len();
     let file_size = 54 + pixel_bytes;
@@ -569,7 +619,7 @@ fn encode_bmp(width: i32, height: i32, bgra: &[u8]) -> Vec<u8> {
     out.extend_from_slice(&54u32.to_le_bytes());
     out.extend_from_slice(&40u32.to_le_bytes());
     out.extend_from_slice(&width.to_le_bytes());
-    out.extend_from_slice(&height.to_le_bytes());
+    out.extend_from_slice(&(-height).to_le_bytes());
     out.extend_from_slice(&1u16.to_le_bytes());
     out.extend_from_slice(&32u16.to_le_bytes());
     out.extend_from_slice(&0u32.to_le_bytes()); // BI_RGB
@@ -745,8 +795,8 @@ mod tests {
         let bit_count = u16::from_le_bytes([bmp[28], bmp[29]]);
         assert_eq!(bit_count, 32);
         let width = i32::from_le_bytes([bmp[18], bmp[19], bmp[20], bmp[21]]);
-        let height = i32::from_le_bytes([bmp[22], bmp[23], bmp[24], bmp[25]]).abs();
-        assert!(width > 0 && height > 0);
+        let height = i32::from_le_bytes([bmp[22], bmp[23], bmp[24], bmp[25]]);
+        assert!(width > 0 && height < 0);
         // 白底上应有非白像素（文字痕迹）
         let pixels = &bmp[54..];
         let non_white = pixels

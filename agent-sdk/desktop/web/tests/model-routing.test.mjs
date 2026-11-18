@@ -183,7 +183,7 @@ test("provider compatibility distinguishes unsupported choices from custom endpo
   assert.deepEqual(routing.providerModelCompatibility("local-model", []), { known: false, compatible: true });
 });
 
-test("composer menu flags the unsupported current model and keeps effort in one panel", () => {
+test("composer menu flags the unsupported current model and keeps details collapsed", () => {
   const app = readFileSync(new URL("../app.js", import.meta.url), "utf8");
   const match = /function openModelMenu\(\) \{[\s\S]*?\n\}/.exec(app);
   const catalogSource = /function composerModelCatalog\(\) \{[\s\S]*?\n\}/.exec(app)?.[0];
@@ -226,7 +226,15 @@ test("composer menu flags the unsupported current model and keeps effort in one 
   assert.match(menuHtml, /data-effort/);
   assert.match(menuHtml, /data-effort-segment/);
   assert.match(menuHtml, /data-model-default/);
-  // 单面板：不再有「›」二级箭头、悬停说明或行内档位文字。
+  assert.match(menuHtml, /composer-model-browser/);
+  assert.match(menuHtml, /data-model-info aria-expanded="false"/);
+  assert.match(menuHtml, /data-model-effort-panel[^>]* hidden>/);
+  assert.match(menuHtml, /data-model-back/);
+  assert.match(menuHtml, /data-model-use hidden/);
+  assert.match(menuHtml, /data-model-preview/);
+  assert.match(menuHtml, /data-model-reasoning-feature/);
+  assert.match(menuHtml, /data-model-image-feature/);
+  assert.match(menuHtml, /可用功能/);
   assert.doesNotMatch(menuHtml, /composer-model-arrow/);
   assert.doesNotMatch(menuHtml, /悬停或聚焦模型/);
   assert.doesNotMatch(menuHtml, /aria-haspopup/);

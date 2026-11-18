@@ -7,9 +7,9 @@
       ["project-history", "任务记录", "查看运行历史、交付物与下一步"],
       ["project-launcher", "新建任务", "定义目标、范围并预览执行方式"],
       ["owobot", "OwOBot", "项目群聊、任务与成员接力"],
-      ["workswarm", "团队协作", "跟踪角色、执行进度与交付结果"],
       ["action-center", "待我处理", "处理人工结果、评审与失败步骤"],
       ["goal", "目标与计划", "维护目标和执行计划"],
+      ["agent-tasks", "任务运行", "查看统一任务状态、检查点、审批与验证"],
     ] },
     { label: "知识与技能", items: [
       ["notes", "项目笔记", "整理 Markdown 文档与项目资料"],
@@ -18,8 +18,7 @@
     ] },
     { label: "定时与流程", items: [
       ["automations", "定时任务", "创建提醒与定期执行任务"],
-      ["workflow", "工作流", "查看、校验与运行已有流程"],
-      ["custom-workflows", "自定义工作流", "用角色/依赖/工具/交付契约描述任意工作流 · AI 生成与社区共享"],
+      ["custom-workflows", "工作流", "查看、校验、运行和编辑项目工作流 · AI 生成与社区共享"],
     ] },
     { label: "工具与权限", items: [
       ["plugin-market", "插件市场", "管理能力扩展"],
@@ -38,13 +37,14 @@
   ];
   const entries = groups.flatMap(group => group.items.map(([id, title, description]) =>
     ({ id, title, description, group: group.label })));
-  const primaryIds = ["home", "project-launcher", "project-history", "owobot", "workswarm", "evidence", "action-center"];
+  const primaryIds = ["home", "project-launcher", "project-history", "owobot", "evidence", "action-center"];
   function sections(available) {
     const allowed = entry => !available || available.includes(entry.id);
     const primary = primaryIds.map(id => entries.find(entry => entry.id === id)).filter(entry => entry && allowed(entry));
     const secondary = [
+      { label: "任务运行", ids: ["agent-tasks"] },
       { label: "资料与记忆", ids: ["goal", "notes", "memory", "team"] },
-      { label: "自动化", ids: ["automations", "workflow", "custom-workflows"] },
+      { label: "自动化", ids: ["automations", "custom-workflows"] },
       { label: "工具与权限", ids: ["plugin-market", "permissions", "command"] },
       { label: "诊断与实验", ids: ["capabilities", "eval", "product-eval", "observability", "diagnostics-ledger", "fleet", "about"] },
     ].map(group => ({

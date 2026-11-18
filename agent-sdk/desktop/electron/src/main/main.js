@@ -154,9 +154,12 @@ installIpcSenderGuard();
 const IME_ORIGIN_KEY = crypto.randomBytes(32).toString("hex");
 const supervision = require("./core-supervision.js");
 const shellCommands = require("./shell-commands.js");
+// 「限时免费」试用密钥只存在主进程，渲染层拿不到明文（见 relay-trial.js 注释）。
+const relayTrial = require("./relay-trial.js");
 const { configuredWorkspacePath } = require("./workspace-state.js");
 const { CustomModelVault } = require("./custom-model-vault.js");
 const modelBroker = require("./custom-model-broker.js");
+const promptEnhancer = require("./prompt-enhancer.js");
 const { migrateOrigins } = require("./legacy-model-migration.js");
 let vaultInstance = null, vaultStartupError = "";
 function modelVault() {
@@ -233,8 +236,14 @@ let petWindow = null;
 let petUiPort = null; // 与 uiPort 同理：核心重启换端口后必须重新导航
 let petWatchdog = null; // 显隐看门狗（见 startPetWatchdog）
 const PET_SIZE = { width: 270, height: 290 };
-// 透明窗口比模型大得多；边缘定位按模型的可见范围计算，而不是把透明留白也算作桌宠。
-const PET_CONTENT_INSETS = { left: 80, top: 116, right: 80, bottom: 56 };
+// 桌宠窗口必须**整窗**留在工作区内。旧版为了让模型贴边，允许周围透明留白溢出到
+// 屏幕外（按 PET_CONTENT_INSETS 放大上限）；一旦 DPI/界面缩放/显示器配置变化，
+// 溢出的就变成模型本身，屏幕上只剩右边一小条——「桌宠只显示一点点」。
+// 现在统一留安全边距，模型到屏幕边缘至少还有 16 DIP + 窗口内的透明留白。
+const PET_EDGE_MARGIN = 16;
+const PET_CONTENT_INSETS = { left: 76, right: 74, top: 116, bottom: 54 };
+const petContentInsets = new WeakMap(); // 窗口 → 页面按当前皮肤上报的透明留白
+const petTopmost = new WeakMap(); // 窗口 → 上一次已应用的「压到工作台后面」状态
 const agentPetWindows = new Map();
 
 // ---------- 监管状态 ----------
@@ -410,6 +419,12 @@ const imeConnection = require("./ime-connection.js").create({
     return candidates.find(file => file && fs.existsSync(file));
   },
   localAppData, dataRoot, originKey: IME_ORIGIN_KEY,
+  onOpenTask: taskId => {
+    if (taskId !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(taskId || "")) return;
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.show(); mainWindow.focus();
+    mainWindow.webContents.send("ime:open-task", { taskId });
+  },
   onOpenSession: sessionId => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     mainWindow.show(); mainWindow.focus();
@@ -419,6 +434,17 @@ const imeConnection = require("./ime-connection.js").create({
 ipcMain.handle("ime:status", () => imeConnection.status());
 ipcMain.handle("ime:start", () => imeConnection.start());
 ipcMain.handle("ime:stop", () => imeConnection.stop());
+
+const imeTaskAccessModule = require("./ime-task-access.js");
+const imeTaskAccess = imeTaskAccessModule.create({
+  readConfig, writeConfig,
+  runtime: () => core?.proc ? { owned: true, ready: !!core.token && !!core.port, imeTasksEnabled: core.imeTasksEnabled } : null,
+});
+ipcMain.handle("ime:tasks:status", () => imeTaskAccess.status());
+ipcMain.handle("ime:tasks:set", (event, value) => {
+  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) throw new Error("ipc/main_window_required");
+  return imeTaskAccess.setEnabled(value);
+});
 
 // ---------- 配置读写（唯一事实源：config.json） ----------
 
@@ -507,6 +533,7 @@ function coreEnv(config, extra = {}) {
     OWO_EXPRESSION_ORIGIN_KEY: IME_ORIGIN_KEY,
     OWO_DESKTOP_PAIRING_SECRET: PAIRING_SECRET,
     ...extra,
+    ...imeTaskAccessModule.environment(config, {}),
   }, config.model || {});
 }
 
@@ -832,7 +859,7 @@ async function startCore({ reason = "auto", userInitiated = false } = {}) {
     if (myGeneration !== generation) return;
 
     const authentication = supervision.authenticationState(authStatus, token);
-    core = { proc, port: ready.port, token, pid: proc.pid, version: ready.api_version, buildId: ready.build_id, log: core && core.log };
+    core = { proc, imeTasksEnabled: imeTaskAccessModule.enabled(config), port: ready.port, token, pid: proc.pid, version: ready.api_version, buildId: ready.build_id, log: core && core.log };
     if (authentication.state === "ready") restartAttempts = 0; // 认证成功后清空失败预算
     coreState = {
       ...authentication,
@@ -884,7 +911,7 @@ async function startCore({ reason = "auto", userInitiated = false } = {}) {
   //（表现为「A JavaScript error occurred in the main process」，窗口直接消失）。
   // 日志只是诊断手段，写不进去绝不能影响壳的可用性。
   const writeStdout = supervision.safeStreamLogWrite(process.stdout);
-  core = { proc, log: (line) => writeStdout(`[core] ${line}\n`) };
+  core = { proc, imeTasksEnabled: imeTaskAccessModule.enabled(config), log: (line) => writeStdout(`[core] ${line}\n`) };
   return coreState;
 }
 
@@ -921,11 +948,12 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: "#1a1a1a",
     title: "OwO Agent 工作台",
+    icon: trayIconPath(),
     // 顶栏合并：隐藏原生标题栏，把最小化/最大化/关闭按钮以覆盖层形式叠在
-    // 工作台自己的 44px 菜单栏右侧。页面侧给右侧留 138px，并对菜单栏设
+    // 工作台自己的 40px 菜单栏右侧。页面侧给右侧留 138px，并对菜单栏设
     // `-webkit-app-region: drag`；主题切换时通过 window:chrome 更新覆盖层颜色。
     titleBarStyle: "hidden",
-    titleBarOverlay: { color: "#1a1a1a", symbolColor: "#d6d6d6", height: 44 },
+    titleBarOverlay: { color: "#1a1a1a", symbolColor: "#d6d6d6", height: 40 },
     // 去掉 Electron 默认菜单栏（File/Edit/View/Window/Help 那几项英文）。
     // 工作台页面自带中文导航（OwO logo + 文件/编辑/视图/帮助），两层菜单并存
     // 既重复又是英文，与"壳与工作台界面一致"的目标不符。旧 Tauri 壳也没有菜单栏。
@@ -947,6 +975,9 @@ function createWindow() {
   // 某些 Windows 会话会把上次收进托盘/最小化状态带到新窗口；确保首次启动真的可见。
   mainWindow.once("ready-to-show", () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      // 默认按主显示器工作区最大化，避免大屏 / 高 DPI 下窗口只占左上角。
+      // 使用 maximize 而非 fullscreen，保留任务栏与用户手动还原窗口的能力。
+      if (!mainWindow.isMaximized()) mainWindow.maximize();
       raiseMainWindow();
     }
   });
@@ -1023,18 +1054,28 @@ function schedulePetBoundsSave() {
 }
 
 /// 把一组坐标收进主显示器工作区（换分辨率/拔外接屏后旧坐标可能落在屏幕外）。
-function clampToWorkArea(x, y) {
+function clampToWorkArea(x, y, win = null) {
   const area = screen.getPrimaryDisplay().workArea;
-  return {
-    x: Math.min(Math.max(x, area.x - PET_CONTENT_INSETS.left), area.x + area.width - PET_SIZE.width + PET_CONTENT_INSETS.right),
-    y: Math.min(Math.max(y, area.y - PET_CONTENT_INSETS.top), area.y + area.height - PET_SIZE.height + PET_CONTENT_INSETS.bottom),
-  };
+  const insets = (win ? petContentInsets.get(win) : null) || PET_CONTENT_INSETS;
+  const inset = (value) => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
+  const contentWidth = Math.max(1, PET_SIZE.width - inset(insets.left) - inset(insets.right));
+  const contentHeight = Math.max(1, PET_SIZE.height - inset(insets.top) - inset(insets.bottom));
+  const minX = area.x + PET_EDGE_MARGIN - inset(insets.left);
+  const minY = area.y + PET_EDGE_MARGIN - inset(insets.top);
+  const maxX = Math.max(minX, area.x + area.width - PET_EDGE_MARGIN - inset(insets.right) - contentWidth);
+  const maxY = Math.max(minY, area.y + area.height - PET_EDGE_MARGIN - inset(insets.bottom) - contentHeight);
+  return { x: Math.min(Math.max(x, minX), maxX), y: Math.min(Math.max(y, minY), maxY) };
 }
 
-function petCornerBounds(area) {
+function petCornerBounds(area, win = petWindow) {
+  const insets = (win ? petContentInsets.get(win) : null) || PET_CONTENT_INSETS;
+  const inset = (value) => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
+  const contentWidth = Math.max(1, PET_SIZE.width - inset(insets.left) - inset(insets.right));
+  const contentHeight = Math.max(1, PET_SIZE.height - inset(insets.top) - inset(insets.bottom));
   return clampToWorkArea(
-    area.x + area.width - PET_SIZE.width + PET_CONTENT_INSETS.right - 24,
-    area.y + area.height - PET_SIZE.height + PET_CONTENT_INSETS.bottom - 24,
+    area.x + area.width - PET_EDGE_MARGIN - inset(insets.right) - contentWidth,
+    area.y + area.height - PET_EDGE_MARGIN - inset(insets.bottom) - contentHeight,
+    win,
   );
 }
 
@@ -1043,14 +1084,19 @@ function petDefaultBounds() {
   const saved = readPetPref();
   // 记住用户拖到的位置：桌宠的位置是个人偏好，重启弹回右下角等于每次都要重摆。
   if (Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
-    return clampToWorkArea(saved.x, saved.y);
+    return clampToWorkArea(saved.x, saved.y, petWindow);
   }
-  return petCornerBounds(area);
+  return petCornerBounds(area, petWindow);
 }
 
 // 桌宠位置是屏幕坐标，而工作台窗口会被放大、移动：两者重叠时，始终置顶的宠物
 // 会盖住输入框和发送键。工作台获得焦点且与宠物窗口相交时把宠物压到窗口后面，
 // 其余时候（切到别的应用、宠物落在窗口外）恢复置顶，宠物仍浮在桌面上。
+//
+// 但「压到后面」有个前提：桌宠还得有一部分露在工作台外面。工作台最大化时几乎
+// 铺满屏幕，桌宠整窗都落在它里面，压后 = 完全消失（或只在屏幕右边露一条边），
+// 用户会以为桌宠坏了。这种时候宁可保持置顶：形象只有一百来 DIP，透明区域本来
+// 就穿透鼠标，不会真的挡住输入；可见性优先。
 function syncPetTopmost() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const focused = mainWindow.isFocused();
@@ -1059,14 +1105,21 @@ function syncPetTopmost() {
   for (const win of [petWindow, ...agentPetWindows.values()]) {
     if (!win || win.isDestroyed()) continue;
     const r = win.getBounds();
-    const overlaps = r.x < app.x + app.width && r.x + r.width > app.x
-      && r.y < app.y + app.height && r.y + r.height > app.y;
-    if (focused && overlaps) {
-      win.setAlwaysOnTop(false);
-      behind = true;
-    } else {
-      win.setAlwaysOnTop(true, "screen-saver");
-    }
+    const insets = petContentInsets.get(win) || PET_CONTENT_INSETS;
+    const content = { x: r.x + insets.left, y: r.y + insets.top, width: r.width - insets.left - insets.right, height: r.height - insets.top - insets.bottom };
+    const overlaps = content.x < app.x + app.width && content.x + content.width > app.x
+      && content.y < app.y + app.height && content.y + content.height > app.y;
+    const fullyCovered = content.x >= app.x && content.y >= app.y
+      && content.x + content.width <= app.x + app.width && content.y + content.height <= app.y + app.height;
+    const next = focused && overlaps && !fullyCovered;
+    // 只在层级真的翻转时才调 setAlwaysOnTop：透明分层窗口每次重设层级都会被
+    // Windows 重新合成一次，而本函数挂在 mainWindow 的 focus/blur/move/resize 上，
+    // 拖工作台时一秒能触发几十次 —— 表现就是桌宠"一闪一闪 + 黑底"。
+    if (petTopmost.get(win) === next) continue;
+    petTopmost.set(win, next);
+    if (next) win.setAlwaysOnTop(false);
+    else win.setAlwaysOnTop(true, "screen-saver");
+    if (next) behind = true;
   }
   // 宠物刚被 showInactive 显示时可能仍排在前面；把工作台重新提到普通窗口顶层。
   if (behind) mainWindow.moveTop();
@@ -1098,6 +1151,7 @@ function createPetWindow(port) {
   });
   // 页面内的链接/新窗口一律不外开：桌宠不是浏览器。
   petWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  petContentInsets.set(petWindow, PET_CONTENT_INSETS);
   petWindow.setIgnoreMouseEvents(true, { forward: true });
   trustedWindows.add(petWindow.webContents);
   lockNavigation(petWindow);
@@ -1105,11 +1159,20 @@ function createPetWindow(port) {
   petWindow.on("close", (event) => {
     if (!app.isQuitting) {
       event.preventDefault();
+      // 本地隐藏是用户已经表达的结果；服务端同步失败不能撤销这次操作。
+      applyPetVisibility(false);
       void setPetDesired(false);
     }
   });
   petWindow.loadURL(petUrl(port));
+  // 桌宠页与工作台同源，会继承工作台的界面缩放。缩小（默认 95%）无害，但放大到
+  // 125%/150% 时 CSS 视口会缩到比形象还小，固定布局的模型被窗口裁掉，只露一角。
+  // 桌宠是固定尺寸小窗口，把缩放钳在 100% 以内，保持形象完整。
+  petWindow.webContents.once("did-finish-load", () => {
+    if (!petWindow.isDestroyed() && petZoomFactor(petWindow) > 1) petWindow.webContents.setZoomFactor(1);
+  });
   petWindow.on("show", syncPetTopmost);
+  startPetPointerWatch();
   syncPetTopmost();
   return petWindow;
 }
@@ -1130,10 +1193,133 @@ function saveActorPosition(w) {
   },600);
 }
 function movePetActor(w,dx,dy) {
-  const [x,y]=w.getPosition();const next=clampToWorkArea(x+Math.max(-500,Math.min(500,dx)),y+Math.max(-500,Math.min(500,dy)));
+  // 页面报的是 CSS 像素（screenX/screenY），窗口要的是 DIP：两者差一个页面缩放。
+  // 工作台的界面缩放（view:zoom）按 host 记在会话里，14000 端口的桌宠页会一起继承，
+  // 不折算就会"拖 500px 甩出 25px"，越高缩放越明显。
+  const zoom=petZoomFactor(w);
+  dx*=zoom;dy*=zoom;
+  const [x,y]=w.getPosition();const next=clampToWorkArea(x+Math.max(-500,Math.min(500,dx)),y+Math.max(-500,Math.min(500,dy)),w);
   w.setPosition(Math.round(next.x),Math.round(next.y));if(w!==petWindow&&petWindow&&!petWindow.isDestroyed())petWindow.setPosition(Math.round(next.x),Math.round(next.y));schedulePetBoundsSave();saveActorPosition(w);syncPetTopmost();return {ok:true};
 }
-function resetPetActor(w){const bounds=petCornerBounds(screen.getPrimaryDisplay().workArea);for(const actor of [petWindow,...agentPetWindows.values()])if(actor&&!actor.isDestroyed())actor.setPosition(bounds.x,bounds.y);petPresence.apply();schedulePetBoundsSave();saveActorPosition(w);syncPetTopmost();return {ok:true};}
+function resetPetActor(w){const bounds=petCornerBounds(screen.getPrimaryDisplay().workArea,w);for(const actor of [petWindow,...agentPetWindows.values()])if(actor&&!actor.isDestroyed())actor.setPosition(bounds.x,bounds.y);petPresence.apply();schedulePetBoundsSave();saveActorPosition(w);syncPetTopmost();return {ok:true};}
+
+// ---------- 桌宠输入权：谁来决定"这一个像素归不归桌宠" ----------
+//
+// 桌宠窗口大部分是透明的（270×290 的窗口里只有一小块是形象）。指针不在形象上时
+// 必须整窗穿透，否则它会挡住桌面上的点击；指针进入命中区时才接管鼠标。
+//
+// 判定**必须**放在主进程。渲染进程只能靠 `mousemove` 知道指针在哪，而窗口一旦进入
+// 穿透态（WS_EX_TRANSPARENT），Windows 就把鼠标消息发给下面的窗口了，页面再也收不到
+// 事件——这是一条单向路：页面把自己切成穿透之后，就再也没有机会把自己切回来。
+// 2026-11-13「桌宠卡在右上角、点不动也拖不动」就是这条链路断掉的样子：穿透位一直开着，
+// 悬停、右键菜单、拖动全部失效，而窗口本身还好好显示着形象。
+//
+// 主进程用 `screen.getCursorScreenPoint()` 轮询就不受这个限制：不管窗口是否穿透，
+// 指针位置都读得到，进入/离开命中区都能如实反映。页面只负责把命中区（形象方块 /
+// 聊天面板）上报过来，不再自己改穿透。
+const PET_HITBOX = { x: 43, y: 78, width: 120, height: 120 }; // 兜底：与 pet.css 的 .pet-hitbox 对齐（页面首帧就会上报真值）
+const petRegions = new WeakMap(); // 窗口 → { x, y, width, height, hold, contentInsets }
+const petPointerInside = new WeakMap(); // 窗口 → 上一次判定结果
+const petDragging = new WeakSet(); // 拖动中：不收回输入权，否则指针一抖就断拖
+let petPointerTimer = null;
+
+/// 页面 CSS 像素 → 窗口 DIP 的换算系数。
+///
+/// 桌宠页与工作台同源（都是 127.0.0.1），Chromium 按 host 记住的界面缩放会一起
+/// 作用到桌宠页：实测 `devicePixelRatio` 是 1.9 而不是屏幕的 2.0，即页面被缩到
+/// 95%。`getBoundingClientRect()` / `screenX` 全是 CSS 像素，直接当 DIP 用会让
+/// 命中区整体偏移、右/下多出十来个 DIP 的"透明陷阱"，拖动也会比指针快 5%。
+function petZoomFactor(win) {
+  try {
+    const zoom = win?.webContents?.getZoomFactor?.();
+    return Number.isFinite(zoom) && zoom > 0.25 && zoom < 4 ? zoom : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function normalizePetRegion(rect, zoom = 1) {
+  const num = (value, fallback) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
+  const clampNum = (value, min, max, fallback) => Math.max(min, Math.min(max, num(value, fallback)));
+  const dip = (value, fallback) => clampNum(Number(value) * zoom, -64, 4096, fallback);
+  const insets = rect?.contentInsets && typeof rect.contentInsets === "object" ? rect.contentInsets : null;
+  const inset = (value) => insets ? clampNum(Number(value) * zoom, 0, 4096, 0) : 0;
+  return {
+    x: dip(rect?.x, 0),
+    y: dip(rect?.y, 0),
+    width: clampNum(Number(rect?.width) * zoom, 8, 4096, PET_HITBOX.width),
+    height: clampNum(Number(rect?.height) * zoom, 8, 4096, PET_HITBOX.height),
+    contentInsets: insets ? {
+      left: inset(insets.left),
+      right: inset(insets.right),
+      top: inset(insets.top),
+      bottom: inset(insets.bottom),
+    } : null,
+    hold: rect?.hold === true, // 聊天面板打开等场景：整窗常驻可交互
+  };
+}
+
+function petRegionOf(win) {
+  return petRegions.get(win) || PET_HITBOX;
+}
+
+/// 只写一次穿透位：Windows 上频繁 setIgnoreMouseEvents 会让拖动手感变碎。
+function setPetPointerInside(win, inside) {
+  if (petPointerInside.get(win) === inside) return;
+  petPointerInside.set(win, inside);
+  win.setIgnoreMouseEvents(!inside, { forward: true });
+  // 命中时去掉 Windows 的不可激活样式，否则 Chromium 会丢掉 mousedown（只剩 mouseup），
+  // 单击/双击/右键就"时灵时不灵"；这里只放开可聚焦，不主动 focus，不抢键盘。
+  if (inside) win.setFocusable(true);
+  else if (!win.isFocused()) win.setFocusable(false);
+}
+
+function setPetRegion(win, rect) {
+  if (!win || win.isDestroyed()) return { ok: false };
+  const region = normalizePetRegion(rect, petZoomFactor(win));
+  petRegions.set(win, region);
+  if (region.contentInsets) petContentInsets.set(win, region.contentInsets);
+  else petContentInsets.delete(win);
+  petPointerInside.delete(win); // 区域变了要让下一帧重新判定，不能沿用旧结论
+  return { ok: true };
+}
+
+function setPetDragging(win, value) {
+  if (!win || win.isDestroyed()) return { ok: false };
+  if (value) {
+    // 按下即接管：拖动过程中哪怕指针短暂越出命中区，也不能把输入权交出去，
+    // 否则 pointer capture 立刻失效，窗口就"粘"在原地不跟手了。
+    petDragging.add(win);
+    setPetPointerInside(win, true);
+  } else {
+    petDragging.delete(win);
+    petPointerInside.delete(win);
+  }
+  return { ok: true };
+}
+
+function startPetPointerWatch() {
+  if (petPointerTimer) return;
+  petPointerTimer = setInterval(() => {
+    if (app.isQuitting) return;
+    const point = screen.getCursorScreenPoint();
+    for (const win of [petWindow, ...agentPetWindows.values()]) {
+      if (!win || win.isDestroyed() || !win.isVisible()) continue;
+      if (petDragging.has(win)) continue;
+      const region = petRegionOf(win);
+      if (region.hold) {
+        setPetPointerInside(win, true);
+        continue;
+      }
+      const bounds = win.getBounds();
+      const inside =
+        point.x >= bounds.x + region.x && point.x < bounds.x + region.x + region.width
+        && point.y >= bounds.y + region.y && point.y < bounds.y + region.y + region.height;
+      setPetPointerInside(win, inside);
+    }
+  }, 60);
+}
+
 function ensureAgentPets(ref) {
   if(!coreState.port)return;
   if(!ref?.id){for(const w of agentPetWindows.values())if(!w.isDestroyed())w.destroy();agentPetWindows.clear();petPresence.bind(ref);return;}
@@ -1152,12 +1338,13 @@ function ensureAgentPets(ref) {
     const origin=petWindow&&!petWindow.isDestroyed()?petWindow.getBounds():petDefaultBounds();
     const saved=prefs[role],position=saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y)?clampToWorkArea(saved.x,saved.y):clampToWorkArea(origin.x-index*PET_SIZE.width,origin.y);
     const w=new BrowserWindow({...PET_SIZE,...position,show:false,frame:false,transparent:true,backgroundColor:'#00000000',resizable:false,movable:false,minimizable:false,maximizable:false,focusable:false,skipTaskbar:true,alwaysOnTop:'screen-saver',hasShadow:false,webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});
+    petContentInsets.set(w, PET_CONTENT_INSETS);
     agentPetWindows.set(role,w);prefs[role]={...prefs[role],skin};
     w.setIgnoreMouseEvents(true,{forward:true});
     trustedWindows.add(w.webContents);
     lockNavigation(w);
     w.webContents.setWindowOpenHandler(()=>({action:'deny'}));
-    w.on('close',event=>{if(!app.isQuitting){event.preventDefault();void setPetDesired(false);}});
+    w.on('close',event=>{if(!app.isQuitting){event.preventDefault();applyPetVisibility(false);void setPetDesired(false);}});
     w.on('closed',()=>agentPetWindows.delete(role));
     w.loadURL(petUrl(coreState.port)+'?member=1&role='+encodeURIComponent(role)+'&skin='+encodeURIComponent(skin));
     w.on('show',syncPetTopmost);
@@ -1165,6 +1352,7 @@ function ensureAgentPets(ref) {
   fs.writeFileSync(path.join(dataRoot(),'pet-actors.json'),JSON.stringify(prefs),'utf8');
   petPresence.bind(ref);
   syncPetTopmost();
+  startPetPointerWatch();
 }
 function applyPetVisibility(visible){petPresence.setVisible(visible);}
 
@@ -1199,6 +1387,8 @@ async function setPetDesired(visible) {
   try {
     await httpPost(coreState.port, "/desktop/pet", coreAuthorizationHeaders(), { visible });
   } catch (error) {
+    // 显隐按钮必须立即生效；服务端暂不可达时先执行本地窗口状态，再由看门狗/心跳修复期望值。
+    applyPetVisibility(visible);
     return { ok: false, reason: String(error && error.message ? error.message : error) };
   }
   // 顺手立刻应用到窗口，不必等桌宠页下一次心跳（最多 10s，手感太差）。
@@ -1316,7 +1506,7 @@ function registerGlobalShortcut() {
 }
 
 require('./pet-task-confirmation.js').installTaskConfirmation({pet:()=>petWindow,pets:()=>[petWindow,...agentPetWindows.values()],workspace:()=>workspacePath(),port:()=>coreState.port,trustDialog:registerTaskDialogIpc});
-require('./pet-feed.js').installPetFeed({pet:()=>petWindow,main:()=>mainWindow,workspace:()=>showWorkspace(),dataRoot,port:()=>coreState.port,pets:()=>[petWindow,...agentPetWindows.values()],ensureAgents:ensureAgentPets,moveActor:movePetActor,resetActor:resetPetActor,setVisible:setPetDesired,present:state=>petPresence.update(state),queryVisible:()=>petPresence.isVisible()});
+require('./pet-feed.js').installPetFeed({pet:()=>petWindow,main:()=>mainWindow,workspace:()=>showWorkspace(),dataRoot,port:()=>coreState.port,pets:()=>[petWindow,...agentPetWindows.values()],ensureAgents:ensureAgentPets,moveActor:movePetActor,resetActor:resetPetActor,setVisible:setPetDesired,present:state=>petPresence.update(state),setRegion:setPetRegion,setDragging:setPetDragging});
 
 // ---------- IPC ----------
 
@@ -1366,6 +1556,50 @@ ipcMain.handle("app:openExternal", (_event, url) => {
   return { ok: true };
 });
 
+// ✨ 一键增强提示词：复用当前模型配置（含加密保管库里的自定义模型）发一次
+// 非流式补全，把改写结果交回渲染层直接替换输入框内容。不创建会话、不写历史、
+// 不触发工具执行；模型不可用时返回结构化错误，由前端降级到本地结构化补全。
+ipcMain.handle("prompt:enhance", async (event, input = {}) => {
+  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
+    throw Error("prompt/untrusted_frame");
+  }
+  const text = String((input && input.text) || "").trim();
+  if (!text) return { ok: false, error: "prompt/empty" };
+  let config;
+  try { config = readConfig(); } catch { return { ok: false, error: "prompt/config_unavailable" }; }
+  let vaultEnv = {};
+  try { vaultEnv = modelVault().environment(); } catch { /* 加密不可用时退回配置文件 */ }
+  const envGet = (name) => String(process.env[name] || vaultEnv[name] || "").trim();
+  let resolved;
+  try { resolved = shellCommands.resolveModelConfig(config.model, envGet); }
+  catch { return { ok: false, error: "prompt/not_configured" }; }
+  const modelName = String((input && input.model) || resolved.model || "").trim();
+  let baseUrl = String(resolved.baseUrl || "");
+  let apiKey = String((resolved.credential && resolved.credential.key) || "");
+  let apiFormat = "openai";
+  try {
+    const custom = modelVault().read().models.find((record) => record.id === modelName && !record.disabled);
+    if (custom) {
+      // 完整请求地址无法安全拼接 /chat/completions，交给前端降级。
+      if (custom.useFullUrl) return { ok: false, error: "prompt/full_url_unsupported" };
+      baseUrl = custom.baseUrl;
+      apiFormat = custom.apiFormat || "openai";
+      try { apiKey = modelVault().secret(custom) || apiKey; } catch { /* 沿用配置文件凭据 */ }
+    }
+  } catch { /* vault 不可读时沿用配置 */ }
+  if (!baseUrl || !modelName) return { ok: false, error: "prompt/not_configured" };
+  const local = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(baseUrl);
+  if (process.env.OWO_CLOUD_ENABLED === "false" && !local) {
+    return { ok: false, error: "prompt/cloud_disabled" };
+  }
+  try {
+    const result = await promptEnhancer.enhancePrompt({ text, baseUrl, model: modelName, apiKey, apiFormat });
+    return { ok: true, text: result.text, model: modelName, source: "model" };
+  } catch (error) {
+    return { ok: false, error: String((error && error.message) || error).slice(0, 240) };
+  }
+});
+
 for (const operation of ["list", "upsert", "remove", "migrate", "probe"]) {
   ipcMain.handle("models:" + operation, async (event, input = {}) => {
     modelBroker.assertFrame(event, mainWindow, core);
@@ -1400,8 +1634,13 @@ ipcMain.handle("artifact:download", (event, id) => {
 });
 ipcMain.handle("view:zoom", (event, factor) => {
   modelBroker.assertFrame(event, mainWindow, core);
-  if (![1, 1.25, 1.5].includes(Number(factor))) throw Error("view/invalid_zoom");
-  mainWindow.webContents.setZoomFactor(Number(factor)); return { ok: true, factor: Number(factor) };
+  if (![0.9, 0.95, 1, 1.25, 1.5].includes(Number(factor))) throw Error("view/invalid_zoom");
+  mainWindow.webContents.setZoomFactor(Number(factor));
+  // 同源的桌宠页会跟着 host 缩放走；放大时模型会被 270×290 的小窗口裁掉，钳回 100%。
+  for (const win of [petWindow, ...agentPetWindows.values()]) {
+    if (win && !win.isDestroyed() && petZoomFactor(win) > 1) win.webContents.setZoomFactor(1);
+  }
+  return { ok: true, factor: Number(factor) };
 });
 // 主题切换时同步原生窗口按钮的底色/符号色。只接受 #rrggbb，避免渲染层把任意
 // 字符串塞进 Win32 覆盖层；高度限制在 30–80，保证按钮可点。
@@ -1426,7 +1665,7 @@ ipcMain.handle("pet:move", (_event, dx, dy) => {
   if (!petWindow || petWindow.isDestroyed()) return { ok: false };
   const [x, y] = petWindow.getPosition();
   // Clamp 在显示器工作区内：无限拖动会把桌宠拖到屏幕外找不回来。
-  const next = clampToWorkArea(x + Number(dx || 0), y + Number(dy || 0));
+  const next = clampToWorkArea(x + Number(dx || 0), y + Number(dy || 0), petWindow);
   petWindow.setPosition(next.x, next.y);
   // 记住新位置（防抖），这样重启后用户不用再把桌宠摆一遍。
   schedulePetBoundsSave();
@@ -1436,7 +1675,9 @@ ipcMain.handle("pet:move", (_event, dx, dy) => {
 ipcMain.handle("pet:visible", (_event, visible) => {
   if (!petWindow || petWindow.isDestroyed()) return { ok: false };
   console.log(`[pet] setVisible(${visible})`);
+  // 这是工作台开关的即时通道；即使内核暂时不可达，也不能让用户看到“点了没反应”。
   applyPetVisibility(visible);
+  void setPetDesired(visible);
   return { ok: true };
 });
 
@@ -1558,6 +1799,46 @@ async function applyModelConfig(args) {
   return { ok: true, ...providerStatus() };
 }
 
+/// 把「当前端点/模型」补写进核心的 /settings 记录。
+///
+/// 为什么要这一步：壳的 config.json 只决定核心**环境变量**（调用走哪个端点），
+/// 而设置页/模型菜单是读 `GET /settings` 的 `provider` 段来判定「这属于哪个服务商」。
+/// 两处不一致时，中转站的模型会被归到「OpenAI」分组、预设下拉回落成「自定义」。
+/// 核心刚被重启，端口与 bearer 都可能换代，这里按 port/token 退避重试。
+async function syncCoreProviderRecord({ baseUrl, model }, attempts = 10) {
+  const payloadFor = (settings) => {
+    const next = { ...settings };
+    delete next.custom_models; // 自定义模型只存本机
+    delete next.runtime;
+    delete next.provider_ready;
+    next.model = model;
+    next.provider = { ...(next.provider || {}), base_url: baseUrl };
+    return next;
+  };
+  let lastError = "核心未就绪";
+  for (let index = 0; index < attempts; index += 1) {
+    const port = coreState.port;
+    const token = coreState.token;
+    if (port && token) {
+      try {
+        const headers = { Authorization: `Bearer ${token}` };
+        const current = await httpGet(port, "/settings", headers);
+        if (current.status === 200) {
+          const written = await httpPost(port, "/settings", headers, payloadFor(JSON.parse(current.body)));
+          if (written.status >= 200 && written.status < 300) return { ok: true };
+          lastError = `写入 /settings 返回 ${written.status}：${String(written.body).slice(0, 160)}`;
+        } else {
+          lastError = `读取 /settings 返回 ${current.status}`;
+        }
+      } catch (error) {
+        lastError = String((error && error.message) || error);
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300 * (index + 1)));
+  }
+  return { ok: false, error: lastError };
+}
+
 async function setWorkspaceTarget(target) {
   let canonical;
   try {
@@ -1609,6 +1890,28 @@ const SHELL_COMMAND_HANDLERS = {
   },
 
   get_workspace: () => ({ workspace: workspacePath(), configured: Boolean(configuredWorkspacePath(dataRoot())), state: coreState.state }),
+
+  // 侧栏「在资源管理器中打开」：只接受目录路径，交给系统文件管理器。
+  open_project_directory: async (args) => {
+    const target = String((args && args.path) || "").trim();
+    if (!target) return { ok: false, error: "项目路径为空" };
+    try {
+      const stat = fs.statSync(target);
+      if (!stat.isDirectory()) return { ok: false, error: "目标不是目录" };
+    } catch (error) {
+      return { ok: false, error: "目录不存在：" + (error && error.message || error) };
+    }
+    const opened = await openPathInExplorer(target, false);
+    return opened ? { ok: true } : { ok: false, error: "无法打开项目目录" };
+  },
+  clear_workspace: () => {
+    try {
+      fs.rmSync(path.join(dataRoot(), "workspace.json"), { force: true });
+      return { ok: true, workspace: "" };
+    } catch (error) {
+      return { ok: false, error: "清理工作区选择失败：" + (error && error.message || error) };
+    }
+  },
 
   set_workspace: async (args) => {
     const target = String((args && args.path) || "").trim();
@@ -1663,6 +1966,30 @@ const SHELL_COMMAND_HANDLERS = {
   desktop_pairing: () => PAIRING_SECRET,
 
   set_model_config: (args) => applyModelConfig(args),
+
+  // 限时免费试用：把中转站端点 + 模型 + 共享试用密钥一次写进本机配置。
+  // 回执（providerStatus）只含掩码与来源，不含密钥本体。
+  //
+  // 注意收尾必须在壳里做：web 页面由核心托管，applyModelConfig 重启核心会让窗口
+  // 整体重载（渲染层的后续 JS 连同 Promise 一起被销毁），所以「服务端 /settings 的
+  // provider 记录」只能由壳补写——否则重载后设置页仍显示旧服务商，模型也被归错分组。
+  apply_relay_trial: async (args) => {
+    const patch = relayTrial.relayTrialPatch(args && args.model);
+    if (!patch.ok) return { ok: false, error: patch.error };
+    const applied = await applyModelConfig({
+      mode: patch.mode,
+      base_url: patch.base_url,
+      model: patch.model,
+      api_key: patch.api_key,
+      api_key_env: patch.api_key_env,
+    });
+    if (!applied.ok) return applied;
+    const synced = await syncCoreProviderRecord({ baseUrl: patch.base_url, model: patch.model });
+    // 同步失败不该让「已经能用了」的结论变成失败：核心环境已经指向中转站。
+    return { ...applied, settings_synced: synced.ok === true, settings_error: synced.ok ? "" : synced.error };
+  },
+
+  relay_trial_status: () => relayTrial.relayTrialStatus(),
 
   // 兼容旧调用点（引导页）：等价于 set_model_config，但只传 mode/base_url/model，
   // 密钥字段一律不动（旧前端没有密钥输入框）。

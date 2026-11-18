@@ -73,7 +73,7 @@ pub(super) async fn expression(
 
 // This is an additional local HTTP boundary, not proof of IME client identity.
 // Native clients may omit Origin; they still need the outer bearer authentication.
-fn expression_source_allowed(headers: &HeaderMap) -> bool {
+pub(crate) fn expression_source_allowed(headers: &HeaderMap) -> bool {
     let hosts = headers.get_all(header::HOST).iter().collect::<Vec<_>>();
     if hosts.len() != 1 {
         return false;

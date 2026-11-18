@@ -154,6 +154,27 @@ pub const PROVIDER_PRESETS: &[ProviderPreset] = &[
         note: "一个 Key 路由多家模型；计费按模型单价，注意加 OWO_HTTP_PROXY。",
     },
     ProviderPreset {
+        // 自建中转站（new-api 网关）。与桌面端 provider-presets.js 的 owo_relay 保持同一份
+        // 事实：模型清单来自 https://owo.dafeiyu.homes/api/pricing 的 default 分组。
+        // 2026-11-11 中转站去掉了旧命名空间，模型名与 /v1/models 保持一致。
+        id: "owo_relay",
+        name: "OwO 中转站（限时免费）",
+        base_url: "https://owo.dafeiyu.homes/v1",
+        allows_empty_key: false,
+        models: &[
+            "deepseek-v4.1-flash",
+            "hy4",
+            "claude-opus-5.5",
+            "claude-haiku-5.5",
+            "gpt-4o-mini",
+        ],
+        // 中转站是否透传图片输入由上游决定，这里不宣称视觉能力，避免误传图。
+        chat_modalities: ModalitySupport::TEXT,
+        image_models: &[],
+        speech_models: &[],
+        note: "自建中转站：活动期内限时免费，额度用完或活动结束后恢复计费。",
+    },
+    ProviderPreset {
         id: "ollama",
         name: "Ollama（本地）",
         base_url: "http://127.0.0.1:11434/v1",

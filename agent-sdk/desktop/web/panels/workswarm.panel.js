@@ -3275,7 +3275,7 @@
         return;
       }
       body.innerHTML =
-        '<table class="owo-ws-table"><tr><th>team_id</th><th>模式</th><th>状态</th><th>执行</th><th>成员</th><th>项目空间</th><th>创建</th><th>更新</th><th></th></tr>' +
+        '<div class="owo-ws-tablewrap"><table class="owo-ws-table"><tr><th>team_id</th><th>模式</th><th>状态</th><th>执行</th><th>成员</th><th>项目空间</th><th>创建</th><th>更新</th><th></th></tr>' +
         t
           .map(function (x) {
             var st = normStatus(x.status);
@@ -3298,7 +3298,7 @@
             );
           })
           .join("") +
-        "</table>";
+        "</table></div>";
       var rows = body.querySelectorAll("button[data-team]");
       for (var i = 0; i < rows.length; i++) {
         rows[i].onclick = function () {

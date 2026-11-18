@@ -115,7 +115,7 @@ test("模型菜单展示媒体能力，且未配置时给出明确提示", () =>
   assert.match(app, /function mediaHintHtml\(\)/, "缺少能力提示函数");
   assert.match(app, /mediaConnectionInfo\("image"\)/, "图片连接状态读取错误");
   assert.match(app, /mediaConnectionInfo\("audio"\)/, "语音连接状态读取错误");
-  assert.match(app, /typeof mediaHintHtml === "function" \? mediaHintHtml\(\)/, "菜单未挂载提示");
+  assert.match(app, /composer-model-media[\s\S]{0,180}mediaHintHtml\(\)/, "模型详情未挂载媒体服务提示");
   assert.match(app, /OPENAI_API_KEY/, "提示应告诉用户配哪个变量");
 
   const domain = readFileSync(join(web, "app-domain.js"), "utf8");

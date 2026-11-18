@@ -39,6 +39,7 @@ fn dummy_run(case_id: &str, mode: AgentMode, status: RunStatus, wall_ms: u64) ->
         started_at: "2026-01-01T00:00:00Z".to_string(),
         finished_at: "2026-01-01T00:00:01Z".to_string(),
         error: None,
+        external_evidence: None,
     }
 }
 

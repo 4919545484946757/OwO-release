@@ -262,6 +262,103 @@ const E_TRUST_ENTRYPOINTS: &[Entrypoint] = &[
     },
 ];
 
+const E_TASKS_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "ui",
+        target: "工作台 · 任务运行",
+        label: "统一任务列表、详情、检查点、审批与验证",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "GET/POST /agent-tasks",
+        label: "列出/创建统一任务（幂等键去重）",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "POST /agent-tasks/{id}/start|pause|resume|cancel",
+        label: "任务状态机动作（涉及写入/命令时仍需主界面审批）",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "GET /agent-tasks/{id}/events/stream",
+        label: "SSE 实时事件（after 游标断线补拉）",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "POST /agent-tasks/{id}/verify",
+        label: "独立验证：只认可观察结果，不以模型自述代替",
+    },
+];
+
+const E_WORKSPACE_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "ui",
+        target: "任务运行 · 工作区改动",
+        label: "查看 Diff，应用/拒绝/回滚/释放（拒绝需二次确认）",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "POST /workspaces",
+        label: "为任务创建隔离工作区（Git worktree）",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "GET /workspaces/{id}/diff",
+        label: "读取隔离工作区的改动",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "POST /workspaces/{id}/apply|reject|rollback",
+        label: "应用、拒绝或回滚改动",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "DELETE /workspaces/{id}",
+        label: "释放工作区租约",
+    },
+];
+
+const E_AUTOMATION_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "ui",
+        target: "导航 · 定时任务",
+        label: "创建间隔/每天/单次提醒或任务，查看执行记录",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "GET/POST /automations",
+        label: "列出/创建自动化任务",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "GET /automations/runs",
+        label: "执行记录（含 skipped/failed 原因）",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "POST /automations/{id}/toggle 与 DELETE /automations/{id}",
+        label: "启停与删除",
+    },
+];
+
+const E_BRIDGE_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "http",
+        target: "POST /agent-bridge/messages",
+        label: "外部入口投递消息（protocol_version=1，message_id 幂等）",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "GET /agent-bridge/tasks/{id}/status",
+        label: "查询任务状态（只读）",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "GET/PUT /agent-bridge/preferences",
+        label: "通知偏好；授权仍只在主界面完成",
+    },
+];
+
 /// 功能目录注册表（§8.3 单一来源）。新增能力：在此追加条目 + 同步路由契约测试。
 pub static CAPABILITIES: &[CapabilityDescriptor] = &[
     CapabilityDescriptor {
@@ -383,6 +480,50 @@ pub static CAPABILITIES: &[CapabilityDescriptor] = &[
         required_effects: &[ToolEffectClass::Execute, ToolEffectClass::Write],
         advanced: true,
         dependencies: &[],
+    },
+    CapabilityDescriptor {
+        id: CapabilityId("tasks.runtime"),
+        user_name: "统一任务运行",
+        summary: "创建、暂停、恢复、取消统一任务，查看检查点、审批、验证与 SSE 实时事件；\
+                  幂等键保证同一时段或同一次请求不会重复建任务",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_TASKS_ENTRYPOINTS,
+        required_effects: &[],
+        advanced: false,
+        dependencies: &[],
+    },
+    CapabilityDescriptor {
+        id: CapabilityId("workspace.isolation"),
+        user_name: "隔离工作区与 Diff 审阅",
+        summary: "在 Git worktree 中执行改动，先在任务详情审阅 Diff 再应用/拒绝/回滚；\
+                  非 Git 工作区只能只读审阅，不支持隐式回退到直接改工作树",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_WORKSPACE_ENTRYPOINTS,
+        required_effects: &[ToolEffectClass::Read, ToolEffectClass::Write],
+        advanced: false,
+        dependencies: &[CapabilityId("tasks.runtime")],
+    },
+    CapabilityDescriptor {
+        id: CapabilityId("automations.schedule"),
+        user_name: "定时任务",
+        summary: "按间隔/每天（可指定 UTC 或固定时区偏移）/单次触发提醒或无人值守任务；\
+                  执行记录标注跳过与失败原因，同一时段重复 tick 不会重复建任务",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_AUTOMATION_ENTRYPOINTS,
+        required_effects: &[],
+        advanced: false,
+        dependencies: &[CapabilityId("tasks.runtime")],
+    },
+    CapabilityDescriptor {
+        id: CapabilityId("bridge.external"),
+        user_name: "外部入口桥接",
+        summary: "protocol_version=1 的外部消息接口与任务状态查询；审批只在主界面完成，\
+                  外部入口不能代替用户授权",
+        maturity: CapabilityMaturity::Experimental,
+        entrypoints: E_BRIDGE_ENTRYPOINTS,
+        required_effects: &[ToolEffectClass::Read],
+        advanced: true,
+        dependencies: &[CapabilityId("tasks.runtime")],
     },
     CapabilityDescriptor {
         id: CapabilityId("chat.conversation"),
@@ -583,6 +724,41 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Agent V2 的四个新能力必须登记，且不能在没有真实入口时声称 Stable。
+    #[test]
+    fn agent_v2_capabilities_are_registered_with_entrypoints() {
+        for id in [
+            "tasks.runtime",
+            "workspace.isolation",
+            "automations.schedule",
+            "bridge.external",
+        ] {
+            let capability = CAPABILITIES
+                .iter()
+                .find(|capability| capability.id == CapabilityId(id))
+                .unwrap_or_else(|| panic!("缺少能力登记：{id}"));
+            assert!(
+                !capability.entrypoints.is_empty(),
+                "{id} 必须给出真实用户入口"
+            );
+            assert_ne!(
+                capability.maturity,
+                CapabilityMaturity::Stable,
+                "{id} 尚无同版本真实运行验收，不得标记 Stable"
+            );
+        }
+        let workspace = CAPABILITIES
+            .iter()
+            .find(|capability| capability.id == CapabilityId("workspace.isolation"))
+            .expect("工作区隔离必须登记");
+        assert!(workspace.summary.contains("非 Git"));
+        let bridge = CAPABILITIES
+            .iter()
+            .find(|capability| capability.id == CapabilityId("bridge.external"))
+            .expect("桥接能力必须登记");
+        assert!(bridge.summary.contains("主界面"));
     }
 
     #[test]

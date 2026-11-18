@@ -468,6 +468,7 @@ mod tests {
                 y: 0,
                 width: 80,
                 height: 30,
+                value_safety: None,
             }],
         });
         assert!(verify_assertion_full(

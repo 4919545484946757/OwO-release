@@ -117,6 +117,27 @@ fn process_liveness_distinguishes_current_and_impossible_pid() {
     );
 }
 
+#[cfg(windows)]
+#[test]
+fn exited_child_with_open_handle_is_not_alive() {
+    use std::os::windows::process::CommandExt;
+    use std::process::{Command, Stdio};
+
+    let mut child = Command::new(std::env::current_exe().unwrap())
+        .arg("--list")
+        .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let pid = child.id();
+    assert!(child.wait().unwrap().success());
+    // The Child still owns the original process handle after wait().
+    assert!(!owo_agent_server::shutdown::process_alive(pid));
+    drop(child);
+}
+
 /// pid 复用防护：pid 活着 ≠ 上一代服务活着。
 ///
 /// Windows 会把死掉核心的 pid 分给无关进程；若陈旧 pid 判定只看存活，桌面壳

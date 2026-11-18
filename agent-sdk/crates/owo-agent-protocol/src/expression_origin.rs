@@ -1,4 +1,4 @@
-//! Expression-only origin capsule. This proves a trusted gateway signed bytes,
+//! Purpose-bound origin capsule. This proves a trusted gateway signed bytes,
 //! not that natural-language intent or application metadata is trustworthy.
 //! Canonical encoding is serde JSON in the declared field order, with ASCII-only
 //! strings, integers <= 2^53-1, explicit null selection hash, and no floats/maps.
@@ -66,6 +66,13 @@ pub struct ExpressionOriginSignature {
     pub key_id: String,
     pub value: String,
 }
+// Admission proves source bytes, never tool authorization or task success.
+// Keep each audience, scope, key id and MAC purpose distinct from expression.
+pub const IME_TASK_ORIGIN_AUDIENCE: &str = "owo-daemon-ime-task";
+pub const IME_TASK_ORIGIN_SCOPE: &str = "agent_task";
+pub const IME_TASK_ORIGIN_KEY_ID: &str = "gateway-ime-task-v1";
+pub const IME_TASK_ORIGIN_PURPOSE: &[u8] = b"OwO/ime-task-origin/v1\0";
+
 pub const EXPRESSION_ORIGIN_PURPOSE: &[u8] = b"OwO/expression-origin/v1\0";
 pub const EXPRESSION_ORIGIN_KEY_ID: &str = "gateway-expression-v1";
 pub const EXPRESSION_ORIGIN_MAX_TTL_MS: u64 = 120_000;
@@ -85,11 +92,25 @@ fn identifier(value: &str) -> bool {
 }
 impl ExpressionOriginPayload {
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, &'static str> {
+        self.canonical_scoped_bytes("owo-daemon-expression", "expression_only")
+    }
+
+    /// Task admission has a separate canonical scope and MAC domain.
+    /// The resulting bytes still require signature and freshness verification.
+    pub fn canonical_task_bytes(&self) -> Result<Vec<u8>, &'static str> {
+        self.canonical_scoped_bytes(IME_TASK_ORIGIN_AUDIENCE, IME_TASK_ORIGIN_SCOPE)
+            .map_err(|error| match error {
+                "expression/origin_scope" => "ime/task_origin_scope",
+                _ => "ime/task_origin_invalid",
+            })
+    }
+
+    fn canonical_scoped_bytes(&self, audience: &str, scope: &str) -> Result<Vec<u8>, &'static str> {
         const MAX_SAFE_INTEGER: u64 = (1u64 << 53) - 1;
         if self.ic_version != 1
             || self.issuer != "owo-intent-gateway"
-            || self.audience != "owo-daemon-expression"
-            || self.scope.mode != "expression_only"
+            || self.audience != audience
+            || self.scope.mode != scope
             || self.origin.source != "ime"
             || self.origin.application_metadata != "connector_claim"
         {
@@ -118,5 +139,78 @@ impl ExpressionOriginPayload {
             return Err("expression/origin_invalid");
         }
         serde_json::to_vec(self).map_err(|_| "expression/origin_invalid")
+    }
+}
+
+#[cfg(test)]
+mod task_origin_tests {
+    use super::*;
+    fn golden() -> serde_json::Value {
+        serde_json::from_str(include_str!(
+            "../../../../contracts/expression-origin/synthetic-golden.json"
+        ))
+        .unwrap()
+    }
+    fn expression() -> ExpressionOriginPayload {
+        serde_json::from_value(golden()["capsule"]["payload"].clone()).unwrap()
+    }
+    fn task() -> ExpressionOriginPayload {
+        let mut payload = expression();
+        payload.audience = IME_TASK_ORIGIN_AUDIENCE.into();
+        payload.scope.mode = IME_TASK_ORIGIN_SCOPE.into();
+        payload
+    }
+
+    #[test]
+    fn expression_golden_bytes_remain_identical() {
+        assert_eq!(
+            expression().canonical_bytes().unwrap(),
+            golden()["canonical_payload"].as_str().unwrap().as_bytes()
+        );
+        assert!(expression().canonical_task_bytes().is_err());
+    }
+
+    #[test]
+    fn canonical_task_scope_cannot_cross_into_expression() {
+        let payload = task();
+        let bytes = payload.canonical_task_bytes().unwrap();
+        assert_eq!(bytes, serde_json::to_vec(&payload).unwrap());
+        assert!(payload.canonical_bytes().is_err());
+        let mut changed = payload.clone();
+        changed.audience = "owo-daemon-expression".into();
+        assert!(changed.canonical_task_bytes().is_err());
+        assert!(changed.canonical_bytes().is_err());
+        changed = payload;
+        changed.scope.mode = "expression_only".into();
+        assert!(changed.canonical_task_bytes().is_err());
+        assert!(changed.canonical_bytes().is_err());
+    }
+
+    #[test]
+    fn task_scope_retains_all_common_canonical_checks() {
+        let invalid: [fn(&mut ExpressionOriginPayload); 9] = [
+            |p| p.nonce = "0".repeat(64),
+            |p| p.freshness.ttl_ms = 0,
+            |p| p.freshness.ttl_ms = EXPRESSION_ORIGIN_MAX_TTL_MS + 1,
+            |p| p.origin.connector_pid = 0,
+            |p| p.origin.application_metadata = "verified-application".into(),
+            |p| p.origin.context_id = "invalid/context".into(),
+            |p| p.binding.task_revision = 1 << 53,
+            |p| p.prompt_sha256 = "abc".into(),
+            |p| p.origin.selection_sha256 = Some("A".repeat(64)),
+        ];
+        for change in invalid {
+            let mut payload = task();
+            change(&mut payload);
+            assert!(payload.canonical_task_bytes().is_err());
+        }
+    }
+
+    #[test]
+    fn task_signature_identifiers_are_domain_separated() {
+        assert_ne!(IME_TASK_ORIGIN_KEY_ID, EXPRESSION_ORIGIN_KEY_ID);
+        assert_ne!(IME_TASK_ORIGIN_PURPOSE, EXPRESSION_ORIGIN_PURPOSE);
+        assert_ne!(IME_TASK_ORIGIN_AUDIENCE, "owo-daemon-expression");
+        assert_ne!(IME_TASK_ORIGIN_SCOPE, "expression_only");
     }
 }

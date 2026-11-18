@@ -129,6 +129,7 @@ pub struct ChannelApprover {
     pub events: Option<Arc<WfEvents>>,
     /// 步骤序号（事件展示）。
     pub step_seq: Mutex<u32>,
+    cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl ChannelApprover {
@@ -138,7 +139,13 @@ impl ChannelApprover {
             timeout,
             events: None,
             step_seq: Mutex::new(0),
+            cancel: None,
         }
+    }
+
+    pub fn with_cancel_flag(mut self, cancel: Arc<std::sync::atomic::AtomicBool>) -> Self {
+        self.cancel = Some(cancel);
+        self
     }
 
     pub fn with_events(mut self, events: Arc<WfEvents>) -> Self {
@@ -190,7 +197,25 @@ impl HumanApprover for ChannelApprover {
                 }),
             );
         }
-        match tokio::time::timeout(self.timeout, rx).await {
+        let result = tokio::select! {
+            result = tokio::time::timeout(self.timeout, rx) => result,
+            _ = async {
+                if let Some(cancel) = &self.cancel {
+                    while !cancel.load(std::sync::atomic::Ordering::SeqCst) {
+                        tokio::time::sleep(Duration::from_millis(20)).await;
+                    }
+                } else {
+                    std::future::pending::<()>().await;
+                }
+            } => {
+                pending_map().lock().unwrap_or_else(|poisoned| poisoned.into_inner()).remove(&id);
+                if let Some(events) = &self.events {
+                    events.action("approval_cancelled", &self.run_id, "run cancelled while awaiting approval");
+                }
+                return Approval::Rejected;
+            }
+        };
+        match result {
             Ok(Ok(true)) => Approval::Approved,
             Ok(Ok(false)) => {
                 {
@@ -330,7 +355,7 @@ impl<B: ActionBackend + Send> ActionBackend for EventBackend<B> {
         server: &str,
         tool: &str,
         args: &serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
+    ) -> Result<serde_json::Value, (String, bool)> {
         self.events.action(
             "step_started",
             &self.run_id,
@@ -491,20 +516,8 @@ impl ActionBackend for ServerActionBackend {
                     std::fs::create_dir_all(parent).map_err(|e| format!("创建目录失败：{e}"))?;
                 }
                 let content = spec.value.clone().unwrap_or_default();
-                if spec.action == "append_file" {
-                    std::fs::OpenOptions::new()
-                        .create(true)
-                        .append(true)
-                        .open(&path)
-                        .and_then(|mut f| {
-                            use std::io::Write;
-                            f.write_all(content.as_bytes())
-                        })
-                        .map_err(|e| format!("追加 {} 失败：{e}", path.display()))?;
-                } else {
-                    std::fs::write(&path, content)
-                        .map_err(|e| format!("写入 {} 失败：{e}", path.display()))?;
-                }
+                write_workspace_file(&path, content.as_bytes(), spec.action == "append_file")
+                    .map_err(|error| format!("{} {}: {error}", spec.action, path.display()))?;
                 self.audit(
                     "backend.act",
                     format!(
@@ -550,16 +563,29 @@ impl ActionBackend for ServerActionBackend {
         server: &str,
         tool: &str,
         args: &serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
+    ) -> Result<serde_json::Value, (String, bool)> {
         let registry = self.state.agent.mcp_clients();
         let client = registry
             .get(server)
-            .ok_or_else(|| format!("MCP 服务器未注册：{server}"))?;
+            .ok_or_else(|| (format!("MCP server not registered: {server}"), false))?;
         let mut client = client.lock().await;
+        use owo_agent_core::tool_effects::{
+            classify_mcp_annotations, is_trusted_readonly, schema_fingerprint, EffectClass,
+        };
+        let trusted_read = client.tools().iter().any(|entry| {
+            entry.name == tool
+                && is_trusted_readonly(server, tool, &schema_fingerprint(&entry.input_schema))
+                && classify_mcp_annotations(entry.annotations.as_ref(), true).0 == EffectClass::Read
+        });
         let output = client
-            .call_tool(tool, args.clone())
+            .call_tool_classified(tool, args.clone())
             .await
-            .map_err(|e| format!("MCP 工具 {server}:{tool} 失败：{e}"))?;
+            .map_err(|(error, retryable)| {
+                (
+                    format!("MCP tool {server}:{tool} failed: {error}"),
+                    trusted_read && retryable,
+                )
+            })?;
         Ok(serde_json::json!({ "server": server, "tool": tool, "output": output }))
     }
 
@@ -567,6 +593,96 @@ impl ActionBackend for ServerActionBackend {
         self.audit("backend.notify", message.to_string());
         Ok(())
     }
+}
+
+/// Open without truncating, then validate the same handle that will receive bytes.
+fn write_workspace_file(
+    path: &std::path::Path,
+    content: &[u8],
+    append: bool,
+) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut options = std::fs::OpenOptions::new();
+    options
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .append(append);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+        options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
+    }
+    let mut file = options.open(path)?;
+    let metadata = file.metadata()?;
+    if !metadata.is_file() || !single_workspace_link(path, &file, &metadata)? {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "workflow writes require a regular file without links",
+        ));
+    }
+    if !append {
+        file.set_len(0)?;
+    }
+    file.write_all(content)
+}
+
+#[cfg(windows)]
+fn single_workspace_link(
+    _path: &std::path::Path,
+    file: &std::fs::File,
+    metadata: &std::fs::Metadata,
+) -> std::io::Result<bool> {
+    use std::os::windows::{fs::MetadataExt, io::AsRawHandle};
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    const FILE_STANDARD_INFO_CLASS: i32 = 1;
+    #[repr(C)]
+    struct FileStandardInfo {
+        allocation_size: i64,
+        end_of_file: i64,
+        number_of_links: u32,
+        delete_pending: u8,
+        directory: u8,
+    }
+    unsafe extern "system" {
+        fn GetFileInformationByHandleEx(
+            file: *mut core::ffi::c_void,
+            class: i32,
+            info: *mut core::ffi::c_void,
+            size: u32,
+        ) -> i32;
+    }
+    if metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+        return Ok(false);
+    }
+    let mut info = std::mem::MaybeUninit::<FileStandardInfo>::uninit();
+    let ok = unsafe {
+        GetFileInformationByHandleEx(
+            file.as_raw_handle(),
+            FILE_STANDARD_INFO_CLASS,
+            info.as_mut_ptr().cast(),
+            std::mem::size_of::<FileStandardInfo>() as u32,
+        )
+    };
+    if ok == 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(unsafe { info.assume_init() }.number_of_links == 1)
+}
+
+#[cfg(unix)]
+fn single_workspace_link(
+    path: &std::path::Path,
+    _file: &std::fs::File,
+    metadata: &std::fs::Metadata,
+) -> std::io::Result<bool> {
+    use std::os::unix::fs::MetadataExt;
+    let target = std::fs::symlink_metadata(path)?;
+    Ok(target.is_file()
+        && target.dev() == metadata.dev()
+        && target.ino() == metadata.ino()
+        && metadata.nlink() == 1)
 }
 
 /// 供测试与面板展示：后端选择。

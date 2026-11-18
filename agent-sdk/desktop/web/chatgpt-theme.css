@@ -478,68 +478,68 @@ main { background: var(--bg) !important; }
    ========================================================================== */
 
 :root, body {
-  --wh-chrome: #f3f3f3;
-  --wh-rail: #f3f3f3;
-  --wh-canvas: #ffffff;
+  --wh-chrome: #f5f5f4;
+  --wh-rail: #f5f5f4;
+  --wh-canvas: #fcfcfb;
   --wh-raise: #ffffff;
-  --wh-line: #e8e8e8;
-  --wh-line-soft: #f0f0f0;
-  --wh-ink: #0d0d0d;
-  --wh-ink-2: #5d5d5d;
-  --wh-ink-3: #8f8f8f;
-  --wh-hover: rgba(13, 13, 13, .055);
-  --wh-press: rgba(13, 13, 13, .085);
-  --wh-tint: rgba(13, 13, 13, .06);
-  --wh-avatar-bg: #e9e9e9;
-  --wh-group: #f7f7f7;
+  --wh-line: #e4e5e3;
+  --wh-line-soft: #ececea;
+  --wh-ink: #1b1d20;
+  --wh-ink-2: #565c64;
+  --wh-ink-3: #8e959e;
+  --wh-hover: rgba(27, 29, 32, .05);
+  --wh-press: rgba(27, 29, 32, .085);
+  --wh-tint: rgba(27, 29, 32, .055);
+  --wh-avatar-bg: #e9e9e7;
+  --wh-group: #f7f7f6;
   --wh-input: #ffffff;
   --wh-shadow-xs: none;
   --wh-shadow: none;
-  --wh-shadow-composer: 0 2px 10px rgba(0, 0, 0, .05);
-  --rail-bg: #f3f3f3;
-  --rail-hover: rgba(13, 13, 13, .055);
-  --rail-active: #e9e9e9;
+  --wh-shadow-composer: 0 2px 10px rgba(16, 18, 20, .05);
+  --rail-bg: #f5f5f4;
+  --rail-hover: rgba(27, 29, 32, .05);
+  --rail-active: #e9e9e7;
   --rail-w: 56px;
   --session-width: 300px;
   --settings-width: 1080px;
 }
 body.dark-theme {
-  --wh-chrome: #171717;
-  --wh-rail: #171717;
-  --wh-canvas: #212121;
-  --wh-raise: #2a2a2a;
-  --wh-line: #3a3a3a;
-  --wh-line-soft: #2e2e2e;
-  --wh-ink: #ececec;
-  --wh-ink-2: #b4b4b4;
-  --wh-ink-3: #8f8f8f;
-  --wh-hover: rgba(255, 255, 255, .07);
-  --wh-press: rgba(255, 255, 255, .1);
-  --wh-tint: rgba(255, 255, 255, .08);
-  --wh-avatar-bg: #3a3a3a;
-  --wh-group: #2a2a2a;
-  --wh-input: #2a2a2a;
-  --rail-bg: #171717;
-  --rail-hover: rgba(255, 255, 255, .07);
-  --rail-active: #303030;
+  --wh-chrome: #141517;
+  --wh-rail: #141517;
+  --wh-canvas: #191b1e;
+  --wh-raise: #202225;
+  --wh-line: #2c2f33;
+  --wh-line-soft: #242629;
+  --wh-ink: #e8eaed;
+  --wh-ink-2: #a9afb8;
+  --wh-ink-3: #7d848e;
+  --wh-hover: rgba(255, 255, 255, .06);
+  --wh-press: rgba(255, 255, 255, .09);
+  --wh-tint: rgba(255, 255, 255, .06);
+  --wh-avatar-bg: #34373c;
+  --wh-group: #202225;
+  --wh-input: #202225;
+  --rail-bg: #141517;
+  --rail-hover: rgba(255, 255, 255, .06);
+  --rail-active: #2a2d31;
 }
 
 /* workbench-home.css redefines the sidebar token inside #sidebar. */
 #sidebar {
-  --sidebar-bg: #fbfbfb;
-  --wh-chrome: #f3f3f3;
-  --wh-rail: #f3f3f3;
-  --rail-bg: #f3f3f3;
-  --rail-hover: rgba(13, 13, 13, .055);
-  --rail-active: #e9e9e9;
+  --sidebar-bg: #fafafa;
+  --wh-chrome: #f5f5f4;
+  --wh-rail: #f5f5f4;
+  --rail-bg: #f5f5f4;
+  --rail-hover: rgba(27, 29, 32, .05);
+  --rail-active: #e9e9e7;
 }
 body.dark-theme #sidebar {
-  --sidebar-bg: #171717;
-  --wh-chrome: #171717;
-  --wh-rail: #171717;
-  --rail-bg: #171717;
-  --rail-hover: rgba(255, 255, 255, .07);
-  --rail-active: #303030;
+  --sidebar-bg: #141517;
+  --wh-chrome: #141517;
+  --wh-rail: #141517;
+  --rail-bg: #141517;
+  --rail-hover: rgba(255, 255, 255, .06);
+  --rail-active: #2a2d31;
 }
 
 /* stop the generic button normaliser from turning list rows into cards */

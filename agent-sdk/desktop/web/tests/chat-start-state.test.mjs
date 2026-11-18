@@ -38,7 +38,7 @@ test("侧栏保持 10-30 的单列结构：品牌头 + 工作区 + 新建对话 
   assert.match(html, /id="sidebarWorkspaceBtn"/);
   assert.match(html, /id="sidebarNewChat"[\s\S]{0,600}<span>新建对话<\/span>[\s\S]{0,160}<kbd class="sidebar-kbd" aria-hidden="true">Ctrl N<\/kbd>/);
   assert.match(html, /<nav class="workbench-shortcuts" aria-label="主要工作入口">/);
-  for (const panel of ["home", "workswarm", "automations", "custom-workflows"]) {
+  for (const panel of ["home", "owobot", "automations", "custom-workflows"]) {
     assert.match(html, new RegExp('data-workbench-panel="' + panel + '"'));
   }
   assert.match(html, /id="sidebarHome"/);
@@ -95,7 +95,7 @@ test("默认进入对话模式，刷新后不用先选工作区", () => {
 test("对话不选工作区也能开始，Work 仍先要求目录", () => {
   assert.match(domain, /if \(!workspace && mode !== "chat"\) \{/);
   assert.match(domain, /const chatMode = typeof currentSessionMode === "function" && currentSessionMode\(\) === "chat";/);
-  assert.match(domain, /!chatMode\) \{\s*openWorkspaceMenu/);
+  assert.match(domain, /!chatMode\) \{[\s\S]{0,160}?openWorkspaceMenu/);
   assert.match(app, /const displayName = name \|\| \(chat \? "对话" : "未选择项目"\);/);
   assert.match(app, /const needsWorkspace = !value && !state\.sessionId && !chat;/);
   assert.match(app, /对话不使用本地工作区（可点击选择）/);
@@ -104,7 +104,7 @@ test("对话不选工作区也能开始，Work 仍先要求目录", () => {
 test("侧栏把默认 chat 分组标成对话，且不提供建 Work 会话的加号", () => {
   assert.match(domain, /groups\.set\(key, \{ workspace, roots: \[\], preseeded: false, chatOnly: true \}\)/);
   assert.match(domain, /const chatGroup = !group\.preseeded && group\.chatOnly === true/);
-  assert.match(domain, /chatGroup \? "对话" : workspaceLabel\(group\.workspace\)/);
+  assert.match(domain, /chatGroup \? "对话" : \(owoProjectAlias\(group\.workspace\) \|\| workspaceLabel\(group\.workspace\)\)/);
   assert.match(domain, /if \(group\.workspace && !chatGroup\) \{/);
   assert.match(domain, /对话会话（不使用本地工作区）/);
 });

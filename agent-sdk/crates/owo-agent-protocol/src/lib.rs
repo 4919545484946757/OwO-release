@@ -1445,6 +1445,71 @@ pub struct ExpressionResponse {
 pub mod expression_origin;
 pub use expression_origin::*;
 
+/// Stateless prompt-enhancement request: one model call, no session, tools or
+/// workspace access. Unknown capability fields are rejected.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PromptEnhanceRequest {
+    pub text: String,
+    /// Preset model id override for the configured provider. Ignored when
+    /// `model_connection` is present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// Explicit custom model connection (desktop-saved models; credentials by
+    /// env reference only). Never persisted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_connection: Option<CustomModelConnection>,
+    /// Caller-known context facts. Hints only; the server does not read files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<PromptEnhanceContext>,
+    /// Answers to a previous needs_clarification round.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clarifications: Vec<PromptClarificationAnswer>,
+}
+
+/// Context the caller already knows (workspace, project, session mode).
+/// Anything absent stays unknown; the enhancer must not invent it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PromptEnhanceContext {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    /// "agent" or "chat".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_mode: Option<String>,
+}
+
+/// One answered clarifying question from a previous round.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PromptClarificationAnswer {
+    pub question: String,
+    pub answer: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PromptEnhanceStatus {
+    Ready,
+    NeedsClarification,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PromptEnhanceResponse {
+    pub status: PromptEnhanceStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enhanced_prompt: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clarifying_questions: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change_summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_type: Option<String>,
+}
+
 #[cfg(test)]
 mod workflow_graph_contract_tests {
     use super::*;
@@ -1481,3 +1546,82 @@ mod workflow_graph_contract_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod prompt_enhance_contract_tests {
+    use super::*;
+
+    #[test]
+    fn prompt_enhance_request_roundtrips_and_omits_empty_optionals() {
+        let request: PromptEnhanceRequest =
+            serde_json::from_str(r#"{"text":"帮我做一个网站"}"#).unwrap();
+        assert_eq!(request.text, "帮我做一个网站");
+        assert!(request.model.is_none());
+        assert!(request.context.is_none());
+        assert!(request.clarifications.is_empty());
+        let encoded = serde_json::to_value(&request).unwrap();
+        assert_eq!(encoded["text"], "帮我做一个网站");
+        assert!(encoded.get("model").is_none());
+        assert!(encoded.get("clarifications").is_none());
+    }
+
+    #[test]
+    fn prompt_enhance_request_accepts_full_shape() {
+        let request: PromptEnhanceRequest = serde_json::from_str(
+            r#"{"text":"帮我优化这个页面","model":"deepseek-chat","context":{"workspace":"D:/demo","project":"demo","session_mode":"agent"},"clarifications":[{"question":"用什么技术栈？","answer":"React"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            request.context.as_ref().unwrap().project.as_deref(),
+            Some("demo")
+        );
+        assert_eq!(request.clarifications[0].answer, "React");
+    }
+
+    #[test]
+    fn prompt_enhance_request_rejects_unknown_fields() {
+        assert!(serde_json::from_str::<PromptEnhanceRequest>(
+            r#"{"text":"hi","execute_tools":true}"#
+        )
+        .is_err());
+        assert!(
+            serde_json::from_str::<PromptEnhanceContext>(r#"{"workspace":"d","extra":1}"#).is_err()
+        );
+        assert!(serde_json::from_str::<PromptClarificationAnswer>(
+            r#"{"question":"q","answer":"a","x":0}"#
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn prompt_enhance_response_status_serializes_snake_case() {
+        let ready = PromptEnhanceResponse {
+            status: PromptEnhanceStatus::Ready,
+            enhanced_prompt: Some("优化后的提示词".into()),
+            clarifying_questions: Vec::new(),
+            change_summary: Some("补全了任务结构".into()),
+            task_type: Some("coding".into()),
+        };
+        let encoded = serde_json::to_value(&ready).unwrap();
+        assert_eq!(encoded["status"], "ready");
+        assert_eq!(encoded["task_type"], "coding");
+        assert!(encoded.get("clarifying_questions").is_none());
+        let reopened: PromptEnhanceResponse = serde_json::from_value(encoded).unwrap();
+        assert_eq!(reopened.status, PromptEnhanceStatus::Ready);
+
+        let needs = serde_json::to_value(PromptEnhanceResponse {
+            status: PromptEnhanceStatus::NeedsClarification,
+            enhanced_prompt: None,
+            clarifying_questions: vec!["网站给谁看？".into()],
+            change_summary: None,
+            task_type: None,
+        })
+        .unwrap();
+        assert_eq!(needs["status"], "needs_clarification");
+        assert_eq!(needs["clarifying_questions"][0], "网站给谁看？");
+        assert!(needs.get("enhanced_prompt").is_none());
+    }
+}
+
+mod ime_task;
+pub use ime_task::{ImeTaskReceipt, ImeTaskRequest, ImeTaskStatus};

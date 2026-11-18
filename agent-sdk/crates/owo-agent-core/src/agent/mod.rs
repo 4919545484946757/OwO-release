@@ -37,7 +37,7 @@ mod single_manual_acceptance;
 mod turn;
 use single_completion::{
     assess_single_turn_completion, single_missing_verification_plan_feedback,
-    single_path_is_source_code, single_validation_retry_feedback,
+    single_path_is_source_code, single_unplanned_write_rejected, single_validation_retry_feedback,
     single_verification_plan_matches_turn, single_workspace_path_matches, workspace_file_hash,
 };
 mod single_review;
@@ -64,7 +64,7 @@ const EMPTY_REPLY_RETRIES: usize = 1;
 /// 哈希（收据/证据引用变化），若不设上限，回合可能在"修复 → 验收失败 → 再修复"
 /// 之间永不收敛。到达上限后按真实 completion_status（通常 unverified）结束回合，
 /// 交付可见结论，而不是让用户无限等待。
-const MAX_HOST_VALIDATION_REPAIR_ROUNDS: usize = 6;
+const MAX_HOST_VALIDATION_REPAIR_ROUNDS: usize = 2;
 
 /// 空回答重试时的追加指令：强制产出可见结论，而不是继续思考或调工具。
 const EMPTY_REPLY_RETRY_PROMPT: &str = "（系统提示）你上一条回复没有产生任何可见内容。\
@@ -1226,6 +1226,10 @@ pub fn estimate_tokens(messages: &[ChatMessage]) -> usize {
         .iter()
         .map(|message| {
             text_token_estimate(message.content.as_deref().unwrap_or_default())
+                + message
+                    .reasoning_replay
+                    .as_ref()
+                    .map_or(0, |replay| text_token_estimate(&replay.content))
                 + MESSAGE_OVERHEAD
                 + message.images.len() * IMAGE_TOKEN_ESTIMATE
         })

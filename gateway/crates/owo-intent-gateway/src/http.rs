@@ -18,6 +18,33 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 /// 错误正文截断长度。
 const ERROR_BODY_LIMIT: usize = 500;
 
+fn known_task_state(state: &str) -> bool {
+    matches!(
+        state,
+        "draft"
+            | "queued"
+            | "clarifying"
+            | "planning"
+            | "running"
+            | "awaiting_approval"
+            | "verifying"
+            | "repairing"
+            | "succeeded"
+            | "paused"
+            | "cancel_requested"
+            | "cancelled"
+            | "failed"
+            | "interrupted"
+            | "needs_user_input"
+    )
+}
+fn valid_task_ref(id: &str, state: &str, route: &str, requires_main_ui: bool) -> bool {
+    uuid::Uuid::parse_str(id).is_ok_and(|value| !value.is_nil() && value.to_string() == id)
+        && known_task_state(state)
+        && requires_main_ui
+        && route == format!("/agent-tasks/{id}")
+}
+
 /// HTTP 客户端错误。
 #[derive(Debug, thiserror::Error)]
 pub enum BridgeError {
@@ -199,7 +226,7 @@ impl OwoHttpClient {
         };
         let response = self
             .authed(|http, token| {
-                http.post(format!("{}/ime/tasks", self.base_url))
+                http.post(format!("{}/agent-bridge/ime/intents", self.base_url))
                     .bearer_auth(token)
                     .timeout(REQUEST_TIMEOUT)
                     .json(&body)
@@ -210,35 +237,53 @@ impl OwoHttpClient {
         }
         let receipt: owo_agent_protocol::ImeTaskReceipt = response.json().await?;
         if !receipt.origin_verified
-            || uuid::Uuid::parse_str(&receipt.session_id).is_err()
-            || uuid::Uuid::parse_str(&receipt.turn_id).is_err()
+            || !valid_task_ref(
+                &receipt.task_id,
+                &receipt.state,
+                &receipt.open_route,
+                receipt.requires_main_ui,
+            )
         {
             return Err(BridgeError::Protocol("invalid IME task receipt".into()));
         }
         Ok(receipt)
     }
-    pub(crate) async fn replay_turn(
+    /// Read only the sanitized task summary; no legacy turn events or raw output.
+    pub(crate) async fn ime_task_status(
         &self,
-        session: &str,
-        turn: &str,
-        after: u64,
-    ) -> Result<owo_agent_protocol::TurnEventReplayPage, BridgeError> {
+        task_id: &str,
+    ) -> Result<owo_agent_protocol::ImeTaskStatus, BridgeError> {
+        if !uuid::Uuid::parse_str(task_id).is_ok_and(|id| !id.is_nil() && id.to_string() == task_id)
+        {
+            return Err(BridgeError::Protocol("invalid unified task id".into()));
+        }
         let response = self
             .authed(|http, token| {
-                http.get(format!("{}/session/{session}/turn/events", self.base_url))
-                    .bearer_auth(token)
-                    .timeout(REQUEST_TIMEOUT)
-                    .query(&[
-                        ("turn_id", turn.to_string()),
-                        ("after_seq", after.to_string()),
-                    ])
+                http.get(format!(
+                    "{}/agent-bridge/ime/tasks/{task_id}",
+                    self.base_url
+                ))
+                .bearer_auth(token)
+                .timeout(REQUEST_TIMEOUT)
             })
             .await?;
         if !response.status().is_success() {
             return Err(status_error(response).await);
         }
-        Ok(response.json().await?)
+        let status: owo_agent_protocol::ImeTaskStatus = response.json().await?;
+        if status.task_id != task_id
+            || !valid_task_ref(
+                &status.task_id,
+                &status.state,
+                &status.open_route,
+                status.requires_main_ui,
+            )
+        {
+            return Err(BridgeError::Protocol("invalid unified task status".into()));
+        }
+        Ok(status)
     }
+
     pub fn base_url(&self) -> &str {
         &self.base_url
     }
@@ -400,24 +445,6 @@ impl OwoHttpClient {
     }
 
     /// `POST /session/{id}/abort`。
-    pub(crate) async fn abort_turn(
-        &self,
-        session_id: &str,
-        turn_id: &str,
-    ) -> Result<(), BridgeError> {
-        let response = self
-            .authed(|http, token| {
-                http.post(format!("{}/session/{session_id}/abort", self.base_url))
-                    .bearer_auth(token)
-                    .timeout(REQUEST_TIMEOUT)
-                    .json(&serde_json::json!({"turn_id": turn_id}))
-            })
-            .await?;
-        if !response.status().is_success() {
-            return Err(status_error(response).await);
-        }
-        Ok(())
-    }
     pub async fn abort(&self, session_id: &str) -> Result<(), BridgeError> {
         let response = self
             .authed(|http, token| {
@@ -641,5 +668,25 @@ mod signed_origin_http_tests {
             assert_eq!(calls.load(Ordering::SeqCst), 1);
             task.abort();
         }
+    }
+}
+
+#[cfg(test)]
+mod unified_task_ref_tests {
+    use super::*;
+    #[test]
+    fn rejects_tainted_and_unverified_task_references() {
+        let id = "11111111-1111-4111-8111-111111111111";
+        let route = format!("/agent-tasks/{id}");
+        assert!(valid_task_ref(id, "queued", &route, true));
+        assert!(!valid_task_ref("../session/x", "queued", &route, true));
+        assert!(!valid_task_ref(id, "unknown", &route, true));
+        assert!(!valid_task_ref(
+            id,
+            "queued",
+            "https://example.invalid",
+            true
+        ));
+        assert!(!valid_task_ref(id, "queued", &route, false));
     }
 }

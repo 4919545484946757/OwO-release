@@ -215,8 +215,10 @@ async function needsSetup() {
 
   const errorCode = connection && connection.errorCode;
   if (connection && connection.state === "no_workspace") {
+    // 没有工作区不再等于“必须先完成首次配置”：允许进入主界面，用对话模式
+    // 或空状态引导用户从顶部文件夹入口选择。Work 模式仍会在发送前要求目录。
     window.__owoSetupDiagnostics = { workspaceConfigured: false, providerReady: false, errorCode };
-    return true;
+    return false;
   }
   if (!connection || !["ready", "failed"].includes(connection.state)) return false;
 
@@ -238,7 +240,7 @@ async function needsSetup() {
     } catch (_) { /* storage can be disabled in browser/test contexts */ }
     if (!workspaceConfigured) {
       window.__owoSetupDiagnostics = { workspaceConfigured: false, providerReady: false, errorCode };
-      return true;
+      return false;
     }
     if (connection.state === "failed" && errorCode !== "provider/not_configured") return false;
     if (connection.state === "failed") {
@@ -259,7 +261,7 @@ async function needsSetup() {
       providerReady: providerReady || deferredProvider,
       errorCode: providerReady ? null : "provider/not_configured",
     };
-    return !workspaceConfigured || (!providerReady && !deferredProvider);
+    return !providerReady && !deferredProvider;
   } catch (_) {
     // Unknown shell state belongs to readiness/error handling; do not infer that a
     // healthy provider is missing from a failed diagnostic query.
@@ -400,6 +402,13 @@ let connectionUnavailableUntil = 0;
 let authorizationUnavailable = false;
 let shellBackgroundHidden = false;
 let shellHydrated = false;
+const imeTaskLink = window.OwoImeTasks?.create({
+  isReady: () => shellHydrated,
+  openPanel: id => openPanelById(id),
+  openTask: id => window.OwoPanels["agent-tasks"].open(id),
+  onError: error => showToast(friendlyError(error), "error"),
+});
+
 let invalidator = null;
 let invalidationKey = "";
 let workbenchRefresh = null;
@@ -2207,8 +2216,7 @@ async function refreshSettings() {
     renderProviderForm();
     await refreshModelOutputSettings();
     // 输入法接入设置来自合并进来的 IME 设置模块；未加载时跳过，不能让整个设置页报错。
-    // 输入法接入设置来自 10-30 的 IME 设置页；核心没有 /settings/ime 路由时
-    // 页签会被移除，此时不要发起请求。
+    // 统一任务入口开关由桌面宿主管理，不调用旧输入法权限接口。
     if (document.querySelector('.settings-nav-item[data-settings-tab="ime"]')) {
       await imeAccessSettings?.refresh();
     }
@@ -2226,13 +2234,24 @@ const LOCAL_PREFS = {
   fileOpener: "system",
   compact: false,
   theme: "light",
-  zoom: 1,
+  // 桌面工作台默认 95%：保持信息密度，同时给左侧文字和图标轨留出更大空间。
+  zoom: 0.95,
   speechLang: "zh-CN",
   sound: false,
 };
+const SUPPORTED_ZOOM_FACTORS = [0.9, 0.95, 1, 1.25, 1.5];
+const ZOOM_BASELINE_KEY = "owo.zoom-baseline-20261113";
 function loadLocalPrefs() {
   try {
     Object.assign(LOCAL_PREFS, JSON.parse(localStorage.getItem("owo.prefs") || "{}"));
+    // 一次性迁移旧默认值；用户主动选过 90%/125%/150% 时保持不动。
+    if (!localStorage.getItem(ZOOM_BASELINE_KEY)) {
+      if (!Number.isFinite(Number(LOCAL_PREFS.zoom)) || Number(LOCAL_PREFS.zoom) === 1) {
+        LOCAL_PREFS.zoom = 0.95;
+        saveLocalPrefs();
+      }
+      localStorage.setItem(ZOOM_BASELINE_KEY, "1");
+    }
   } catch (_) {
     // 本地偏好损坏时回退默认值
   }
@@ -2244,7 +2263,8 @@ function saveLocalPrefs() {
 }
 function applyLocalPrefs() {
   document.body.classList.toggle("compact-mode", LOCAL_PREFS.compact);
-  if (window.owo?.setZoom) window.owo.setZoom([1,1.25,1.5].includes(Number(LOCAL_PREFS.zoom)) ? Number(LOCAL_PREFS.zoom) : 1).catch(() => {});
+  const zoom = SUPPORTED_ZOOM_FACTORS.includes(Number(LOCAL_PREFS.zoom)) ? Number(LOCAL_PREFS.zoom) : 0.95;
+  if (window.owo?.setZoom) window.owo.setZoom(zoom).catch(() => {});
   const recognitionLang = LOCAL_PREFS.speechLang;
   if (recognition) recognition.lang = recognitionLang;
   $("defaultWorkspacePath").textContent =
@@ -2259,7 +2279,7 @@ function syncLocalPrefs() {
   setSelect("prefFileOpener", prefs.fileOpener);
   setSelect("prefSpeechLang", prefs.speechLang);
   setSelect("prefTheme", prefs.theme === "system" ? "system" : (document.body.classList.contains("dark-theme") ? "dark" : "light"));
-  setSelect("prefZoom", String(prefs.zoom || 1));
+  setSelect("prefZoom", String(prefs.zoom || 0.95));
   setToggle("prefCompact", prefs.compact);
   setToggle("prefSound", prefs.sound);
 }
@@ -2352,7 +2372,7 @@ async function toggleDesktopPet() {
 // 左侧分类 ↔ 右侧表单页；搜索结果始终跳回原始控件，不复制表单状态。
 let settingsSearch = null;
 // IME 接入设置独立挂载，切到「输入法」分类时刷新一次。
-const imeAccessSettings = window.OwoImeSettings?.create({ api, onSaved: config => { if (state.settings) state.settings.ime_access = config; } });
+const imeAccessSettings = window.OwoImeSettings?.createTaskAccess({ document });
 function setSettingsTab(name) {
   if (!document.querySelector('.settings-tab[data-settings-tab="' + name + '"]')) return;
   if (name === "ime") void imeAccessSettings?.refresh();
@@ -2473,7 +2493,7 @@ window.addEventListener("owo:statusbar-navigate", (event) => {
     setSettingsTab("general");
   } else if (key === "workspace") {
     setSettingsPageVisible(false);
-    openWorkspaceMenu($("sidebarWorkspaceBtn"));
+    openWorkspaceMenu($("trayProjectBtn"));
   } else if (key === "model") {
     setSettingsPageVisible(true);
     setSettingsTab("models");
@@ -2908,9 +2928,12 @@ function closeComposerMenu() {
     composerMenuEl.remove();
     composerMenuEl = null;
   }
-  $("sidebarWorkspaceBtn")?.setAttribute("aria-expanded", "false");
   $("composerProjectBtn")?.setAttribute("aria-expanded", "false");
+  $("trayProjectBtn")?.setAttribute("aria-expanded", "false");
+  $("trayDeviceBtn")?.setAttribute("aria-expanded", "false");
+  $("modelChip")?.setAttribute("aria-expanded", "false");
   $("mediaBtn")?.setAttribute("aria-expanded", "false");
+  $("attachmentBtn")?.setAttribute("aria-expanded", "false");
   $("modeChip")?.setAttribute("aria-expanded", "false");
   $("promptChip")?.setAttribute("aria-expanded", "false");
   document.removeEventListener("pointerdown", onComposerMenuOutside, true);
@@ -2918,7 +2941,7 @@ function closeComposerMenu() {
 function onComposerMenuOutside(event) {
   if (!composerMenuEl) return;
   if (composerMenuEl.contains(event.target)) return;
-  const trigger = event.target.closest && event.target.closest("#modelChip,#accessChip,#composerProjectBtn,#sidebarWorkspaceBtn,#emptyStateWorkspaceBtn,#mediaBtn,#modeChip,#promptChip");
+  const trigger = event.target.closest && event.target.closest("#modelChip,#accessChip,#composerProjectBtn,#emptyStateWorkspaceBtn,#mediaBtn,#attachmentBtn,#modeChip,#promptChip,#trayProjectBtn,#trayDeviceBtn");
   if (trigger) return;
   // 命令补全依附于输入框：在输入框内点击不应关闭
   if (composerMenuEl.dataset.owner === "slash" && event.target.closest("#prompt")) return;
@@ -2935,6 +2958,20 @@ function composerMenuPosition(triggerRect, menuRect, viewportWidth) {
   return { left, top };
 }
 
+/// 项目 / 环境 / 权限菜单按参考稿从触发点下方展开并与触发点左对齐；空间不足时翻到上方。
+function positionComposerMenuUnder(trigger, menu) {
+  const margin = 12;
+  const gap = 8;
+  const rect = trigger.getBoundingClientRect();
+  const width = menu.offsetWidth;
+  const height = menu.offsetHeight;
+  const left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin));
+  let top = rect.bottom + gap;
+  if (top + height > window.innerHeight - margin) top = Math.max(margin, rect.top - height - gap);
+  menu.style.left = left + "px";
+  menu.style.top = top + "px";
+}
+
 function openComposerMenu(trigger, html, bind) {
   closeComposerMenu();
   const menu = document.createElement("div");
@@ -2946,18 +2983,62 @@ function openComposerMenu(trigger, html, bind) {
   // Apply size variants before measuring; otherwise the model/project width is
   // expanded after placement and can overflow the viewport on narrow windows.
   if (bind) bind(menu);
-  const rect = trigger.getBoundingClientRect();
-  const menuRect = menu.getBoundingClientRect();
-  const position = composerMenuPosition(rect, menuRect, window.innerWidth);
-  // 首页输入框位于窗口中部时，上下都放不下高菜单（如模型列表）；把菜单收回视口内，避免底部被裁掉。
-  // 用 offsetHeight：弹出动画的 scale 会让 getBoundingClientRect 偏小。
-  const maxTop = window.innerHeight - menu.offsetHeight - 12;
-  menu.style.left = `${position.left}px`;
-  menu.style.top = `${Math.max(12, Math.min(position.top, maxTop))}px`;
+  if (menu.dataset.owner === "model") {
+    positionComposerModelMenu(trigger, menu);
+  } else if (menu.dataset.owner === "project" || menu.dataset.owner === "env" || menu.dataset.owner === "access" || menu.dataset.owner === "sidebar-project") {
+    positionComposerMenuUnder(trigger, menu);
+  } else {
+    const rect = trigger.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const position = composerMenuPosition(rect, menuRect, window.innerWidth);
+    // 首页输入框位于窗口中部时，上下都放不下高菜单（如模型列表）；把菜单收回视口内，避免底部被裁掉。
+    // 用 offsetHeight：弹出动画的 scale 会让 getBoundingClientRect 偏小。
+    const maxTop = window.innerHeight - menu.offsetHeight - 12;
+    menu.style.left = `${position.left}px`;
+    menu.style.top = `${Math.max(12, Math.min(position.top, maxTop))}px`;
+  }
   document.addEventListener("pointerdown", onComposerMenuOutside, true);
 }
 
 // ---------- 模型选择下拉 ----------
+
+function positionComposerModelMenu(trigger, menu) {
+  const gutter = 12;
+  const gap = 8;
+  const { innerWidth, innerHeight } = window;
+  const anchor = trigger.getBoundingClientRect();
+  const topEdge = Math.max(gutter, $("menubar").getBoundingClientRect().bottom + gap);
+  const viewportSpace = Math.max(0, innerHeight - topEdge - gutter);
+  menu.style.setProperty("--model-viewport-space", viewportSpace + "px");
+  const menuWidth = menu.offsetWidth;
+  const detailsWidth = parseFloat(window.getComputedStyle(menu).getPropertyValue("--model-detail-width"));
+  const sideSpace = detailsWidth + gap;
+  const fitsOnRight = menuWidth + sideSpace + 2 * gutter <= innerWidth;
+  menu.dataset.detailSide = fitsOnRight ? "right" : "inline";
+  // 打开列表时就留出右侧空间，悬停切换模型时列表不会横向跳动。
+  const maxLeft = innerWidth - menuWidth - gutter - (fitsOnRight ? sideSpace : 0);
+  const left = Math.max(gutter, Math.min(anchor.right - menuWidth, maxLeft));
+  menu.style.removeProperty("--model-menu-space");
+  const above = anchor.top - gap - topEdge;
+  const below = innerHeight - anchor.bottom - gap - gutter;
+  // 输入框在首页中部时，只要上方能容纳可滚动列表，就保持菜单在按钮上方。
+  const opensAbove = above >= Math.min(menu.offsetHeight, 260) || above >= below;
+  const available = Math.min(viewportSpace, Math.max(132, opensAbove ? above : below));
+  menu.style.setProperty("--model-menu-space", available + "px");
+  const menuHeight = menu.offsetHeight;
+  const placement = opensAbove ? anchor.top - menuHeight - gap : anchor.bottom + gap;
+  const top = Math.max(topEdge, Math.min(placement, innerHeight - menuHeight - gutter));
+  menu.style.left = left + "px";
+  menu.style.top = top + "px";
+  const details = menu.querySelector("[data-model-effort-panel]");
+  if (!details.hidden && fitsOnRight) {
+    const row = menu.querySelector('[data-model-info][aria-expanded="true"]').getBoundingClientRect();
+    const detailHeight = details.offsetHeight;
+    const desiredTop = row.top + (row.height - detailHeight) / 2;
+    const panelTop = Math.max(topEdge, Math.min(desiredTop, innerHeight - detailHeight - gutter));
+    details.style.top = panelTop - top + "px";
+  }
+}
 
 function filterComposerModelMenu(menu, query) {
   const needle = String(query || "").trim().toLocaleLowerCase();
@@ -2999,6 +3080,46 @@ function mediaHintHtml() {
   const image = mediaConnectionInfo("image"), speech = mediaConnectionInfo("audio");
   return '<div class="composer-model-scope">文生图：' + esc(image.label) +
     '　语音：' + esc(speech.label) + '</div>';
+}
+
+// 首页最近任务：复用侧栏会话数据，轻量文字列表；无真实标题的会话不展示。
+function renderHomeRecent(emptyOverride = false) {
+  const main = document.querySelector("body > main:not(#setupRoot)");
+  if (!main) return;
+  let box = document.getElementById("homeRecent");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "homeRecent";
+    box.className = "home-recent";
+    box.hidden = true;
+    const footnote = main.querySelector(":scope > .composer-footnote");
+    if (footnote) footnote.after(box); else main.appendChild(box);
+    box.addEventListener("click", (event) => {
+      const row = event.target.closest("[data-home-session]");
+      if (row) selectSession(row.dataset.homeSession);
+    });
+  }
+  const sessions = !emptyOverride && state.sessionsKnown && Array.isArray(state.sessionIndex) ? state.sessionIndex : [];
+  const rows = sessions
+    .filter((session) => !session.archived && !owoSessionHasAutoTitle(session))
+    .sort((a, b) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")))
+    .slice(0, 3);
+  if (!rows.length) {
+    box.hidden = true;
+    box.innerHTML = "";
+    return;
+  }
+  box.hidden = false;
+  box.innerHTML = '<div class="home-recent-head">最近任务</div>' + rows.map((session) => {
+    const raw = session.updated_at || session.created_at || "";
+    const time = raw ? raw.slice(5, 16).replace("T", " ") : "";
+    const title = owoSessionDisplayTitle(session);
+    return '<button type="button" class="home-recent-row" data-home-session="' + escapeAttribute(session.id) +
+      '" title="打开会话：' + escapeAttribute(title) + '">' +
+      '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="5.2"/><path d="M8 5.4V8l1.8 1.2"/></svg>' +
+      '<span class="home-recent-title">' + esc(title) + '</span>' +
+      '<span class="home-recent-time">' + esc(time) + '</span></button>';
+  }).join("");
 }
 
 // 媒体入口：不直接替用户发请求，只插入一条明确的工具指令，让模型自己决定参数。
@@ -3061,7 +3182,10 @@ function openPromptMenu() {
     items.push('<div class="composer-model-scope">当前会话使用自定义文本（未保存为预设）</div>');
   }
   items.push('<button type="button" class="composer-menu-item" data-prompt-manage="1">管理提示词…</button>');
-  openComposerMenu($("promptChip"), '<div class="composer-menu-title">提示词</div>' + items.join(""), (menu) => {
+  // 首页 chip 收进加号菜单后隐藏，锚点回退到加号按钮，避免浮层定位到 (0,0)
+  const chip = $("promptChip");
+  const anchor = chip && chip.offsetParent ? chip : $("attachmentBtn");
+  openComposerMenu(anchor, '<div class="composer-menu-title">提示词</div>' + items.join(""), (menu) => {
     for (const button of menu.querySelectorAll("[data-prompt-apply]")) {
       button.addEventListener("click", () => {
         const value = button.dataset.promptApply;
@@ -3548,7 +3672,10 @@ function openMediaMenu() {
       '<span class="composer-menu-label">语音 · text_to_speech</span>' +
       '<span class="composer-menu-desc">' + esc(speech.label + "；" + speech.detail) + '</span></button>' +
     '<div class="composer-model-scope">插入的是指令模板，发送后仍按当前权限档位审批</div>';
-  openComposerMenu($("mediaBtn"), html, (menu) => {
+  // 工具栏精简后 mediaBtn 收进加号菜单（display:none），浮层锚点退回可见的加号按钮。
+  const mediaTrigger = $("mediaBtn");
+  const anchor = mediaTrigger && mediaTrigger.offsetParent ? mediaTrigger : ($("attachmentBtn") || mediaTrigger);
+  openComposerMenu(anchor, html, (menu) => {
     menu.classList.add("composer-media-menu");
     for (const button of menu.querySelectorAll("[data-media-kind]")) {
       button.addEventListener("click", () => {
@@ -3566,8 +3693,45 @@ function openMediaMenu() {
   $("mediaBtn").setAttribute("aria-expanded", "true");
 }
 
+// 加号菜单：附件 / 媒体 / 命令三个低频入口共用一个触发器，全部复用既有处理函数。
+function openComposerPlusMenu() {
+  if (composerMenuEl && composerMenuEl.dataset.owner === "plus") {
+    closeComposerMenu();
+    return;
+  }
+  const html = '<div class="composer-menu-title">添加内容</div>' +
+    '<button type="button" class="composer-menu-item has-desc" data-plus-action="attach">' +
+      '<span class="composer-menu-label">附件（图片 / 文档）</span>' +
+      '<span class="composer-menu-desc">上传到当前会话，随下一条消息发送</span></button>' +
+    '<button type="button" class="composer-menu-item has-desc" data-plus-action="media">' +
+      '<span class="composer-menu-label">生成图片 / 语音</span>' +
+      '<span class="composer-menu-desc">插入媒体指令模板，发送后按权限审批</span></button>' +
+    '<button type="button" class="composer-menu-item has-desc" data-plus-action="slash">' +
+      '<span class="composer-menu-label">/ 命令</span>' +
+      '<span class="composer-menu-desc">新建、回退、导出等斜杠命令</span></button>' +
+    '<button type="button" class="composer-menu-item has-desc" data-plus-action="prompt">' +
+      '<span class="composer-menu-label">' + esc(($("promptChipText") && $("promptChipText").textContent) || "默认提示词") + '</span>' +
+      '<span class="composer-menu-desc">persona 预设，作用于下一条新会话</span></button>';
+  openComposerMenu($("attachmentBtn"), html, (menu) => {
+    menu.dataset.owner = "plus";
+    menu.classList.add("composer-plus-menu");
+    for (const button of menu.querySelectorAll("[data-plus-action]")) {
+      button.addEventListener("click", () => {
+        const action = button.dataset.plusAction;
+        closeComposerMenu();
+        if (action === "attach") attachmentInput.click();
+        else if (action === "media") openMediaMenu();
+        else if (action === "slash") $("slashHint")?.click();
+        else if (action === "prompt") loadPromptPresets().then(() => openPromptMenu());
+      });
+    }
+    const first = menu.querySelector("[data-plus-action]");
+    if (first) first.focus();
+  });
+  $("attachmentBtn").setAttribute("aria-expanded", "true");
+}
+
 function openModelMenu() {
-  // 只列真正可用的模型；一个都没有时才退回设置页。
   const catalog = composerModelCatalog();
   const choices = catalog.entries;
   if (!choices.length) {
@@ -3579,21 +3743,13 @@ function openModelMenu() {
   const effectiveModel = getComposerModel();
   const defaultModel = getDefaultModel();
   const defaultUsable = !!defaultModel && usableIds.has(defaultModel);
-  // 只有一个可用模型、且它就是默认模型时，不必再列一条重复的「默认 · x」。
   const soleDefault = defaultUsable && choices.length === 1 && choices[0].id === defaultModel;
-  // 当前模型可能在服务商清单里，但没有自己的连接（例如只配了 deepseek-flash
-  // 却选了目录里的 deepseek-chat）；要给出提示并允许直接换回来。
   const currentUnusable = !usableIds.has(effectiveModel);
   const customModels = catalog.customModels;
   const presets = catalog.presets;
   const scope = state.sessionId ? "只影响当前会话" : "用于下一条新会话";
-  const effort = getEffort();
-  const reasoning = typeof isReasoningModel === "function" ? isReasoningModel(effectiveModel) : true;
-  const effortMode = EFFORT_MODES.find((mode) => mode.id === effort) || EFFORT_MODES[0];
-  // 行里只留模型名，服务商收进分组标题，避免每行重复「deepseek · …」。
   const groupOf = (item) => {
     let preset = item.preset || null;
-    // 独立连接自带端点，端点决定它属于哪个服务商。
     if (item.custom) {
       const connection = customModels.find((model) => model.id === item.id);
       preset = connection
@@ -3624,18 +3780,47 @@ function openModelMenu() {
     'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M6.6 9.4 9.4 6.6"/><path d="M7.4 4.8 8.5 3.7a2 2 0 0 1 2.8 2.8l-1.1 1.1"/>' +
     '<path d="M8.6 11.2 7.5 12.3a2 2 0 0 1-2.8-2.8l1.1-1.1"/></svg>';
+  const modelIcon = '<span class="composer-model-glyph" aria-hidden="true"><svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="m10 2.2 6.2 3.5v8.6L10 17.8l-6.2-3.5V5.7z"/><path d="m4.3 6 5.7 3.2L15.7 6M10 9.2v8"/></svg></span>';
+  const gearIcon = '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.1"/><path d="M6.7 2.4h2.6l.4 1.5 1.2.7 1.5-.4 1.3 2.2-1.1 1.1v1.4l1.1 1.1-1.3 2.2-1.5-.4-1.2.7-.4 1.5H6.7l-.4-1.5-1.2-.7-1.5.4-1.3-2.2 1.1-1.1V7.5L2.3 6.4l1.3-2.2 1.5.4 1.2-.7z"/></svg>';
   const customMark = (item) => {
     const title = "独立连接：" + (item.label || item.id);
     return '<span class="composer-model-custom" title="' + escapeAttribute(title) +
       '" aria-label="' + escapeAttribute(title) + '">' + chainIcon + '</span>';
   };
-  const bars = '<span class="composer-effort-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>';
-  let html = '<div class="composer-menu-head"><div class="composer-menu-title">选择模型</div>' +
-    '<div class="composer-model-scope">' + esc(scope) + '</div></div>' +
-    (currentUnusable
+  const freeBadgeMark = (item) => {
+    const registry = window.OwoProviderPresets;
+    if (!registry || typeof registry.freeBadge !== "function") return "";
+    let subject = item.preset || null;
+    if (!subject && item.custom) {
+      const connection = customModels.find((model) => model.id === item.id);
+      subject = connection ? ModelRouting.findProviderPreset("", presets, connection.baseUrl) : null;
+    }
+    if (!subject) {
+      subject = catalog.activePreset ||
+        (state.settings && state.settings.provider && state.settings.provider.base_url) || "";
+    }
+    const text = registry.freeBadge(subject, item.id);
+    return text ? '<span class="model-free-badge">' + esc(text) + '</span>' : "";
+  };
+  const chevron = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>';
+  const renderChoice = ({ id, label, provider, search, active, isDefault = false, marks = "" }) => {
+    const modelAttr = isDefault ? "data-model-default" : 'data-model="' + escapeAttribute(id) + '"';
+    const infoLabel = "查看 " + (isDefault ? "默认模型 " : "") + id + " 的详情";
+    return '<div class="composer-model-row' + (active ? ' is-selected' : '') + '">' +
+      '<button type="button" class="composer-menu-item" ' + modelAttr + ' data-model-choice ' +
+      'data-model-preview="' + escapeAttribute(id) + '" data-model-provider="' + escapeAttribute(provider) +
+      '" data-model-search="' + escapeAttribute(search) + '" aria-pressed="' + active + '">' + modelIcon +
+      '<span class="composer-menu-label">' + label + '</span>' + marks + (active ? check : "") + '</button>' +
+      '<button type="button" class="composer-model-info" data-model-info aria-expanded="false" ' +
+      'aria-controls="composerModelDetails" aria-label="' + escapeAttribute(infoLabel) + '">' + chevron + '</button></div>';
+  };
+  let html = '<div class="composer-model-browser">' + (currentUnusable
       ? '<div class="composer-model-warning"><strong>当前模型不可用</strong><span>' +
         esc(effectiveModel || "当前模型") + ' 没有可用连接，请选择下面的模型</span></div>'
-      : '');
+      : '') +
+    '<div class="composer-menu-head"><div class="composer-menu-title">选择模型</div>' +
+    '<div class="composer-model-scope">' + esc(scope) + '</div></div>';
   if (choices.length >= 6) {
     html += '<label class="composer-model-search-wrap"><span class="sr-only">筛选模型</span>' +
       '<svg class="composer-model-search-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" ' +
@@ -3644,118 +3829,241 @@ function openModelMenu() {
       '<input type="search" class="composer-model-search" data-model-search-input aria-label="筛选模型" ' +
       'placeholder="搜索模型" autocomplete="off" spellcheck="false"></label>';
   }
-  // 默认项单独成组，搜索时可以和下面的服务商分组一起隐藏。
-  // 默认模型本身没有连接时不再给这个入口，避免点一下就回到“未连接”状态。
   html += '<div class="composer-model-list">';
   if (defaultUsable && !soleDefault) {
     html += '<div class="composer-model-section composer-model-section-default" data-model-group>' +
-      '<button type="button" class="composer-menu-item composer-model-default' + (!selected ? " active" : "") +
-      '" data-model-default data-model-choice data-model-search="' +
-      escapeAttribute("默认 " + defaultModel) + '">' +
-      '<span class="composer-menu-label">默认' +
-      '<span class="composer-model-default-name"> · ' + esc(defaultModel) + '</span>' +
-      '</span>' + (!selected ? check : '') + '</button></div>';
+      renderChoice({
+        id: defaultModel,
+        label: '默认<span class="composer-model-default-name"> · ' + esc(defaultModel) + '</span>',
+        provider: "默认模型",
+        search: "默认 " + defaultModel,
+        active: !selected,
+        isDefault: true,
+      }) + '</div>';
   }
   for (const group of groups) {
     html += '<div class="composer-model-section" data-model-group>' +
       '<div class="composer-menu-group">' + esc(group.label) + '</div>';
     for (const item of group.items) {
-      const on = item.id === selected || (soleDefault && !selected);
-      html += '<button type="button" class="composer-menu-item composer-model-choice' + (on ? " active" : "") +
-        '" data-model="' + escapeAttribute(item.id) + '" data-model-choice data-model-search="' +
-        escapeAttribute(item.id + " " + item.label + " " + group.label) + '">' +
-        '<span class="composer-menu-label">' + esc(item.id) + '</span>' +
-        (item.custom ? customMark(item) : '') + (on ? check : '') + '</button>';
+      html += renderChoice({
+        id: item.id,
+        label: esc(item.id) + freeBadgeMark(item),
+        provider: group.label,
+        search: item.id + " " + item.label + " " + group.label,
+        active: item.id === selected || (soleDefault && !selected),
+        marks: item.custom ? customMark(item) : "",
+      });
     }
     html += '</div>';
   }
-  // 媒体能力提示跟随当前连接：未配置时在菜单里说明，而不是等到发送后才报错。
-  html += (typeof mediaHintHtml === "function" ? mediaHintHtml() : "") +
-    '</div><div class="composer-model-empty" data-model-empty hidden>没有找到匹配的模型</div>' +
-    '<section class="composer-model-effort" aria-label="思考强度">' +
-      '<div class="composer-effort-head"><span class="composer-effort-title">思考强度</span></div>' +
-      '<div class="composer-effort-segments" role="group" aria-label="思考强度">' +
-      EFFORT_MODES.map((mode) => {
-        const on = mode.id === effort;
-        const locked = !reasoning && mode.id !== "";
-        return '<button type="button" class="composer-effort-segment' + (on ? " is-active" : "") +
-          '" data-effort="' + escapeAttribute(mode.id) + '" data-effort-segment aria-pressed="' + on + '"' +
-          (locked ? ' disabled title="当前模型不支持调整思考强度"' : '') + '>' +
-          bars + '<span>' + esc(mode.label) + '</span></button>';
-      }).join("") + '</div>' +
-      '<div class="composer-effort-desc" data-effort-desc>' +
-      esc(reasoning ? (effortMode.desc || "") : "当前模型不支持调整思考强度") + '</div>' +
-    '</section>' +
-    '<div class="composer-menu-foot"><button type="button" class="composer-menu-link" data-go-settings>管理模型</button></div>';
+  html += '<div class="composer-model-empty" data-model-empty hidden>没有找到匹配的模型</div></div>' +
+    '<div class="composer-menu-foot"><button type="button" class="composer-menu-link" data-go-settings>' +
+      gearIcon + '<span>管理模型</span></button></div></div>' +
+    '<aside id="composerModelDetails" class="composer-model-details" data-model-effort-panel aria-label="模型详情" hidden>' +
+      '<div class="composer-model-detail-head">' +
+        '<button type="button" class="composer-model-back" data-model-back aria-label="返回模型列表">' + chevron + '</button>' +
+        '<div><strong class="composer-model-detail-name" data-model-detail-name></strong>' +
+          '<span class="composer-model-detail-provider" data-model-detail-provider></span></div></div>' +
+      '<section class="composer-model-capabilities" aria-label="可用功能">' +
+        '<div class="composer-detail-section-title">可用功能</div>' +
+        '<div class="composer-model-feature" data-state="supported"><span class="composer-feature-icon" aria-hidden="true">✓</span><span>文本对话</span><small>支持</small></div>' +
+        '<div class="composer-model-feature" data-model-reasoning-feature><span class="composer-feature-icon" aria-hidden="true"></span><span>推理模型</span><small data-model-reasoning-state></small></div>' +
+        '<div class="composer-model-feature" data-model-image-feature><span class="composer-feature-icon" aria-hidden="true"></span><span>图片理解</span><small data-model-image-state></small></div>' +
+      '</section>' +
+      '<section class="composer-model-effort" aria-label="思考强度" hidden>' +
+        '<div class="composer-detail-section-title">思考强度</div>' +
+        '<div class="composer-effort-segments" role="group" aria-label="思考强度">' +
+        EFFORT_MODES.map((mode) =>
+          '<button type="button" class="composer-effort-segment" data-effort="' + escapeAttribute(mode.id) +
+          '" data-effort-segment aria-pressed="false">' + esc(mode.label) + '</button>'
+        ).join("") + '</div><div class="composer-effort-desc" data-effort-desc></div>' +
+      '</section>' +
+      (typeof mediaHintHtml === "function"
+        ? '<section class="composer-model-media"><div class="composer-detail-section-title">媒体服务</div>' + mediaHintHtml() + '</section>'
+        : '') +
+      '<button type="button" class="composer-menu-link composer-model-use" data-model-use hidden>使用此模型</button>' +
+    '</aside>';
   openComposerMenu($("modelChip"), html, (menu) => {
-    menu.classList.add("composer-menu-model");
-    const filter = menu.querySelector("[data-model-search-input]");
-    const closeAndRestore = () => { closeComposerMenu(); $("modelChip").focus(); };
-    if (filter) {
-      filter.addEventListener("input", () => filterComposerModelMenu(menu, filter.value));
-      filter.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          closeAndRestore();
-        } else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
-          const choice = focusComposerModelChoice(menu, event.key, event.target);
-          if (choice) {
-            event.preventDefault();
-            choice.focus();
-          }
-        }
-      });
-    }
-    for (const button of menu.querySelectorAll("[data-model-choice]")) {
-      button.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          closeAndRestore();
-          return;
-        }
-        if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-        const choice = focusComposerModelChoice(menu, event.key, event.target);
-        if (choice) {
-          event.preventDefault();
-          choice.focus();
-        }
-      });
-    }
-    for (const button of menu.querySelectorAll("[data-model]")) {
-      button.addEventListener("click", async () => {
-        const id = button.dataset.model;
-        closeComposerMenu();
-        await selectModel(id);
-      });
-    }
-    for (const button of menu.querySelectorAll("[data-effort-segment]")) {
-      button.addEventListener("click", async () => {
-        if (button.disabled) return;
-        const id = button.dataset.effort;
-        const mode = EFFORT_MODES.find((item) => item.id === id) || EFFORT_MODES[0];
-        for (const other of menu.querySelectorAll("[data-effort-segment]")) {
-          const on = other === button;
-          other.classList.toggle("is-active", on);
-          other.setAttribute("aria-pressed", String(on));
-        }
-        const desc = menu.querySelector("[data-effort-desc]");
-        if (desc) desc.textContent = mode.desc;
-        if (id !== getEffort()) await selectEffort(id);
-      });
-    }
-    const useDefault = menu.querySelector("[data-model-default]");
-    if (useDefault) useDefault.addEventListener("click", async () => { closeComposerMenu(); await selectModel(""); });
-    const go = menu.querySelector("[data-go-settings]");
-    if (go) go.addEventListener("click", () => { closeComposerMenu(); setSettingsPageVisible(true); setSettingsTab("models"); });
-    // 没有搜索框时把焦点放在当前选中项，方向键可以直接在列表里移动。
-    // 鼠标打开时不画焦点环（浏览器会把脚本聚焦也算成 focus-visible）。
     const trigger = $("modelChip");
-    const keyboardOpen = !!(trigger && trigger.matches && trigger.matches(":focus-visible"));
-    if (!keyboardOpen) menu.classList.add("is-pointer-open");
-    if (filter) filter.focus();
-    else (menu.querySelector("[data-model-choice].active") || menu.querySelector("[data-model-choice]"))?.focus();
+    const keyboardOpen = trigger.matches(":focus-visible");
+    menu.dataset.owner = "model";
+    menu.classList.add("composer-menu-model");
+    menu.setAttribute("role", "dialog");
+    menu.setAttribute("aria-label", "选择模型");
+    menu.tabIndex = -1;
+    trigger.setAttribute("aria-expanded", "true");
+
+    const filter = menu.querySelector("[data-model-search-input]");
+    const details = menu.querySelector("[data-model-effort-panel]");
+    const back = details.querySelector("[data-model-back]");
+    const use = details.querySelector("[data-model-use]");
+    const effortSection = details.querySelector(".composer-model-effort");
+    const effortButtons = [...effortSection.querySelectorAll("[data-effort-segment]")];
+    let detailsTrigger = null;
+    let hoverTimer;
+    const cancelHover = () => window.clearTimeout(hoverTimer);
+    const reposition = () => positionComposerModelMenu(trigger, menu);
+    const closeAndRestore = () => {
+      closeComposerMenu();
+      trigger.focus({ preventScroll: true });
+    };
+    const choose = (choice) => {
+      const id = choice.dataset.model || "";
+      closeAndRestore();
+      selectModel(id);
+    };
+    const hideDetails = (restoreFocus) => {
+      cancelHover();
+      const previous = detailsTrigger;
+      if (!previous) return;
+      const focusInDetails = details.contains(document.activeElement);
+      previous.setAttribute("aria-expanded", "false");
+      detailsTrigger = null;
+      details.hidden = true;
+      reposition();
+      if (restoreFocus || focusInDetails) previous.focus({ preventScroll: true });
+    };
+    const renderEffort = () => {
+      const effort = getEffort();
+      const mode = EFFORT_MODES.find((item) => item.id === effort) || EFFORT_MODES[0];
+      for (const button of effortButtons) {
+        const active = button.dataset.effort === effort;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", String(active));
+        button.setAttribute("aria-disabled", String(effortSaving));
+      }
+      details.querySelector("[data-effort-desc]").textContent = mode.desc;
+    };
+    const showDetails = (button) => {
+      cancelHover();
+      if (detailsTrigger === button) return;
+      detailsTrigger?.setAttribute("aria-expanded", "false");
+      detailsTrigger = button;
+      button.setAttribute("aria-expanded", "true");
+      const choiceButton = button.parentElement.querySelector("[data-model-choice]");
+      const id = choiceButton.dataset.modelPreview;
+      details.querySelector("[data-model-detail-name]").textContent = id;
+      details.querySelector("[data-model-detail-provider]").textContent = choiceButton.dataset.modelProvider;
+      const reasoner = isReasoningModel(id);
+      const reasoningFeature = details.querySelector("[data-model-reasoning-feature]");
+      reasoningFeature.dataset.state = reasoner ? "supported" : "unsupported";
+      reasoningFeature.querySelector(".composer-feature-icon").textContent = reasoner ? "✓" : "—";
+      reasoningFeature.querySelector("[data-model-reasoning-state]").textContent = reasoner ? "支持" : "直接回答";
+
+      const custom = customModels.find((model) => model.id === id);
+      const choice = choices.find((item) => item.id === id);
+      const preset = choice?.preset || catalog.activePreset;
+      const baseUrl = custom
+        ? custom.baseUrl
+        : String(state.settings?.runtime?.provider?.base_url || state.settings?.provider?.base_url || preset?.baseUrl || preset?.base_url || "");
+      const declaration = custom
+        ? ModelRouting.customImageInputDeclaration(custom)
+        : ModelRouting.imageInputDeclaration({ model: id, base_url: baseUrl, api_format: "openai" }, currentCapabilityBindings());
+      const imageFeature = details.querySelector("[data-model-image-feature]");
+      imageFeature.dataset.state = declaration;
+      imageFeature.querySelector(".composer-feature-icon").textContent = declaration === "supported" ? "✓" : "—";
+      imageFeature.querySelector("[data-model-image-state]").textContent =
+        declaration === "supported" ? "声明支持" : declaration === "unsupported" ? "声明不支持" : "能力未知";
+
+      // 档位写入现有设置，只有正在使用的推理模型才显示可调整的控件。
+      effortSection.hidden = id !== getComposerModel() || !reasoner;
+      if (!effortSection.hidden) renderEffort();
+      use.hidden = choiceButton.getAttribute("aria-pressed") === "true";
+      details.hidden = false;
+      reposition();
+      details.scrollTop = 0;
+    };
+    const enterDetails = (button) => {
+      showDetails(button);
+      back.focus({ preventScroll: true });
+    };
+    const leavePreview = (event) => {
+      if (event.pointerType === "touch") return;
+      cancelHover();
+      if (!detailsTrigger || menu.dataset.detailSide !== "right") return;
+      // 给指针留出跨过列表和详情之间空隙的时间。
+      hoverTimer = window.setTimeout(() => {
+        if (menu.isConnected && !details.matches(":hover") && !details.contains(document.activeElement)) {
+          hideDetails(false);
+        }
+      }, 240);
+    };
+
+    filter?.addEventListener("input", () => {
+      cancelHover();
+      filterComposerModelMenu(menu, filter.value);
+      if (detailsTrigger) hideDetails(false);
+      else reposition();
+    });
+    menu.addEventListener("keydown", (event) => {
+      const target = event.target;
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        if (event.isComposing) return;
+        event.preventDefault();
+        if (detailsTrigger) hideDetails(true);
+        else closeAndRestore();
+        return;
+      }
+      if (event.key === "ArrowRight" && target.matches("[data-model-choice]")) {
+        event.preventDefault();
+        enterDetails(target.nextElementSibling);
+        return;
+      }
+      if (event.isComposing || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+      if (target === filter && ["Home", "End"].includes(event.key)) return;
+      if (target !== menu && target !== filter && !target.matches("[data-model-choice]")) return;
+      const choice = focusComposerModelChoice(menu, event.key, event.target);
+      if (choice) {
+        event.preventDefault();
+        choice.focus();
+      }
+    });
+    for (const choice of menu.querySelectorAll("[data-model-choice]")) {
+      const row = choice.parentElement;
+      const info = choice.nextElementSibling;
+      choice.addEventListener("click", () => choose(choice));
+      info.addEventListener("click", () => enterDetails(info));
+      row.addEventListener("pointerenter", (event) => {
+        if (event.pointerType === "touch" || menu.dataset.detailSide !== "right") return;
+        cancelHover();
+        if (detailsTrigger === info) return;
+        hoverTimer = window.setTimeout(() => {
+          if (menu.isConnected && row.matches(":hover") && menu.dataset.detailSide === "right") showDetails(info);
+        }, 90);
+      });
+      row.addEventListener("pointerleave", leavePreview);
+    }
+    details.addEventListener("pointerenter", cancelHover);
+    details.addEventListener("pointerleave", leavePreview);
+    for (const button of effortButtons) {
+      button.addEventListener("click", async () => {
+        if (effortSection.hidden || effortSaving || button.dataset.effort === getEffort()) return;
+        const pending = selectEffort(button.dataset.effort);
+        renderEffort();
+        await pending;
+        renderEffort();
+      });
+    }
+    back.addEventListener("click", () => hideDetails(true));
+    use.addEventListener("click", () => {
+      if (detailsTrigger) choose(detailsTrigger.parentElement.querySelector("[data-model-choice]"));
+    });
+    menu.addEventListener("focusout", (event) => {
+      if (event.relatedTarget && !menu.contains(event.relatedTarget) && event.relatedTarget !== trigger) {
+        closeComposerMenu();
+      }
+    });
+    menu.querySelector("[data-go-settings]").addEventListener("click", () => {
+      closeComposerMenu();
+      setSettingsPageVisible(true);
+      setSettingsTab("models");
+    });
+    const initial = keyboardOpen
+      ? filter || menu.querySelector("[data-model-choice][aria-pressed='true']") || menu.querySelector("[data-model-choice]")
+      : menu;
+    initial.focus({ preventScroll: true });
   });
-  if (composerMenuEl) composerMenuEl.dataset.owner = "model";
 }
 
 async function selectModel(id) {
@@ -3817,13 +4125,22 @@ function renderEffortChip() {
   refreshComposerModelChip();
 }
 
+let effortSaving = false;
+
 async function selectEffort(id) {
-  state.settings = state.settings || {};
-  state.settings.reasoning_effort = id || null;
-  renderEffortChip();
-  const result = await saveSettings({ silent: true });
-  const mode = EFFORT_MODES.find((item) => item.id === id) || EFFORT_MODES[0];
-  if (result.ok) showToast(`推理档位：${mode.label}`, "ok");
+  if (effortSaving) return;
+  effortSaving = true;
+  try {
+    const result = await saveSettings({ silent: true, reasoningEffort: id || null });
+    if (!result.ok) {
+      showToast(result.note, "error");
+      return;
+    }
+    const mode = EFFORT_MODES.find((item) => item.id === id) || EFFORT_MODES[0];
+    showToast("推理档位：" + mode.label, "ok");
+  } finally {
+    effortSaving = false;
+  }
 }
 
 function openEffortMenu() {
@@ -3850,18 +4167,77 @@ function openEffortMenu() {
   });
 }
 
-// 审批由服务端策略裁决；前端不会替用户自动批准待确认请求。
-const ACCESS_MODES = [{ id: "ask", label: "每次询问", desc: "待确认请求由你决定；已授权操作按服务端策略执行" }];
-function getAccessMode() { return "ask"; }
-function setAccessMode() { localStorage.removeItem("owo.access-mode"); renderAccessChip(); }
+// 审批由服务端策略裁决；这里只负责表达用户的档位选择。
+const ACCESS_ICONS = {
+  manual: '<path d="M7.4 9.6V5.4a1.1 1.1 0 0 1 2.2 0v3.4V4.6a1.1 1.1 0 0 1 2.2 0v4.2-2.6a1.1 1.1 0 0 1 2.2 0v4.1-1.7a1.1 1.1 0 0 1 2.2 0v4.3c0 3-2.1 5.2-5.2 5.2-2 0-3.3-.8-4.4-2.4l-2.1-3a1.2 1.2 0 0 1 1.8-1.6l1.5 1.5z"/>',
+  auto: '<rect x="3.2" y="5.6" width="13.6" height="10" rx="3"/><path d="M10 2.9v2.7M7 10.2h.01M13 10.2h.01M7.6 13h4.8"/>',
+  full: '<path d="M10 2.6 18 16.8H2z"/><path d="M10 7.4v4M10 14.1h.01"/>',
+  custom: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.9v1.7M10 15.4v1.7M2.9 10h1.7M15.4 10h1.7M4.9 4.9l1.2 1.2M13.9 13.9l1.2 1.2M15.1 4.9l-1.2 1.2M6.1 13.9l-1.2 1.2"/>',
+};
+const ACCESS_MODES = [
+  { id: "manual", label: "手动审批", desc: "重要操作由你确认" },
+  { id: "auto", label: "自动审批", desc: "由 AI 审核，必要时再询问你" },
+  { id: "full", label: "完全访问", desc: "不经审批，直接在本机运行" },
+  { id: "custom", label: "自定义", desc: "通过配置文件设置规则" },
+];
+function accessIconSvg(mode, size) {
+  return '<svg viewBox="0 0 20 20" width="' + (size || 18) + '" height="' + (size || 18) +
+    '" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    (ACCESS_ICONS[mode] || ACCESS_ICONS.manual) + "</svg>";
+}
+function getAccessMode() {
+  try {
+    const stored = localStorage.getItem("owo.access-mode") || "";
+    return ACCESS_MODES.some((mode) => mode.id === stored) ? stored : "manual";
+  } catch (_) {
+    return "manual";
+  }
+}
+function setAccessMode(id) {
+  if (!ACCESS_MODES.some((mode) => mode.id === id)) return;
+  try { localStorage.setItem("owo.access-mode", id); } catch (_) {}
+  renderAccessChip();
+}
 function renderAccessChip() {
+  const mode = ACCESS_MODES.find((item) => item.id === getAccessMode()) || ACCESS_MODES[0];
   const text = $("accessChipText"), dot = $("accessDot"), chip = $("accessChip");
-  if (text) text.textContent = "每次询问";
-  if (dot) dot.setAttribute("class", "codex-access-dot mode-ask");
-  if (chip) { chip.dataset.mode = "ask"; chip.title = "审批方式：每次询问；自动授权请查看服务端权限中心"; }
+  if (text) text.textContent = mode.label;
+  if (dot) {
+    dot.setAttribute("class", "codex-access-dot mode-" + mode.id);
+    dot.innerHTML = accessIconSvg(mode.id, 14);
+  }
+  if (chip) {
+    chip.dataset.mode = mode.id;
+    chip.dataset.tip = "审批方式：" + mode.label;
+    chip.title = "审批方式：" + mode.label + "；实际放行由服务端权限策略裁决";
+  }
 }
 function openAccessMenu() {
-  openComposerMenu($("accessChip"), '<div class="composer-menu-title">本机审批方式</div><div class="composer-menu-note">待确认请求不会自动批准。已授权操作由服务端策略执行；范围与有效期请在权限中心查看。</div><button type="button" class="composer-menu-item" data-open-permissions>打开权限中心 →</button>', menu => {
+  const current = getAccessMode();
+  let html = '<div class="composer-perm-head"><span>如何批准 Agent 的操作？</span>' +
+    '<button type="button" class="composer-perm-more" data-open-permissions>了解更多</button></div>';
+  for (const mode of ACCESS_MODES) {
+    const active = mode.id === current;
+    html += '<button type="button" class="composer-menu-item composer-perm-item' + (active ? " active" : "") + '" data-access="' + mode.id + '">' +
+      '<span class="composer-perm-icon">' + accessIconSvg(mode.id) + "</span>" +
+      '<span class="composer-perm-copy"><span class="composer-menu-label">' + esc(mode.label) + "</span>" +
+      '<span class="composer-menu-desc">' + esc(mode.desc) + "</span></span>" +
+      (active ? '<span class="composer-menu-check">✓</span>' : "") +
+      "</button>";
+  }
+  openComposerMenu($("accessChip"), html, menu => {
+    menu.classList.add("composer-menu-access");
+    menu.dataset.owner = "access";
+    for (const button of menu.querySelectorAll("[data-access]")) {
+      button.addEventListener("click", () => {
+        const id = button.dataset.access;
+        const mode = ACCESS_MODES.find((item) => item.id === id);
+        closeComposerMenu();
+        if (id === current || !mode) return;
+        setAccessMode(id);
+        showToast("审批方式：" + mode.label, "ok");
+      });
+    }
     menu.querySelector("[data-open-permissions]").addEventListener("click", () => { closeComposerMenu(); openPanelById("permissions"); });
   });
 }
@@ -4129,8 +4505,35 @@ function rememberReasoningModel(id) {
   updateModelChipMeta();
 }
 
+/// 预设里显式声明过的推理能力优先于关键字猜测：中转站的 workbuddy/hy4free 名字不带任何
+/// 关键字却真的会回 reasoning_content，workbuddy/deepseek-v4.1-flash 名字命中
+/// REASONING_MODEL_RE 却实测不回。两处都得靠 provider-presets.js 的声明纠正。
+function declaredReasoning(id) {
+  const registry = window.OwoProviderPresets;
+  if (!registry || typeof registry.presets !== "function") return null;
+  const model = String(id || "");
+  if (!model) return null;
+  for (const preset of registry.presets()) {
+    if (Array.isArray(preset.reasoningModels) && preset.reasoningModels.includes(model)) return true;
+    if (Array.isArray(preset.nonReasoningModels) && preset.nonReasoningModels.includes(model)) return false;
+  }
+  return null;
+}
+
 function isReasoningModel(id) {
+  const declared = declaredReasoning(id);
+  if (declared !== null) return declared;
   return REASONING_MODEL_RE.test(String(id || "")) || loadReasoningModels().has(String(id || ""));
+}
+
+/// 悬浮说明统一走全局深色气泡，避免原生 title 与自定义 tooltip 叠成两层。
+function setChipTip(chip, text) {
+  if (window.OwoTooltip && typeof window.OwoTooltip.set === "function") window.OwoTooltip.set(chip, text);
+  else {
+    chip.setAttribute("data-tip", text);
+    chip.setAttribute("data-tooltip", text);
+  }
+  chip.setAttribute("aria-label", text);
 }
 
 /// 模型 chip 元信息：档位只在右侧用信号条表示；不匹配时标红，不再挂「深度思考」徽标。
@@ -4146,15 +4549,13 @@ function updateModelChipMeta() {
     if (!composerModelCatalog().entries.length) {
       chip.classList.remove("is-model-incompatible");
       chip.querySelector(".model-warning-badge")?.remove();
-      chip.title = "请先在设置中连接模型服务";
-      chip.setAttribute("aria-label", chip.title);
+      setChipTip(chip, "请先在设置中连接模型服务");
       return;
     }
     // 当前模型没有连接，但还有别的可用模型：保持按钮可用，标红提示换一个。
     const disconnected = (getComposerModel() || "模型") + " · 没有可用连接；点击切换可用模型";
     chip.classList.add("is-model-incompatible");
-    chip.title = disconnected;
-    chip.setAttribute("aria-label", disconnected);
+    setChipTip(chip, disconnected);
     let disconnectedBadge = chip.querySelector(".model-warning-badge");
     if (!disconnectedBadge) {
       disconnectedBadge = document.createElement("span");
@@ -4188,9 +4589,8 @@ function updateModelChipMeta() {
     ? model + " 不在当前服务商 " + ((preset && (preset.label || preset.id)) || "当前服务商") +
       " 的可用清单中；发送可能失败，点击切换兼容模型"
     : model + (reasoner ? " · 思考强度 " + effortMode.label : " · 直接回答") + "；点击切换模型";
-  chip.title = chipLabel;
-  // 自定义 tooltip 会接管 title；无障碍名称同步更新，避免一直停在「请先连接模型服务」。
-  chip.setAttribute("aria-label", chipLabel);
+  // 悬浮直接显示当前模型与思考强度；无障碍名称同步更新。
+  setChipTip(chip, chipLabel);
   let warningBadge = chip.querySelector(".model-warning-badge");
   if (incompatible && !warningBadge) {
     warningBadge = document.createElement("span");
@@ -4255,7 +4655,12 @@ function syncProviderModels(presetOverride) {
     if (!id || select.querySelector('option[value="' + CSS.escape(id) + '"]')) continue;
     const option = document.createElement("option");
     option.value = id;
-    option.textContent = id + (isReasoningModel(id) ? "（深度思考）" : "");
+    // 下拉里没有徽标位，活动模型用"（限时免费）"后缀表达；菜单那边用真徽标。
+    const freeTag = registry && typeof registry.freeBadge === "function"
+      ? registry.freeBadge(preset, id)
+      : "";
+    option.textContent = id + (freeTag ? "（" + freeTag + "）" : "") +
+      (isReasoningModel(id) ? "（深度思考）" : "");
     option.dataset.provider = "1";
     select.appendChild(option);
   }
@@ -4701,6 +5106,7 @@ $("accountLogoutBtn").addEventListener("click", () =>
 async function saveSettings(options = {}) {
   try {
     const settings = { ...(state.settings || {}) };
+    if (options.reasoningEffort !== undefined) settings.reasoning_effort = options.reasoningEffort;
     delete settings.custom_models; // 自定义模型只存本机，不发给服务端
     settings.model = $("settingsModel").value.trim() || String(state.settings?.runtime?.model || "").trim();
     const resp = await api("/settings", {
@@ -4742,6 +5148,7 @@ function renderPresetInfo() {
   const preset = findPreset($("providerPreset").value);
   if (!preset) {
     info.classList.add("hidden");
+    renderPresetPromo(null);
     syncProviderModels();
     return;
   }
@@ -4750,7 +5157,8 @@ function renderPresetInfo() {
   $("presetModel").textContent = preset.model || "（不指定，保持当前模型）";
   $("presetKeyEnv").textContent = preset.keyEnv || "（本地端点无需密钥）";
   $("presetCmdPreview").textContent = command || "（自定义端点无预设命令）";
-  $("presetHint").textContent = `${preset.note} 选预设会填入上方端点与模型，密钥填在「API 密钥」后点「保存配置」。`;
+  $("presetHint").textContent = `${preset.note ? preset.note + " " : ""}选预设会填入上方端点与模型，密钥填在「API 密钥」后点「保存配置」。`;
+  renderPresetPromo(preset);
   updatePresetApplyAvailability(preset);
   // 预设一键填入表单：端点 + 默认模型，用户只需补密钥。
   if (preset.baseUrl) $("providerBaseUrl").value = preset.baseUrl;
@@ -4761,6 +5169,120 @@ function renderPresetInfo() {
   syncProviderModels(preset);
   refreshProviderImageInput();
   info.classList.remove("hidden");
+}
+
+/// 「限时免费」活动的说明行：徽标 + 免费模型数 + 有效期 + 领 key 入口。
+/// 没有 promo 的预设直接隐藏整行，避免老预设出现空壳。
+/// 行是**按需创建**的：index.html 的首屏结构有冻结哈希守卫（ui-baseline-restore），
+/// 这条只属于设置页的活动说明不该动那份基线。
+function ensurePresetPromoRow() {
+  const existing = $("presetPromoRow");
+  if (existing) return existing;
+  const info = $("presetInfo");
+  if (!info) return null;
+  const row = document.createElement("div");
+  row.className = "preset-info-row";
+  row.id = "presetPromoRow";
+  row.hidden = true;
+  const key = document.createElement("span");
+  key.className = "preset-info-key";
+  key.textContent = "优惠";
+  const text = document.createElement("span");
+  text.className = "preset-info-promo";
+  text.id = "presetPromoText";
+  row.append(key, text);
+  // 事件委托：innerHTML 每次重渲染都会换掉按钮，绑在行上才不会被换没。
+  row.addEventListener("click", (event) => {
+    const button = event.target instanceof Element ? event.target.closest("[data-trial-via]") : null;
+    if (button) usePresetTrialKey(button);
+  });
+  const anchor = $("presetModel")?.closest(".preset-info-row");
+  if (anchor) anchor.before(row);
+  else info.prepend(row);
+  return row;
+}
+
+function renderPresetPromo(preset) {
+  const row = ensurePresetPromoRow();
+  if (!row) return;
+  const promo = preset && preset.promo;
+  const free = preset && Array.isArray(preset.freeModels) ? preset.freeModels : [];
+  const text = $("presetPromoText");
+  if (!promo || !free.length) {
+    row.hidden = true;
+    if (text) text.textContent = "";
+    return;
+  }
+  const badge = `<span class="model-free-badge">${esc(promo.badge || "限时免费")}</span>`;
+  const until = promo.until ? `（至 ${esc(promo.until)}）` : "";
+  const trial = preset.trialKeyVia
+    ? "试用密钥由桌面端托管，点「启用免费试用」直接写入本机配置"
+    : "未内置试用密钥：请在下方「API 密钥」填入自己的 key";
+  const site = promo.siteUrl
+    ? ` · <a href="${escapeAttribute(promo.siteUrl)}" target="_blank" rel="noreferrer">去中转站领 key</a>`
+    : "";
+  const trigger = preset.trialKeyVia
+    ? `<button type="button" class="model-trial-btn" data-trial-via="${escapeAttribute(preset.trialKeyVia)}">启用免费试用</button>`
+    : "";
+  row.hidden = false;
+  if (text) {
+    text.innerHTML = `${badge}<span>${free.length} 个模型${until} · ${esc(trial)}${site}</span>${trigger}`;
+    markRelayTrialAvailability(text.querySelector("[data-trial-via]"));
+  }
+}
+
+/// 试用密钥是否还在（活动可能提前结束：壳里把 key 置空后这里自动变成不可用）。
+/// 回执只有布尔，不含密钥；拿不到壳就保持可点，让点击时的错误提示说明原因。
+let relayTrialStatusPromise = null;
+function relayTrialStatus() {
+  if (!relayTrialStatusPromise) {
+    relayTrialStatusPromise = shellCommand("relay_trial_status").catch(() => null);
+  }
+  return relayTrialStatusPromise;
+}
+
+function markRelayTrialAvailability(button) {
+  if (!button) return;
+  relayTrialStatus().then((status) => {
+    if (!status || !button.isConnected) return;
+    if (status.hasTrialKey === false) {
+      button.disabled = true;
+      button.textContent = "活动已结束";
+      button.title = "中转站已收回试用密钥，可点右侧链接自己领 key";
+    }
+  });
+}
+
+/// 一键启用：请求壳把「中转站端点 + 模型 + 试用密钥」写进本机配置并重启核心。
+/// 密钥本体留在主进程，页面拿不到，也不会写进日志/截图。
+///
+/// 注意这里**没有**「写入后再刷新界面」的后续动作：web 页面由核心托管，壳重启核心
+/// 时整个窗口会重载，渲染层的 Promise 会连同执行上下文一起销毁（实测报
+/// "Execution context was destroyed"）。所以服务端 /settings 的 provider 记录由壳
+/// 自己补写（见 electron/src/main/main.js 的 syncCoreProviderRecord），
+/// 重载后的界面直接读壳写好的状态。
+async function usePresetTrialKey(button) {
+  const preset = findPreset($("providerPreset").value);
+  const command = (preset && preset.trialKeyVia) || (button && button.dataset.trialVia);
+  if (!preset || !command) return false;
+  const original = button ? button.textContent : "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "正在启用…";
+  }
+  try {
+    const result = await shellCommand(command, { model: preset.model || "" });
+    if (!result || !result.ok) throw new Error((result && result.error) || "启用失败");
+    showToast("已启用限时免费试用：" + (result.model || preset.model || ""), "ok");
+    return true;
+  } catch (error) {
+    if (button && button.isConnected) {
+      button.disabled = false;
+      button.textContent = original;
+    }
+    showToast("启用试用失败：" + String((error && error.message) || error), "error");
+    return false;
+  }
 }
 
 // 回填模型接入表单：端点与密钥状态来自 GET /settings（密钥永不明文回传）。
@@ -4903,6 +5425,18 @@ function renderProviderForm() {
     state$.textContent = "未保存";
     state$.classList.add("warn");
     state$.classList.remove("ok");
+  }
+  // 当前生效的服务商回填到预设下拉：核心重启后（例如「启用免费试用」）下拉会回落成
+  // 「自定义 / 保持现状」，而实际跑的是中转站——用户会以为没配好，活动说明行也会消失。
+  // 只在用户没手动选过（value 为空）时回填，不覆盖正在编辑的选择。
+  const presetSelect = $("providerPreset");
+  if (presetSelect && !presetSelect.value) {
+    const resolver = window.OwoProviderPresets && window.OwoProviderPresets.resolvePreset;
+    const matched = typeof resolver === "function" ? resolver(provider.base_url || "") : null;
+    if (matched) {
+      presetSelect.value = matched.id;
+      renderPresetInfo();
+    }
   }
 }
 
@@ -5260,7 +5794,7 @@ function applyTheme(theme) {
   window.owo?.setWindowChrome?.({
     color: dark ? "#1a1a1a" : "#f5f5f4",
     symbolColor: dark ? "#d6d6d6" : "#4a4a4a",
-    height: 44,
+    height: 40,
   });
   localStorage.setItem("owo.theme", dark ? "dark" : "light");
   if (LOCAL_PREFS.theme !== "system") {
@@ -5291,7 +5825,8 @@ function applyAvatarColor() {
 }
 applyAvatarColor();
 // 原生 title 提示是浏览器默认样式，和界面不在一个语言里。这里统一接管为
-// 深色小气泡：420ms 延迟、只读文本、跟随元素位置，并把 title 转成 aria-label。
+// 深色小气泡：悬浮约 90ms 直接显示相关内容，不需要先点一下按钮；只读文本、
+// 跟随元素位置，并把 title / data-tip 转成 aria-label。
 function initTooltips() {
   const tip = document.createElement("div");
   tip.className = "owo-tooltip";
@@ -5301,13 +5836,13 @@ function initTooltips() {
   let current = null;
   const adopt = (el) => {
     if (!el || el.nodeType !== 1) return;
-    const title = el.getAttribute("title");
+    const title = el.getAttribute("title") || el.getAttribute("data-tip");
     if (!title) return;
     el.setAttribute("data-tooltip", title);
-    el.removeAttribute("title");
+    if (el.hasAttribute("title")) el.removeAttribute("title");
     if (!el.getAttribute("aria-label")) el.setAttribute("aria-label", title);
   };
-  document.querySelectorAll("[title]").forEach(adopt);
+  document.querySelectorAll("[title],[data-tip]").forEach(adopt);
   new MutationObserver((records) => {
     for (const record of records) {
       if (record.type === "attributes") {
@@ -5317,41 +5852,75 @@ function initTooltips() {
       for (const node of record.addedNodes) {
         if (node.nodeType !== 1) continue;
         adopt(node);
-        node.querySelectorAll?.("[title]").forEach(adopt);
+        node.querySelectorAll?.("[title],[data-tip]").forEach(adopt);
       }
     }
-  }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["title"] });
+  }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["title", "data-tip"] });
+  const position = (el) => {
+    const rect = el.getBoundingClientRect();
+    const box = tip.getBoundingClientRect();
+    const left = Math.max(8, Math.min(window.innerWidth - box.width - 8, rect.left + rect.width / 2 - box.width / 2));
+    const below = rect.top - box.height - 10 < 8;
+    tip.dataset.side = below ? "below" : "above";
+    tip.style.left = `${Math.round(left)}px`;
+    tip.style.top = `${Math.round(below ? rect.bottom + 10 : rect.top - box.height - 10)}px`;
+  };
   const hide = () => {
     clearTimeout(timer);
     timer = null;
     current = null;
     tip.classList.remove("visible");
   };
+  const show = (el) => {
+    const text = el.getAttribute("data-tooltip");
+    if (!text) return;
+    tip.textContent = text;
+    tip.classList.add("visible");
+    position(el);
+  };
   document.addEventListener("pointerover", (event) => {
     const el = event.target?.closest?.("[data-tooltip]");
     if (!el || el === current) return;
     hide();
     current = el;
-    const text = el.getAttribute("data-tooltip");
-    if (!text) return;
     timer = setTimeout(() => {
-      if (current !== el || !el.isConnected) return;
-      tip.textContent = text;
-      tip.classList.add("visible");
-      const rect = el.getBoundingClientRect();
-      const box = tip.getBoundingClientRect();
-      const left = Math.max(8, Math.min(window.innerWidth - box.width - 8, rect.left + rect.width / 2 - box.width / 2));
-      const top = rect.top - box.height - 8 < 8 ? rect.bottom + 8 : rect.top - box.height - 8;
-      tip.style.left = `${Math.round(left)}px`;
-      tip.style.top = `${Math.round(top)}px`;
-    }, 420);
+      if (current === el && el.isConnected) show(el);
+    }, 90);
   }, true);
   document.addEventListener("pointerout", (event) => {
-    if (event.target?.closest?.("[data-tooltip]")) hide();
+    const el = event.target?.closest?.("[data-tooltip]");
+    if (!el) return;
+    // 从按钮移到它内部的 svg/path 不该收起气泡。
+    if (el.contains(event.relatedTarget)) return;
+    if (current === el) hide();
+  }, true);
+  document.addEventListener("focusin", (event) => {
+    const el = event.target?.closest?.("[data-tooltip]");
+    if (!el) return;
+    clearTimeout(timer);
+    current = el;
+    show(el);
+  }, true);
+  document.addEventListener("focusout", (event) => {
+    if (current === event.target?.closest?.("[data-tooltip]")) hide();
   }, true);
   document.addEventListener("pointerdown", hide, true);
   window.addEventListener("blur", hide);
   window.addEventListener("scroll", hide, true);
+  // 供增强提示词等动态状态复用同一颗气泡，避免出现第二套 tooltip。
+  window.OwoTooltip = {
+    hide,
+    set(el, text) {
+      if (!el || el.nodeType !== 1) return;
+      const value = String(text || "");
+      el.setAttribute("data-tip", value);
+      el.setAttribute("data-tooltip", value);
+      if (current === el && tip.classList.contains("visible")) {
+        tip.textContent = value;
+        position(el);
+      }
+    },
+  };
 }
 initTooltips();
 applyTheme(storedTheme);
@@ -5398,6 +5967,7 @@ document.addEventListener("click", (event) => {
 }, true);
 window.addEventListener("resize", () => {
   if (!window.matchMedia("(max-width: 860px)").matches) setMobileSidebarOpen(false);
+  if (composerMenuEl?.dataset.owner === "model") positionComposerModelMenu($("modelChip"), composerMenuEl);
 });
 // 会话、工具与设置三态由 core/workbench-view.js 唯一维护；本文件保留兼容调用名。
 const workbenchView = window.OwoWorkbenchView.create({
@@ -5523,7 +6093,6 @@ const startNewConversation = () => {
 $("railNewChat")?.addEventListener("click", startNewConversation);
 $("newChatTop")?.addEventListener("click", startNewConversation);
 $("sidebarNewChat")?.addEventListener("click", startNewConversation);
-$("sidebarBrandBtn")?.addEventListener("click", () => $("sidebarWorkspaceBtn")?.click());
 $("workbenchReturnChat")?.addEventListener("click", () => setToolsVisible(false));
 $("settingsBackBtn")?.addEventListener("click", () => setSettingsPageVisible(false));
 const modeSwitch = $("modeSwitch");
@@ -5786,6 +6355,7 @@ function recentWorkspaces() {
 function rememberWorkspace(target) {
   const value = String(target || "").trim();
   if (!value) return;
+  if (typeof owoUnhideProject === "function") owoUnhideProject(value);
   const key = workspacePathKey(value);
   const items = [value].concat(recentWorkspaces().filter(
     (item) => workspacePathKey(item) !== key
@@ -5821,32 +6391,72 @@ async function pickDirectory() {
   showToast("工作区已切换；新会话会使用该目录", "ok");
   return workspace;
 }
+async function clearWorkspaceSelection() {
+  try { await shellInvoke("clear_workspace"); } catch (_) { /* 旧壳没有该命令时仍清理本页状态 */ }
+  localStorage.removeItem("owo.workspace");
+  localStorage.removeItem("owo.lastSession");
+  state.sessionWorkspace = "";
+  const input = $("workspace");
+  if (input) {
+    input.value = "";
+    input.dispatchEvent(new Event("change"));
+  }
+  showHomeView({ keepMode: true });
+  syncProjectChip();
+  showToast("已取消工作区选择；未选择工作区时不会新建任务", "ok");
+}
+
 function openWorkspaceMenu(trigger) {
-  const anchor = trigger || $("sidebarWorkspaceBtn") || $("composerProjectBtn");
+  const anchor = trigger || $("trayProjectBtn") || $("composerProjectBtn");
   const current = $("workspace").value.trim();
   const nativeWorkspace = Boolean(window.OwoFolderPicker?.isNativeAvailable(window));
   const actionDisabled = nativeWorkspace ? "" : ' disabled aria-disabled="true"';
-  const recent = recentWorkspaces().filter((item) => workspacePathKey(item) !== workspacePathKey(current));
-  const currentName = current ? current.split(/[\\/]/).filter(Boolean).pop() : "未选择项目";
-  let html = '<div class="composer-project-current"><strong>' + esc(currentName) +
-    '</strong><small>' + esc(current || "尚未选择工作区") + '</small></div>' +
-    '<button type="button" class="composer-menu-item project-action" data-project-action="create"' + actionDisabled + '>＋ 新建项目文件夹…</button>' +
-    '<button type="button" class="composer-menu-item project-action" data-project-action="switch"' + actionDisabled + '>▱ 切换到已有文件夹…</button>' +
-    '<div class="composer-menu-group">最近工作区</div>';
-  if (!nativeWorkspace) {
-    html += '<div class="composer-project-note" role="status">浏览器预览不能访问本地目录；请在 OwO Agent Electron 工作台中选择或切换工作区。</div>';
-  } else if (recent.length) {
-    html += recent.map((item) =>
-      '<button type="button" class="composer-menu-item project-recent" data-project-path="' + esc(item) + '"' + actionDisabled +
-      ' title="' + esc(item) + '"><span>' + esc(item.split(/[\\/]/).filter(Boolean).pop() || item) + '</span></button>'
-    ).join("");
-  } else {
-    html += '<div class="composer-project-note">新会话会在所选目录中运行；当前会话的工作区不会变更。</div>';
+  const currentKey = workspacePathKey(current);
+  const projects = [];
+  if (current) projects.push(current);
+  for (const item of recentWorkspaces()) {
+    if (!projects.some((path) => workspacePathKey(path) === workspacePathKey(item))) projects.push(item);
   }
+  const projectRows = projects.map((item) => {
+    const active = workspacePathKey(item) === currentKey;
+    const name = item.split(/[\\/]/).filter(Boolean).pop() || item;
+    return '<button type="button" class="composer-menu-item composer-project-row' + (active ? " active" : "") +
+      '" data-project-path="' + esc(item) + '"' + actionDisabled + ' title="' + esc(item) + '">' +
+      '<svg class="composer-project-icon" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.6c0-.6.5-1.1 1.1-1.1h2.2l1.3 1.5h4.3c.6 0 1.1.5 1.1 1.1v5.3c0 .6-.5 1.1-1.1 1.1H3.1c-.6 0-1.1-.5-1.1-1.1z"/></svg>' +
+      '<span class="composer-project-name">' + esc(name) + "</span>" +
+      (active ? '<span class="composer-menu-check">✓</span>' : "") +
+      "</button>";
+  }).join("");
+  let html =
+    '<label class="composer-project-search"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7.2" cy="7.2" r="4.4"/><path d="m10.5 10.5 3 3"/></svg>' +
+    '<input type="search" id="composerProjectSearch" placeholder="搜索项目" autocomplete="off" spellcheck="false" aria-label="搜索项目"></label>' +
+    '<button type="button" class="composer-menu-item composer-project-new" data-project-action="create"' + actionDisabled + '>' +
+    '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.6c0-.6.5-1.1 1.1-1.1h2.2l1.3 1.5h4.3c.6 0 1.1.5 1.1 1.1v5.3c0 .6-.5 1.1-1.1 1.1H3.1c-.6 0-1.1-.5-1.1-1.1z"/><path d="M8 7.2v3.2M6.4 8.8h3.2"/></svg>' +
+    '新建项目</button>' +
+    '<button type="button" class="composer-menu-item composer-project-open" data-project-action="switch"' + actionDisabled + '>' +
+    '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.6c0-.6.5-1.1 1.1-1.1h2.2l1.3 1.5h4.3c.6 0 1.1.5 1.1 1.1v5.3c0 .6-.5 1.1-1.1 1.1H3.1c-.6 0-1.1-.5-1.1-1.1z"/></svg>' +
+    '打开已有文件夹…</button>' +
+    '<div class="composer-project-list" role="listbox" aria-label="项目列表">' +
+    (projectRows || '<div class="composer-project-note">还没有项目，先新建或打开一个文件夹。</div>') +
+    "</div>" +
+    (current ? '<button type="button" class="composer-menu-item composer-project-clear" data-project-action="clear">不使用工作区</button>' : "") +
+    (!nativeWorkspace
+      ? '<div class="composer-project-note" role="status">浏览器预览不能访问本地目录；请在 OwO Agent Electron 工作台中选择或切换工作区。</div>'
+      : "");
   openComposerMenu(anchor, html, (menu) => {
     if (anchor) anchor.setAttribute("aria-expanded", "true");
     menu.classList.add("composer-menu-project");
     menu.dataset.owner = "project";
+    const search = menu.querySelector("#composerProjectSearch");
+    if (search) {
+      search.addEventListener("input", () => {
+        const query = search.value.trim().toLowerCase();
+        for (const row of menu.querySelectorAll(".composer-project-row")) {
+          const label = (row.querySelector(".composer-project-name")?.textContent || "").toLowerCase();
+          row.hidden = Boolean(query) && !label.includes(query);
+        }
+      });
+    }
     menu.querySelector('[data-project-action="switch"]').addEventListener("click", () => {
       closeComposerMenu();
       pickDirectory();
@@ -5855,11 +6465,17 @@ function openWorkspaceMenu(trigger) {
       closeComposerMenu();
       createProjectWorkspace();
     });
+    menu.querySelector('[data-project-action="clear"]')?.addEventListener("click", () => {
+      closeComposerMenu();
+      clearWorkspaceSelection();
+    });
     for (const button of menu.querySelectorAll("[data-project-path]")) {
       button.addEventListener("click", async () => {
+        const target = button.dataset.projectPath;
         closeComposerMenu();
+        if (workspacePathKey(target) === currentKey) return;
         try {
-          await persistWorkspace(button.dataset.projectPath);
+          await persistWorkspace(target);
           showToast("已切换工作区；新会话会使用该目录", "ok");
         } catch (error) {
           showToast("工作区切换失败：" + friendlyError(error), "error");
@@ -6101,7 +6717,7 @@ userCard.addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
   if (!menuAnchor) return;
   if (menuPopover.contains(event.target)) return;
-  if (event.target.closest(".menubar-menu-btn") || event.target.closest("#codexUserCard") || event.target.closest("#sidebarBrandBtn")) return;
+  if (event.target.closest(".menubar-menu-btn") || event.target.closest("#codexUserCard")) return;
   closeMenu();
 });
 document.addEventListener("keydown", (event) => {
@@ -6153,18 +6769,7 @@ $("menubarTheme").addEventListener("click", () => {
   applyTheme(document.body.classList.contains("dark-theme") ? "light" : "dark");
 });
 
-// Codex 工作台外壳：所有入口复用现有会话、面板和设置生命周期。
-$("sidebarBrandBtn")?.addEventListener("click", () => {
-  const anchor = $("sidebarBrandBtn");
-  if (menuAnchor === anchor) { closeMenu(); return; }
-  openMenuAt(anchor, [
-    { label: "返回当前对话", action: () => setSettingsPageVisible(false) },
-    { label: "项目首页", action: () => openPanelById("home") },
-    { label: "查找全部功能", shortcut: "Ctrl K", action: openWorkbenchSearch },
-    { sep: true },
-    { label: "设置", shortcut: "Ctrl ,", action: () => setSettingsPageVisible(true) },
-  ]);
-});
+// Codex 工作台外壳：品牌标识静态展示；工作区切换统一走顶部文件夹下拉入口。
 $("workbenchReturnChat")?.addEventListener("click", () => { setSettingsPageVisible(false); $("prompt")?.focus(); });
 $("workbenchSwitchPanel")?.addEventListener("click", openWorkbenchSearch);
 $("composerSettingsBtn")?.addEventListener("click", () => setSettingsPageVisible(true));
@@ -6203,13 +6808,9 @@ if (workspacePickerHint) {
 
 $("composerProjectBtn").addEventListener("click", () => {
   if (composerMenuEl && composerMenuEl.dataset.owner === "project") closeComposerMenu();
-  else openWorkspaceMenu($("composerProjectBtn"));
+  else openWorkspaceMenu($("trayProjectBtn"));
 });
-$("emptyStateWorkspaceBtn").addEventListener("click", () => openWorkspaceMenu($("composerProjectBtn")));
-$("sidebarWorkspaceBtn").addEventListener("click", () => {
-  if (composerMenuEl && composerMenuEl.dataset.owner === "project") closeComposerMenu();
-  else openWorkspaceMenu($("sidebarWorkspaceBtn"));
-});
+$("emptyStateWorkspaceBtn").addEventListener("click", () => openWorkspaceMenu($("emptyStateWorkspaceBtn")));
 $("sidebarCollapseBtn")?.addEventListener("click", () => {
   const collapsed = document.body.classList.toggle("sidebar-collapsed");
   const button = $("sidebarCollapseBtn");
@@ -6218,6 +6819,100 @@ $("sidebarCollapseBtn")?.addEventListener("click", () => {
     button.setAttribute("aria-label", button.title);
   }
 });
+// 上下文托盘的项目入口：与输入框项目 chip 同源，打开工作区选择菜单。
+$("trayProjectBtn")?.addEventListener("click", () => {
+  if (composerMenuEl && composerMenuEl.dataset.owner === "project") closeComposerMenu();
+  else openWorkspaceMenu($("trayProjectBtn"));
+});
+
+// 运行环境：只有「本地」真正可用；云端、工作树与 SSH/WSL 先占位，点击明确提示暂不可用。
+const ENV_ICONS = {
+  local: '<rect x="2" y="2.8" width="12" height="8.4" rx="1.2"/><path d="M5.8 13.6h4.4"/>',
+  cloud: '<path d="M4.9 12.9h7.2a3.1 3.1 0 0 0 .4-6.2 4 4 0 0 0-7.6-.9 3.3 3.3 0 0 0 0 7.1z"/>',
+  worktree: '<circle cx="4.6" cy="4.2" r="1.6"/><circle cx="11.9" cy="4.2" r="1.6"/><circle cx="8.2" cy="12.3" r="1.6"/><path d="M4.6 5.8v1.5c0 1 .8 1.8 1.8 1.8h1.8M11.9 5.8v1.5c0 1-.8 1.8-1.8 1.8H8.2v1.4"/>',
+  ssh: '<rect x="1.8" y="2.6" width="12.4" height="10.8" rx="1.8"/><path d="m4.6 6 2 1.8-2 1.8M8.8 9.8h2.6"/>',
+  wsl: '<rect x="1.8" y="2.6" width="12.4" height="10.8" rx="1.8"/><path d="m4.6 6 2 1.8-2 1.8M8.8 9.8h2.6"/>',
+};
+function envIconSvg(id) {
+  return '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    (ENV_ICONS[id] || ENV_ICONS.local) + "</svg>";
+}
+function openEnvironmentMenu() {
+  const items = [
+    { id: "local", label: "本地" },
+    { id: "cloud", label: "云端" },
+    { id: "worktree", label: "工作树" },
+    { divider: true },
+    { id: "ssh", label: "连接 SSH" },
+    { id: "wsl", label: "连接 WSL" },
+  ];
+  let html = "";
+  for (const item of items) {
+    if (item.divider) {
+      html += '<div class="composer-menu-divider" role="separator"></div>';
+      continue;
+    }
+    const active = item.id === "local";
+    html += '<button type="button" class="composer-menu-item composer-env-item' + (active ? " active" : "") + '" data-env="' + item.id + '">' +
+      '<span class="composer-env-icon">' + envIconSvg(item.id) + "</span>" +
+      '<span class="composer-env-label">' + esc(item.label) + "</span>" +
+      (active ? '<span class="composer-menu-check">✓</span>' : "") +
+      "</button>";
+  }
+  openComposerMenu($("trayDeviceBtn"), html, menu => {
+    menu.classList.add("composer-menu-env");
+    menu.dataset.owner = "env";
+    for (const button of menu.querySelectorAll("[data-env]")) {
+      button.addEventListener("click", () => {
+        const id = button.dataset.env;
+        const item = items.find((entry) => entry.id === id);
+        closeComposerMenu();
+        if (!item || id === "local") return;
+        showToast(item.label + "暂不可用，当前仅支持本地环境", "error");
+      });
+    }
+  });
+}
+$("trayDeviceBtn")?.addEventListener("click", () => {
+  if (composerMenuEl && composerMenuEl.dataset.owner === "env") closeComposerMenu();
+  else openEnvironmentMenu();
+});
+// 标题栏前进/后退：按会话选择历史导航（真实可用）。包装 selectSession 记录历史，
+// 导航时置 navigating 守卫避免把回溯本身再压入历史。
+(() => {
+  const backBtn = $("navBackBtn");
+  const fwdBtn = $("navForwardBtn");
+  if (!backBtn || !fwdBtn || typeof selectSession !== "function") return;
+  const stack = [];
+  let idx = -1;
+  let navigating = false;
+  const update = () => {
+    backBtn.disabled = idx <= 0;
+    fwdBtn.disabled = idx >= stack.length - 1;
+  };
+  const original = selectSession;
+  selectSession = async function (id, ...rest) {
+    if (!navigating && id && stack[idx] !== id) {
+      stack.splice(idx + 1);
+      stack.push(id);
+      idx = stack.length - 1;
+      if (stack.length > 100) { stack.shift(); idx -= 1; }
+    }
+    update();
+    return original.call(this, id, ...rest);
+  };
+  const go = (delta) => {
+    const next = idx + delta;
+    if (next < 0 || next >= stack.length) return;
+    idx = next;
+    navigating = true;
+    update();
+    Promise.resolve(selectSession(stack[idx])).finally(() => { navigating = false; update(); });
+  };
+  backBtn.addEventListener("click", () => go(-1));
+  fwdBtn.addEventListener("click", () => go(1));
+  update();
+})();
 // 会话搜索：图标按钮切换输入框，输入实时过滤
 $("sidebarSearchBtn").addEventListener("click", () => {
   const input = $("sessionSearch");
@@ -6261,13 +6956,13 @@ function syncProjectChip() {
   if ($("composerProjectName")) $("composerProjectName").textContent = displayName;
   if ($("sidebarWorkspaceTitle")) $("sidebarWorkspaceTitle").textContent = value ? "当前工作区" : "连接工作区";
   if ($("sidebarWorkspaceName")) $("sidebarWorkspaceName").textContent = displayName;
+  if ($("trayProjectName")) $("trayProjectName").textContent = displayName;
   const title = value
     ? "当前工作区：" + value
     : chat
       ? "对话不使用本地工作区（可点击选择）"
       : "未设置工作区（点击选择）";
   if ($("composerProjectBtn")) $("composerProjectBtn").title = title;
-  if ($("sidebarWorkspaceBtn")) $("sidebarWorkspaceBtn").title = title;
   const headerProject = document.querySelector(".project-label strong");
   if (headerProject) headerProject.textContent = displayName;
   const needsWorkspace = !value && !state.sessionId && !chat;
@@ -6278,10 +6973,13 @@ function syncProjectChip() {
   if (emptyTitle) emptyTitle.textContent = needsWorkspace ? "先选择一个项目工作区" : (!chat && name ? "在 " + name + " 中开始构建" : copy.title);
   const emptyDescription = $("emptyStateDescription");
   if (emptyDescription) emptyDescription.textContent = needsWorkspace
-    ? "新任务需要一个工作目录。选择已有文件夹，或创建一个新项目文件夹。"
+    ? "顶部文件夹入口还没有选择工作区。请先选择或新建项目文件夹；如果只是聊天，可以切到「对话」模式直接开始。"
     : copy.description;
   const emptyWorkspaceButton = $("emptyStateWorkspaceBtn");
-  if (emptyWorkspaceButton) emptyWorkspaceButton.hidden = !needsWorkspace;
+  if (emptyWorkspaceButton) {
+    emptyWorkspaceButton.hidden = !needsWorkspace;
+    emptyWorkspaceButton.textContent = "在顶部选择工作区";
+  }
   // 没有会话时，顶部标题里的工作区别名也跟随当前工作区，避免首页仍显示默认「个人工作台」。
   if (!state.sessionId && typeof syncTaskDetails === "function") syncTaskDetails();
   // 输入框提示随模式切换：对话是提问，工作区是任务目标。
@@ -6392,8 +7090,8 @@ $("modeSwitch")?.addEventListener("keydown", (event) => {
 $("showArchived").addEventListener("change", () => refreshSessions(state.sessionId));
 const attachmentInput = $("attachmentInput");
 attachmentInput.setAttribute("accept", "image/png,image/jpeg,image/gif,image/webp,.txt,.md,.pdf,.json,.csv,.docx,.xlsx,.pptx,.zip,.py,.js,.ts,.rs,.html,.css,.log,.yaml,.yml,.toml,.xml");
-$("attachmentBtn").title = "添加附件（图片或文档；暂不支持音视频）";
-$("attachmentBtn").addEventListener("click", () => attachmentInput.click());
+$("attachmentBtn").title = "添加附件、生成媒体或输入 / 命令";
+$("attachmentBtn").addEventListener("click", () => openComposerPlusMenu());
 $("attachmentInput").addEventListener("change", () => uploadAttachments(attachmentInput.files));
 // 只在外层表单接 drop：#prompt / #attachmentChips 的 drop 会冒泡到这里，
 // 重复注册会把同一批文件上传两次。dragover 也要 preventDefault 才允许放下。
@@ -6442,13 +7140,14 @@ $("sendBtn").addEventListener("click", () => {
   }
   sendPrompt();
 });
+$("modelChip").setAttribute("aria-haspopup", "dialog");
+$("modelChip").setAttribute("aria-expanded", "false");
 $("modelChip").addEventListener("click", () => {
-  if (composerMenuEl && composerMenuEl.dataset.owner === "model") {
+  if (composerMenuEl?.dataset.owner === "model") {
     closeComposerMenu();
     return;
   }
   openModelMenu();
-  if (composerMenuEl) composerMenuEl.dataset.owner = "model";
 });
 $("effortChip").addEventListener("click", () => {
   if (composerMenuEl && composerMenuEl.dataset.owner === "effort") {
@@ -6466,6 +7165,10 @@ $("accessChip").addEventListener("click", () => {
   openAccessMenu();
   if (composerMenuEl) composerMenuEl.dataset.owner = "access";
 });
+
+// 悬浮只负责「直接显示内容说明」（全局深色 tooltip，见 initTooltips），
+// 不再 hover 弹出一个需要再点一次的下拉菜单。推理档位已收进模型菜单，
+// 模型与推理是同一个控件；点击 chip 仍按原有方式打开对应菜单。
 // #mediaBtn 的单一入口在 openMediaMenu()；不要在这里再注册第二个 click，
 // 否则后注册的空菜单会覆盖媒体指令模板。
 $("revertBtn").addEventListener("click", revertAll);
@@ -6811,16 +7514,22 @@ async function boot() {
   }
   // A8-3：桌面桌宠开关状态来自引擎（每 15 秒刷新，跟随桌面端侧的改动）。
   await hydrateShell();
+  const imeTaskRef = window.OwoImeTasks?.fromSearch(location.search);
   const imeSession = new URLSearchParams(location.search).get("session");
-  if (imeSession && /^[0-9a-f-]{36}$/.test(imeSession)) await selectSession(imeSession);
-  else await restoreLastSession();
+  if (!imeTaskRef && imeSession && /^[0-9a-f-]{36}$/.test(imeSession)) await selectSession(imeSession);
+  else if (!imeTaskRef) await restoreLastSession();
   refreshWorkspaceTrust();
   shellHydrated = true;
+
   // 初始深链要等服务水合/恢复完成再打开，避免面板请求早于授权与 ready。
   applyDeepLink();
+
   // 待办团队由桌宠的显式打开事件导航；工作台启动不自动恢复旧任务，避免刷新被带回分栏页。
   void window.owo?.pendingFeed?.().catch(()=>{});
   startInvalidation();
+  if (imeTaskRef) void imeTaskLink?.receive(imeTaskRef);
+  else void imeTaskLink?.flush();
+
   workbenchRefresh.start();
 }
 
@@ -6849,3 +7558,6 @@ window.owo?.onImeSession?.(async ref => {
   try { await refreshSessions(); await selectSession(ref.sessionId); }
   catch (error) { showToast(friendlyError(error), "error"); }
 });
+
+// Only navigate; task execution and approvals require explicit main UI actions.
+window.owo?.onImeTask?.(ref => { void imeTaskLink?.receive(ref); });

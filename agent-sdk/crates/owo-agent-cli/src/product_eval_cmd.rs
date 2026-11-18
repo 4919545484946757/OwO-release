@@ -9,6 +9,7 @@
 //! - `compare`：对照两份报告（单/多 Agent、不同批次），失败记录不参与任何剔除。
 
 use clap::{Args, Subcommand};
+use owo_agent_eval_facade::external_drivers::ExternalDriverRegistry;
 use owo_agent_eval_facade::product_eval::{
     build_freeze_json, build_live_provider, build_paired_report_json, compare_reports,
     format_mode_statistics, format_report_summary, format_validation, load_report, load_suite,
@@ -89,6 +90,18 @@ pub enum ProductEvalAction {
         /// 清空输出目录重跑（唯一允许的归零入口）
         #[arg(long)]
         fresh: bool,
+        /// 验证/修复组：检查器未通过时最多追加的修复次数（0 = 单次执行）
+        #[arg(long, default_value_t = 0)]
+        repair_attempts: u32,
+        /// 显式注册真实桌面驱动；未注册或运行失败绝不生成正式通过结果。
+        #[arg(long)]
+        desktop_driver: Option<PathBuf>,
+        /// 显式注册真实故障注入驱动；未注册或运行失败绝不生成正式通过结果。
+        #[arg(long)]
+        fault_driver: Option<PathBuf>,
+        /// 外部驱动配置和证据根（证据写入该文件的父目录）。
+        #[arg(long)]
+        driver_config: Option<PathBuf>,
     },
     /// live 基线环境预检（不泄露凭据内容；exit 0=就绪，2=存在阻塞项）
     Preflight {
@@ -150,13 +163,32 @@ pub async fn run(args: ProductEvalArgs) -> Result<(), Box<dyn std::error::Error>
             label,
             tag,
             fresh,
+            repair_attempts,
+            desktop_driver,
+            fault_driver,
+            driver_config,
         } => {
             let selection = match team_mode.as_deref() {
                 None => owo_agent_core::team_strategy::TeamSelectionMode::default(),
                 Some(raw) => owo_agent_core::team_strategy::TeamSelectionMode::parse(raw)?,
             };
             run_matrix_cmd(
-                suite, exec, agents, reps, only, category, out, model, selection, label, tag, fresh,
+                suite,
+                exec,
+                agents,
+                reps,
+                only,
+                category,
+                out,
+                model,
+                selection,
+                label,
+                tag,
+                fresh,
+                repair_attempts,
+                desktop_driver,
+                fault_driver,
+                driver_config,
             )
             .await
         }
@@ -604,6 +636,10 @@ async fn run_matrix_cmd(
     label: Option<String>,
     tag: Vec<String>,
     fresh: bool,
+    repair_attempts: u32,
+    desktop_driver: Option<PathBuf>,
+    fault_driver: Option<PathBuf>,
+    driver_config: Option<PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let suite_path = resolve_suite_input(suite.as_deref())?;
     let bundle = load_suite(&suite_path)?;
@@ -617,6 +653,16 @@ async fn run_matrix_cmd(
     if !matches!(exec.as_str(), "dry" | "live" | "agent" | "workswarm") {
         return Err(format!("未知执行模式「{exec}」（可选 dry|live|agent|workswarm）").into());
     }
+    if exec == "dry"
+        && (desktop_driver.is_some() || fault_driver.is_some() || driver_config.is_some())
+    {
+        return Err("dry-reference 不得注册外部驱动；正式驱动结果只能由 live 执行产生".into());
+    }
+    let external_drivers = ExternalDriverRegistry::new(
+        desktop_driver.clone(),
+        fault_driver.clone(),
+        driver_config.clone(),
+    )?;
 
     // 缺省输出目录：<agent-sdk>/scratch-eval-runs/product-eval（scratch-* 已被 gitignore）。
     let out_dir = out.unwrap_or_else(|| {
@@ -683,7 +729,7 @@ async fn run_matrix_cmd(
         )
     };
 
-    let runner = MatrixRunner::new(bundle, out_dir.clone());
+    let runner = MatrixRunner::new(bundle, out_dir.clone()).with_external_drivers(external_drivers);
     let opts = RunOptions {
         modes,
         reps_override: reps,
@@ -693,6 +739,10 @@ async fn run_matrix_cmd(
         batch_label: label,
         provider_endpoint_sha256,
         tags: tag,
+        repair_attempts,
+        desktop_driver,
+        fault_driver,
+        driver_config,
     };
     let cancel = Arc::new(AtomicBool::new(false));
 

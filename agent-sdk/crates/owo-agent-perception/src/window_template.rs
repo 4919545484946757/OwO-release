@@ -187,6 +187,7 @@ mod tests {
                 y: 271,
                 width: 250,
                 height: 676,
+                value_safety: None,
             },
             UiNode {
                 name: "消息列表".into(),
@@ -197,6 +198,7 @@ mod tests {
                 y: 271,
                 width: 700,
                 height: 469,
+                value_safety: None,
             },
             UiNode {
                 name: "Rich Text Editor".into(),
@@ -207,6 +209,7 @@ mod tests {
                 y: 779,
                 width: 700,
                 height: 111,
+                value_safety: None,
             },
             UiNode {
                 name: "发送".into(),
@@ -217,6 +220,7 @@ mod tests {
                 y: 905,
                 width: 28,
                 height: 28,
+                value_safety: None,
             },
             UiNode {
                 name: "搜索".into(),
@@ -227,6 +231,7 @@ mod tests {
                 y: 235,
                 width: 163,
                 height: 20,
+                value_safety: None,
             },
         ]
     }

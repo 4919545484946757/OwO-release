@@ -107,6 +107,75 @@
     global.addEventListener?.("beforeunload", () => clearInterval(connectionTimer));
     return { refresh, connection };
   }
-  global.OwoImeSettings = { create, readConfig };
+
+  // The unified ingress has its own explicit desktop switch. Legacy /settings/ime
+  // controls do not apply to queued Runtime tasks and are not shown here.
+  function createTaskAccess({ document: doc = global.document } = {}) {
+    const $ = id => doc.getElementById(id);
+    if (!$("imeTasksEnabled")) return { refresh: async () => {}, connection: async () => {} };
+    let saving = false, timer = null;
+    const access = () => global.owo?.imeTaskAccess;
+    function showAccess(info) {
+      if (!saving) $("imeTasksEnabled").checked = info.requestedEnabled === true;
+      $("imeTasksStatus").textContent = info.restartRequired
+        ? "已保存，需在桌面设置中手动重启核心后生效。"
+        : info.activeEnabled === true
+          ? "当前核心已按启用设置启动；任务提交后在工作台确认和处理。"
+          : info.activeEnabled === false ? "当前核心已关闭输入法任务接收。"
+            : "设置已保存；请启动由此桌面管理的核心。";
+    }
+    async function connection() {
+      const bridge = global.owo?.imeConnection;
+      if (!bridge) {
+        $("imeConnectionStatus").textContent = "请在 Agent Desktop 中连接输入法";
+        $("imeConnect").disabled = true; $("imeDisconnect").disabled = true;
+        return;
+      }
+      try {
+        const info = await bridge.status();
+        $("imeConnectionStatus").textContent = info.message;
+        $("imeConnect").disabled = ["connecting", "connected"].includes(info.state);
+        $("imeDisconnect").disabled = !["connecting", "connected"].includes(info.state);
+      } catch { $("imeConnectionStatus").textContent = "无法读取输入法连接状态，请稍后重试。"; }
+    }
+    async function refresh() {
+      const host = access();
+      $("imeTasksEnabled").disabled = !host || saving;
+      if (!host) $("imeTasksStatus").textContent = "请在 Agent Desktop 中管理此开关。";
+      else {
+        try { showAccess(await host.status()); }
+        catch { $("imeTasksEnabled").disabled = true; $("imeTasksStatus").textContent = "无法读取任务开关，请稍后重试。"; }
+      }
+      await connection();
+    }
+    $("imeTasksEnabled").addEventListener("change", async () => {
+      if (!access() || saving) return;
+      const value = $("imeTasksEnabled").checked;
+      saving = true; $("imeTasksEnabled").disabled = true;
+      try {
+        const result = await access().setEnabled(value);
+        saving = false; showAccess(result);
+      } catch {
+        saving = false;
+        try { showAccess(await access().status()); } catch {}
+        $("imeTasksStatus").textContent = "保存失败，请重新加载设置后重试。";
+      } finally { saving = false; $("imeTasksEnabled").disabled = !access(); }
+    });
+    $("imeConnect").addEventListener("click", async () => {
+      $("imeConnect").disabled = true;
+      try { await global.owo.imeConnection.start(); }
+      catch { $("imeConnectionStatus").textContent = "连接失败，请检查输入法后重试。"; return; }
+      await connection();
+      clearInterval(timer); timer = setInterval(connection, 2000);
+    });
+    $("imeDisconnect").addEventListener("click", async () => {
+      try { await global.owo.imeConnection.stop(); await connection(); }
+      catch { $("imeConnectionStatus").textContent = "断开失败，请稍后重试。"; }
+    });
+    global.addEventListener?.("beforeunload", () => clearInterval(timer));
+    return { refresh, connection };
+  }
+
+  global.OwoImeSettings = { create, readConfig, createTaskAccess };
   if (typeof module !== "undefined") module.exports = { readConfig };
 })(typeof window !== "undefined" ? window : globalThis);

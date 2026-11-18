@@ -42,6 +42,8 @@ pub struct PendingSlot {
     pub permission_waiting: Option<PermissionNotice>,
     /// 已执行的工具调用数（进度估算）。
     pub tools_used: usize,
+    /// Sanitized unified state, never model text or tool parameters.
+    pub remote_task_state: Option<String>,
 }
 
 /// 挂起 turn 的句柄：完成槽位 + 取消通知。
@@ -616,17 +618,24 @@ impl ImeState {
 
     fn handle_cancel(&self, request: &AgentIpcRequest) -> StateAction {
         let mut sessions = lock(&self.sessions);
+        let mut persistent = false;
         if let Some(session) = sessions.remove(&request.session_id) {
             if let Some(pending) = &session.pending {
+                persistent = pending.is_persistent_task();
                 let slot = pending.lock();
                 if !slot.done {
                     drop(slot);
-                    pending.request_cancel(); // explicit cancellation aborts the accepted Agent turn
+                    pending.request_cancel();
                 }
             }
         }
         let mut response = commands::base_response(request, Status::Cancelled);
-        response.message = "会话已取消".to_string();
+        response.message = if persistent {
+            "已关闭输入法会话；若任务已受理，请到工作台管理"
+        } else {
+            "会话已取消"
+        }
+        .into();
         response.state_revision = 1;
         StateAction::Respond(response)
     }
@@ -657,7 +666,50 @@ impl ImeState {
             }
             let notice = slot.permission_waiting.clone();
             let tools_used = slot.tools_used;
+            let remote_task_state = slot.remote_task_state.clone();
             drop(slot);
+
+            if let Some(remote_state) = remote_task_state {
+                let (status, label) = match remote_state.as_str() {
+                    "draft" | "queued" => {
+                        (Status::WaitingForUser, "任务已排队，请在工作台查看并开始")
+                    }
+                    "clarifying" | "needs_user_input" => {
+                        (Status::WaitingForUser, "任务需要补充信息，请在工作台处理")
+                    }
+                    "awaiting_approval" => (
+                        Status::WaitingForConfirmation,
+                        "任务等待审批，请在工作台确认",
+                    ),
+                    "paused" | "interrupted" => {
+                        (Status::WaitingForUser, "任务已暂停，请在工作台检查后恢复")
+                    }
+                    "running" => (Status::Executing, "任务正在工作台执行"),
+                    "repairing" => (Status::Executing, "任务正在修复"),
+                    "verifying" => (Status::Thinking, "任务正在独立验证"),
+                    "cancel_requested" => (Status::Executing, "任务正在取消"),
+                    "succeeded" => (Status::AgentMode, "任务已通过验证，请在工作台查看成果"),
+                    "failed" => (Status::AgentMode, "任务未完成，请在工作台查看原因"),
+                    "cancelled" => (Status::Cancelled, "任务已在工作台取消"),
+                    _ => (Status::WaitingForUser, "请在工作台检查任务状态"),
+                };
+                let mut response = commands::base_response(request, status);
+                response.message = label.into();
+                response.can_continue_input = true;
+                response.can_cancel = false;
+                response.retry_after_ms = 1500;
+                response.commands = vec![commands::command(
+                    "open-agent",
+                    "打开任务工作台",
+                    "agent.open",
+                    crate::protocol::RiskLevel::None,
+                )];
+                session.commands = response.commands.clone();
+                session.actions =
+                    HashMap::from([("open-agent".into(), CommandAction::OpenWorkbench)]);
+                response.state_revision = session.state_revision;
+                return StateAction::Respond(response);
+            }
 
             // 审批等待：返回等待确认候选（走可信界面，候选框不直接授权）。
             if let Some(notice) = notice {

@@ -45,6 +45,9 @@ pub mod skill_pack;
 pub mod sqlite_store;
 pub mod subagent;
 pub mod task_context;
+/// 统一 Task Runtime（Agent V2 Phase 2/3）：任务身份、状态机、事件、检查点、
+/// 审批、产物、独立验证与启动恢复。执行后端通过 trait 注入，不反向依赖 server。
+pub mod task_runtime;
 pub mod team_prompt;
 /// 自适应组队策略引擎（R3 第一路：single/team/auto 判定 + 可展示理由）。
 pub mod team_strategy;
@@ -57,6 +60,7 @@ pub mod worker_pool;
 /// 画像驱动子代理执行器（注册表面即权限边界）。
 pub mod worker_profile;
 pub mod worker_runtime;
+pub mod workspace_provider;
 mod workspace_snapshot;
 pub mod workswarm;
 
@@ -287,7 +291,7 @@ pub use owo_agent_extensions::{automation, change_set, change_set_store, cloud_e
 
 pub use owo_agent_kernel::{
     audit, capability, cas_store, credentials, deadline, error, injection, lease, platform,
-    storage_crypto, whitelist,
+    storage_crypto, task_surface, whitelist,
 };
 
 // ---------------------------------------------------------------------------
@@ -306,7 +310,10 @@ pub use owo_agent_kernel::{
 // 指南 §9 把 ProductEval 最终定位为 Python 开发工具（`devtools/eval/`），届时门面一并删除。
 // ---------------------------------------------------------------------------
 
-pub use accessibility::{foreground_ui_tree, ui_tree_for_hwnd, UiNode};
+pub use accessibility::{
+    accessible_anchor_observation, foreground_ui_tree, safe_value_target, ui_tree_for_hwnd,
+    uia_observation_is_safe, UiNode, UiValueSafety,
+};
 pub use agent::{
     estimate_tokens, Agent, AgentConfig, CommandExecutionReceipt, ModelCallRecord, TurnEvent,
     TurnExecutionOptions, TurnOutcome,
@@ -341,8 +348,10 @@ pub use computer_task::{sensitive_ui_hit, ComputerTask, ComputerTaskRegistry, Ta
 pub use computer_use::{
     desktop_click, desktop_click_gated, desktop_key, desktop_key_gated, desktop_launch,
     desktop_launch_gated, desktop_scroll, desktop_scroll_gated, desktop_shortcut, desktop_type,
-    desktop_type_gated, run_approved_task, run_approved_task_on, scan_ui_sensitive,
-    sim_base_url_configured, task_gate_check, SimTaskSurface, TaskGoal, TaskReport, TaskSurface,
+    desktop_type_gated, gate_action_name, run_approved_task, run_approved_task_on,
+    scan_ui_sensitive, sim_base_url_configured, task_gate_check, validate_goals,
+    ActionExecutionReceipt, ActionOutcome, ActionVerification, SimTaskSurface, TaskGoal,
+    TaskReport, TaskSurface,
 };
 pub use context::{
     collect_instruction_files, load_project_rules, load_project_rules_hierarchical, InstructionFile,

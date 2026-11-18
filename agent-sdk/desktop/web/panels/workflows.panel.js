@@ -103,7 +103,7 @@
         '<div class="owo-wf">',
         '  <section class="owo-wf-brief" aria-labelledby="owoWfBriefTitle">',
         '    <div class="owo-wf-brief-head">',
-        '      <div><p class="owo-wf-eyebrow">团队协作 · 一句话编排</p><h3 id="owoWfBriefTitle">说一句，生成一张可拖拽的团队画布</h3>',
+        '      <div><p class="owo-wf-eyebrow">工作流 · 一句话编排</p><h3 id="owoWfBriefTitle">说一句，生成一张可拖拽的团队画布</h3>',
         '      <p class="hint">模型会把目标拆成角色、依赖、工具与交付契约；生成后可增删角色、连接依赖和修改参数。采纳保存当前配置，不会自动执行。</p></div>',
         '      <span class="owo-wf-flow-badge">对话 → 画布 → 团队</span>',
         '    </div>',
@@ -496,7 +496,7 @@
       button.type = "button";
       button.className = "owo-wf-open-team";
       button.textContent = "查看团队对话 →";
-      button.title = "打开团队协作面板，展开成员对话与工具调用";
+      button.title = "打开 OwOBot 协作面板";
       button.addEventListener("click", function () {
         var helper = H;
         if (helper && typeof helper.openTeam === "function") {

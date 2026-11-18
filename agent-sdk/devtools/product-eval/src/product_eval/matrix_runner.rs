@@ -4,10 +4,12 @@ use super::{
     aggregate_metrics, aggregate_per_case, compare_report_statistics, current_executable_sha256,
     err, estimate_cost_from_env, evaluate_all_on_dir, now_rfc3339, permissions_hash,
     preserve_artifact_snapshot, sanitize_rel_path, suite_hash, unbounded_benchmark_calls,
-    write_report, AgentMode, CaseExecutor, EvalCategory, ExecContext, MatrixKey, ProductEvalCase,
-    ProductEvalError, ProductEvalReport, ProductEvalRun, RawExecOutcome, RunDirMeta, RunStatus,
-    SuiteBundle, PRODUCT_EVAL_SCHEMA_VERSION,
+    write_report, AgentMode, CaseExecutor, EvalCategory, ExecContext, MatrixAttempt, MatrixKey,
+    ProductEvalCase, ProductEvalError, ProductEvalReport, ProductEvalRun, RawExecOutcome,
+    RunDirMeta, RunStatus, SuiteBundle, PRODUCT_EVAL_SCHEMA_VERSION,
 };
+use crate::external_drivers::{run_registered_driver, ExternalDriverRegistry};
+use owo_agent_core::gateway::TokenUsage;
 use sha2::{Digest, Sha256};
 use std::io::Write;
 use std::path::PathBuf;
@@ -36,6 +38,12 @@ pub struct RunOptions {
     pub provider_endpoint_sha256: Option<String>,
     /// 附加标签（溯源用）。
     pub tags: Vec<String>,
+    /// 验证/修复组：检查器未通过时最多追加的修复尝试次数（0 = 纯单次执行）。
+    pub repair_attempts: u32,
+    /// 显式注册驱动；None 时 Desktop/LongHorizon 保持默认 deny。
+    pub desktop_driver: Option<PathBuf>,
+    pub fault_driver: Option<PathBuf>,
+    pub driver_config: Option<PathBuf>,
 }
 
 impl Default for RunOptions {
@@ -49,6 +57,10 @@ impl Default for RunOptions {
             batch_label: None,
             provider_endpoint_sha256: None,
             tags: Vec::new(),
+            repair_attempts: 0,
+            desktop_driver: None,
+            fault_driver: None,
+            driver_config: None,
         }
     }
 }
@@ -80,6 +92,7 @@ pub fn filter_cases(bundle: &SuiteBundle, opts: &RunOptions) -> Vec<ProductEvalC
 pub struct MatrixRunner {
     pub bundle: SuiteBundle,
     pub out_dir: PathBuf,
+    pub external_drivers: Option<ExternalDriverRegistry>,
 }
 
 impl MatrixRunner {
@@ -87,7 +100,14 @@ impl MatrixRunner {
         Self {
             bundle,
             out_dir: out_dir.into(),
+            external_drivers: None,
         }
+    }
+
+    /// Explicitly register external drivers for fail-closed gated cells.
+    pub fn with_external_drivers(mut self, registry: ExternalDriverRegistry) -> Self {
+        self.external_drivers = Some(registry);
+        self
     }
 
     fn journal_path(&self) -> PathBuf {
@@ -161,6 +181,8 @@ impl MatrixRunner {
             "suite_hash": suite_hash(&self.bundle),
             "suite_defaults": self.bundle.suite.defaults,
             "effective_tasks": effective_tasks,
+            // 修复轮次改变执行语义：不同值必须视为不同合同，不能续跑到同一 out 目录。
+            "repair_attempts": opts.repair_attempts,
         });
         let bytes = serde_json::to_vec(&contract).unwrap_or_default();
         format!("{:x}", Sha256::digest(bytes))
@@ -229,6 +251,13 @@ impl MatrixRunner {
                     self.out_dir.display()
                 ));
             }
+            let driver_identity = self
+                .external_drivers
+                .as_ref()
+                .map(|registry| registry.identity_sha256());
+            if meta.external_driver_identity_sha256.as_deref() != driver_identity.as_deref() {
+                return err("out 目录外部驱动身份不一致：换 --out 或加 --fresh。".to_string());
+            }
             if meta.provider_endpoint_sha256.as_deref() != provider_endpoint_sha256 {
                 return err(format!(
                     "out 目录模型服务端点身份与本次运行不一致：换 --out 或加 --fresh。目录：{}",
@@ -253,6 +282,10 @@ impl MatrixRunner {
                 run_contract_sha256: Some(run_contract_sha256.to_string()),
                 evaluator_binary_sha256: Some(evaluator_binary_sha256.to_string()),
                 provider_endpoint_sha256: provider_endpoint_sha256.map(str::to_string),
+                external_driver_identity_sha256: self
+                    .external_drivers
+                    .as_ref()
+                    .map(|registry| registry.identity_sha256()),
                 created_at: now_rfc3339(),
             };
             let text = serde_json::to_string_pretty(&meta)
@@ -466,112 +499,219 @@ impl MatrixRunner {
                         0,
                     )
                 } else {
-                    let mut ctx = ExecContext::new(
-                        case,
-                        &sandbox,
-                        key.agent_mode,
-                        timeout_secs,
-                        max_model_calls,
-                        Arc::clone(&cancel),
-                    );
-                    let execution_started = Instant::now();
-                    let future = executor.execute(&mut ctx);
-                    match tokio::time::timeout(Duration::from_secs(timeout_secs), future).await {
-                        Ok(mut outcome) => {
-                            executor_wall_ms = execution_started.elapsed().as_millis() as u64;
-                            let (artifacts, mut steps) = ctx.take_records();
-                            if outcome.aborted {
-                                steps.push("cancelled:收到取消信号".to_string());
-                            }
-                            let (status, checker_steps, checker_passed, checker_total) =
+                    // 验证/修复组：检查器未通过时，把失败项作为反馈再跑一次，最多
+                    // opts.repair_attempts 次。单 Agent 复用同一沙盒（能看到上一轮产物）；
+                    // WorkSwarm 每次尝试是新的 TeamRun，反馈经团队目标注入。预算按剩余
+                    // 模型调用数收紧，避免修复轮无限放大成本；超时/取消/执行器错误不修复。
+                    let mut attempt: u32 = 0;
+                    let mut repair_feedback: Option<String> = None;
+                    let mut attempt_notes: Vec<String> = Vec::new();
+                    let mut artifacts: Vec<String> = Vec::new();
+                    let mut total_calls = 0_u32;
+                    let mut total_usage = TokenUsage::default();
+                    let mut usage_known = true;
+                    let mut total_tool_calls: Option<u32> = Some(0);
+                    let mut validation_wall_ms = 0_u64;
+                    let mut delivery_gate_wall_ms = 0_u64;
+                    let mut retries = 0_u32;
+                    let mut tool_log: Vec<String> = Vec::new();
+                    loop {
+                        let attempt_budget = max_model_calls.saturating_sub(total_calls).max(1);
+                        let mut ctx = ExecContext::new(
+                            case,
+                            &sandbox,
+                            key.agent_mode,
+                            timeout_secs,
+                            attempt_budget,
+                            Arc::clone(&cancel),
+                        );
+                        ctx.matrix_attempt = Some(MatrixAttempt {
+                            key: &key,
+                            execution,
+                            batch_label: opts.batch_label.as_deref(),
+                            repair_index: attempt,
+                            repair_limit: opts.repair_attempts,
+                        });
+                        ctx.set_external_drivers_registered(self.external_drivers.is_some());
+                        if let Some(feedback) = repair_feedback.take() {
+                            ctx.set_repair_feedback(feedback);
+                        }
+                        let execution_started = Instant::now();
+                        let future = executor.execute(&mut ctx);
+                        let (
+                            attempt_status,
+                            attempt_steps,
+                            attempt_artifacts,
+                            mut attempt_outcome,
+                            attempt_passed,
+                            attempt_total,
+                        ) = match tokio::time::timeout(Duration::from_secs(timeout_secs), future)
+                            .await
+                        {
+                            Ok(mut outcome) => {
+                                if let Some(registry) = &self.external_drivers {
+                                    run_registered_driver(registry, &mut ctx, opts, &mut outcome);
+                                }
+                                let (artifacts, mut steps) = ctx.take_records();
                                 if outcome.aborted {
-                                    (RunStatus::Cancelled, Vec::new(), 0, 0)
-                                } else if let Some(error) = &outcome.error {
-                                    steps.push(format!("executor:{error}"));
-                                    (RunStatus::Error, Vec::new(), 0, 0)
-                                } else {
-                                    // Team 全栈路径在 finalize_success 前已对同一工作区执行
-                                    // 宿主检查器，复用通过结果，避免重复运行 command_check。
-                                    let checks = ctx.progress().prevalidated_checkers();
-                                    let (passed, total, failed) = match checks {
-                                        Some((passed, total)) => (passed, total, Vec::new()),
-                                        None => {
-                                            let validation_started = Instant::now();
-                                            let result =
-                                                evaluate_all_on_dir(&case.checkers, &sandbox).await;
-                                            outcome.validation_wall_ms =
-                                                outcome.validation_wall_ms.saturating_add(
-                                                    validation_started.elapsed().as_millis() as u64,
-                                                );
-                                            result
+                                    steps.push("cancelled:收到取消信号".to_string());
+                                }
+                                let (status, checker_steps, checker_passed, checker_total) =
+                                    if outcome.aborted {
+                                        (RunStatus::Cancelled, Vec::new(), 0, 0)
+                                    } else if let Some(error) = &outcome.error {
+                                        steps.push(format!("executor:{error}"));
+                                        (RunStatus::Error, Vec::new(), 0, 0)
+                                    } else {
+                                        // Team 全栈路径在 finalize_success 前已对同一工作区执行
+                                        // 宿主检查器，复用通过结果，避免重复运行 command_check。
+                                        let checks = ctx.progress().prevalidated_checkers();
+                                        let (passed, total, failed) = match checks {
+                                            Some((passed, total)) => (passed, total, Vec::new()),
+                                            None => {
+                                                let validation_started = Instant::now();
+                                                let result =
+                                                    evaluate_all_on_dir(&case.checkers, &sandbox)
+                                                        .await;
+                                                outcome.validation_wall_ms =
+                                                    outcome.validation_wall_ms.saturating_add(
+                                                        validation_started.elapsed().as_millis()
+                                                            as u64,
+                                                    );
+                                                result
+                                            }
+                                        };
+                                        if failed.is_empty() {
+                                            (RunStatus::Passed, Vec::new(), passed, total)
+                                        } else {
+                                            (RunStatus::Failed, failed, passed, total)
                                         }
                                     };
-                                    if failed.is_empty() {
-                                        (RunStatus::Passed, Vec::new(), passed, total)
-                                    } else {
-                                        (RunStatus::Failed, failed, passed, total)
-                                    }
-                                };
-                            steps.extend(checker_steps);
-                            (
-                                status,
-                                steps,
-                                artifacts,
-                                outcome,
-                                checker_passed,
-                                checker_total,
-                            )
-                        }
-                        Err(_) => {
-                            executor_wall_ms = execution_started.elapsed().as_millis() as u64;
-                            execution_wall_ms = Some(cell_started.elapsed().as_millis() as u64);
-                            let (mut artifacts, mut steps) = ctx.take_records();
-                            steps.push(format!("timeout:超过 {timeout_secs}s 上限"));
-                            if unbounded_benchmark_calls() {
-                                // Freeze the Team workspace into the eval sandbox at the exact cutoff.
-                                // Preserve live telemetry even though the executor future is cancelled.
-                                match ctx.progress.copy_expected_artifacts(case, &sandbox) {
-                                    Ok(partial_artifacts) => {
-                                        for artifact in partial_artifacts {
-                                            if !artifacts.contains(&artifact) {
-                                                artifacts.push(artifact);
-                                            }
-                                        }
-                                    }
-                                    Err(error) => steps.push(format!("partial_snapshot:{error}")),
-                                }
-                                let mut partial_outcome = ctx.progress.snapshot();
-                                let validation_started = Instant::now();
-                                let (passed, total, failed) =
-                                    evaluate_all_on_dir(&case.checkers, &sandbox).await;
-                                partial_outcome.validation_wall_ms =
-                                    partial_outcome.validation_wall_ms.saturating_add(
-                                        validation_started.elapsed().as_millis() as u64,
-                                    );
-                                steps.extend(
-                                    failed
-                                        .into_iter()
-                                        .map(|failure| format!("partial_completion:{failure}")),
-                                );
+                                steps.extend(checker_steps);
                                 (
-                                    RunStatus::Timeout,
+                                    status,
                                     steps,
                                     artifacts,
-                                    partial_outcome,
-                                    passed,
-                                    total,
-                                )
-                            } else {
-                                (
-                                    RunStatus::Timeout,
-                                    steps,
-                                    artifacts,
-                                    RawExecOutcome::default(),
-                                    0,
-                                    0,
+                                    outcome,
+                                    checker_passed,
+                                    checker_total,
                                 )
                             }
+                            Err(_) => {
+                                execution_wall_ms = Some(cell_started.elapsed().as_millis() as u64);
+                                let (mut artifacts, mut steps) = ctx.take_records();
+                                steps.push(format!("timeout:超过 {timeout_secs}s 上限"));
+                                if unbounded_benchmark_calls() {
+                                    // Freeze the Team workspace into the eval sandbox at the exact cutoff.
+                                    // Preserve live telemetry even though the executor future is cancelled.
+                                    match ctx.progress.copy_expected_artifacts(case, &sandbox) {
+                                        Ok(partial_artifacts) => {
+                                            for artifact in partial_artifacts {
+                                                if !artifacts.contains(&artifact) {
+                                                    artifacts.push(artifact);
+                                                }
+                                            }
+                                        }
+                                        Err(error) => {
+                                            steps.push(format!("partial_snapshot:{error}"))
+                                        }
+                                    }
+                                    let mut partial_outcome = ctx.progress.snapshot();
+                                    let validation_started = Instant::now();
+                                    let (passed, total, failed) =
+                                        evaluate_all_on_dir(&case.checkers, &sandbox).await;
+                                    partial_outcome.validation_wall_ms =
+                                        partial_outcome.validation_wall_ms.saturating_add(
+                                            validation_started.elapsed().as_millis() as u64,
+                                        );
+                                    steps.extend(
+                                        failed
+                                            .into_iter()
+                                            .map(|failure| format!("partial_completion:{failure}")),
+                                    );
+                                    (
+                                        RunStatus::Timeout,
+                                        steps,
+                                        artifacts,
+                                        partial_outcome,
+                                        passed,
+                                        total,
+                                    )
+                                } else {
+                                    (
+                                        RunStatus::Timeout,
+                                        steps,
+                                        artifacts,
+                                        RawExecOutcome::default(),
+                                        0,
+                                        0,
+                                    )
+                                }
+                            }
+                        };
+                        executor_wall_ms += execution_started.elapsed().as_millis() as u64;
+                        total_calls = total_calls.saturating_add(attempt_outcome.model_calls);
+                        total_usage.add(&attempt_outcome.usage);
+                        usage_known = usage_known && attempt_outcome.usage_known;
+                        total_tool_calls = match (total_tool_calls, attempt_outcome.tool_calls) {
+                            (Some(seen), Some(calls)) => Some(seen.saturating_add(calls)),
+                            _ => None,
+                        };
+                        validation_wall_ms =
+                            validation_wall_ms.saturating_add(attempt_outcome.validation_wall_ms);
+                        delivery_gate_wall_ms = delivery_gate_wall_ms
+                            .saturating_add(attempt_outcome.delivery_gate_wall_ms);
+                        retries = retries.saturating_add(attempt_outcome.retries);
+                        tool_log.append(&mut attempt_outcome.tool_log);
+                        for artifact in attempt_artifacts {
+                            if !artifacts.contains(&artifact) {
+                                artifacts.push(artifact);
+                            }
                         }
+                        let can_repair = matches!(attempt_status, RunStatus::Failed)
+                            && attempt < opts.repair_attempts
+                            && !attempt_steps.is_empty()
+                            && total_calls < max_model_calls
+                            && !cancel.load(Ordering::Relaxed);
+                        if can_repair {
+                            attempt += 1;
+                            attempt_notes.push(format!(
+                                "repair:{attempt}（上一轮检查器未通过：{}）",
+                                attempt_steps.join("; ")
+                            ));
+                            let failures = attempt_steps
+                                .iter()
+                                .map(|step| format!("- {step}"))
+                                .collect::<Vec<_>>()
+                                .join("\n");
+                            repair_feedback = Some(format!(
+                                "\n\n## 修复请求（第 {attempt} 次）\n上一轮产物未通过以下检查：\n{failures}\n请修正这些检查项后重新完成；不要删除或降低已有的正确内容。\n"
+                            ));
+                            continue;
+                        }
+                        let mut steps = std::mem::take(&mut attempt_notes);
+                        steps.extend(attempt_steps);
+                        let outcome = RawExecOutcome {
+                            aborted: attempt_outcome.aborted,
+                            error: attempt_outcome.error.clone(),
+                            model_calls: total_calls,
+                            tool_calls: total_tool_calls,
+                            usage: total_usage,
+                            usage_known,
+                            validation_wall_ms,
+                            delivery_gate_wall_ms,
+                            retries,
+                            tool_log,
+                            external_evidence: attempt_outcome.external_evidence.clone(),
+                        };
+                        break (
+                            attempt_status,
+                            steps,
+                            artifacts,
+                            outcome,
+                            attempt_passed,
+                            attempt_total,
+                        );
                     }
                 };
             let mut status = status;
@@ -580,8 +720,17 @@ impl MatrixRunner {
                 execution_wall_ms.unwrap_or_else(|| cell_started.elapsed().as_millis() as u64);
 
             let mut run_error = outcome.error.clone();
+            if let Some(error) =
+                self.validate_external_evidence(case, key, execution, opts, &outcome)
+            {
+                if matches!(status, RunStatus::Passed) {
+                    status = RunStatus::Error;
+                    failed_steps.push(format!("external_driver:{error}"));
+                    run_error = Some(error);
+                }
+            }
             let artifact_snapshot_rel = if matches!(status, RunStatus::Passed) {
-                match preserve_artifact_snapshot(&sandbox, &self.out_dir, &key, &artifact_refs) {
+                match preserve_artifact_snapshot(&sandbox, &self.out_dir, key, &artifact_refs) {
                     Ok(snapshot_rel) => snapshot_rel,
                     Err(snapshot_error) => {
                         status = RunStatus::Error;
@@ -644,6 +793,7 @@ impl MatrixRunner {
                 started_at,
                 finished_at: now_rfc3339(),
                 error: run_error,
+                external_evidence: outcome.external_evidence.clone(),
             };
             self.append_run(&run)?;
             runs.push(run);
@@ -676,6 +826,34 @@ impl MatrixRunner {
         )
     }
 
+    fn validate_external_evidence(
+        &self,
+        case: &ProductEvalCase,
+        key: &MatrixKey,
+        execution: &str,
+        opts: &RunOptions,
+        outcome: &RawExecOutcome,
+    ) -> Option<String> {
+        let required = super::external_execution_required(case)?;
+        let Some(registry) = &self.external_drivers else {
+            return Some(required.to_string());
+        };
+        let Some(evidence) = &outcome.external_evidence else {
+            return Some(required.to_string());
+        };
+        registry
+            .validate(
+                case,
+                key,
+                execution,
+                opts.batch_label.as_deref(),
+                opts.repair_attempts,
+                evidence,
+            )
+            .err()
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn build_report(
         &self,
         runs: &[ProductEvalRun],
@@ -703,6 +881,7 @@ impl MatrixRunner {
             model: model.clone(),
             batch_label: opts.batch_label.clone(),
             tags: opts.tags.clone(),
+            repair_attempts: opts.repair_attempts,
             run_contract_sha256: Some(self.run_contract_sha256(cases, opts)),
             evaluator_binary_sha256: Some(evaluator_binary_sha256.to_string()),
             provider_endpoint_sha256: provider_endpoint_sha256.map(str::to_string),

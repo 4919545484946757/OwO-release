@@ -158,6 +158,10 @@ fn find_expr(flow: &WorkflowDefinition, id: &str) -> Option<String> {
 // 条件表达式求值（v1 子集）
 // ---------------------------------------------------------------------------
 
+/// Increment whenever evaluator semantics change: cached recovery decisions
+/// must not silently survive a different interpretation of the same program.
+pub const EXPRESSION_SEMANTICS_VERSION: u32 = 2;
+
 /// 表达式求值：`exists(k)`、`k == v`、`k != v`、`k > n`、`k >= n`、`k < n`、`k <= n`、`true`/`false`。
 /// ctx 为引擎运行上下文（key → 值）。
 pub fn eval_expr(expr: &str, ctx: &BTreeMap<String, serde_json::Value>) -> Result<bool, String> {
@@ -240,7 +244,9 @@ fn cmp_eq(a: &serde_json::Value, b: &serde_json::Value) -> bool {
     if let (Some(na), Some(nb)) = (as_num(a), as_num(b)) {
         return (na - nb).abs() < 1e-9;
     }
-    a == b || a.as_str() == b.as_str()
+    // Numeric/string coercion above is intentional. Other JSON values need
+    // real equality; None == None is not evidence that two values match.
+    a == b
 }
 
 fn cmp_ne(a: &serde_json::Value, b: &serde_json::Value) -> bool {

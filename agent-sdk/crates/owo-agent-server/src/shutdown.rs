@@ -258,6 +258,7 @@ fn probe_process(pid: u32) -> ProcessProbe {
     const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
     const SYNCHRONIZE: u32 = 0x0010_0000;
     const WAIT_OBJECT_0: u32 = 0;
+    const WAIT_TIMEOUT: u32 = 258;
     const ERROR_ACCESS_DENIED: u32 = 5;
     // `OpenProcess` 成功不保证会重置 last-error，先清零才能可信地解释失败路径。
     unsafe { SetLastError(0) };
@@ -271,13 +272,19 @@ fn probe_process(pid: u32) -> ProcessProbe {
             ProcessProbe::Dead
         };
     }
-    // A terminated process can still be opened while its parent holds a handle.
-    // The process object is signaled on exit, even before the PID is released.
-    if unsafe { WaitForSingleObject(handle, 0) } == WAIT_OBJECT_0 {
-        unsafe { CloseHandle(handle) };
-        return ProcessProbe::Dead;
+    // Windows keeps an exited process object open while another process owns
+    // a handle. Only an unsignaled handle identifies a still-running process.
+    match unsafe { WaitForSingleObject(handle, 0) } {
+        WAIT_TIMEOUT => {}
+        result => {
+            unsafe { CloseHandle(handle) };
+            return if result == WAIT_OBJECT_0 {
+                ProcessProbe::Dead
+            } else {
+                ProcessProbe::Alive { image: None }
+            };
+        }
     }
-
     const NAME_MAX_LEN: u32 = 1024;
     let mut name_buf = [0u16; NAME_MAX_LEN as usize];
     let mut name_len = NAME_MAX_LEN;

@@ -243,12 +243,39 @@ struct ApprovedWriteThenFinalProvider {
 impl owo_agent_core::gateway::ModelProvider for ApprovedWriteThenFinalProvider {
     async fn complete(
         &self,
-        _messages: &[owo_agent_core::ChatMessage],
+        messages: &[owo_agent_core::ChatMessage],
         _tools: &[owo_agent_core::ToolSpec],
     ) -> Result<owo_agent_core::ModelOutput, String> {
         use std::sync::atomic::Ordering;
 
-        if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+        let step = self.calls.fetch_add(1, Ordering::SeqCst);
+        if step == 0 {
+            let request = messages
+                .iter()
+                .rev()
+                .find(|message| message.role == "user")
+                .and_then(|message| message.content.as_deref())
+                .expect("synthetic write fixture requires the original user request");
+            Ok(owo_agent_core::ModelOutput::ToolCalls(vec![
+                owo_agent_core::gateway::ToolCall {
+                    id: "verification-plan-1".into(),
+                    name: "verification_plan".into(),
+                    arguments: serde_json::json!({"plan":{
+                        "plan_id":"approved-text-write",
+                        "requirements":[{
+                            "requirement_id":"approved-text-content",
+                            "covers_requirement_ids":[format!("user-request:{request}")],
+                            "validator_id":"workspace-file-contains-v1",
+                            "validator_version":"1",
+                            "scope":{"kind":"workspace_paths","relative_paths":["approved-output.txt"]},
+                            "arguments":{"text":"approved content"},
+                            "required":true,
+                            "resources":{"cpu_slots":1,"memory_mb":16,"exclusive_workspace":false,"timeout_ms":10000}
+                        }]
+                    }}),
+                },
+            ]))
+        } else if step == 1 {
             Ok(owo_agent_core::ModelOutput::ToolCalls(vec![
                 owo_agent_core::gateway::ToolCall {
                     id: "write-1".to_string(),
@@ -525,6 +552,8 @@ fn sample_path(path: &str, session_id: &str) -> String {
         .replace("{version}", "v1")
         // R13：/teams/templates/proposals/{proposal_id}/adopt
         .replace("{proposal_id}", "no-such-proposal")
+        // 统一 Task Runtime：占位审批 id 指向不存在审批（404 由资源缺失产生）。
+        .replace("{approval_id}", "no-such-approval")
 }
 
 /// 资源型 404 白名单：路由已注册且方法匹配，但目标资源不存在时 handler 正确地返回 404。
@@ -545,6 +574,26 @@ fn resource_404_ok(path: &str) -> bool {
             | "/computer-use/task/{id}/run"
             | "/cloud/tasks/{id}"
             | "/cloud/tasks/{id}/result"
+            // Agent V2 统一 Task Runtime：占位 id 不是任务 → 404 由资源缺失产生。
+            | "/agent-tasks/{id}"
+            | "/agent-tasks/{id}/start"
+            | "/agent-tasks/{id}/pause"
+            | "/agent-tasks/{id}/resume"
+            | "/agent-tasks/{id}/cancel"
+            | "/agent-tasks/{id}/events"
+            | "/agent-tasks/{id}/events/stream"
+            | "/agent-tasks/{id}/artifacts"
+            | "/agent-tasks/{id}/approvals"
+            | "/agent-tasks/{id}/approvals/{approval_id}"
+            | "/agent-tasks/{id}/verify"
+            // Agent V2 Phase 6：占位 id 不是租约 → 404 由资源缺失产生。
+            | "/workspaces/{id}"
+            | "/workspaces/{id}/diff"
+            | "/workspaces/{id}/apply"
+            | "/workspaces/{id}/reject"
+            | "/workspaces/{id}/rollback"
+            // Agent V2 Phase 7：占位 id 不是任务 → 404 由资源缺失产生。
+            | "/agent-bridge/tasks/{id}/status"
             | "/prompts/{id}"
             | "/notes/{id}"
             | "/notes/{id}/export/{format}"
@@ -1574,6 +1623,12 @@ async fn approved_write_diff_and_revert_close_the_server_golden_path() {
             }
         }
     }
+    assert!(received_sse.contains("\"tool\":\"verification_plan\""));
+    assert!(!received_sse.contains("tool/verification_plan_required"));
+    assert!(
+        !workspace.join("approved-output.txt").exists(),
+        "registering a plan must not write before approval"
+    );
     let permission_request_id = permission_request_id.unwrap();
     let approval = app
         .clone()
@@ -4121,6 +4176,198 @@ async fn expression_rejects_oversized_provider_output() {
     assert_eq!(state.shutdown_gate.active_turns(), 0);
 }
 
+/// 提示词增强桩：依序弹出预设回复；弹空返回空串（触发 invalid_output 路径）。
+struct EnhanceProbe(std::sync::Mutex<Vec<String>>);
+
+#[async_trait::async_trait]
+impl owo_agent_core::gateway::ModelProvider for EnhanceProbe {
+    async fn complete(
+        &self,
+        _messages: &[owo_agent_core::ChatMessage],
+        _tools: &[owo_agent_core::ToolSpec],
+    ) -> Result<owo_agent_core::ModelOutput, String> {
+        let mut queue = self.0.lock().unwrap();
+        Ok(owo_agent_core::ModelOutput::Text(if queue.is_empty() {
+            String::new()
+        } else {
+            queue.remove(0)
+        }))
+    }
+    async fn complete_expression(
+        &self,
+        _messages: &[owo_agent_core::ChatMessage],
+    ) -> Result<String, String> {
+        panic!("prompt enhancement must not use the expression path")
+    }
+}
+
+async fn enhance_test_state(
+    responses: Vec<String>,
+) -> (Arc<owo_agent_server::AppState>, tempfile::TempDir) {
+    let _guard = STATE_ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await;
+    std::env::remove_var("OWO_API_RPM_GLOBAL");
+    let temp = tempfile::tempdir().unwrap();
+    let ws = temp.path().join("ws");
+    std::fs::create_dir_all(&ws).unwrap();
+    let agent = Agent::new(
+        Arc::new(EnhanceProbe(std::sync::Mutex::new(responses))),
+        ToolRegistry::new(),
+        Policy::new(&ws),
+        Default::default(),
+    );
+    let store = SqliteSessionStore::open(&ws.join("index.db")).unwrap();
+    let state = Arc::new(owo_agent_server::AppState::new(
+        agent,
+        store,
+        ws.join("traces"),
+        temp.path().into(),
+        ws,
+    ));
+    (state, temp)
+}
+
+#[tokio::test]
+async fn prompt_enhance_is_authenticated_stateless_and_structured() {
+    let (state, _temp) = enhance_test_state(vec![
+        r#"{"status":"ready","enhanced_prompt":"帮我修复登录按钮无反应：先排查点击事件绑定与接口调用链，再给出修复与验证方式。","clarifying_questions":[],"change_summary":"组织排查结构","task_type":"bugfix"}"#
+            .to_string(),
+    ])
+    .await;
+    let app = build_router(state.clone());
+    assert_eq!(
+        app.clone()
+            .oneshot(anonymous_request(
+                "POST",
+                "/prompt/enhance",
+                Some(r#"{"text":"帮我修复登录按钮没反应"}"#),
+            ))
+            .await
+            .unwrap()
+            .status(),
+        axum::http::StatusCode::UNAUTHORIZED
+    );
+    for (body, expected) in [
+        (r#"{"text":"   "}"#, 400),
+        // 拒绝执行类/未知字段：增强不创建回合、不给工具。
+        (
+            r#"{"text":"帮我修复登录按钮没反应","tools":["read_file"]}"#,
+            422,
+        ),
+        (r#"{"prompt":"字段名是 text 不是 prompt"}"#, 422),
+        (r#"{"text":"帮我修复登录按钮没反应"}"#, 200),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(request(&state, "POST", "/prompt/enhance", Some(body)))
+            .await
+            .unwrap();
+        assert_eq!(response.status().as_u16(), expected, "body: {body}");
+        if expected == 200 {
+            let bytes = axum::body::to_bytes(response.into_body(), 32768)
+                .await
+                .unwrap();
+            let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(value["status"], "ready");
+            assert!(value["enhanced_prompt"]
+                .as_str()
+                .unwrap()
+                .contains("登录按钮"));
+            assert_eq!(value["task_type"], "bugfix");
+            assert!(value.get("clarifying_questions").is_none());
+        }
+    }
+    let oversized = serde_json::json!({"text": "中".repeat(8193)}).to_string();
+    assert_eq!(
+        app.clone()
+            .oneshot(request(&state, "POST", "/prompt/enhance", Some(&oversized)))
+            .await
+            .unwrap()
+            .status()
+            .as_u16(),
+        400
+    );
+    assert!(
+        state.sessions.lock().unwrap().is_empty(),
+        "prompt enhancement must not create a session"
+    );
+    assert_eq!(state.shutdown_gate.active_turns(), 0);
+}
+
+#[tokio::test]
+async fn prompt_enhance_repairs_once_and_reports_honest_failures() {
+    // 首次输出非 JSON → 带错误回灌重试一次 → 合法 needs_clarification 结果。
+    let (state, _temp) = enhance_test_state(vec![
+        "抱歉，我先说明一下我的思路……".to_string(),
+        r#"{"status":"needs_clarification","enhanced_prompt":null,"clarifying_questions":["纯前端演示还是全栈系统？","有指定技术栈吗？"],"change_summary":"缺少影响实现方式的关键信息","task_type":"coding"}"#
+            .to_string(),
+    ])
+    .await;
+    let response = build_router(state.clone())
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompt/enhance",
+            Some(r#"{"text":"帮我做一个模拟交易的平台网页","context":{"workspace":"D:/demo","project":"demo","session_mode":"agent"}}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    let bytes = axum::body::to_bytes(response.into_body(), 32768)
+        .await
+        .unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(value["status"], "needs_clarification");
+    assert_eq!(value["clarifying_questions"].as_array().unwrap().len(), 2);
+    assert!(value.get("enhanced_prompt").is_none());
+    assert_eq!(state.shutdown_gate.active_turns(), 0);
+
+    // 两次都非法 → 如实 502；绝不静默回退到固定模板。
+    let (state, _temp) = enhance_test_state(vec!["还是不是 JSON".to_string()]).await;
+    let response = build_router(state.clone())
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompt/enhance",
+            Some(r#"{"text":"随便写点什么"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 502);
+    let bytes = axum::body::to_bytes(response.into_body(), 32768)
+        .await
+        .unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(value["error"].as_str().unwrap().contains("prompt_enhance/"));
+
+    // 非法 model_connection → 400 拒绝，不悄悄回落默认 provider。
+    let (state, _temp) = enhance_test_state(vec![
+        r#"{"status":"ready","enhanced_prompt":"不应被调用"}"#.to_string(),
+    ])
+    .await;
+    let response = build_router(state.clone())
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompt/enhance",
+            Some(r#"{"text":"帮我做个页面","model_connection":{"model":"local","base_url":"::not a url::"}}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 400);
+    let bytes = axum::body::to_bytes(response.into_body(), 32768)
+        .await
+        .unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(value["error"]
+        .as_str()
+        .unwrap()
+        .contains("prompt_enhance/model_connection/"));
+    assert_eq!(state.shutdown_gate.active_turns(), 0);
+}
+
 #[tokio::test]
 async fn expression_rejects_invalid_host_or_origin_before_provider() {
     let (state, _temp) = test_state().await;
@@ -6551,4 +6798,394 @@ async fn owobot_gateway_requires_its_own_browser_capability() {
             .unwrap();
         assert_eq!(response.status().as_u16(), 401, "{method} {path}");
     }
+
+// Agent V2 Phase 2/3：统一 Task Runtime HTTP 行为契约。
+// 重点不是"接口存在"，而是：空目标被拒、幂等重放、未注册后端不伪装成功、
+// 只有验证通过才进入 succeeded。
+#[tokio::test]
+async fn agent_task_runtime_routes_create_list_and_never_fake_success() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+
+    // 1) 空目标必须被拒绝，不能创建空任务。
+    let empty = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/agent-tasks",
+            Some(r#"{"user_goal":"   "}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(empty.status().as_u16(), 400, "空目标应 400");
+    let empty_bytes = axum::body::to_bytes(empty.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let empty_body: serde_json::Value = serde_json::from_slice(&empty_bytes).unwrap();
+    assert_eq!(empty_body["code"], "EMPTY_GOALS");
+
+    // 2) 创建任务进入 queued，并返回可查询的 task_id。
+    let created = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/agent-tasks",
+            Some(r#"{"user_goal":"修复登录按钮","execution_strategy":"single_agent","idempotency_key":"contract-agent-task-1"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status().as_u16(), 201, "创建任务应 201");
+    let created_bytes = axum::body::to_bytes(created.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let created_body: serde_json::Value = serde_json::from_slice(&created_bytes).unwrap();
+    let task_id = created_body["task"]["task_id"]
+        .as_str()
+        .expect("任务应返回 task_id")
+        .to_string();
+    assert_eq!(created_body["task"]["state"], "queued");
+
+    // 3) 相同幂等键重放返回同一任务，不重复创建。
+    let replay = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/agent-tasks",
+            Some(r#"{"user_goal":"修复登录按钮","execution_strategy":"single_agent","idempotency_key":"contract-agent-task-1"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(replay.status().as_u16(), 200, "幂等重放应 200");
+    let replay_bytes = axum::body::to_bytes(replay.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let replay_body: serde_json::Value = serde_json::from_slice(&replay_bytes).unwrap();
+    assert_eq!(replay_body["task"]["task_id"], task_id);
+    assert_eq!(replay_body["idempotent_replay"], true);
+
+    // 4) 列表按状态过滤能读到该任务。
+    let listed = app
+        .clone()
+        .oneshot(request(&state, "GET", "/agent-tasks?state=queued", None))
+        .await
+        .unwrap();
+    assert_eq!(listed.status().as_u16(), 200);
+    let listed_bytes = axum::body::to_bytes(listed.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let listed_body: serde_json::Value = serde_json::from_slice(&listed_bytes).unwrap();
+    assert!(listed_body["tasks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|task| task["task_id"] == task_id.as_str()));
+
+    // 5) 已注册 Single Agent 真实后端：start 必须真的分发，并给出后端运行标识。
+    let started = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/agent-tasks/{task_id}/start"),
+            Some("{}"),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(started.status().as_u16(), 200);
+    let started_bytes = axum::body::to_bytes(started.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let started_body: serde_json::Value = serde_json::from_slice(&started_bytes).unwrap();
+    assert_eq!(
+        started_body["dispatched"], true,
+        "注册了后端就必须真的分发：{started_body}"
+    );
+    assert!(started_body["backend_run_id"]
+        .as_str()
+        .map(|id| !id.is_empty())
+        .unwrap_or(false));
+
+    // 6) 后端跑的是真实回合：本测试的模型 Provider 不可用，因此只能如实失败，
+    //    不能停在 running，也不能伪装 succeeded。
+    let mut state_text = String::new();
+    for _ in 0..400 {
+        let detail = app
+            .clone()
+            .oneshot(request(
+                &state,
+                "GET",
+                &format!("/agent-tasks/{task_id}"),
+                None,
+            ))
+            .await
+            .unwrap();
+        let detail_bytes = axum::body::to_bytes(detail.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let detail_body: serde_json::Value = serde_json::from_slice(&detail_bytes).unwrap();
+        state_text = detail_body["task"]["state"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        if state_text != "running" {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    assert_eq!(
+        state_text, "failed",
+        "模型不可用时任务必须如实失败，实际状态：{state_text}"
+    );
+
+    // 7) 事件日志保留真实执行链：分发 → 后端启动 → 后端失败。
+    let events = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "GET",
+            &format!("/agent-tasks/{task_id}/events?limit=100"),
+            None,
+        ))
+        .await
+        .unwrap();
+    let events_bytes = axum::body::to_bytes(events.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let events_body: serde_json::Value = serde_json::from_slice(&events_bytes).unwrap();
+    let types: Vec<&str> = events_body["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|event| event["event_type"].as_str())
+        .collect();
+    assert!(types.contains(&"task.execution.started"));
+    assert!(types.contains(&"task.backend.started"));
+    assert!(types.contains(&"task.session.created"));
+    assert!(types.contains(&"task.backend.failed"));
+
+    // 8) cloud_remote 后端已注册：缺少 payload 时必须明确失败（不得提交云端任务），
+    //    也不能伪装成执行成功。
+    let created2 = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/agent-tasks",
+            Some(r#"{"user_goal":"在云端执行长任务","execution_strategy":"cloud_remote"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created2.status().as_u16(), 201);
+    let created2_bytes = axum::body::to_bytes(created2.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let created2_body: serde_json::Value = serde_json::from_slice(&created2_bytes).unwrap();
+    let unsupported_id = created2_body["task"]["task_id"]
+        .as_str()
+        .expect("任务应返回 task_id")
+        .to_string();
+    let unsupported_start = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/agent-tasks/{unsupported_id}/start"),
+            Some("{}"),
+        ))
+        .await
+        .unwrap();
+    let unsupported_bytes = axum::body::to_bytes(unsupported_start.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let unsupported_body: serde_json::Value = serde_json::from_slice(&unsupported_bytes).unwrap();
+    assert_eq!(unsupported_body["dispatched"], false);
+    assert_eq!(unsupported_body["code"], "INVALID_REQUEST");
+    assert_eq!(unsupported_body["task"]["state"], "failed");
+    let unsupported_events = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "GET",
+            &format!("/agent-tasks/{unsupported_id}/events?limit=100"),
+            None,
+        ))
+        .await
+        .unwrap();
+    let unsupported_events_bytes =
+        axum::body::to_bytes(unsupported_events.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+    let unsupported_events_body: serde_json::Value =
+        serde_json::from_slice(&unsupported_events_bytes).unwrap();
+    let unsupported_types: Vec<&str> = unsupported_events_body["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|event| event["event_type"].as_str())
+        .collect();
+    assert!(unsupported_types.contains(&"task.execution.started"));
+    assert!(unsupported_types.contains(&"task.backend.failed"));
+    assert!(
+        !unsupported_types.contains(&"task.cloud.submitted"),
+        "缺少命令的云端任务不得提交：{unsupported_types:?}"
+    );
+
+    // 8b) computer_use 后端已注册，但缺少 payload 时只能明确失败，不得触碰桌面。
+    let created2b = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/agent-tasks",
+            Some(r#"{"user_goal":"桌面点击按钮","execution_strategy":"computer_use"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created2b.status().as_u16(), 201);
+    let created2b_bytes = axum::body::to_bytes(created2b.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let created2b_body: serde_json::Value = serde_json::from_slice(&created2b_bytes).unwrap();
+    let computer_id = created2b_body["task"]["task_id"]
+        .as_str()
+        .expect("任务应返回 task_id")
+        .to_string();
+    let computer_start = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/agent-tasks/{computer_id}/start"),
+            Some("{}"),
+        ))
+        .await
+        .unwrap();
+    let computer_bytes = axum::body::to_bytes(computer_start.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let computer_body: serde_json::Value = serde_json::from_slice(&computer_bytes).unwrap();
+    assert_eq!(computer_body["dispatched"], false);
+    assert_eq!(computer_body["code"], "INVALID_REQUEST");
+    assert_eq!(computer_body["task"]["state"], "failed");
+
+    // 8c) cloud_remote 已注册：合法 payload 会真的分发到云端队列。后面的验证/取消
+    //     需要一条仍在执行的任务，这里用一条慢命令覆盖该路径。
+    let created2c = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/agent-tasks",
+            Some(
+                r#"{"user_goal":"云端长命令","execution_strategy":"cloud_remote","policy_profile":"workspace-execute","payload":{"commands":["ping -n 6 127.0.0.1"],"timeout_secs":30}}"#,
+            ),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created2c.status().as_u16(), 201);
+    let created2c_bytes = axum::body::to_bytes(created2c.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let created2c_body: serde_json::Value = serde_json::from_slice(&created2c_bytes).unwrap();
+    let running_id = created2c_body["task"]["task_id"]
+        .as_str()
+        .expect("任务应返回 task_id")
+        .to_string();
+    let running_start = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/agent-tasks/{running_id}/start"),
+            Some("{}"),
+        ))
+        .await
+        .unwrap();
+    let running_bytes = axum::body::to_bytes(running_start.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let running_body: serde_json::Value = serde_json::from_slice(&running_bytes).unwrap();
+    assert_eq!(
+        running_body["dispatched"], true,
+        "合法云端任务应分发：{running_body}"
+    );
+    assert_eq!(running_body["task"]["state"], "running");
+
+    // 9) 目标验证失败只能进入 repairing，不能直接 succeeded。
+    let verified = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/agent-tasks/{running_id}/verify"),
+            Some(r#"{"goal":{"passed":false,"detail":"按钮仍不可点"}}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(verified.status().as_u16(), 200);
+    let verified_bytes = axum::body::to_bytes(verified.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let verified_body: serde_json::Value = serde_json::from_slice(&verified_bytes).unwrap();
+    assert_eq!(verified_body["report"]["verified"], false);
+    assert_eq!(verified_body["task"]["state"], "repairing");
+
+    // 10) 取消走状态机：running 系 → cancel_requested → cancelled。
+    let cancelled = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/agent-tasks/{running_id}/cancel"),
+            Some(r#"{"reason":"契约测试取消"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(cancelled.status().as_u16(), 200);
+    let cancelled_bytes = axum::body::to_bytes(cancelled.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let cancelled_body: serde_json::Value = serde_json::from_slice(&cancelled_bytes).unwrap();
+    assert_eq!(cancelled_body["task"]["state"], "cancelled");
+}
+
+#[tokio::test]
+async fn signed_ime_task_routes_are_authenticated_and_document_unified_receipts() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+    let response = app
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/agent-bridge/ime/intents")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    let response = app
+        .oneshot(request(&state, "GET", "/openapi.json", None))
+        .await
+        .unwrap();
+    let bytes = axum::body::to_bytes(response.into_body(), 16 * 1024 * 1024)
+        .await
+        .unwrap();
+    let schema: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(schema["paths"]["/agent-bridge/ime/intents"]["post"].is_object());
+    assert!(schema["paths"]["/agent-bridge/ime/tasks/{id}"]["get"].is_object());
+    let receipt = &schema["components"]["schemas"]["ImeTaskReceipt"]["properties"];
+    assert!(receipt["task_id"].is_object());
+    assert!(receipt.get("session_id").is_none());
+    assert!(receipt.get("turn_id").is_none());
+    assert_eq!(
+        schema["components"]["schemas"]["ImeTaskOriginCapsule"]["properties"]["payload"]
+            ["properties"]["scope"]["properties"]["mode"]["enum"][0],
+        "agent_task"
+    );
 }

@@ -8,9 +8,9 @@ const read = file => readFileSync(new URL("../" + file, import.meta.url), "utf8"
 
 test("primary and disclosed navigation preserve every registered route exactly once", () => {
   const sections = nav.sections();
-  assert.deepEqual(sections[0].entries.map(item => item.id), ["home","project-launcher","project-history","workswarm","evidence","action-center"]);
+  assert.deepEqual(sections[0].entries.map(item => item.id), ["home","project-launcher","project-history","owobot","evidence","action-center"]);
   const ids = sections.flatMap(group => group.entries.map(item => item.id));
-  assert.equal(new Set(ids).size, 23);
+  assert.equal(new Set(ids).size, 22);
   assert.deepEqual([...ids].sort(), nav.entries.map(item => item.id).sort());
   assert.deepEqual(nav.sections(["notes","permissions"]).flatMap(group => group.entries.map(item => item.id)), ["notes","permissions"]);
 });

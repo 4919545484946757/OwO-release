@@ -686,6 +686,9 @@ impl WorkSwarmExecutor {
             EvalCategory::Document => {
                 Some(owo_agent_core::builtin_team_templates::DOCUMENT_DELIVERY_V1)
             }
+            EvalCategory::Desktop | EvalCategory::LongHorizon => {
+                Some(owo_agent_core::builtin_team_templates::DOCUMENT_DELIVERY_V1)
+            }
         }
     }
 
@@ -779,9 +782,15 @@ impl WorkSwarmExecutor {
             );
         } else if case.expected_artifacts.len() > 1 {
             objective.push_str(
-                "\n\n多文件交付必须在最终 Artifact.content 中使用下面的文件块协议，\
-                 每个预期路径各输出一个完整文件块；路径必须精确匹配，不能把多个文件\
-                 合并进第一个文件，也不能省略文件。\n=== FILE: 相对路径 ===\n<文件完整内容>\n=== END FILE ===",
+                "\n\n多文件交付必须先用 write_file 把每个预期路径完整写入工作区，\
+                 再在最终 Artifact.content 中使用下面的文件块协议，每个预期路径各输出\
+                 一个完整文件块；路径必须精确匹配，不能把多个文件合并进第一个文件，\
+                 也不能省略文件。\n=== FILE: 相对路径 ===\n<文件完整内容>\n=== END FILE ===",
+            );
+        }
+        if !fullstack && case.category == EvalCategory::Code {
+            objective.push_str(
+                "\n\n最终交付者先读取工作区中已完成的预期交付文件。提交 Artifact 时，使用核验后的完整文件正文，逐字保留任务指定的章节标题和已核实的测试输出。需要修正时先更新交付文件，再提交更新后的正文。不要把报告改写成团队摘要，也不要在正文附上验收规则或自检清单。",
             );
         }
         objective
@@ -807,6 +816,16 @@ impl WorkSwarmExecutor {
             ));
         }
 
+        if let Some(outcome) = super::registered_external_driver_outcome(ctx) {
+            let mut observation = TeamRunObservation::empty();
+            observation.status = "registered_external_driver".to_string();
+            return Ok((outcome, observation));
+        }
+        if !ctx.external_drivers_registered() {
+            if let Some(error) = super::external_execution_required(case) {
+                return Err(ProductEvalError(error.to_string()));
+            }
+        }
         let budgeted_provider = Arc::new(BudgetedProvider::new(
             Arc::clone(&self.provider),
             ctx.max_model_calls,
@@ -894,8 +913,13 @@ impl WorkSwarmExecutor {
         //（roles 留空 → create_team_run 按模板展开 + 自适应裁剪）。预算包络对齐
         // 产品 UI 路径（数字总预算 → parse_goal_budget 落 GoalBudget::default），
         // 仅注入评测超时作为 max_duration_secs。
+        let mut objective = Self::objective_of(case);
+        if let Some(feedback) = ctx.repair_feedback() {
+            // 验证/修复组：上一轮检查器失败项进入团队目标，团队在新工作区重做。
+            objective.push_str(feedback);
+        }
         let mut request = CreateTeamRequest::new(
-            Self::objective_of(case),
+            objective,
             if plan.is_single() {
                 TeamMode::Single
             } else {
@@ -1271,6 +1295,7 @@ impl WorkSwarmExecutor {
                     retries: retries_used,
                     error: None,
                     tool_log: Vec::new(),
+                    external_evidence: None,
                 },
                 observation,
             ));
@@ -1315,6 +1340,7 @@ impl WorkSwarmExecutor {
             delivery_gate_wall_ms: ctx.progress().snapshot().delivery_gate_wall_ms,
             retries: retries_used,
             tool_log: Vec::new(),
+            external_evidence: None,
         };
 
         if let Some(error) =
@@ -1353,6 +1379,28 @@ impl WorkSwarmExecutor {
                     persist_observation(&root, &observation);
                     return Ok((outcome, observation));
                 }
+            }
+        }
+
+        // 多文件任务：终稿由 drafter/finalizer 直接落盘到工作区。优先采用工作区文件
+        //（与 fullstack 同口径），避免把「终稿 + 修订说明」的 Artifact 正文当成交付
+        // 而报“未包含任何文件块”；工作区不完整时才回退到 FILE 块协议。
+        if case.expected_artifacts.len() > 1 && terminal == "succeeded" {
+            if let Ok(Some(mut files)) = materialize_workspace_files(case, &ws_dir) {
+                if let Err(error) = merge_changed_inputs(case, &ws_dir, &mut files) {
+                    outcome.error = Some(error);
+                    persist_observation(&root, &observation);
+                    return Ok((outcome, observation));
+                }
+                for (artifact_path, file_content) in files {
+                    if let Err(write_error) = ctx.write_file(&artifact_path, &file_content) {
+                        outcome.error = Some(write_error);
+                        persist_observation(&root, &observation);
+                        return Ok((outcome, observation));
+                    }
+                }
+                persist_observation(&root, &observation);
+                return Ok((outcome, observation));
             }
         }
 
@@ -1421,7 +1469,11 @@ impl WorkSwarmExecutor {
 
         // 写入走 ExecContext 受控通道（allow_write 范围强制）。单文件任务保留
         // 原始正文语义；多文件任务必须解析 FILE 块，并精确匹配预期路径。
-        match materialize_final_content(case, &content) {
+        let delivery = materialize_final_content(case, &content).and_then(|mut files| {
+            merge_changed_inputs(case, &ws_dir, &mut files)?;
+            Ok(files)
+        });
+        match delivery {
             Ok(files) => {
                 for (artifact_path, file_content) in files {
                     if let Err(write_err) = ctx.write_file(&artifact_path, &file_content) {
@@ -1455,14 +1507,7 @@ impl WorkSwarmExecutor {
 只修复格式问题（缺失引号/多余逗号/未闭合括号/代码围栏包裹等）。只输出修正后的 JSON 本体，\
 不要任何解释、注释或代码围栏。\n\n{broken}"
         );
-        let messages = [ChatMessage {
-            role: "user".to_string(),
-            content: Some(prompt),
-            tool_calls: None,
-            tool_call_id: None,
-            images: Vec::new(),
-            input: None,
-        }];
+        let messages = [ChatMessage::user(prompt)];
         let output = match self.provider.complete(&messages, &[]).await {
             Ok(output) => output,
             Err(_) => return (broken.to_string(), 1, false),
@@ -1478,6 +1523,39 @@ impl WorkSwarmExecutor {
             (broken.to_string(), 1, false)
         }
     }
+}
+
+/// Include edits to writable input fixtures in the same sandbox as the final
+/// report. Command checkers must see the source the team actually worked on.
+fn merge_changed_inputs(
+    case: &ProductEvalCase,
+    workspace: &std::path::Path,
+    files: &mut BTreeMap<String, String>,
+) -> Result<(), String> {
+    let root = workspace
+        .canonicalize()
+        .map_err(|error| format!("Cannot resolve TeamRun workspace: {error}"))?;
+    for input in &case.inputs {
+        let relative = sanitize_rel_path(&input.path)?;
+        if !in_scope(&case.allow_write, &relative) || files.contains_key(&relative) {
+            continue;
+        }
+        let path = root
+            .join(&relative)
+            .canonicalize()
+            .map_err(|error| format!("Cannot resolve TeamRun input {relative}: {error}"))?;
+        if !path.starts_with(&root) || !path.is_file() {
+            return Err(format!(
+                "TeamRun input is not a file in its workspace: {relative}"
+            ));
+        }
+        let content = std::fs::read_to_string(&path)
+            .map_err(|error| format!("Cannot read TeamRun input {relative}: {error}"))?;
+        if content != input.content {
+            files.insert(relative, content);
+        }
+    }
+    Ok(())
 }
 
 /// Copy only declared, non-empty UTF-8 deliverables from the isolated TeamRun workspace.
@@ -1970,6 +2048,41 @@ mod tests {
     }
 
     #[test]
+    fn code_delivery_includes_team_edits_without_replacing_read_only_inputs() {
+        use crate::product_eval::InputFixture;
+
+        let root = fresh_root("team-edits");
+        let mut case = eval_case("code-delivery", EvalCategory::Code);
+        case.allow_write = vec!["src/**".into(), "out/**".into()];
+        case.inputs = [
+            ("src/solution.py", "return sum(values[:-1])"),
+            ("src/unchanged.py", "unchanged"),
+            ("tests/check.py", "original checker"),
+        ]
+        .into_iter()
+        .map(|(path, content)| InputFixture {
+            path: path.into(),
+            content: content.into(),
+        })
+        .collect();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::create_dir_all(root.join("tests")).unwrap();
+        std::fs::write(root.join("src/solution.py"), "return sum(values)").unwrap();
+        std::fs::write(root.join("src/unchanged.py"), "unchanged").unwrap();
+        std::fs::write(root.join("tests/check.py"), "changed checker").unwrap();
+
+        let mut files = materialize_final_content(&case, "Final report").unwrap();
+        merge_changed_inputs(&case, &root, &mut files).unwrap();
+        assert_eq!(
+            files,
+            BTreeMap::from([
+                ("out/report.md".into(), "Final report".into()),
+                ("src/solution.py".into(), "return sum(values)".into()),
+            ])
+        );
+    }
+
+    #[test]
     fn final_artifact_selection_never_promotes_analyzer_notes_to_code() {
         let analyzer = ArtifactObservation {
             artifact_id: "team:code_analyzer:v1".to_string(),
@@ -2132,6 +2245,9 @@ mod tests {
             max_model_calls: Some(12),
             repetitions: Some(1),
             allow_commands: Vec::new(),
+            failure_classes: Vec::new(),
+            expected_side_effects: Vec::new(),
+            fault_injection: None,
         }
     }
 

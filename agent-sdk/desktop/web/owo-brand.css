@@ -3,8 +3,8 @@
    highlight) and the shared primitives every page uses, so pages no longer
    carry their own palette. Behaviour/DOM stay in the earlier layers.
 
-   Brand mark: assets/owo-logo.png (the user-provided mascot, transparent
-   background), shown in the sidebar and welcome slot; the favicon uses
+   Brand mark: assets/owo-logo.png (the user-provided transparent mascot, with theme-aware
+   ink), shown in the sidebar and welcome slot; the favicon uses
    assets/owo-logo-64.png. The old inline #owo-squid symbol has been retired.
    Other illustration slots are marked with data-asset="…" in the markup and
    --owo-empty-art below. */

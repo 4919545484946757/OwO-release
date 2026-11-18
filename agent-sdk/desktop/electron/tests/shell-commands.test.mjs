@@ -56,10 +56,11 @@ test("命令面与 web 实际调用完全对账（不缺不漏）", () => {
     assert.ok(SHELL_COMMANDS.includes(name), `web 调用了壳命令「${name}」，但桥未实现`);
   }
   // 反向：桥实现但 web 已不再调用的命令只提示不失败（diagnostics 类命令可能滞后）。
-  // Electron 增加了本机新建项目文件夹能力。
-  assert.equal(SHELL_COMMANDS.length, 15, "命令面包含兼容命令与项目目录命令");
-  // desktop_pairing 由 api-client 的 desktopPairingProof 调用，缺失会退化 token 引导强度。
+  // Electron 增加了本机新建项目文件夹能力；限时免费试用新增 apply_relay_trial /
+  // relay_trial_status 两条（试用密钥只走主进程，渲染层不接触明文）。
+  assert.equal(SHELL_COMMANDS.length, 19, "命令面包含兼容命令、项目目录命令与清除工作区");
   assert.ok(SHELL_COMMANDS.includes("desktop_pairing"));
+  assert.ok(SHELL_COMMANDS.includes("open_project_directory"), "侧栏项目菜单需要在文件管理器中打开目录");
 });
 
 test("project folder names reject traversal, invalid characters and reserved device names", () => {

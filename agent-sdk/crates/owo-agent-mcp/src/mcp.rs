@@ -478,6 +478,18 @@ impl McpClient {
 
     /// One tool request per call. Recovery never implies that a timed-out side effect did not happen.
     pub async fn call_tool(&mut self, name: &str, arguments: Value) -> Result<Value, String> {
+        self.call_tool_classified(name, arguments)
+            .await
+            .map_err(|(message, _)| message)
+    }
+
+    /// The retry signal is only taken from a complete application response.
+    /// Transport and protocol errors can have an unknown execution outcome.
+    pub async fn call_tool_classified(
+        &mut self,
+        name: &str,
+        arguments: Value,
+    ) -> Result<Value, (String, bool)> {
         let result = self
             .request(
                 "tools/call",
@@ -490,16 +502,20 @@ impl McpClient {
             {
                 // Restore the transport for future calls, but never replay this unknown-outcome request.
                 if let Err(recovery_error) = self.reconnect().await {
-                    return Err(format!(
-                        "{error}; mcp/outcome_unknown; recovery_failed: {recovery_error}"
+                    return Err((
+                        format!("{error}; mcp/outcome_unknown; recovery_failed: {recovery_error}"),
+                        false,
                     ));
                 }
-                return Err(format!(
-                    "{error}; mcp/outcome_unknown; transport_recovered; request_not_replayed"
+                return Err((
+                    format!(
+                        "{error}; mcp/outcome_unknown; transport_recovered; request_not_replayed"
+                    ),
+                    false,
                 ));
             }
         }
-        let result = result?;
+        let result = result.map_err(|error| (error, false))?;
         let is_error = result
             .get("isError")
             .and_then(Value::as_bool)
@@ -516,7 +532,11 @@ impl McpClient {
             })
             .unwrap_or_default();
         if is_error {
-            Err(text)
+            let retryable = result
+                .pointer("/structuredContent/code")
+                .and_then(Value::as_str)
+                == Some("temporarily_unavailable_before_execution");
+            Err((text, retryable))
         } else {
             Ok(json!({
                 "text": text,

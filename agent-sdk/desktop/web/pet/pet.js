@@ -31,7 +31,7 @@ const petHitbox = $("pet-hitbox");
 const avatar = $("pet-avatar");
 const avatarImg = $("pet-avatar-img");
 const avatar3d = $("pet-avatar-3d");
-const modelRenderer = globalThis.OwoModelRenderer && avatar3d ? globalThis.OwoModelRenderer.create(avatar3d) : null;
+const modelRenderer = globalThis.OwoModelRenderer && avatar3d ? globalThis.OwoModelRenderer.create(avatar3d, { onOffset: moveFigurineHitbox }) : null;
 const bubble = $("bubble");
 const fxLayer = $("fx");
 
@@ -304,13 +304,18 @@ function applySkin(entry) {
     model: entry.kind === "gltf" && entry.model ? {
       url: `${ASSETS}/${entry.id}/${entry.model}`,
       scale: Number(entry.modelScale) || 1.0,
+      studio: entry.studioLighting === true,
+      motion: entry.motion,
     } : null,
     frame: entry.frame || null,
     bubbles: entry.bubbles || DEFAULT_BUBBLES,
   };
+  pet.classList.toggle("is-figurine", config.model?.motion === "figurine");
   currentSkinId = entry.id;
   if (globalThis.OwoPetActor?.role === "planner") saveSkinPref(entry.id);
   render(status);
+  // 皮肤切换会改变命中区和透明留白；等浏览器完成样式计算后再上报内容边界。
+  requestAnimationFrame(() => reportPetRegion());
 }
 
 async function loadSkinIndex() {
@@ -322,7 +327,7 @@ async function loadSkinIndex() {
 /// 恢复上次皮肤；偏好里已没有（旧皮肤下架）时回落默认。
 async function restoreSkin() {
   const role = globalThis.OwoPetActor?.role;
-  const bound = new URLSearchParams(globalThis.location?.search || "").get("skin") || "owo-squid";
+  const bound = new URLSearchParams(globalThis.location?.search || "").get("skin");
   if (bound && skinEntry(bound)) return bound;
   const saved = await loadSkinPref();
   if (saved && skinEntry(saved)) return saved;
@@ -361,7 +366,7 @@ function render(next) {
     avatarImg.style.display = "none";
     if (avatar3d) avatar3d.style.display = "block";
     modelRenderer.setState(status);
-    modelRenderer.setModel(config.model.url, { scale: config.model.scale }).catch((error) => {
+    modelRenderer.setModel(config.model.url, config.model).catch((error) => {
       avatar.classList.remove("is-model");
       if (avatar3d) avatar3d.style.display = "none";
       fallbackFromModel();
@@ -593,23 +598,49 @@ pet.addEventListener("contextmenu", (event) => {
   void openMenu();
 });
 
-let lastMouseInside = null;
-function updateMousePassthrough(event) {
-  if (!petHitbox || !shellBridge || typeof shellBridge.setIgnoreMouseEvents !== "function") return;
-  if (document.body?.classList.contains("chatting")) return;
-  const rect = petHitbox.getBoundingClientRect();
-  const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
-  if (inside === lastMouseInside) return;
-  lastMouseInside = inside;
-  Promise.resolve(shellBridge.setIgnoreMouseEvents(!inside)).catch(() => {});
-  // Windows 的 WS_EX_NOACTIVATE 会让 Chromium 丢掉 mousedown（只剩 mouseup），
-  // 单击、双击、点 × 都会"时灵时不灵"。进入命中区时临时去掉该样式（不主动 focus，
-  // 只有真的点下去才激活），移出后再交还鼠标焦点。
-  if (typeof shellBridge.setHover === "function") {
-    Promise.resolve(shellBridge.setHover(inside)).catch(() => {});
-  }
+// ---- 命中区上报：穿透由壳（主进程）判定 ----
+//
+// 页面**不能**自己决定穿透。窗口一旦进入穿透态（WS_EX_TRANSPARENT），Windows 就把
+// 鼠标消息发给下面的窗口，本页再也收不到 mousemove —— 自己关掉的开关自己拧不回来，
+// 桌宠于是"活着、看得见，但点不动也拖不动"。2026-11-13 的"卡在右上角"就是旧写法
+// 踩了这个坑：悬停没把穿透关掉，后续所有交互（右键菜单、拖动、摸摸头）一起失效。
+// 现在页面只汇报几何（窗口内 DIP 坐标），由壳轮询指针位置决定何时接管鼠标。
+let regionReported = "";
+function reportPetRegion(hold) {
+  if (!petHitbox || !shellBridge || typeof shellBridge.setRegion !== "function") return;
+  const sticky = hold === true || document.body?.classList.contains("chatting");
+  const petRect = pet.getBoundingClientRect();
+  const rect = sticky
+    ? { left: 0, top: 0, width: globalThis.innerWidth || 0, height: globalThis.innerHeight || 0 }
+    : petHitbox.getBoundingClientRect();
+  const width = Math.round(rect.width ?? rect.right - rect.left);
+  const height = Math.round(rect.height ?? rect.bottom - rect.top);
+  const region = {
+    x: Math.round(rect.left || 0),
+    y: Math.round(rect.top || 0),
+    width: Math.max(8, width || 0),
+    height: Math.max(8, height || 0),
+    contentInsets: sticky ? null : {
+      left: Math.max(0, Math.round(rect.left - petRect.left)),
+      right: Math.max(0, Math.round(petRect.right - rect.right)),
+      top: Math.max(0, Math.round(rect.top - petRect.top)),
+      bottom: Math.max(0, Math.round(petRect.bottom - rect.bottom)),
+    },
+    hold: sticky,
+  };
+  const key = JSON.stringify(region);
+  if (key === regionReported) return; // 几何没变就别每帧打一趟 IPC
+  regionReported = key;
+  Promise.resolve(shellBridge.setRegion(region)).catch(() => {});
 }
-document.addEventListener("mousemove", updateMousePassthrough);
+function moveFigurineHitbox(offset) {
+  pet.style.setProperty("--figurine-x", `${offset}px`);
+  reportPetRegion();
+}
+globalThis.addEventListener("resize", () => {
+  regionReported = "";
+  reportPetRegion();
+});
 
 // 双击＝简单聊天（左键单击仍是摸摸头）。
 pet.addEventListener("dblclick", () => toggleChat());
@@ -617,8 +648,9 @@ pet.addEventListener("dblclick", () => toggleChat());
 // ---- 拖动：交给壳移动真实窗口 ----
 //
 // 两个老坑必须守住：① 用 PointerCapture，指针移出元素后 move/up 仍送达；
-// ② screenX/Y 是 CSS 像素，moveBy 按物理像素走，Windows 缩放 125%/150% 时不乘
-// devicePixelRatio 会出现"桌宠追不上鼠标、像被粘住"。
+// ② 位移单位。`screenX/screenY` 是 CSS 像素（DIP），壳的 `setPosition` 也是 DIP，
+// 两边同一把尺子，**不能再乘 devicePixelRatio**：200% 缩放下乘了 dpr 会让窗口
+// 以 2 倍速度甩开指针，几帧就撞到工作区边缘卡住（2026-11-13 “拖一下就飞到角落”）。
 
 // 拖动＝纯移动：这里不再记账"划动距离"。旧实现累计 >420px 就顺手摸摸头
 // （`dragDistance` / `pettedThisDrag` / `petCooldown`），后果是把桌宠从屏幕这头
@@ -643,6 +675,11 @@ pet.addEventListener("pointerdown", (event) => {
   }
   down = { x: event.screenX, y: event.screenY, moved: false, shift: event.shiftKey };
   lastPointer = { x: event.screenX, y: event.screenY };
+  // 按下即向壳声明"我在拖"：拖动期间不能把输入权交出去，否则 pointer capture
+  // 会随穿透一起失效，窗口就粘在原地不跟手。
+  if (shellBridge && typeof shellBridge.setDragging === "function") {
+    Promise.resolve(shellBridge.setDragging(true)).catch(() => {});
+  }
   pet.classList.add("dragging");
   pet.classList.remove("dropped");
 });
@@ -661,8 +698,7 @@ pet.addEventListener("pointermove", (event) => {
     if (down.shift && config.model && modelRenderer && typeof modelRenderer.rotate === "function") {
       modelRenderer.rotate(dx * 0.018, dy * 0.018);
     } else if (shellBridge && typeof shellBridge.moveBy === "function") {
-      const dpr = globalThis.devicePixelRatio || 1;
-      shellBridge.moveBy(Math.round(dx * dpr), Math.round(dy * dpr));
+      shellBridge.moveBy(Math.round(dx), Math.round(dy));
     }
   }
 });
@@ -682,6 +718,10 @@ function endDrag(event, movedOverride) {
   down = null;
   lastPointer = null;
   pet.classList.remove("dragging");
+  // 拖动结束要把输入权交还给壳的指针轮询（见 reportPetRegion 上方说明）。
+  if (shellBridge && typeof shellBridge.setDragging === "function") {
+    Promise.resolve(shellBridge.setDragging(false)).catch(() => {});
+  }
   releaseKeyboard();
   if (moved) {
     pet.classList.add("dropped");
@@ -700,6 +740,9 @@ window.addEventListener("pointerup", () => {
     down = null;
     lastPointer = null;
     pet.classList.remove("dragging");
+    if (shellBridge && typeof shellBridge.setDragging === "function") {
+      Promise.resolve(shellBridge.setDragging(false)).catch(() => {});
+    }
   }
 });
 
@@ -755,6 +798,7 @@ function spawnFx(glyph, count) {
 }
 
 function petted() {
+  modelRenderer?.pet();
   pet.classList.add("happy");
   setTimeout(() => pet.classList.remove("happy"), 1100);
   spawnFx("❤", 4);
@@ -892,10 +936,10 @@ async function toggleChat(force) {
   chatPanel.hidden = !open;
   // 面板占满窗口时把 3D 形象收起来，否则面板会被小窗口裁掉上半截。
   document.body.classList.toggle("chatting", open);
-  if (shellBridge && typeof shellBridge.setIgnoreMouseEvents === "function") {
-    lastMouseInside = open ? true : null;
-    Promise.resolve(shellBridge.setIgnoreMouseEvents(!open)).catch(() => {});
-  }
+  // 面板铺满窗口：整窗都要可交互（输入框、×、标题栏拖动把手），否则全落在穿透区里。
+  // 收起后回到形象命中区，继续交给壳轮询判定。
+  regionReported = "";
+  reportPetRegion(open);
   // 桌宠窗口平时 focusable:false（不抢键盘），聊天期间必须临时可聚焦，
   // 否则输入框只是"画出来"了，系统键盘仍发给上一个前台窗口。
   if (shellBridge && typeof shellBridge.setChatFocus === "function") {
@@ -961,8 +1005,8 @@ chatHeader?.addEventListener("pointermove", (event) => {
   const dy = event.screenY - chatDrag.y;
   chatDrag = { x: event.screenX, y: event.screenY };
   if (shellBridge && typeof shellBridge.moveBy === "function") {
-    const dpr = globalThis.devicePixelRatio || 1;
-    shellBridge.moveBy(Math.round(dx * dpr), Math.round(dy * dpr));
+    // 与形象拖动同一把尺子：screenX 是 DIP，setPosition 也是 DIP，不再乘 dpr。
+    shellBridge.moveBy(Math.round(dx), Math.round(dy));
   }
 });
 chatHeader?.addEventListener("pointerup", () => { chatDrag = null; });
@@ -1007,6 +1051,9 @@ async function reportVisibility() {
 
 async function boot() {
   render("idle");
+  // 先把命中区报给壳：穿透判定在主进程，缺了这一步窗口会一直停在"整窗穿透"，
+  // 形象就变成一张点不动的图片。
+  reportPetRegion();
   scheduleAntic();
   try {
     await loadSkinIndex();
@@ -1028,6 +1075,8 @@ async function boot() {
   } catch {
     /* 保持默认外观，继续往下走 */
   }
+  // 皮肤样式可能已经完成首帧，再补一次内容边界上报，覆盖启动时的异步切换。
+  reportPetRegion();
   // 心跳与状态轮询都是低频轻请求，失败了自然重来，不必打断桌宠显示。
   if (globalThis.OwoPetActor?.role === "planner") {
     reportVisibility();

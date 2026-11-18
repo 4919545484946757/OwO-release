@@ -127,12 +127,16 @@ impl ActionBackend for MockBackend {
         server: &str,
         tool: &str,
         args: &serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
+    ) -> Result<serde_json::Value, (String, bool)> {
         self.log.push(format!("mcp:{}/{}", server, tool));
         let key = format!("{server}/{tool}");
-        self.mcp_results.get(&key).cloned().unwrap_or_else(|| {
-            Ok(serde_json::json!({ "server": server, "tool": tool, "args": args }))
-        })
+        self.mcp_results
+            .get(&key)
+            .cloned()
+            .unwrap_or_else(|| {
+                Ok(serde_json::json!({ "server": server, "tool": tool, "args": args }))
+            })
+            .map_err(|error| (error, false))
     }
 
     async fn notify(&mut self, message: &str) -> Result<(), String> {

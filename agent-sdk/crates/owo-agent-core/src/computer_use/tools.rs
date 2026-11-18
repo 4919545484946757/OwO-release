@@ -175,39 +175,43 @@ impl Tool for DesktopWindowOcrTool {
                 .map(|window| window.hwnd)
                 .ok_or_else(|| format!("未找到窗口（process={process}, title={title}）"))?
         };
-        let (bmp, rect) = crate::platform::capture_window_bmp_deep(hwnd)
-            .ok_or_else(|| format!("窗口截图失败（hwnd={hwnd}）"))?;
-        let summary = crate::paddle_ocr::ocr_preferred(&bmp).await?;
-        let mut result = ocr_summary_json(&summary, 200);
-        if let Value::Object(map) = &mut result {
-            if let Some(lines) = map.get_mut("lines").and_then(Value::as_array_mut) {
-                for line in lines {
-                    if let Some(x) = line.get("x").and_then(Value::as_i64) {
-                        line["x"] = json!(x + rect.0 as i64);
-                    }
-                    if let Some(y) = line.get("y").and_then(Value::as_i64) {
-                        line["y"] = json!(y + rect.1 as i64);
-                    }
-                }
-            }
-            if let Some(boxes) = map.get_mut("boxes").and_then(Value::as_array_mut) {
-                for b in boxes {
-                    if let Some(x) = b.get("x").and_then(Value::as_i64) {
-                        b["x"] = json!(x + rect.0 as i64);
-                    }
-                    if let Some(y) = b.get("y").and_then(Value::as_i64) {
-                        b["y"] = json!(y + rect.1 as i64);
-                    }
-                }
-            }
-            map.insert("surface".into(), json!("window"));
-            map.insert(
-                "window".into(),
-                json!({ "hwnd": hwnd, "rect": [rect.0, rect.1, rect.2, rect.3] }),
-            );
-        }
-        Ok(result)
+        ocr_window_at_screen_coordinates(hwnd).await
     }
+}
+
+pub(super) async fn ocr_window_at_screen_coordinates(hwnd: isize) -> Result<Value, String> {
+    let (bmp, rect) = crate::platform::capture_window_bmp_deep(hwnd)
+        .ok_or_else(|| format!("窗口截图失败（hwnd={hwnd}）"))?;
+    let summary = crate::paddle_ocr::ocr_preferred(&bmp).await?;
+    let mut result = ocr_summary_json(&summary, 200);
+    if let Value::Object(map) = &mut result {
+        if let Some(lines) = map.get_mut("lines").and_then(Value::as_array_mut) {
+            for line in lines {
+                if let Some(x) = line.get("x").and_then(Value::as_i64) {
+                    line["x"] = json!(x + rect.0 as i64);
+                }
+                if let Some(y) = line.get("y").and_then(Value::as_i64) {
+                    line["y"] = json!(y + rect.1 as i64);
+                }
+            }
+        }
+        if let Some(boxes) = map.get_mut("boxes").and_then(Value::as_array_mut) {
+            for b in boxes {
+                if let Some(x) = b.get("x").and_then(Value::as_i64) {
+                    b["x"] = json!(x + rect.0 as i64);
+                }
+                if let Some(y) = b.get("y").and_then(Value::as_i64) {
+                    b["y"] = json!(y + rect.1 as i64);
+                }
+            }
+        }
+        map.insert("surface".into(), json!("window"));
+        map.insert(
+            "window".into(),
+            json!({ "hwnd": hwnd, "rect": [rect.0, rect.1, rect.2, rect.3] }),
+        );
+    }
+    Ok(result)
 }
 
 pub struct DesktopForegroundTool;

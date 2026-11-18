@@ -93,7 +93,7 @@
     // ---------- 状态 ----------
     var state = {
       objective: "",
-      backend: "workswarm",
+      backend: "owobot",
       root: "",
       readOnly: true,
       writePathsRaw: "",
@@ -714,40 +714,23 @@
     var nextBackend = null;
     var pendingOwobot = null;
 
-    function backendKey(workspace) {
-      return "owo.teamBackend." + (H.workspaceKey?.(workspace) || workspace);
-    }
-
-    function preferredBackend(workspace) {
-      if (!win.OwoPanels.owobot || !H.openOwobot) return "workswarm";
-      try {
-        if (localStorage.getItem(backendKey(workspace)) === "workswarm") return "workswarm";
-      } catch (_) { /* Browser storage may be disabled. */ }
+    function preferredBackend() {
       return "owobot";
     }
 
-    function switchBackend(backend) {
-      syncStateFromDom();
-      state.backend = backend;
-      state.result = null;
-      state.error = "";
-      try {
-        localStorage.setItem(backendKey(state.root), backend);
-      } catch (_) { /* The choice still applies to the current launch. */ }
-      render();
-      if (backend === "workswarm") loadCatalog();
+    function backendPicker() {
+      return "";
     }
 
-    function backendPicker() {
-      if (!win.OwoPanels.owobot || !H.openOwobot) return "";
-      return '<label class="owo-pl-label" for="pl-backend">新任务使用</label>' +
-        '<select id="pl-backend"><option value="owobot"' + (state.backend === "owobot" ? " selected" : "") +
-        '>OwOBot</option><option value="workswarm"' + (state.backend === "workswarm" ? " selected" : "") +
-        '>WorkSwarm</option></select>';
+    function switchBackend() {
+      state.backend = "owobot";
+      state.result = null;
+      state.error = "";
+      render();
     }
 
     function owobotHtml() {
-      return '<div class="owo-pl">' + backendPicker() +
+      return '<div class="owo-pl">' +
         '<label class="owo-pl-label" for="pl-objective">任务目标</label>' +
         '<textarea id="pl-objective" rows="4" placeholder="例如整理活动报名表，提交分组统计和脱敏明细">' +
         esc(state.objective) + '</textarea>' +
@@ -907,7 +890,10 @@
         '<p class="hint owo-pl-intro">定义目标，确认执行范围，再开始任务。</p>' +
         '<nav class="owo-pl-wizard" aria-label="新任务步骤"><button type="button" data-pl-wizard="1">1 · 任务目标</button><button type="button" data-pl-wizard="2">2 · 范围与方式</button><button type="button" data-pl-wizard="3">3 · 预览并开始</button></nav><p id="pl-wizard-error" role="alert" hidden></p>' +
         '<div class="owo-pl-step"><label class="owo-pl-label" for="pl-objective">任务目标</label>' +
-        '<textarea id="pl-objective" rows="3" placeholder="例如：修复登录超时问题并补充回归测试（结构化/文档/研究任务均可）">' + esc(state.objective) + "</textarea></div>" +
+        '<div class="prompt-field"><textarea id="pl-objective" rows="3" placeholder="例如：修复登录超时问题并补充回归测试（结构化/文档/研究任务均可）">' + esc(state.objective) + "</textarea>" +
+        '<button type="button" class="prompt-polish-mini" data-prompt-polish="pl-objective" data-tip="增强提示词" aria-label="增强任务目标描述">' +
+        '<svg class="prompt-polish-glyph" viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M8.7 2.8c.5 3.3 1.3 4.6 4.6 5.2-3.3.6-4.1 1.9-4.6 5.2-.5-3.3-1.3-4.6-4.6-5.2 3.3-.6 4.1-1.9 4.6-5.2z"/><path d="M15.2 11.5c.25 1.5.6 2.1 2.1 2.4-1.5.3-1.85.9-2.1 2.4-.25-1.5-.6-2.1-2.1-2.4 1.5-.3 1.85-.9 2.1-2.4z"/></svg>' +
+        "</button></div></div>" +
         '<div class="owo-pl-step"><label class="owo-pl-label" for="pl-root">项目目录</label>' +
         '<input id="pl-root" size="60" placeholder="例如 T:\\我的项目\\demo（真实存在的目录）" value="' + esc(state.root) + '"><span class="hint">填写任务执行的实际项目目录；清空后需重新选择。</span></div>' +
         '<div class="owo-pl-step"><label class="owo-pl-label">读写范围</label>' +
@@ -982,28 +968,18 @@
 
     function render() {
       if (!rootEl) return;
-      var owobot = state.backend === "owobot";
+      var owobot = true;
+      state.backend = "owobot";
       if (owobot && inputAssets) {
         inputAssets.dispose();
         inputAssets = null;
       }
       rootEl.innerHTML = owobot ? owobotHtml() : viewHtml();
-      var backend = el("#pl-backend");
-      if (backend) backend.onchange = () => switchBackend(backend.value);
       if (owobot) {
         var button = el("#pl-create");
         if (button) button.onclick = createOwobot;
         var project = el("#pl-root");
-        if (project) project.onchange = () => {
-          if (state.creating) return;
-          var preference = preferredBackend(project.value.trim());
-          if (preference !== state.backend) {
-            syncStateFromDom();
-            state.backend = preference;
-            render();
-            if (preference === "workswarm") loadCatalog();
-          }
-        };
+
         return;
       }
       if (win.OwoInputAssets) inputAssets = win.OwoInputAssets.mountPanel(inputAssets, rootEl.querySelector("[data-task-inputs]"), H);
@@ -1153,10 +1129,9 @@
       if (!H.post) H.post = defaultPost;
       if (!H.esc) H.esc = defaultEsc;
       esc = H.esc;
-      state.backend = nextBackend || preferredBackend(state.root);
+      state.backend = "owobot";
       nextBackend = null;
       render();
-      if (state.backend === "workswarm") loadCatalog();
     }
 
     function dispose() {

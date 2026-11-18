@@ -79,6 +79,9 @@ fn agent_case(id: &str, category: EvalCategory) -> ProductEvalCase {
         max_model_calls: Some(6),
         repetitions: None,
         allow_commands: Vec::new(),
+        failure_classes: Vec::new(),
+        expected_side_effects: Vec::new(),
+        fault_injection: None,
     }
 }
 
@@ -147,6 +150,7 @@ impl ModelProvider for ScriptedProvider {
             on_chunk(StreamChunk::Content(text.clone()));
         }
         Ok(ObservedModelOutput {
+            reasoning_replay: None,
             output,
             metadata: ModelCallMetadata {
                 usage: Some(TokenUsage {
@@ -201,6 +205,10 @@ async fn run_matrix(
         batch_label: None,
         provider_endpoint_sha256: None,
         tags: Vec::new(),
+        repair_attempts: 0,
+        desktop_driver: None,
+        fault_driver: None,
+        driver_config: None,
     };
     let report = runner
         .run(
@@ -789,6 +797,10 @@ async fn all_ten_tasks_pass_dry_reference_self_check() {
         batch_label: None,
         provider_endpoint_sha256: None,
         tags: Vec::new(),
+        repair_attempts: 0,
+        desktop_driver: None,
+        fault_driver: None,
+        driver_config: None,
     };
     let report = runner
         .run(

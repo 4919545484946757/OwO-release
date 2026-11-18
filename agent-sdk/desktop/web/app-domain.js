@@ -23,6 +23,201 @@ function owoSessionHasAutoTitle(session) {
   if (id && title.length >= 8 && (title === id || id.startsWith(title))) return true;
   return /^会话[\s_-]*[0-9a-f]{6,}$/i.test(title);
 }
+// 置顶顺序与项目置顶保存在本机：顺序只在用户主动置顶/取消置顶时变化，
+// 不跟随会话 updated_at，避免最近使用把置顶项重新排序。
+const OWO_PINNED_PROJECTS_KEY = "owo.pinnedProjects";
+const OWO_PINNED_SESSIONS_KEY = "owo.pinnedSessions";
+function owoReadPinnedProjects() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(OWO_PINNED_PROJECTS_KEY) || "[]");
+    return Array.isArray(stored) ? stored.filter((item) => typeof item === "string" && item.trim()) : [];
+  } catch (_) {
+    return [];
+  }
+}
+function owoWritePinnedProjects(paths) {
+  try { localStorage.setItem(OWO_PINNED_PROJECTS_KEY, JSON.stringify(paths)); } catch (_) {}
+}
+function owoSetProjectPinned(workspace, pinned) {
+  const value = String(workspace || "").trim();
+  if (!value) return;
+  const key = workspacePathKey(value);
+  const next = owoReadPinnedProjects().filter((item) => workspacePathKey(item) !== key);
+  if (pinned) next.unshift(value);
+  owoWritePinnedProjects(next);
+}
+function owoReadPinnedSessionOrder() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(OWO_PINNED_SESSIONS_KEY) || "[]");
+    return Array.isArray(stored) ? stored.filter((item) => typeof item === "string" && item) : [];
+  } catch (_) {
+    return [];
+  }
+}
+function owoRememberPinnedSession(id, pinned) {
+  if (!id) return;
+  const next = owoReadPinnedSessionOrder().filter((item) => item !== id);
+  if (pinned) next.unshift(id);
+  try { localStorage.setItem(OWO_PINNED_SESSIONS_KEY, JSON.stringify(next)); } catch (_) {}
+}
+function owoPinIcon() {
+  return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M12 17v5"/><path d="M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.7l-1.8-.9A2 2 0 0 1 15 10.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+}
+// 项目显示别名只影响侧栏，不改磁盘目录与会话 workspace；用于「重命名项目」。
+const OWO_PROJECT_ALIASES_KEY = "owo.projectAliases";
+const OWO_HIDDEN_PROJECTS_KEY = "owo.hiddenProjects";
+function owoReadProjectAliases() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(OWO_PROJECT_ALIASES_KEY) || "{}");
+    return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+  } catch (_) {
+    return {};
+  }
+}
+function owoProjectAlias(workspace) {
+  const key = workspacePathKey(workspace);
+  return key ? String(owoReadProjectAliases()[key] || "") : "";
+}
+function owoSetProjectAlias(workspace, alias) {
+  const key = workspacePathKey(workspace);
+  if (!key) return;
+  const aliases = owoReadProjectAliases();
+  const value = String(alias || "").trim();
+  if (value) aliases[key] = value;
+  else delete aliases[key];
+  try { localStorage.setItem(OWO_PROJECT_ALIASES_KEY, JSON.stringify(aliases)); } catch (_) {}
+}
+function owoReadHiddenProjects() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(OWO_HIDDEN_PROJECTS_KEY) || "[]");
+    return Array.isArray(stored) ? stored.filter((item) => typeof item === "string" && item.trim()) : [];
+  } catch (_) {
+    return [];
+  }
+}
+function owoHideProject(workspace) {
+  const value = String(workspace || "").trim();
+  if (!value) return;
+  const key = workspacePathKey(value);
+  const next = owoReadHiddenProjects().filter((item) => workspacePathKey(item) !== key);
+  next.push(value);
+  try { localStorage.setItem(OWO_HIDDEN_PROJECTS_KEY, JSON.stringify(next)); } catch (_) {}
+  owoSetProjectPinned(value, false);
+}
+function owoUnhideProject(workspace) {
+  const key = workspacePathKey(workspace);
+  if (!key) return;
+  const current = owoReadHiddenProjects();
+  const next = current.filter((item) => workspacePathKey(item) !== key);
+  if (next.length === current.length) return;
+  try { localStorage.setItem(OWO_HIDDEN_PROJECTS_KEY, JSON.stringify(next)); } catch (_) {}
+}
+function owoEllipsisIcon() {
+  return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
+}
+// 侧栏项目操作菜单：置顶、新建对话、重命名（仅显示名）、打开目录、从侧栏移除。
+function openProjectActionsMenu(trigger, group, label, pinned) {
+  const html =
+    '<button type="button" class="composer-menu-item" data-project-menu="pin">' + (pinned ? "取消置顶" : "置顶") + "</button>" +
+    '<button type="button" class="composer-menu-item" data-project-menu="new">新建对话</button>' +
+    '<div class="composer-menu-divider" role="separator"></div>' +
+    '<button type="button" class="composer-menu-item" data-project-menu="rename">重命名项目</button>' +
+    '<button type="button" class="composer-menu-item" data-project-menu="reveal">在资源管理器中打开</button>' +
+    '<div class="composer-menu-divider" role="separator"></div>' +
+    '<button type="button" class="composer-menu-item danger" data-project-menu="remove">从侧栏移除</button>';
+  openComposerMenu(trigger, html, (menu) => {
+    menu.classList.add("composer-menu-sidebar-project");
+    menu.dataset.owner = "sidebar-project";
+    for (const button of menu.querySelectorAll("[data-project-menu]")) {
+      button.addEventListener("click", async () => {
+        const act = button.dataset.projectMenu;
+        closeComposerMenu();
+        if (act === "pin") {
+          owoSetProjectPinned(group.workspace, !pinned);
+          await refreshSessions(state.sessionId);
+          return;
+        }
+        if (act === "new") {
+          try { await newSession(group.workspace); }
+          catch (error) { showToast(friendlyError(error), "error"); }
+          return;
+        }
+        if (act === "rename") {
+          promptModal({
+            title: "重命名项目",
+            label: "只修改侧栏显示名称，不改变磁盘目录。",
+            value: label,
+            placeholder: "项目名称",
+            confirmText: "保存",
+            onConfirm: async (name) => {
+              owoSetProjectAlias(group.workspace, name);
+              await refreshSessions(state.sessionId);
+            },
+          });
+          return;
+        }
+        if (act === "reveal") {
+          const result = await shellInvoke("open_project_directory", { path: group.workspace }).catch(() => null);
+          if (!result || result.ok === false) {
+            showToast("无法打开项目目录：" + ((result && result.error) || "当前桌面壳不支持"), "error");
+          }
+          return;
+        }
+        if (act === "remove") {
+          if (workspacePathKey(group.workspace) === workspacePathKey($("workspace").value.trim())) {
+            showToast("当前工作区不能从侧栏移除", "error");
+            return;
+          }
+          owoHideProject(group.workspace);
+          await refreshSessions(state.sessionId);
+          showToast("已从侧栏移除；重新选择该目录可恢复", "ok");
+        }
+      });
+    }
+  });
+}
+
+// 置顶区拖拽排序：只在同一类型（对话 / 项目）内重排，结果写回本机置顶顺序。
+function owoBindPinnedDrag(listEl) {
+  let dragging = null;
+  listEl.addEventListener("dragstart", (event) => {
+    if (event.target.closest("button")) return;
+    const row = event.target.closest("[data-pin-drag]");
+    if (!row) return;
+    dragging = row;
+    row.classList.add("dragging");
+    event.dataTransfer.effectAllowed = "move";
+    try { event.dataTransfer.setData("text/plain", row.dataset.pinDrag); } catch (_) {}
+  });
+  listEl.addEventListener("dragend", () => {
+    if (dragging) dragging.classList.remove("dragging");
+    dragging = null;
+  });
+  listEl.addEventListener("dragover", (event) => {
+    const row = event.target.closest("[data-pin-drag]");
+    if (!row || !dragging || row === dragging || row.dataset.pinDrag !== dragging.dataset.pinDrag) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  });
+  listEl.addEventListener("drop", (event) => {
+    const row = event.target.closest("[data-pin-drag]");
+    if (!row || !dragging || row === dragging || row.dataset.pinDrag !== dragging.dataset.pinDrag) return;
+    event.preventDefault();
+    const rect = row.getBoundingClientRect();
+    row.parentElement.insertBefore(dragging, event.clientY > rect.top + rect.height / 2 ? row.nextSibling : row);
+    if (dragging.dataset.pinDrag === "chat") {
+      const ids = [...listEl.querySelectorAll('[data-pin-drag="chat"]')].map((li) => li.dataset.sessionId).filter(Boolean);
+      try { localStorage.setItem(OWO_PINNED_SESSIONS_KEY, JSON.stringify(ids)); } catch (_) {}
+    } else {
+      const paths = [...listEl.querySelectorAll('[data-pin-drag="project"]')].map((li) => li.dataset.groupWorkspace).filter(Boolean);
+      try { localStorage.setItem(OWO_PINNED_PROJECTS_KEY, JSON.stringify(paths)); } catch (_) {}
+    }
+    if (typeof refreshSessions === "function") refreshSessions(state.sessionId);
+  });
+}
+
 // 首轮发送后给会话一个 8–14 字的可读标题（服务端默认会截到 40 字，侧栏放不下）。
 // 只在会话仍是自动标题时改写一次；用户手动改过名的会话不再覆盖。
 const autoTitledSessions = new Set();
@@ -383,6 +578,7 @@ function sessionListFailureMessage(error) {
 function renderSessionListFailure(error, selectId) {
   const list = $("sessionList");
   if (!list) return;
+  if (typeof renderHomeRecent === "function") renderHomeRecent(true);
   const row = document.createElement("li");
   row.className = "sub session-load-error";
   row.setAttribute("role", "alert");
@@ -415,6 +611,7 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
   if (generation !== sessionListRefreshGeneration) return;
   state.sessionIndex = sessions;
   state.sessionsKnown = true;
+  if (typeof renderHomeRecent === "function") renderHomeRecent();
   // 用户在请求期间切换了会话时，按实时状态标记选中项；列表刷新不拥有选中状态。
   const selectedSessionId = selectionVersion === state.selectionVersion
     ? (selectId || state.sessionId)
@@ -466,9 +663,15 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
   // 没有真实标题的会话不把内部 ID 当名称显示：空标题、ID 本身，或服务端自动生成的「会话 xxxx」。
   // 只影响展示，session.id 与数据层不变。
   const sessionDisplayTitle = owoSessionDisplayTitle;
-  const renderSession = (session, depth, groupWorkspace) => {
+  const renderSession = (session, depth, groupWorkspace, container = list, pinnedChat = false) => {
     const li = document.createElement("li");
     li.dataset.groupWorkspace = groupWorkspace || "";
+    li.dataset.sessionId = session.id;
+    if (session.pinned) li.classList.add("pinned-row");
+    if (pinnedChat) {
+      li.dataset.pinDrag = "chat";
+      li.draggable = true;
+    }
     // 运行中徽标：该会话仍有未完成回合（后台并行执行）。
     if (state.activeTurns.has(session.id)) {
       li.classList.add("running");
@@ -476,7 +679,6 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
     }
     if (session.id === selectedSessionId) li.classList.add("active");
     const badges = [];
-    if (session.pinned) badges.push("📌");
     if (session.archived) badges.push("🗄");
     // 对话会话在侧栏要可分辨：它不读写本地文件，和 Work 会话不是一回事。
     const isChat = String(session.mode || "").toLowerCase() === "chat";
@@ -488,12 +690,13 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
       (isChat ? " · 对话模式" : "");
     const displayTitle = sessionDisplayTitle(session);
     li.innerHTML = `
-      <div class="owo-session-row" style="margin-left:${depth * 14}px">
+      <div class="owo-session-row" style="margin-left:${depth * 28}px">
         <button type="button" class="owo-session-title" data-session-select aria-current="${session.id === selectedSessionId ? "page" : "false"}" title="打开会话：${esc(displayTitle)}">
           <strong>${esc(displayTitle)} ${badges.join(" ")}</strong>
           <span class="sub">${esc(updated)}</span>
         </button>
-        <button type="button" class="owo-session-more" data-act="menu" aria-haspopup="menu" aria-expanded="false" aria-label="会话操作">⋯</button>
+        <button type="button" class="owo-session-pin${session.pinned ? " is-pinned" : ""}" data-act="pin" aria-label="${session.pinned ? "取消置顶" : "置顶"}" title="${session.pinned ? "取消置顶" : "置顶"}">${owoPinIcon()}</button>
+        <button type="button" class="owo-session-more" data-act="menu" aria-haspopup="menu" aria-expanded="false" aria-label="会话操作">${owoEllipsisIcon()}</button>
         <div class="owo-session-menu" role="menu" hidden>
           <button type="button" role="menuitem" data-act="rename">重命名</button>
           <button type="button" role="menuitem" data-act="pin">${session.pinned ? "取消置顶" : "置顶"}</button>
@@ -557,10 +760,12 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
             });
             return;
           } else if (act === "pin") {
+            const nextPinned = !session.pinned;
             await api(`/session/${session.id}/pin`, {
               method: "POST",
-              body: JSON.stringify({ pinned: !session.pinned }),
+              body: JSON.stringify({ pinned: nextPinned }),
             });
+            owoRememberPinnedSession(session.id, nextPinned);
           } else if (act === "archive") {
             await api(`/session/${session.id}/archive`, {
               method: "POST",
@@ -620,15 +825,31 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
         }
       });
     }
-    list.appendChild(li);
+    container.appendChild(li);
     for (const child of byParent.get(session.id) || []) {
-      renderSession(child, depth + 1, groupWorkspace);
+      renderSession(child, depth + 1, groupWorkspace, container);
     }
   };
+  // 置顶：单个对话与项目都可独立置顶；顺序按置顶操作记录，不随最近使用时间变化。
+  const pinnedProjectPaths = owoReadPinnedProjects();
+  const pinnedProjectKeys = new Set(pinnedProjectPaths.map((path) => workspacePathKey(path)));
+  const hiddenProjectKeys = new Set(owoReadHiddenProjects().map((path) => workspacePathKey(path)));
+  const currentWorkspaceKey = workspacePathKey($("workspace").value.trim());
+  const pinnedSessionOrder = owoReadPinnedSessionOrder();
+  const pinnedRank = (session) => {
+    const index = pinnedSessionOrder.indexOf(session.id);
+    return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+  };
+  const pinnedRoots = visible
+    .filter((session) => isRoot(session) && session.pinned)
+    .sort((a, b) => (pinnedRank(a) - pinnedRank(b)) ||
+      String(a.created_at || "").localeCompare(String(b.created_at || "")));
+
   // Codex 风格：一级按项目（工作区）分桶，fork 父子树留在组内。
   // 会话记录本就带 workspace 字段，之前只在列表里裸铺，多项目下无法分辨。
+  let projectSectionAdded = false;
   const groups = new Map();
-  for (const workspace of [$("workspace").value.trim(), ...recentWorkspaces()]) {
+  for (const workspace of [$("workspace").value.trim(), ...recentWorkspaces(), ...pinnedProjectPaths]) {
     const key = workspacePathKey(workspace);
     if (workspace && !groups.has(key)) {
       groups.set(key, { workspace, roots: [], preseeded: true });
@@ -646,18 +867,39 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
     if (session.mode !== "chat") group.chatOnly = false;
     group.roots.push(session);
   }
-  for (const group of groups.values()) {
+  const groupList = [...groups.values()].filter((group) => {
+    const key = workspacePathKey(group.workspace);
+    if (!hiddenProjectKeys.has(key)) return true;
+    // 当前工作区始终可见：重新选择被移除的项目即可恢复，不会被本地隐藏状态困住。
+    return key === currentWorkspaceKey;
+  });
+  const pinnedGroups = groupList
+    .filter((group) => pinnedProjectKeys.has(workspacePathKey(group.workspace)))
+    .sort((a, b) => {
+      const indexOf = (group) => pinnedProjectPaths.findIndex(
+        (path) => workspacePathKey(path) === workspacePathKey(group.workspace)
+      );
+      const ia = indexOf(a), ib = indexOf(b);
+      return (ia < 0 ? Number.MAX_SAFE_INTEGER : ia) - (ib < 0 ? Number.MAX_SAFE_INTEGER : ib);
+    });
+
+  const renderProjectGroup = (group, container, options = {}) => {
     // 服务端为"未选工作区的纯对话"分配 <data_root>/chat；这种分组没有用户项目名，
     // 用「纯对话」作为组名，避免侧栏出现一个叫 chat 的陌生项目。
     const chatGroup = !group.preseeded && group.chatOnly === true &&
       /(^|[\\/])chat$/.test(group.workspace);
-    const groupLabel = chatGroup ? "对话" : workspaceLabel(group.workspace);
+    const groupLabel = chatGroup ? "对话" : (owoProjectAlias(group.workspace) || workspaceLabel(group.workspace));
+    const projectPinned = pinnedProjectKeys.has(workspacePathKey(group.workspace));
     // 项目分组可折叠：组头点击折叠/展开，展开状态按「工作区名」记忆在 localStorage，
     // 刷新后保持。多项目并行时默认全部展开（同屏可见），用户可自行收起。
     const groupId = "grp:" + workspacePathKey(group.workspace);
     const header = document.createElement("li");
     header.className = "codex-session-group";
     header.dataset.groupWorkspace = group.workspace || "";
+    if (options.pinnedArea) {
+      header.dataset.pinDrag = "project";
+      header.draggable = true;
+    }
     const collapsed = collapsedGroups.has(group.workspace || "");
     header.setAttribute("role", "button");
     header.setAttribute("tabindex", "0");
@@ -677,25 +919,38 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
     count.textContent = String(group.roots.length);
     header.append(caret, label, count);
     if (group.workspace && !chatGroup) {
-      const add = document.createElement("button");
-      add.type = "button";
-      add.className = "codex-project-new";
-      add.setAttribute("aria-label", "在 " + workspaceLabel(group.workspace) + " 新建对话");
-      add.title = "在此工作区新建对话";
-      add.textContent = "+";
-      add.addEventListener("click", async (event) => {
+      const pin = document.createElement("button");
+      pin.type = "button";
+      pin.className = "codex-project-pin" + (projectPinned ? " is-pinned" : "");
+      pin.setAttribute("aria-label", (projectPinned ? "取消置顶项目：" : "置顶项目：") + groupLabel);
+      pin.title = projectPinned ? "取消置顶项目" : "置顶项目";
+      pin.innerHTML = owoPinIcon();
+      pin.addEventListener("click", async (event) => {
         event.stopPropagation();
-        add.disabled = true;
-        try { await newSession(group.workspace); }
-        catch (error) { showToast(friendlyError(error), "error"); }
-        finally { add.disabled = false; }
+        owoSetProjectPinned(group.workspace, !projectPinned);
+        await refreshSessions(state.sessionId);
       });
-      add.addEventListener("keydown", event => event.stopPropagation());
-      header.appendChild(add);
+      pin.addEventListener("keydown", (event) => event.stopPropagation());
+      header.appendChild(pin);
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "codex-project-more";
+      more.setAttribute("aria-label", groupLabel + " 项目操作");
+      more.setAttribute("aria-haspopup", "menu");
+      more.title = "项目操作";
+      more.innerHTML = owoEllipsisIcon();
+      more.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openProjectActionsMenu(more, group, groupLabel, projectPinned);
+      });
+      more.addEventListener("keydown", (event) => event.stopPropagation());
+      header.appendChild(more);
     }
 
-    const children = [];
-    for (const session of group.roots) children.push(session);
+    // 置顶只是快捷入口：项目区保留全部任务；置顶项目展开时跳过已在顶部单独置顶的对话，避免同一区重复。
+    const children = options.pinnedArea
+      ? group.roots.filter((session) => !session.pinned)
+      : group.roots;
 
     const toggle = () => {
       const nowCollapsed = !collapsedGroups.has(group.workspace || "");
@@ -708,6 +963,8 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
       // 只重渲染列表，保留当前会话与滚动位置。
       refreshSessions(state.sessionId);
     };
+    // 项目分组可折叠：组头点击折叠/展开，展开状态按「工作区名」记忆在 localStorage，
+    // 刷新后保持。多项目并行时默认全部展开（同屏可见），用户可自行收起。
     header.addEventListener("click", toggle);
     header.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -716,8 +973,16 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
         toggle();
       }
     });
-    list.appendChild(header);
-    for (const session of children) renderSession(session, 0, group.workspace);
+    container.appendChild(header);
+    for (const session of children) renderSession(session, 0, group.workspace, container);
+    if (!children.length && !collapsed && container === list) {
+      const empty = document.createElement("li");
+      empty.className = "codex-project-empty";
+      empty.dataset.groupWorkspace = group.workspace || "";
+      empty.textContent = "暂无聊天";
+      empty.setAttribute("aria-hidden", "true");
+      container.appendChild(empty);
+    }
     if (collapsed) {
       // 折叠：隐藏本组标题之后、下一个组标题之前的全部条目（含 fork 子树）。
       let node = header.nextElementSibling;
@@ -727,11 +992,72 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
         node = next;
       }
     }
+  };
+
+  // 置顶区固定在项目区之前：先列单独置顶的对话，再列置顶项目及其会话。
+  if (pinnedRoots.length || pinnedGroups.length) {
+    const area = document.createElement("li");
+    area.className = "codex-pinned-area";
+    const header = document.createElement("div");
+    header.className = "codex-session-group codex-pinned-header";
+    header.setAttribute("role", "button");
+    header.setAttribute("tabindex", "0");
+    const collapsed = localStorage.getItem("owo.pinnedCollapsed") === "1";
+    header.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    header.title = "置顶内容" + (collapsed ? "（点击展开）" : "（点击折叠）");
+    const pinnedCaret = document.createElement("span");
+    pinnedCaret.className = "codex-group-caret" + (collapsed ? " collapsed" : "");
+    pinnedCaret.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.className = "codex-group-label";
+    label.textContent = "置顶";
+    const count = document.createElement("span");
+    count.className = "codex-group-count";
+    count.textContent = String(pinnedRoots.length + pinnedGroups.length);
+    header.append(pinnedCaret, label, count);
+    const pinnedList = document.createElement("ul");
+    pinnedList.className = "codex-pinned-list";
+    pinnedList.hidden = collapsed;
+    area.append(header, pinnedList);
+    list.appendChild(area);
+    for (const session of pinnedRoots) {
+      renderSession(session, 0, session.workspace || "", pinnedList, true);
+    }
+    for (const group of pinnedGroups) renderProjectGroup(group, pinnedList, { pinnedArea: true });
+    owoBindPinnedDrag(pinnedList);
+    const togglePinned = () => {
+      const nextCollapsed = !pinnedList.hidden;
+      pinnedList.hidden = nextCollapsed;
+      header.setAttribute("aria-expanded", String(!nextCollapsed));
+      header.title = "置顶内容" + (nextCollapsed ? "（点击展开）" : "（点击折叠）");
+      pinnedCaret.classList.toggle("collapsed", nextCollapsed);
+      try { localStorage.setItem("owo.pinnedCollapsed", nextCollapsed ? "1" : "0"); } catch (_) {}
+    };
+    header.addEventListener("click", togglePinned);
+    header.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      event.stopPropagation();
+      togglePinned();
+    });
+  }
+
+  // 项目区：置顶项目也保留在这里，置顶区只是额外的快捷入口。
+  for (const group of groupList) {
+    // ChatGPT 式分区标签：置顶与项目之间有一道明确的分界，避免两种分组混在一起。
+    if (!projectSectionAdded) {
+      projectSectionAdded = true;
+      const sectionLabel = document.createElement("li");
+      sectionLabel.className = "codex-section-label";
+      sectionLabel.textContent = "项目";
+      sectionLabel.setAttribute("aria-hidden", "true");
+      list.appendChild(sectionLabel);
+    }
+    renderProjectGroup(group, list);
   }
   if (!list.children.length) list.innerHTML = '<li class="sub">暂无会话</li>';
   filterSessionList();
 }
-
 /// 工作区显示名：取路径最后一段（Windows 反斜杠与 POSIX 斜杠都支持）。
 function workspaceLabel(workspace) {
   const raw = String(workspace || "").trim().replace(/[\\/]+$/, "");
@@ -788,10 +1114,31 @@ function filterSessionList() {
   const items = [...$("sessionList").querySelectorAll("li")];
   for (const li of items) {
     if (li.classList.contains("codex-session-group")) continue;
+    if (li.classList.contains("codex-pinned-area")) continue;
+    // 分区标签不是会话行，不参与搜索过滤。
+    if (li.classList.contains("codex-section-label")) continue;
+    // 空项目提示：只在无搜索时显示，搜索时视为未命中。
+    if (li.classList.contains("codex-project-empty")) {
+      li.classList.toggle("hidden", Boolean(query) || collapsedGroups.has(li.dataset.groupWorkspace || ""));
+      continue;
+    }
     // 搜索期间：命中的显示，未命中的隐藏（忽略折叠标记）。
-    // 非搜索期间：不动 hidden，折叠态由 refreshSessions 负责。
+    // 非搜索期间：不动 hidden，折叠态由 refreshSessions 负责；置顶区内的会话
+    // 不受所属项目折叠影响，始终跟随置顶区自己的展开/收起。
+    const inPinned = typeof li.closest === "function" && Boolean(li.closest(".codex-pinned-area"));
     if (query) li.classList.toggle("hidden", !li.textContent.toLowerCase().includes(query));
-    else li.classList.toggle("hidden", collapsedGroups.has(li.dataset.groupWorkspace || ""));
+    else if (!inPinned) li.classList.toggle("hidden", collapsedGroups.has(li.dataset.groupWorkspace || ""));
+  }
+  // 搜索时如果置顶区没有任何命中项，连标题一起隐藏，避免留下空块。
+  for (const area of $("sessionList").querySelectorAll(".codex-pinned-area")) {
+    if (!area || !area.classList || typeof area.classList.remove !== "function") continue;
+    if (!query) {
+      area.classList.remove("hidden");
+      continue;
+    }
+    const anyVisible = [...area.querySelectorAll(".codex-pinned-list > li")]
+      .some((li) => !li.classList.contains("hidden"));
+    area.classList.toggle("hidden", !anyVisible);
   }
   // 组标题：搜索后没有可见子项的组一并隐藏，不留空标题。
   for (const li of items) {
@@ -1468,6 +1815,10 @@ async function restoreLastSession() {
     const sessions = (await api("/sessions")) || [];
     const workspaceInput = $("workspace");
     const currentWorkspace = String(workspaceInput?.value || "").trim();
+    // 没有显式工作区时保持空状态，不从历史会话里“猜”一个工作区（尤其不能
+    // 因为最近会话在 D:\牛来 就默认把新任务落到那里）。用户点侧栏会话才是
+    // 明确选择；启动/刷新不替用户做这个决定。
+    if (!currentWorkspace) return;
     const currentKey = workspacePathKey(currentWorkspace);
     const inCurrentWorkspace = (session) =>
       !currentKey || workspacePathKey(session.workspace) === currentKey;
@@ -1516,7 +1867,8 @@ async function sendPrompt() {
   // 对话不需要项目目录；Work 模式仍需先选工作区，避免把任务落到意外目录。
   const chatMode = typeof currentSessionMode === "function" && currentSessionMode() === "chat";
   if (!state.sessionId && !$("workspace").value.trim() && !chatMode) {
-    openWorkspaceMenu($("composerProjectBtn"));
+    showToast("请先在顶部文件夹入口选择项目工作区", "info");
+    openWorkspaceMenu($("trayProjectBtn"));
     return;
   }
   const sourceSessionId = state.sessionId, sourceSelection = state.selectionVersion;
@@ -1901,7 +2253,8 @@ async function uploadAttachments(files) {
   }
   const chatMode = typeof currentSessionMode === "function" && currentSessionMode() === "chat";
   if (!state.sessionId && !$("workspace").value.trim() && !chatMode) {
-    openWorkspaceMenu($("composerProjectBtn"));
+    showToast("请先在顶部文件夹入口选择项目工作区", "info");
+    openWorkspaceMenu($("trayProjectBtn"));
     return;
   }
   let created;
@@ -3305,17 +3658,17 @@ const PANEL_ORDER = [
   "command",
   "fleet",
   "capabilities",
+  "agent-tasks",
   "permissions",
   "action-center",
   "project-history",
   "project-launcher",
   "owobot",
-  "workswarm",
   "about",
 ];
 
 // 左侧「工作台」入口覆盖的功能页：它们共用同一个一级入口，内部再用页面导航切换。
-// 团队协作与三个自动化页面是一级入口，不在此集合内。
+// OwOBot 与自动化页面是一级入口，不在工作台内部重复挂载。
 const WORKBENCH_HUB_PANELS = new Set([
   "home",
   "project-launcher",
@@ -3333,6 +3686,7 @@ const WORKBENCH_HUB_PANELS = new Set([
   "diagnostics-ledger",
   "fleet",
   "capabilities",
+  "agent-tasks",
   "eval",
   "product-eval",
 ]);
@@ -3417,7 +3771,7 @@ function unmountActivePanel() {
 }
 
 /// 主侧栏的工作入口跟随当前功能页高亮（功能页内主侧栏常驻，用户始终知道自己在哪）。
-/// 工作台内部的页面统一点亮「工作台」；团队协作与自动化各自点亮对应的一级入口。
+/// 工作台内部的页面统一点亮「工作台」；OwOBot 与自动化各自点亮对应的一级入口。
 function markSidebarPanel(id) {
   for (const button of document.querySelectorAll("#sidebar .codex-rail [data-workbench-panel], #sidebar .codex-sidebar [data-workbench-panel]")) {
     const panelId = button.dataset.workbenchPanel;
@@ -3721,7 +4075,7 @@ function panelFromHash() {
 // 深链打开：确保工具视图可见，再把对应面板挂上。
 function openPanelById(id) {
   if (!id || !window.OwoPanels || !window.OwoPanels[id]) return false;
-  // 输入区弹出菜单换页后不会自己关闭，会压在新面板上（截图里"选择模型"浮在团队协作上方）。
+  // 输入区弹出菜单换页后不会自己关闭，会压在新面板上（截图里"选择模型"浮在OwOBot 上方）。
   if (typeof closeComposerMenu === "function") closeComposerMenu();
   // showTools also leaves settings without creating an intermediate chat route.
   // Clear the sidebar group filter so the shared extension panel stays visible.

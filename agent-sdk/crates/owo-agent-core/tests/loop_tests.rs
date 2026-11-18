@@ -180,6 +180,22 @@ impl ModelProvider for ScriptedProvider {
     }
 }
 
+fn file_plan(path: &str, quote: &str) -> ModelOutput {
+    call(
+        "file-plan",
+        "verification_plan",
+        json!({"plan": {
+            "plan_id": "file-fixture", "requirements": [{
+                "requirement_id": "file-exists", "covers_requirement_ids": [format!("user-request:{quote}")],
+                "validator_id": "workspace-file-exists-v1", "validator_version": "1",
+                "scope": {"kind":"workspace_paths", "relative_paths":[path]},
+                "arguments": {}, "required": true,
+                "resources": {"cpu_slots":1,"memory_mb":16,"exclusive_workspace":false,"timeout_ms":10000}
+            }]
+        }}),
+    )
+}
+
 fn call(id: &str, name: &str, args: serde_json::Value) -> ModelOutput {
     ModelOutput::ToolCalls(vec![ToolCall {
         id: id.to_string(),
@@ -321,6 +337,7 @@ async fn read_write_finish_closed_loop() {
     let workspace = temp_workspace("closed-loop");
     std::fs::write(workspace.join("a.txt"), "hello\n").unwrap();
     let provider = ScriptedProvider::new(vec![
+        file_plan("b.txt", "write b.txt"),
         call("c1", "read_file", json!({ "path": "a.txt" })),
         call(
             "c2",
@@ -340,7 +357,7 @@ async fn read_write_finish_closed_loop() {
         .unwrap();
 
     assert_eq!(outcome.final_text.as_deref(), Some("done"));
-    assert_eq!(outcome.steps, 2);
+    assert_eq!(outcome.steps, 3);
     assert_eq!(
         std::fs::read_to_string(workspace.join("b.txt")).unwrap(),
         "world\n"
@@ -444,6 +461,7 @@ async fn auto_review_denies_ask_without_prompting_user() {
 async fn auto_review_allow_passes_and_unknown_falls_back_to_approver() {
     let workspace = temp_workspace("auto-review-allow");
     let allow_provider = ScriptedProvider::new(vec![
+        file_plan("ok.txt", "write ok.txt"),
         call(
             "c1",
             "write_file",
@@ -467,6 +485,7 @@ async fn auto_review_allow_passes_and_unknown_falls_back_to_approver() {
     // Unknown → 回退人工审批（这里 AutoApprover 放行）。
     let workspace2 = temp_workspace("auto-review-unknown");
     let unknown_provider = ScriptedProvider::new(vec![
+        file_plan("fallback.txt", "write fallback.txt"),
         call(
             "c1",
             "write_file",
@@ -619,6 +638,7 @@ async fn revert_restores_original_content() {
     let workspace = temp_workspace("revert");
     std::fs::write(workspace.join("a.txt"), "original\n").unwrap();
     let provider = ScriptedProvider::new(vec![
+        file_plan("a.txt", "change a.txt"),
         call(
             "c1",
             "write_file",
@@ -654,6 +674,7 @@ async fn revert_restores_original_content() {
 async fn revert_removes_created_file() {
     let workspace = temp_workspace("revert-created");
     let provider = ScriptedProvider::new(vec![
+        file_plan("new.txt", "create new.txt"),
         call(
             "c1",
             "write_file",

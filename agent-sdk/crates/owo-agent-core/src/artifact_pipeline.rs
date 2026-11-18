@@ -177,9 +177,16 @@ fn validate_json(trimmed: &str) -> Result<(), String> {
     if trimmed.starts_with("```") {
         return Err("JSON 产物不得裹 Markdown 代码围栏（直接输出 JSON 本体）".to_string());
     }
-    serde_json::from_str::<serde_json::Value>(trimmed)
-        .map(|_| ())
-        .map_err(|e| format!("JSON 产物无法解析：{e}"))
+    match serde_json::from_str::<serde_json::Value>(trimmed) {
+        Ok(_) => Ok(()),
+        Err(strict) => match crate::workswarm_output::parse_first_json_value(trimmed) {
+            // 模型常在 JSON 本体后追加一段说明（serde 报 "trailing characters"）。
+            // 登记门只要求开头是一个可解析的 JSON 值；产物是否满足任务要求仍由
+            // 任务检查器判定，这里不替它放行内容。
+            Ok(_) => Ok(()),
+            Err(_) => Err(format!("JSON 产物无法解析：{strict}")),
+        },
+    }
 }
 
 /// CSV：非空；首行为表头，其后每个非空行列数与表头一致（引号内逗号不计列）。
@@ -313,6 +320,19 @@ mod tests {
         // 拒绝：不可解析。
         let broken = validate_artifact_content("json", "{not json", &[]);
         assert!(!broken.valid, "坏 JSON 应被拒");
+
+        // 接受：JSON 本体后追加说明文字（serde 报 "trailing characters"）。
+        // 登记门不替检查器判定内容，但也不该因一句补充说明整步失败。
+        let trailing = validate_artifact_content(
+            "json",
+            "{\"result\": 42}\n\n补充说明：以上为抽取结果。",
+            &[],
+        );
+        assert!(
+            trailing.valid,
+            "JSON 后有说明文字应可登记：{:?}",
+            trailing.reason
+        );
 
         // 拒绝：空内容。
         assert!(!validate_artifact_content("json", "  \n", &[]).valid);

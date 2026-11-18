@@ -546,6 +546,115 @@ impl UiActionSource for WindowsUiaSource {
 
 #[cfg(target_os = "windows")]
 impl WindowsUiaSource {
+    /// Set a uniquely bound, writable UIA edit in the approved foreground window.
+    ///
+    /// The approved HWND/PID/name/AutomationId identity comes from the runner's
+    /// UIA observation. The native setter re-resolves exactly one candidate in
+    /// that window's own UIA tree, verifies that it is an enabled, visible,
+    /// non-password, writable Edit with a nonzero bounding box, and only then
+    /// calls `ValuePattern::SetValue`. The exact CurrentValue read-back and
+    /// foreground/process checks are mandatory; any drift refuses the write.
+    pub fn set_named_edit_value(
+        identity: &owo_agent_kernel::task_surface::UiaEditIdentity,
+        value: &str,
+    ) -> Result<String, String> {
+        use windows::core::BSTR;
+        use windows::Win32::UI::Accessibility::{
+            IUIAutomationElement, IUIAutomationValuePattern, TreeScope_Descendants,
+            UIA_EditControlTypeId, UIA_ValuePatternId,
+        };
+        use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
+
+        if identity.name.trim().is_empty()
+            || identity.automation_id.trim().is_empty()
+            || identity.pid == 0
+            || value.contains('\0')
+        {
+            return Err("UIA 控件身份或输入值无效".into());
+        }
+        let source = Self::new()?;
+        let approved_hwnd = identity.hwnd;
+        let operation = || -> windows::core::Result<Option<String>> {
+            unsafe {
+                if GetForegroundWindow().0 as i64 != approved_hwnd {
+                    return Ok(None);
+                }
+                let approved_root =
+                    source
+                        .automation
+                        .ElementFromHandle(windows::Win32::Foundation::HWND(
+                            approved_hwnd as *mut core::ffi::c_void,
+                        ))?;
+                if approved_root.CurrentProcessId()? as u32 != identity.pid {
+                    return Ok(None);
+                }
+                let condition = source.automation.CreateTrueCondition()?;
+                let descendants = approved_root.FindAll(TreeScope_Descendants, &condition)?;
+                let mut matches: Vec<IUIAutomationElement> = Vec::new();
+                for index in 0..descendants.Length()? {
+                    let candidate = descendants.GetElement(index)?;
+                    if candidate.CurrentProcessId()? as u32 != identity.pid
+                        || candidate.CurrentControlType()? != UIA_EditControlTypeId
+                        || candidate.CurrentName()?.to_string().trim() != identity.name.trim()
+                        || candidate.CurrentAutomationId()?.to_string() != identity.automation_id
+                        || candidate.CurrentNativeWindowHandle()?.0 as i64
+                            != identity.native_window_handle
+                        || candidate.CurrentIsPassword()?.as_bool()
+                        || !candidate.CurrentIsEnabled()?.as_bool()
+                        || candidate.CurrentIsOffscreen()?.as_bool()
+                    {
+                        continue;
+                    }
+                    let bounds = candidate.CurrentBoundingRectangle()?;
+                    if bounds.right <= bounds.left || bounds.bottom <= bounds.top {
+                        continue;
+                    }
+                    matches.push(candidate);
+                }
+                if matches.len() != 1 {
+                    return Ok(None);
+                }
+                let focused = matches.remove(0);
+                // Bind the control to the approved HWND's own UIA tree, not a
+                // process-wide root; modern common dialogs can be child-hosted.
+                let walker = source.automation.ControlViewWalker()?;
+                let mut parent = focused.clone();
+                let mut belongs_to_approved_window = false;
+                for _ in 0..16 {
+                    if source
+                        .automation
+                        .CompareElements(&parent, &approved_root)?
+                        .as_bool()
+                    {
+                        belongs_to_approved_window = true;
+                        break;
+                    }
+                    parent = walker.GetParentElement(&parent)?;
+                }
+                if !belongs_to_approved_window {
+                    return Ok(None);
+                }
+                let pattern =
+                    focused.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId)?;
+                if pattern.CurrentIsReadOnly()?.as_bool()
+                    || GetForegroundWindow().0 as i64 != approved_hwnd
+                {
+                    return Ok(None);
+                }
+                pattern.SetValue(&BSTR::from(value))?;
+                let readback = pattern.CurrentValue()?.to_string();
+                Ok((readback == value
+                    && GetForegroundWindow().0 as i64 == approved_hwnd
+                    && focused.CurrentProcessId()? as u32 == identity.pid)
+                    .then_some(readback))
+            }
+        };
+        match operation() {
+            Ok(Some(readback)) => Ok(readback),
+            _ => Err("无法安全设置并读回指定 UIA 编辑框的完整值".into()),
+        }
+    }
+
     /// 读取前台窗口内第一个可编辑控件的当前值（ValuePattern），用于“输入后回读验证”。
     fn focused_edit_value(&self) -> Result<String, String> {
         self.find_value_edit(&self.root, 0)
@@ -674,9 +783,9 @@ unsafe fn click_element(
 #[cfg(target_os = "windows")]
 fn root_window_at_point(x: i32, y: i32) -> Option<windows::Win32::Foundation::HWND> {
     use windows::Win32::Foundation::POINT;
-    use windows::Win32::UI::WindowsAndMessaging::{GetAncestor, WindowFromPoint, GA_ROOT};
+    use windows::Win32::UI::WindowsAndMessaging::{GetAncestor, WindowFromPhysicalPoint, GA_ROOT};
     unsafe {
-        let hwnd = WindowFromPoint(POINT { x, y });
+        let hwnd = WindowFromPhysicalPoint(POINT { x, y });
         if hwnd.0.is_null() {
             return None;
         }
@@ -749,15 +858,20 @@ pub fn send_unicode(text: &str) -> Result<(), String> {
 /// 跨 crate 后 `pub(crate)` 不可达（与 M8/M12/M14 同型的可见性收缩）。
 pub fn send_shortcut(combo: &str) -> Result<(), String> {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY,
+        KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_END, VK_HOME,
     };
     let (modifiers, key) = parse_shortcut(combo)?;
     let mut inputs = Vec::new();
     for vk in &modifiers {
         inputs.push(key_input(VIRTUAL_KEY(*vk), KEYBD_EVENT_FLAGS(0)));
     }
-    inputs.push(key_input(VIRTUAL_KEY(key), KEYBD_EVENT_FLAGS(0)));
-    inputs.push(key_input(VIRTUAL_KEY(key), KEYEVENTF_KEYUP));
+    let key_flags = if key == VK_END.0 || key == VK_HOME.0 {
+        KEYEVENTF_EXTENDEDKEY
+    } else {
+        KEYBD_EVENT_FLAGS(0)
+    };
+    inputs.push(key_input(VIRTUAL_KEY(key), key_flags));
+    inputs.push(key_input(VIRTUAL_KEY(key), key_flags | KEYEVENTF_KEYUP));
     for vk in modifiers.iter().rev() {
         inputs.push(key_input(VIRTUAL_KEY(*vk), KEYEVENTF_KEYUP));
     }
@@ -828,8 +942,8 @@ pub fn click_at_screen(x: i32, y: i32) -> Result<(), String> {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEINPUT,
     };
-    use windows::Win32::UI::WindowsAndMessaging::SetCursorPos;
-    unsafe { SetCursorPos(x, y) }.map_err(|error| format!("SetCursorPos 失败：{error}"))?;
+    use windows::Win32::UI::WindowsAndMessaging::SetPhysicalCursorPos;
+    require_foreground_point(x, y)?;
     let mouse = |flags| INPUT {
         r#type: INPUT_MOUSE,
         Anonymous: INPUT_0 {
@@ -843,7 +957,16 @@ pub fn click_at_screen(x: i32, y: i32) -> Result<(), String> {
             },
         },
     };
-    let inputs = [mouse(MOUSEEVENTF_LEFTDOWN), mouse(MOUSEEVENTF_LEFTUP)];
+    let mut inputs = Vec::with_capacity(3);
+    if let Some(movement) = physical_primary_move(x, y) {
+        inputs.push(movement);
+    } else {
+        // Preserve the existing path for points on other displays.
+        unsafe { SetPhysicalCursorPos(x, y) }
+            .map_err(|error| format!("SetPhysicalCursorPos 失败：{error}"))?;
+    }
+    inputs.push(mouse(MOUSEEVENTF_LEFTDOWN));
+    inputs.push(mouse(MOUSEEVENTF_LEFTUP));
     if send_inputs_retry(&inputs) {
         Ok(())
     } else {
@@ -859,8 +982,8 @@ pub fn scroll_at_screen(x: i32, y: i32, delta: i32) -> Result<(), String> {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_WHEEL, MOUSEINPUT,
     };
-    use windows::Win32::UI::WindowsAndMessaging::SetCursorPos;
-    unsafe { SetCursorPos(x, y) }.map_err(|error| format!("SetCursorPos 失败：{error}"))?;
+    use windows::Win32::UI::WindowsAndMessaging::SetPhysicalCursorPos;
+    require_foreground_point(x, y)?;
     let input = INPUT {
         r#type: INPUT_MOUSE,
         Anonymous: INPUT_0 {
@@ -874,11 +997,66 @@ pub fn scroll_at_screen(x: i32, y: i32, delta: i32) -> Result<(), String> {
             },
         },
     };
-    if send_inputs_retry(&[input]) {
+    let mut inputs = Vec::with_capacity(2);
+    if let Some(movement) = physical_primary_move(x, y) {
+        inputs.push(movement);
+    } else {
+        unsafe { SetPhysicalCursorPos(x, y) }
+            .map_err(|error| format!("SetPhysicalCursorPos 失败：{error}"))?;
+    }
+    inputs.push(input);
+    if send_inputs_retry(&inputs) {
         Ok(())
     } else {
         Err("SendInput 滚轮注入失败".to_string())
     }
+}
+
+#[cfg(target_os = "windows")]
+fn require_foreground_point(x: i32, y: i32) -> Result<(), String> {
+    let foreground =
+        foreground_root_window().ok_or_else(|| "无法读取前台窗口，拒绝鼠标输入".to_string())?;
+    if root_window_at_point(x, y) != Some(foreground) {
+        return Err("输入点不属于当前前台窗口，拒绝跨窗口输入；请先激活目标窗口".to_string());
+    }
+    Ok(())
+}
+
+// Select the middle of a physical pixel's normalized interval to avoid rounding
+// into the previous pixel. Absolute input without VIRTUALDESK maps to the primary.
+#[cfg(target_os = "windows")]
+fn normalize_primary_point(x: i32, y: i32, width: i32, height: i32) -> Option<(i32, i32)> {
+    if width <= 0 || height <= 0 || x < 0 || y < 0 || x >= width || y >= height {
+        return None;
+    }
+    let normalize =
+        |point, size| (((2 * i64::from(point) + 1) * 65_536) / (2 * i64::from(size))) as i32;
+    Some((normalize(x, width), normalize(y, height)))
+}
+
+#[cfg(target_os = "windows")]
+fn physical_primary_move(
+    x: i32,
+    y: i32,
+) -> Option<windows::Win32::UI::Input::KeyboardAndMouse::INPUT> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_MOVE, MOUSEINPUT,
+    };
+    let (width, height) = owo_agent_kernel::platform::physical_screen_size()?;
+    let (dx, dy) = normalize_primary_point(x, y, width, height)?;
+    Some(INPUT {
+        r#type: INPUT_MOUSE,
+        Anonymous: INPUT_0 {
+            mi: MOUSEINPUT {
+                dx,
+                dy,
+                mouseData: 0,
+                dwFlags: MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
+                time: 0,
+                dwExtraInfo: 0,
+            },
+        },
+    })
 }
 
 /// SendInput 偶发失败重试（真实桌面实测出现过瞬时报错）。
@@ -981,25 +1159,28 @@ fn parse_shortcut(combo: &str) -> Result<(Vec<u16>, u16), String> {
             "space" => key = Some(0x20),
             "backspace" => key = Some(0x08),
             "delete" | "del" => key = Some(0x2E),
+            "end" => key = Some(0x23),
+            "home" => key = Some(0x24),
             "up" => key = Some(0x26),
             "down" => key = Some(0x28),
             "left" => key = Some(0x25),
             "right" => key = Some(0x27),
             _ => {
-                if let Some(letter) = part.chars().next() {
-                    if letter.is_ascii_alphanumeric() {
-                        key = Some(letter.to_ascii_uppercase() as u16);
-                    } else if part.starts_with('f') && part.len() > 1 {
-                        if let Ok(number) = part[1..].parse::<u16>() {
-                            if (1..=24).contains(&number) {
-                                key = Some(0x70 + number - 1);
-                            }
-                        }
-                    }
-                }
-                if key.is_none() {
-                    return Err(format!("无法解析快捷键：{combo}"));
-                }
+                let parsed = if part.starts_with('f') && part.len() > 1 {
+                    part[1..]
+                        .parse::<u16>()
+                        .ok()
+                        .filter(|number| (1..=24).contains(number))
+                        .map(|number| 0x70 + number - 1)
+                } else if part.len() == 1 {
+                    part.chars()
+                        .next()
+                        .filter(char::is_ascii_alphanumeric)
+                        .map(|letter| letter.to_ascii_uppercase() as u16)
+                } else {
+                    None
+                };
+                key = Some(parsed.ok_or_else(|| format!("无法解析快捷键：{combo}"))?);
             }
         }
     }
@@ -1050,6 +1231,46 @@ impl UiActionSource for WindowsUiaSource {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn absolute_mouse_coordinates_land_inside_the_requested_physical_pixel() {
+        for (width, height) in [(2560, 1600), (1920, 1080), (3840, 2160), (1, 1)] {
+            for (x, y) in [(0, 0), (width - 1, height - 1), (width / 2, height / 2)] {
+                let (nx, ny) = normalize_primary_point(x, y, width, height).unwrap();
+                assert!((0..=65535).contains(&nx) && (0..=65535).contains(&ny));
+                assert_eq!(i64::from(nx) * i64::from(width) / 65536, i64::from(x));
+                assert_eq!(i64::from(ny) * i64::from(height) / 65536, i64::from(y));
+            }
+        }
+        for (x, y, width, height) in [
+            (-1, 0, 2560, 1600),
+            (0, -1, 2560, 1600),
+            (2560, 0, 2560, 1600),
+            (0, 1600, 2560, 1600),
+            (0, 0, 0, 1600),
+        ] {
+            assert!(normalize_primary_point(x, y, width, height).is_none());
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn parse_shortcut_preserves_function_keys_and_rejects_unknown_names() {
+        for (name, expected) in [("F1", 0x70), ("F2", 0x71), ("F12", 0x7B), ("F24", 0x87)] {
+            assert_eq!(parse_shortcut(name).unwrap(), (vec![], expected), "{name}");
+        }
+        assert_eq!(parse_shortcut("Ctrl+F2").unwrap(), (vec![0x11], 0x71));
+        assert_eq!(parse_shortcut("f").unwrap(), (vec![], 0x46));
+        assert_eq!(parse_shortcut("Ctrl+c").unwrap(), (vec![0x11], 0x43));
+        assert_eq!(parse_shortcut("End").unwrap(), (vec![], 0x23));
+        assert_eq!(parse_shortcut("Ctrl+Home").unwrap(), (vec![0x11], 0x24));
+        for unknown in ["F0", "F25", "F2junk", "Unknown", "Ctrl+Unknown"] {
+            assert!(
+                parse_shortcut(unknown).is_err(),
+                "{unknown} must not send its first letter"
+            );
+        }
+    }
     use super::*;
     use owo_agent_memory::learn::{ActionGraph, ActionType, SemanticAnchor};
     use owo_agent_perception::element_registry::{ElementRegistry, SceneElement};

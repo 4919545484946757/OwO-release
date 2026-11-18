@@ -169,6 +169,9 @@ fn ws_case(id: &str) -> ProductEvalCase {
         max_model_calls: Some(12),
         repetitions: Some(1),
         allow_commands: Vec::new(),
+        failure_classes: Vec::new(),
+        expected_side_effects: Vec::new(),
+        fault_injection: None,
     }
 }
 

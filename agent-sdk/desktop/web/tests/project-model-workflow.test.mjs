@@ -33,7 +33,8 @@ test("empty workspace is shown consistently instead of a fake local project", ()
   assert.match(index, /id="sidebarWorkspaceName" hidden>未选择项目</);
   assert.match(index, /id="composerProjectName">未选择项目</);
   assert.match(index, /当前工作区 <strong>未选择项目<\/strong>/);
-  assert.match(app, /const currentName = current \?[^;]*: "未选择项目"/);
+  assert.match(app, /composer-project-search[\s\S]*?placeholder="搜索项目"/);
+  assert.match(app, /class="composer-menu-item composer-project-new" data-project-action="create"/);
   // 对话没有项目时显示"对话"，不把聊天误报成"未选择项目"。
   assert.match(app, /const displayName = name \|\| \(chat \? "对话" : "未选择项目"\)/);
 });
@@ -73,7 +74,7 @@ test("model picker supports keyboard traversal across filtered choices", () => {
   const picker = /function openModelMenu\(\) \{[\s\S]*?\n\}/.exec(app);
   assert.ok(helper);
   assert.ok(picker);
-  assert.match(picker[0], /button\.addEventListener\("keydown"/);
+  assert.match(picker[0], /menu\.addEventListener\("keydown"/);
   assert.match(picker[0], /focusComposerModelChoice\(menu, event\.key, event\.target\)/);
   const choices = [
     { hidden: false, disabled: false },
@@ -172,7 +173,7 @@ test("model changes serialize by session and stale session responses cannot upda
 test("stale session refreshes cannot overwrite current selection or panels", () => {
   assert.match(domain, /generation !== sessionListRefreshGeneration/);
   assert.match(domain, /selectionVersion === state\.selectionVersion/);
-  const renderSession = /const renderSession = \(session, depth, groupWorkspace\) => \{([\s\S]*?)\n  \};/.exec(domain)?.[1];
+  const renderSession = /const renderSession = \(session, depth, groupWorkspace[^)]*\) => \{([\s\S]*?)\n  \};/.exec(domain)?.[1];
   assert.ok(renderSession);
   assert.doesNotMatch(renderSession, /state\.sessionId\s*=\s*session\.id/);
   const contextRefresh = /async function refreshSessionContext\(sessionId\) \{([\s\S]*?)\n\}/.exec(domain)?.[1];
@@ -217,7 +218,7 @@ test("project folder failures preserve the completed stage in the user-facing me
 
 test("first-run empty state makes workspace selection explicit and restores the normal welcome after selection", () => {
   assert.match(index, /id="emptyStateWorkspaceBtn"[^>]*hidden/);
-  assert.match(app, /emptyStateWorkspaceBtn.*openWorkspaceMenu\(\$\("composerProjectBtn"\)\)/);
+  assert.match(app, /emptyStateWorkspaceBtn.*openWorkspaceMenu\(\$\("emptyStateWorkspaceBtn"\)\)/);
   assert.match(app, /applyLocalPrefs\(\);\s*syncProjectChip\(\);\s*initGlobalStatusBar\(\)/);
   assert.match(app, /if \(workspaceInput\) workspaceInput\.value = workspaceConfigured \? workspacePath : \"\";/);
   const match = /function syncProjectChip\(\) \{[\s\S]*?\n\}/.exec(app);
@@ -249,8 +250,9 @@ test("first-run empty state makes workspace selection explicit and restores the 
   const sync = runInNewContext(match[0] + "\nsyncProjectChip;", context);
   sync();
   assert.equal(elements.emptyStateTitle.textContent, "先选择一个项目工作区");
-  assert.match(elements.emptyStateDescription.textContent, /新任务需要一个工作目录/);
+  assert.match(elements.emptyStateDescription.textContent, /顶部文件夹入口还没有选择工作区/);
   assert.equal(elements.emptyStateWorkspaceBtn.hidden, false);
+  assert.equal(elements.emptyStateWorkspaceBtn.textContent, "在顶部选择工作区");
   assert.equal(classes.has("needs-workspace"), true);
   elements.workspace.value = "D:\\work\\project";
   sync();
@@ -272,7 +274,7 @@ test("first send without a workspace opens the project picker before the model g
   const modelGate = body.indexOf("if (modelGateMissing())");
   assert.ok(workspaceGate >= 0);
   assert.ok(modelGate > workspaceGate);
-  assert.match(body, /openWorkspaceMenu\(\$\("composerProjectBtn"\)\)/);
+  assert.match(body, /openWorkspaceMenu\(\$\("trayProjectBtn"\)\)/);
   assert.match(body, /if \(!prompt && !state\.attachments\.length\) return;/);
   // 纯对话不需要工作区：同一道门在 chat 下直接放行。
   assert.match(body, /const chatMode = typeof currentSessionMode === "function" && currentSessionMode\(\) === "chat"/);

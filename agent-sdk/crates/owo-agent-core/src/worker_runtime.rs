@@ -168,7 +168,16 @@ impl WorkerRuntime<'_> {
             )
         })?;
         let model_calls = u32::try_from(outcome.model_calls.len()).unwrap_or(u32::MAX);
-        if outcome.reached_model_turn_limit {
+        let turn_budget_exhausted = outcome.reached_model_turn_limit;
+        // 达到回合上限时 Agent 已额外做过一次「收尾总结」请求。只要它产出了可见
+        // 文本，就仍交给输出契约判定（合法即成功），不再一律判成预算耗尽；否则
+        // 模型在最后一轮给出的合规 JSON 会被丢弃，整步失败。
+        let has_final_text = outcome
+            .final_text
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|text| !text.is_empty());
+        if turn_budget_exhausted && !has_final_text {
             return Err(WorkerRuntimeError {
                 message: format!(
                     "worker_turn_budget_exhausted:模型在 {} 轮预算内未自行给出最终答复",
@@ -214,8 +223,18 @@ impl WorkerRuntime<'_> {
                 if let Some(repair_usage) = error.usage {
                     usage.add(&repair_usage);
                 }
+                // 回合已耗尽且收尾文本不合约：保留可定位的预算失败语义，不把
+                // 契约细节当成唯一原因。
+                let message = if turn_budget_exhausted {
+                    format!(
+                        "worker_turn_budget_exhausted:模型在 {} 轮预算内未自行给出最终答复（收尾输出不合约：{}）",
+                        configured_turn_cap, error.message
+                    )
+                } else {
+                    error.message
+                };
                 return Err(WorkerRuntimeError {
-                    message: error.message,
+                    message,
                     duration_ms: started.elapsed().as_millis() as u64,
                     steps: outcome.steps,
                     model_calls: model_calls.saturating_add(error.repairs),
@@ -392,6 +411,33 @@ mod tests {
         }
     }
 
+    /// 第一轮调用工具，随后（含回合上限的收尾请求）返回契约 JSON。
+    struct ToolThenConclusionProvider(AtomicUsize);
+
+    #[async_trait::async_trait]
+    impl ModelProvider for ToolThenConclusionProvider {
+        async fn complete(
+            &self,
+            _messages: &[ChatMessage],
+            _tools: &[ToolSpec],
+        ) -> Result<ModelOutput, String> {
+            if self.0.fetch_add(1, Ordering::SeqCst) == 0 {
+                Ok(ModelOutput::ToolCalls(vec![crate::gateway::ToolCall {
+                    id: "todo-call".to_string(),
+                    name: "todo".to_string(),
+                    arguments: serde_json::json!({
+                        "todos": [{"content": "step", "status": "completed"}]
+                    }),
+                }]))
+            } else {
+                Ok(ModelOutput::Text(
+                    r##"{"status":"done","summary":"完成","artifact":{"kind":"document","format":"markdown","content":"# 终稿"},"evidence":[],"open_issues":[]}"##
+                        .to_string(),
+                ))
+            }
+        }
+    }
+
     struct ToolThenFailedProvider(AtomicUsize);
 
     #[async_trait::async_trait]
@@ -446,6 +492,40 @@ mod tests {
         assert!(error.message.contains("provider unavailable after tool"));
         assert_eq!(error.steps, 1);
         assert_eq!(error.model_calls, 2);
+    }
+
+    #[tokio::test]
+    async fn turn_limit_wrap_up_output_is_accepted_instead_of_budget_failure() {
+        let workspace = tempfile::tempdir().unwrap();
+        let approver = AutoApprover { allow: true };
+        let abort = AtomicBool::new(false);
+        let runtime = WorkerRuntime {
+            provider: Arc::new(ToolThenConclusionProvider(AtomicUsize::new(0))),
+            approver: &approver,
+            abort: &abort,
+            depth: 0,
+            model: "test-model".to_string(),
+            workspace: workspace.path().to_path_buf(),
+            registry: ToolRegistry::new(),
+            policy: Policy::new(workspace.path()),
+            config: AgentConfig {
+                max_turns: 1,
+                ..AgentConfig::default()
+            },
+            system_prompt: None,
+            is_critic: false,
+            event_sink: None,
+            session_store: None,
+            worker_session_id: None,
+            parent_session_id: None,
+        };
+
+        let report = runtime
+            .run_report("finish within the turn budget")
+            .await
+            .expect("收尾总结给出的合法契约 JSON 必须被接受，而不是判成预算耗尽");
+        assert_eq!(report.model_calls, 2, "一轮工作 + 一次收尾请求");
+        assert!(report.output.contains("\"status\":\"done\""));
     }
 
     #[tokio::test]

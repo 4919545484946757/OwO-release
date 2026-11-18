@@ -22,9 +22,13 @@
   async function projectRequest(group, path, body, signal) {
     const url = new URL("/owobot/api" + path, location.origin);
     url.searchParams.set("owoProject", group);
-    const response = await fetch(url, body === undefined
-      ? { signal }
-      : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal });
+    const options = { signal };
+    if (body !== undefined) {
+      options.method = "POST";
+      options.headers = { "content-type": "application/json" };
+      options.body = JSON.stringify(body);
+    }
+    const response = await window.OwoApi.stream(url.pathname + url.search, options);
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "无法完成 OwOBot 操作。");
     return result;

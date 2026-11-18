@@ -64,6 +64,9 @@ pub enum EvalCategory {
     Code,
     Research,
     Document,
+    Desktop,
+    #[serde(rename = "long_horizon")]
+    LongHorizon,
 }
 
 impl EvalCategory {
@@ -72,6 +75,8 @@ impl EvalCategory {
             EvalCategory::Code => "code",
             EvalCategory::Research => "research",
             EvalCategory::Document => "document",
+            EvalCategory::Desktop => "desktop",
+            EvalCategory::LongHorizon => "long_horizon",
         }
     }
 
@@ -80,8 +85,10 @@ impl EvalCategory {
             "code" => Ok(EvalCategory::Code),
             "research" => Ok(EvalCategory::Research),
             "document" => Ok(EvalCategory::Document),
+            "desktop" => Ok(EvalCategory::Desktop),
+            "long_horizon" => Ok(EvalCategory::LongHorizon),
             other => Err(format!(
-                "未知分类「{other}」（可选 code/research/document）"
+                "未知分类「{other}」（可选 code/research/document/desktop/long_horizon）"
             )),
         }
     }
@@ -198,6 +205,30 @@ mod checkers;
 pub use checkers::*;
 use checkers::{evaluate_all, MapSource};
 
+/// 长程任务的故障注入声明（V3 产品基准：restart / interrupt / requirement-change /
+/// transient-error / approval-wait）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FaultInjection {
+    /// 注入类型；静态校验只接受 [`FAULT_INJECTION_KINDS`] 中的五种。
+    pub kind: String,
+    /// 在第几步之后注入（可选，仅在声明时用于执行器定位）。
+    #[serde(default)]
+    pub after_step: Option<u32>,
+    /// 注入说明/预期用户可见行为。
+    #[serde(default)]
+    pub note: String,
+}
+
+/// 允许的故障注入类型。
+pub const FAULT_INJECTION_KINDS: [&str; 5] = [
+    "restart",
+    "interrupt",
+    "requirement-change",
+    "transient-error",
+    "approval-wait",
+];
+
 /// 一个固定产品评测任务（tasks/*.json 的顶层结构）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -236,6 +267,17 @@ pub struct ProductEvalCase {
     /// 空列表 = 本任务禁止执行任何命令（默认 deny）。
     #[serde(default)]
     pub allow_commands: Vec<String>,
+    /// 失败分类标签（如 wrong-output / missing-artifact / permission-denied /
+    /// timeout / unapproved-side-effect）。V3 起要求非空；旧套件缺省为空。
+    #[serde(default)]
+    pub failure_classes: Vec<String>,
+    /// 允许的副作用范围（如 write:out/**、command:python tests/check.py、
+    /// read:sources/**）。V3 起要求非空；旧套件缺省为空。
+    #[serde(default)]
+    pub expected_side_effects: Vec<String>,
+    /// 长程任务的故障注入声明；普通任务可省略。
+    #[serde(default)]
+    pub fault_injection: Option<FaultInjection>,
 }
 
 fn default_schema_version() -> u32 {
@@ -404,6 +446,9 @@ pub struct ProductEvalRun {
     pub started_at: String,
     pub finished_at: String,
     pub error: Option<String>,
+    /// 绑定矩阵单元的外部驱动证据；历史记录缺省为空，正式计分一律拒绝。
+    #[serde(default)]
+    pub external_evidence: Option<serde_json::Value>,
 }
 
 /// 聚合指标。
@@ -428,7 +473,17 @@ pub struct ProductEvalMetrics {
     /// None unless every included run has an exact tool-call count.
     #[serde(default)]
     pub total_tool_calls: Option<u64>,
+    /// 仅在**全部**运行都有 usage 时给出总和；None 表示实际消耗未知（不是 0）。
     pub total_tokens: Option<u64>,
+    /// 已知 usage 的已执行运行数 / 缺失 usage 的运行数（含 fail-closed 的 error 格）。
+    #[serde(default)]
+    pub usage_known_runs: usize,
+    #[serde(default)]
+    pub usage_unknown_runs: usize,
+    /// 已执行格的已知 token 合计：存在缺失 usage 时仍给出**下界**，
+    /// 便于报告区分「没有数据」与「部分缺失」。
+    #[serde(default)]
+    pub known_total_tokens: Option<u64>,
     pub estimated_cost_usd: Option<f64>,
 }
 
@@ -466,6 +521,9 @@ pub struct ProductEvalReport {
     /// 附加标签（CLI --tag 可重复；进报告供溯源）。
     #[serde(default)]
     pub tags: Vec<String>,
+    /// 验证/修复组允许的追加修复次数（0 = 单次执行，旧报告缺省视为 0）。
+    #[serde(default)]
+    pub repair_attempts: u32,
     /// Fingerprint of effective task, permission, checker and budget configuration.
     /// Older reports lack this and cannot be used as paired benefit evidence.
     #[serde(default)]
@@ -508,6 +566,9 @@ struct RunDirMeta {
     evaluator_binary_sha256: Option<String>,
     #[serde(default)]
     provider_endpoint_sha256: Option<String>,
+    /// 外部驱动注册身份；续跑必须一致，但不改变历史 run_contract_sha256。
+    #[serde(default)]
+    external_driver_identity_sha256: Option<String>,
     created_at: String,
 }
 
@@ -554,8 +615,6 @@ fn truncate_for_log(text: &str, max_chars: usize) -> String {
 // ---------------------------------------------------------------------------
 // 路径工具 / 权限范围
 // ---------------------------------------------------------------------------
-
-/// 归一化并校验相对路径：拒绝绝对路径、`..`、空段。
 
 // ---------------------------------------------------------------------------
 // 套件加载 / 校验
@@ -665,6 +724,29 @@ pub fn validate_case(
         issues.push("instruction 为空".to_string());
     }
 
+    // 规格一致性：检查器要求的 Markdown 标题必须能从题目推断——写在 instruction
+    // 里，或原样出现在输入材料中（合并/转写类任务）。无修复组的模型无法猜出未
+    // 声明的标题格式，整类失败会被误读成编码能力问题。
+    let input_text: String = case
+        .inputs
+        .iter()
+        .map(|input| input.content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    for checker in &case.checkers {
+        if let ArtifactChecker::Contains { text, .. } = checker {
+            let heading = text.trim_start();
+            if heading.starts_with('#')
+                && !case.instruction.contains(text.as_str())
+                && !input_text.contains(text.as_str())
+            {
+                issues.push(format!(
+                    "检查器要求的标题「{text}」既不在 instruction 也不在输入材料中"
+                ));
+            }
+        }
+    }
+
     // 产物与写入范围。
     if case.expected_artifacts.is_empty() {
         issues.push("expected_artifacts 为空：至少声明一个预期 Artifact".to_string());
@@ -698,6 +780,17 @@ pub fn validate_case(
         } else if single_agent::command_has_shell_metachars(trimmed) {
             issues.push(format!(
                 "allow_commands 条目「{trimmed}」含链式/重定向元字符（白名单按单命令收口）"
+            ));
+        }
+    }
+
+    // 故障注入：只做轻量静态校验（类型必须属于受支持的五种），不要求旧用例填写。
+    if let Some(fault) = &case.fault_injection {
+        let kind = fault.kind.trim();
+        if !FAULT_INJECTION_KINDS.contains(&kind) {
+            issues.push(format!(
+                "fault_injection.kind「{}」不受支持（可选 restart/interrupt/requirement-change/transient-error/approval-wait）",
+                fault.kind
             ));
         }
     }
@@ -1155,6 +1248,17 @@ fn preserve_artifact_snapshot(
     result.map(Some)
 }
 
+/// The matrix cell and attempt that owns external execution evidence.
+#[derive(Debug, Clone, Copy)]
+pub struct MatrixAttempt<'a> {
+    pub key: &'a MatrixKey,
+    pub execution: &'a str,
+    pub batch_label: Option<&'a str>,
+    /// Zero for the initial execution, increasing for each repair.
+    pub repair_index: u32,
+    pub repair_limit: u32,
+}
+
 /// 执行器可见的单次运行上下文。写入统一走 [`ExecContext::write_file`]，
 /// 强制 allow_write 范围（权限默认 deny），并自动登记 Artifact 引用与失败步骤。
 pub struct ExecContext<'ctx> {
@@ -1168,6 +1272,13 @@ pub struct ExecContext<'ctx> {
     progress: Arc<ExecProgress>,
     artifact_refs: Vec<String>,
     failed_steps: Vec<String>,
+    /// 验证/修复组的检查器失败反馈（第二次及以后的尝试由 Runner 注入）。
+    repair_feedback: Option<String>,
+    matrix_attempt: Option<MatrixAttempt<'ctx>>,
+    /// True only when the runner has an explicitly registered external-driver
+    /// registry. Built-in executors then defer real desktop/fault execution to
+    /// the runner; without a registry they remain default-deny.
+    external_drivers_registered: bool,
 }
 
 impl<'ctx> ExecContext<'ctx> {
@@ -1189,11 +1300,56 @@ impl<'ctx> ExecContext<'ctx> {
             progress: Arc::new(ExecProgress::default()),
             artifact_refs: Vec::new(),
             failed_steps: Vec::new(),
+            repair_feedback: None,
+            matrix_attempt: None,
+            external_drivers_registered: false,
         }
     }
 
-    pub(crate) fn progress(&self) -> Arc<ExecProgress> {
+    pub(crate) fn set_external_drivers_registered(&mut self, registered: bool) {
+        self.external_drivers_registered = registered;
+    }
+
+    /// Whether a registered external driver owns this gated attempt. Only the
+    /// runner may set this; unregistered executors stay default-deny.
+    pub fn external_drivers_registered(&self) -> bool {
+        self.external_drivers_registered
+    }
+
+    /// Write a real driver-produced artifact through the same allow_write gate
+    /// and artifact registry as the built-in Agent tools.
+    pub fn write_driver_artifact(&mut self, rel: &str, content: &str) -> Result<(), String> {
+        self.write_file(rel, content)
+    }
+
+    pub fn matrix_attempt(&self) -> Option<MatrixAttempt<'ctx>> {
+        self.matrix_attempt
+    }
+
+    /// 注入上一轮检查器失败信息；执行器把它追加到用户提示词，形成验证/修复闭环。
+    pub fn set_repair_feedback(&mut self, feedback: impl Into<String>) {
+        self.repair_feedback = Some(feedback.into());
+    }
+
+    /// 当前尝试的修复反馈（首次执行时为 None）。
+    pub fn repair_feedback(&self) -> Option<&str> {
+        self.repair_feedback.as_deref()
+    }
+
+    /// Test-only bridge for a prevalidated checker result; the runner's
+    /// external-evidence gate must still reject gated cases.
+    #[doc(hidden)]
+    pub fn mark_checkers_prevalidated_for_test(&self, passed: u32, total: u32) {
+        self.progress.mark_checkers_prevalidated(passed, total);
+    }
+
+    #[doc(hidden)]
+    pub(crate) fn test_progress(&self) -> Arc<ExecProgress> {
         Arc::clone(&self.progress)
+    }
+
+    pub(crate) fn progress(&self) -> Arc<ExecProgress> {
+        self.test_progress()
     }
 
     pub fn record_failed_step(&mut self, step: impl Into<String>) {
@@ -1265,8 +1421,54 @@ pub struct RawExecOutcome {
     pub retries: u32,
     /// 真实工具调用轨迹（单 Agent 执行器填写；其余执行器为空）。
     pub tool_log: Vec<String>,
+    /// 必须由已注册驱动在本次 MatrixAttempt 内生成；伪造/过期/无绑定一律失败。
+    pub external_evidence: Option<serde_json::Value>,
 }
 
+/// The kind of registered external driver required for a formal matrix case.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExternalDriverKind {
+    RealDesktop,
+    FaultInjection,
+}
+
+impl ExternalDriverKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ExternalDriverKind::RealDesktop => "real_desktop",
+            ExternalDriverKind::FaultInjection => "fault_injection",
+        }
+    }
+
+    pub fn required_error(self) -> &'static str {
+        match self {
+            ExternalDriverKind::RealDesktop => "EVAL_REAL_DESKTOP_DRIVER_REQUIRED",
+            ExternalDriverKind::FaultInjection => "EVAL_FAULT_INJECTION_DRIVER_REQUIRED",
+        }
+    }
+}
+
+/// The built-in model executors only expose sandbox tools. These cases need a
+/// driver that observes real desktop actions or injects a fault at runtime.
+pub(crate) fn external_execution_required(case: &ProductEvalCase) -> Option<&'static str> {
+    crate::external_drivers::required_external_driver(case).map(ExternalDriverKind::required_error)
+}
+
+/// When a real external driver is registered, that process owns the gated
+/// case. The built-in executor returns without consuming model/tool budget; the
+/// runner then invokes the driver and validates its bound evidence. Without
+/// registration the default deny remains absolute.
+pub fn registered_external_driver_outcome(ctx: &ExecContext<'_>) -> Option<RawExecOutcome> {
+    if ctx.external_drivers_registered() && external_execution_required(ctx.case).is_some() {
+        Some(RawExecOutcome {
+            tool_calls: Some(0),
+            ..RawExecOutcome::default()
+        })
+    } else {
+        None
+    }
+}
 /// 用例执行器契约。dry 参考回放 / live 网关生成共用此契约，
 /// 因此单/多 Agent 天然共享同一份任务、输入、权限、预算与检查器。
 #[async_trait]
@@ -1543,6 +1745,25 @@ impl GenerativeExecutor {
 #[async_trait]
 impl CaseExecutor for GenerativeExecutor {
     async fn execute<'ctx>(&self, ctx: &mut ExecContext<'ctx>) -> RawExecOutcome {
+        if ctx.cancelled() {
+            return RawExecOutcome {
+                aborted: true,
+                tool_calls: Some(0),
+                ..RawExecOutcome::default()
+            };
+        }
+        if let Some(outcome) = registered_external_driver_outcome(ctx) {
+            return outcome;
+        }
+        if !ctx.external_drivers_registered() {
+            if let Some(error) = external_execution_required(ctx.case) {
+                return RawExecOutcome {
+                    error: Some(error.to_string()),
+                    tool_calls: Some(0),
+                    ..RawExecOutcome::default()
+                };
+            }
+        }
         let usage_before = self.provider.usage_snapshot();
         let mut state = LiveState {
             model_calls: 0,
@@ -1552,14 +1773,6 @@ impl CaseExecutor for GenerativeExecutor {
             draft: BTreeMap::new(),
         };
         let mut retries = 0u32;
-
-        if ctx.cancelled() {
-            return RawExecOutcome {
-                aborted: true,
-                tool_calls: Some(0),
-                ..RawExecOutcome::default()
-            };
-        }
 
         let pipeline_result: Result<(), String> = async {
             if ctx.mode == AgentMode::Multi {
@@ -1656,6 +1869,7 @@ impl CaseExecutor for GenerativeExecutor {
                 delivery_gate_wall_ms: 0,
                 retries,
                 tool_log: Vec::new(),
+                external_evidence: None,
             },
             Err(error) if error == "__cancelled__" => RawExecOutcome {
                 aborted: true,
@@ -1668,6 +1882,7 @@ impl CaseExecutor for GenerativeExecutor {
                 delivery_gate_wall_ms: 0,
                 retries,
                 tool_log: Vec::new(),
+                external_evidence: None,
             },
             Err(error) => RawExecOutcome {
                 aborted: false,
@@ -1680,6 +1895,7 @@ impl CaseExecutor for GenerativeExecutor {
                 delivery_gate_wall_ms: 0,
                 retries,
                 tool_log: Vec::new(),
+                external_evidence: None,
             },
         }
     }
@@ -1740,6 +1956,18 @@ fn complete_optional_u64_sum(values: impl IntoIterator<Item = Option<u64>>) -> O
     (count > 0).then_some(total)
 }
 
+/// 已知值的合计：允许部分缺失，只累加 Some（溢出时返回 None）。
+fn known_optional_u64_sum(values: impl IntoIterator<Item = Option<u64>>) -> Option<u64> {
+    let mut count = 0usize;
+    let mut total = 0u64;
+    for value in values {
+        let Some(value) = value else { continue };
+        total = total.checked_add(value)?;
+        count += 1;
+    }
+    (count > 0).then_some(total)
+}
+
 fn complete_optional_cost_sum(values: impl IntoIterator<Item = Option<f64>>) -> Option<f64> {
     let mut count = 0usize;
     let mut total = 0.0f64;
@@ -1791,6 +2019,14 @@ pub fn aggregate_metrics(runs: &[ProductEvalRun]) -> ProductEvalMetrics {
     });
     let total_tokens = complete_optional_u64_sum(runs.iter().map(|run| run.total_tokens));
     let estimated_cost_usd = complete_optional_cost_sum(runs.iter().map(|run| run.cost_usd));
+    let usage_known_runs = runs.iter().filter(|run| run.total_tokens.is_some()).count();
+    // 只统计真正发起过模型调用的运行：fail-closed（外部驱动缺失）没有调用过模型，
+    // 不能算成“usage 缺失”。
+    let usage_unknown_runs = runs
+        .iter()
+        .filter(|run| run.model_calls > 0 && run.total_tokens.is_none())
+        .count();
+    let known_total_tokens = known_optional_u64_sum(runs.iter().map(|run| run.total_tokens));
     ProductEvalMetrics {
         runs_total: total,
         passed,
@@ -1826,6 +2062,9 @@ pub fn aggregate_metrics(runs: &[ProductEvalRun]) -> ProductEvalMetrics {
         total_model_calls: model_calls,
         total_tool_calls,
         total_tokens,
+        usage_known_runs,
+        usage_unknown_runs,
+        known_total_tokens,
         estimated_cost_usd,
     }
 }
@@ -2851,6 +3090,7 @@ mod telemetry_completeness_tests {
             started_at: "2026-10-05T00:00:00Z".to_string(),
             finished_at: "2026-10-05T00:00:01Z".to_string(),
             error: None,
+            external_evidence: None,
         }
     }
 
@@ -2867,6 +3107,9 @@ mod telemetry_completeness_tests {
         let aggregate = aggregate_metrics(&runs);
         assert_eq!(aggregate.total_tokens, None);
         assert_eq!(aggregate.estimated_cost_usd, None);
+        assert_eq!(aggregate.usage_known_runs, 1);
+        assert_eq!(aggregate.usage_unknown_runs, 1);
+        assert_eq!(aggregate.known_total_tokens, Some(120));
         assert_eq!(aggregate_per_case(&runs)[0].total_tokens, None);
         let mode = mode_statistics(&runs, AgentMode::Single);
         assert_eq!(mode.total_tokens, None);

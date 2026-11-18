@@ -88,7 +88,7 @@ test("startup restore keeps the home view when the workspace has no sessions", a
   assert.equal(selected, null);
 });
 
-test("startup restore can adopt the remembered session when no workspace is set", async () => {
+test("startup restore stays empty when no workspace is set", async () => {
   assert.ok(keySource && restoreSource);
   let selected = null;
   const context = {
@@ -104,7 +104,7 @@ test("startup restore can adopt the remembered session when no workspace is set"
     context
   );
   await restore();
-  assert.equal(selected, "niu");
+  assert.equal(selected, null, "没有显式工作区时不得用历史会话的 D:\\牛来 作为默认目录");
 });
 
 test("startup restore skips empty sessions with placeholder titles", async () => {

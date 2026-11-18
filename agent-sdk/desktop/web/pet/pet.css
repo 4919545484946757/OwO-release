@@ -177,6 +177,29 @@ body:has(.feed-eating) #feed-food{animation:feed-food .9s cubic-bezier(.4,0,.2,1
 .pet.commander { animation: none; }
 .pet.commander.speaking:not(.feed-eating):not(.happy):not(.dropped) .avatar { animation: none; }
 
+/* The figurine has its own joint animation and a taller viewport. */
+.pet.is-figurine {
+  animation: none;
+  filter: drop-shadow(0 6px 8px rgba(28, 22, 52, .24));
+}
+.pet.is-figurine .avatar,
+.pet.is-figurine.commander.speaking .avatar {
+  height: 244px;
+  animation: none;
+  transform: none;
+}
+.pet.is-figurine .avatar canvas#pet-avatar-3d { height: 100%; }
+.pet.is-figurine .pet-hitbox {
+  left: 30px;
+  top: 5px;
+  width: 144px;
+  height: 235px;
+  transform: translateX(var(--figurine-x, 0px));
+}
+.pet.is-figurine .bubble { top: -16px; margin-left: var(--figurine-x, 0px); }
+.pet.is-figurine .fx-layer { translate: var(--figurine-x, 0px); }
+.pet.is-figurine.idle .halo { visibility: hidden; }
+
 .pet.idle .bubble { display: none; }
 
 /* ---- 聊天面板（2026-10-31）：桌宠页内的轻量对话 ---- */

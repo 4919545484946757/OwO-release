@@ -8,7 +8,7 @@ pub struct StreamDelta {
     pub model: Option<String>,
     pub finish_reason: Option<String>,
     pub content: Option<String>,
-    /// 思考通道增量（`reasoning_content`，GLM/DeepSeek 约定）；不写入对话历史。
+    /// 思考通道增量（`reasoning_content`，GLM/DeepSeek 约定）；必要的协议续接与正文分开保存。
     pub reasoning: Option<String>,
     /// 原始 tool_calls 增量片段（JSON 值）。
     pub tool_call_fragments: Vec<Value>,
@@ -177,6 +177,7 @@ pub(super) struct StreamState {
     pub(super) buffer: String,
     pub(super) utf8_pending: Vec<u8>,
     pub(super) content: String,
+    pub(super) reasoning: String,
     pub(super) tool_call_accumulators: HashMap<usize, ToolCallAccumulator>,
     pub(super) saw_sse: bool,
     pub(super) request_id: Option<String>,
@@ -193,6 +194,9 @@ impl StreamState {
     pub(super) fn validate_resource_bounds(&self) -> Result<(), String> {
         if self.buffer.len().saturating_add(self.utf8_pending.len()) > 1024 * 1024 {
             return Err("provider/stream_frame_too_large".into());
+        }
+        if self.reasoning.len() > 4 * 1024 * 1024 {
+            return Err("provider/reasoning_replay_too_large".into());
         }
         if self.content.len() > 32 * 1024 * 1024 {
             return Err("provider/stream_content_too_large".into());
@@ -275,6 +279,7 @@ pub(super) fn consume_stream_buffer(
             }
             // 思考通道（GLM/DeepSeek）：与正文分开回调，由上层决定展示方式。
             if let Some(reasoning) = delta.reasoning {
+                state.reasoning.push_str(&reasoning);
                 on_chunk(StreamChunk::Reasoning(reasoning));
             }
             accumulate_tool_fragments(

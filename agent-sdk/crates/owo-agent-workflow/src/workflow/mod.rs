@@ -11,6 +11,11 @@
 //! - 健康度：调用技能包前查 SkillHealth（Disabled 拒绝、Degraded 需确认），执行后回写成功/失败。
 //! - 状态机：Pending → Running → WaitingApproval → Succeeded / Failed / Aborted。
 
+mod recovery;
+pub use recovery::{
+    recovery_fingerprint, WorkflowRecoveryState, WorkflowRecoveryStore, WORKFLOW_RECOVERY_REQUIRED,
+};
+
 use crate::action_program::ActionProgram;
 use owo_agent_contracts::skill_health::{SkillHealthStore, SkillState};
 use owo_agent_kernel::audit::AuditLog;
@@ -18,6 +23,8 @@ use owo_agent_memory::learn::{ActionType, SemanticAnchor};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 // ---------------------------------------------------------------------------
 // 触发器
@@ -281,7 +288,9 @@ fn collect_step_ids(steps: &[WorkflowStep], out: &mut Vec<String>) {
 
 mod compile;
 
-pub use compile::{compile_to_program, eval_expr, validate_definition};
+pub use compile::{
+    compile_to_program, eval_expr, validate_definition, EXPRESSION_SEMANTICS_VERSION,
+};
 
 // ---------------------------------------------------------------------------
 // 执行后端与审批抽象
@@ -303,7 +312,7 @@ pub trait ActionBackend: Send {
         server: &str,
         tool: &str,
         args: &serde_json::Value,
-    ) -> Result<serde_json::Value, String>;
+    ) -> Result<serde_json::Value, (String, bool)>;
     async fn notify(&mut self, message: &str) -> Result<(), String>;
 }
 
@@ -357,10 +366,21 @@ pub struct StepRecord {
     pub kind: String,
     pub ok: bool,
     pub detail: String,
+    #[serde(default)]
+    pub reused: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct WorkflowRunMetrics {
+    pub tool_calls: usize,
+    pub reused_invocations: usize,
+    pub reused_tool_calls: usize,
+    pub reserved_task_tool_calls: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct WorkflowOutcome {
+    pub metrics: WorkflowRunMetrics,
     pub state: WorkflowState,
     pub steps: Vec<StepRecord>,
     /// 失败时回滚到的检查点（最近回滚点 id）。
@@ -368,7 +388,7 @@ pub struct WorkflowOutcome {
 }
 
 /// 检查点：工作区快照目录。
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckpointRef {
     pub id: String,
     pub snapshot_dir: PathBuf,
@@ -397,6 +417,11 @@ pub struct WorkflowEngine {
     depth: u32,
     last_rollback: Option<String>,
     disabled_skills: HashSet<String>,
+    /// 协作式取消标志：外部（HTTP abort / 统一任务暂停）置位后，引擎在步骤边界停下。
+    cancel: Option<Arc<AtomicBool>>,
+    recovery: Option<recovery::RecoverySession>,
+    restored_context: recovery::CapturedContext,
+    metrics: WorkflowRunMetrics,
 }
 
 impl WorkflowEngine {
@@ -435,7 +460,25 @@ impl WorkflowEngine {
             depth: 0,
             last_rollback: None,
             disabled_skills: HashSet::new(),
+            cancel: None,
+            recovery: None,
+            restored_context: BTreeMap::new(),
+            metrics: WorkflowRunMetrics::default(),
         }
+    }
+
+    /// 协作式取消：外部把标志置为 true 后，引擎在下一个步骤边界停止并进入
+    /// `Aborted`。单个动作一旦开始就执行完——取消不谎报"已中断"。
+    pub fn with_cancel_flag(mut self, flag: Arc<AtomicBool>) -> Self {
+        self.cancel = Some(flag);
+        self
+    }
+
+    fn cancelled(&self) -> bool {
+        self.cancel
+            .as_ref()
+            .map(|flag| flag.load(Ordering::SeqCst))
+            .unwrap_or(false)
     }
 
     pub fn audit(&self) -> &AuditLog {
@@ -446,6 +489,8 @@ impl WorkflowEngine {
         self.state
     }
 
+    /// Historical values restored from a protected checkpoint are Null here;
+    /// their expression decisions remain available internally.
     pub fn ctx(&self) -> &BTreeMap<String, serde_json::Value> {
         &self.ctx
     }
@@ -459,14 +504,18 @@ impl WorkflowEngine {
     pub async fn run(&mut self) -> Result<WorkflowOutcome, String> {
         // 前置条件
         for expr in &self.flow.preconditions {
-            if !eval_expr(expr, &self.ctx)? {
+            if !self.evaluate_expression(expr)? {
                 self.state = WorkflowState::Failed;
                 self.audit.record(
                     "workflow",
                     "workflow.precondition_failed",
                     Some(self.flow.id.clone()),
                     None,
-                    format!("前置条件不成立：{expr}"),
+                    if self.recovery.is_some() {
+                        "前置条件不成立（未复制表达式原文）".to_string()
+                    } else {
+                        format!("前置条件不成立：{expr}")
+                    },
                 );
                 return Ok(self.finish());
             }
@@ -490,7 +539,30 @@ impl WorkflowEngine {
             format!("工作流 {}（{}）启动", self.flow.name, self.flow.id),
         );
         let result = self.execute_steps(&self.flow.steps.clone()).await;
-        if let Err(error) = result {
+        if result
+            .as_ref()
+            .err()
+            .is_some_and(|error| error.contains(WORKFLOW_RECOVERY_REQUIRED))
+        {
+            return Err(result.unwrap_err());
+        }
+        if self.cancelled() {
+            // 取消是用户主动停止：保留现场，不回滚（回滚属于失败语义）。
+            self.state = WorkflowState::Aborted;
+            self.audit.record(
+                "workflow",
+                "workflow.abort",
+                Some(self.flow.id.clone()),
+                None,
+                "执行中收到中止请求",
+            );
+        } else if let Err(error) = result {
+            if error.contains(WORKFLOW_RECOVERY_REQUIRED) {
+                return Err(error);
+            }
+            // Mark recovery as closed before rollback can alter prior effects.
+            // A crash during rollback must never replay stale successful facts.
+            self.finish_recovery(false)?;
             let rollback_to = self.rollback_to_latest();
             self.last_rollback = rollback_to.clone();
             self.state = WorkflowState::Failed;
@@ -511,6 +583,11 @@ impl WorkflowEngine {
                 format!("工作流完成，共 {} 步", self.step_log.len()),
             );
         }
+        if self.state == WorkflowState::Succeeded {
+            self.finish_recovery(true)?;
+        } else if self.state == WorkflowState::Failed {
+            self.finish_recovery(false)?;
+        }
         Ok(self.finish())
     }
 
@@ -530,6 +607,7 @@ impl WorkflowEngine {
 
     fn finish(&self) -> WorkflowOutcome {
         WorkflowOutcome {
+            metrics: self.metrics(),
             state: self.state,
             steps: self.step_log.clone(),
             rollback_to: self.last_rollback.clone(),
@@ -541,11 +619,17 @@ impl WorkflowEngine {
         if self.executed_steps > self.flow.max_steps {
             return Err(format!("超过单次运行步数上限（{}）", self.flow.max_steps));
         }
+        let detail = if self.recovery.is_some() {
+            format!("{kind}: {}", if ok { "completed" } else { "not completed" })
+        } else {
+            detail
+        };
         self.step_log.push(StepRecord {
             id: id.to_string(),
             kind: kind.to_string(),
             ok,
             detail,
+            reused: false,
         });
         Ok(())
     }
@@ -607,6 +691,9 @@ impl WorkflowEngine {
 
     async fn execute_steps_inner(this: &mut Self, steps: &[WorkflowStep]) -> Result<(), String> {
         for step in steps {
+            if this.cancelled() {
+                return Err("工作流已中止".to_string());
+            }
             if this.state == WorkflowState::Aborted {
                 return Err("工作流已中止".to_string());
             }
@@ -616,23 +703,31 @@ impl WorkflowEngine {
     }
 
     async fn execute_step(&mut self, step: &WorkflowStep) -> Result<(), String> {
+        self.execute_recoverable_step(step).await
+    }
+
+    async fn execute_step_inner(&mut self, step: &WorkflowStep) -> Result<(), String> {
         match step {
             WorkflowStep::Sense { id, spec } => {
+                self.begin_tool_call()?;
                 let value = self.backend.sense(spec).await?;
-                self.ctx.insert(id.clone(), value.clone());
+                self.set_context_value(id.clone(), value.clone());
                 self.count_step(id, "sense", true, value.to_string())?;
                 Ok(())
             }
             WorkflowStep::Locate { id, spec } => {
+                self.begin_tool_call()?;
                 let value = self.backend.locate(spec).await?;
-                self.ctx.insert(id.clone(), value.clone());
+                self.set_context_value(id.clone(), value.clone());
                 self.count_step(id, "locate", true, value.to_string())?;
                 Ok(())
             }
             WorkflowStep::Act { id, scope, spec } => {
                 self.gate(scope).await?;
+                self.begin_effect()?;
+                self.begin_tool_call()?;
                 let value = self.backend.act(spec).await?;
-                self.ctx.insert(id.clone(), value.clone());
+                self.set_context_value(id.clone(), value.clone());
                 self.count_step(
                     id,
                     "act",
@@ -642,7 +737,7 @@ impl WorkflowEngine {
                 Ok(())
             }
             WorkflowStep::Assert { id, expr, .. } => {
-                let ok = eval_expr(expr, &self.ctx)?;
+                let ok = self.evaluate_expression(expr)?;
                 self.count_step(id, "assert", ok, format!("{expr} = {ok}"))?;
                 if ok {
                     Ok(())
@@ -684,6 +779,8 @@ impl WorkflowEngine {
                     }
                     SkillState::Active => {}
                 }
+                self.begin_effect()?;
+                self.begin_tool_call()?;
                 let result = self.backend.invoke_skill(skill, args).await;
                 let ok = result.is_ok();
                 let detail = match &result {
@@ -693,7 +790,7 @@ impl WorkflowEngine {
                 self.health.record(skill, ok, None).ok();
                 self.count_step(id, "invoke_skill", ok, detail.clone())?;
                 if let Ok(value) = result {
-                    self.ctx.insert(id.clone(), value);
+                    self.set_context_value(id.clone(), value);
                     Ok(())
                 } else {
                     Err(format!("技能执行失败：{detail}"))
@@ -707,8 +804,27 @@ impl WorkflowEngine {
                 scope,
             } => {
                 self.gate(scope).await?;
-                let value = self.backend.invoke_mcp(server, tool, args).await?;
-                self.ctx.insert(id.clone(), value.clone());
+                self.begin_effect()?;
+                self.begin_tool_call()?;
+                let value = match self.backend.invoke_mcp(server, tool, args).await {
+                    Ok(value) => value,
+                    Err((_, true)) => {
+                        self.begin_tool_call()?;
+                        self.audit.record(
+                            "workflow",
+                            "workflow.step_retry",
+                            Some(self.flow.id.clone()),
+                            None,
+                            format!("Retrying MCP step {id} once"),
+                        );
+                        self.backend
+                            .invoke_mcp(server, tool, args)
+                            .await
+                            .map_err(|(error, _)| error)?
+                    }
+                    Err((error, false)) => return Err(error),
+                };
+                self.set_context_value(id.clone(), value.clone());
                 self.count_step(
                     id,
                     "invoke_mcp",
@@ -730,6 +846,8 @@ impl WorkflowEngine {
                 }
             }
             WorkflowStep::Notify { id, message } => {
+                self.begin_effect()?;
+                self.begin_tool_call()?;
                 self.backend.notify(message).await?;
                 self.count_step(id, "notify", true, message.clone())?;
                 Ok(())
@@ -761,7 +879,10 @@ impl WorkflowEngine {
                     .map(|(k, v)| (format!("{id}.{k}"), serde_json::Value::String(v.clone())))
                     .collect();
                 let saved_ctx = self.ctx.clone();
-                self.ctx.extend(child_ctx);
+                let saved_restored = self.restored_context.clone();
+                for (key, value) in child_ctx {
+                    self.set_context_value(key, value);
+                }
                 self.depth += 1;
                 let result = self.execute_steps(&definition.steps).await;
                 self.depth -= 1;
@@ -772,12 +893,14 @@ impl WorkflowEngine {
                             "steps": self.step_log.len(),
                         });
                         self.ctx = saved_ctx;
-                        self.ctx.insert(id.clone(), summary);
+                        self.restored_context = saved_restored;
+                        self.set_context_value(id.clone(), summary);
                         self.count_step(id, "subflow", true, format!("子流程 {flow} 完成"))?;
                         Ok(())
                     }
                     Err(e) => {
                         self.ctx = saved_ctx;
+                        self.restored_context = saved_restored;
                         self.count_step(id, "subflow", false, format!("子流程 {flow} 失败：{e}"))?;
                         Err(format!("子流程 {flow} 失败：{e}"))
                     }
@@ -791,17 +914,19 @@ impl WorkflowEngine {
             } => {
                 let mut iterations = 0u32;
                 loop {
-                    if self.state == WorkflowState::Aborted {
+                    if self.cancelled() || self.state == WorkflowState::Aborted {
                         return Err("工作流已中止".to_string());
                     }
                     if iterations >= *max_iter {
                         break;
                     }
                     // 循环变量：`{id}.iteration` 可在 cond/body 中引用（从 0 递增）。
-                    self.ctx
-                        .insert(format!("{id}.iteration"), serde_json::json!(iterations));
+                    self.set_context_value(
+                        format!("{id}.iteration"),
+                        serde_json::json!(iterations),
+                    );
                     if let Some(cond_expr) = cond {
-                        if !eval_expr(cond_expr, &self.ctx)? {
+                        if !self.evaluate_expression(cond_expr)? {
                             break;
                         }
                     }
@@ -822,7 +947,7 @@ impl WorkflowEngine {
                 then,
                 otherwise,
             } => {
-                let take_then = eval_expr(expr, &self.ctx)?;
+                let take_then = self.evaluate_expression(expr)?;
                 let branch = if take_then { then } else { otherwise };
                 if !branch.is_empty() {
                     self.execute_steps(branch).await?;
@@ -839,6 +964,8 @@ impl WorkflowEngine {
                 Ok(())
             }
             WorkflowStep::RollbackPoint { id } => {
+                self.begin_effect()?;
+                self.begin_tool_call()?;
                 self.save_checkpoint(id)?;
                 self.count_step(id, "rollback_point", true, "已保存快照".to_string())?;
                 Ok(())

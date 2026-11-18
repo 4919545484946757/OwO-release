@@ -256,7 +256,7 @@ impl Agent {
                     std::sync::atomic::Ordering::SeqCst,
                     std::sync::atomic::Ordering::SeqCst,
                 );
-                // 思考通道单独事件外发（不写入对话历史；CLI/前端可折叠展示）。
+                // 思考通道单独事件外发；必要的协议续接由 Provider 返回，不混入可见正文。
                 let event = match chunk {
                     StreamChunk::Content(delta) => TurnEvent::TokenDelta { delta },
                     StreamChunk::Reasoning(delta) => TurnEvent::ReasoningDelta { delta },
@@ -341,6 +341,7 @@ impl Agent {
             } else {
                 usage_known = false;
             }
+            let reasoning_replay = observed.reasoning_replay;
             let output = observed.output;
             budget.record(Phase::Model, model_elapsed);
             phase_timings.push(PhaseTiming {
@@ -367,7 +368,10 @@ impl Agent {
                         steps,
                         "模型连续返回空回答（可能被网关截断或超载）",
                     );
-                    messages.push(ChatMessage::assistant_text(fallback.clone()));
+                    messages.push(
+                        ChatMessage::assistant_text(fallback.clone())
+                            .with_reasoning_replay(reasoning_replay.clone()),
+                    );
                     final_text = Some(fallback.clone());
                     emit(
                         &mut events,
@@ -411,7 +415,10 @@ impl Agent {
                                 )
                                 .await;
                             if abort.load(Ordering::Relaxed) {
-                                messages.push(ChatMessage::assistant_text(text.clone()));
+                                messages.push(
+                                    ChatMessage::assistant_text(text.clone())
+                                        .with_reasoning_replay(reasoning_replay.clone()),
+                                );
                                 commit_turn_messages(session, &messages);
                                 return Err(AgentError::Aborted);
                             }
@@ -441,6 +448,7 @@ impl Agent {
                                 &turn_id,
                                 &crate::CasStore::hash_of(prompt.as_bytes()),
                                 &candidate_paths,
+                                &events,
                                 allow_review_request,
                                 abort,
                                 review_timeout,
@@ -505,7 +513,10 @@ impl Agent {
                                 review_verdict,
                             );
                             if abort.load(Ordering::Relaxed) {
-                                messages.push(ChatMessage::assistant_text(text.clone()));
+                                messages.push(
+                                    ChatMessage::assistant_text(text.clone())
+                                        .with_reasoning_replay(reasoning_replay.clone()),
+                                );
                                 commit_turn_messages(session, &messages);
                                 return Err(AgentError::Aborted);
                             }
@@ -524,14 +535,17 @@ impl Agent {
                             || budget.remaining(Phase::Model).is_ok());
                     let plan_is_current =
                         single_verification_plan_matches_turn(session, prompt, &turn_id);
-                    let has_turn_source_candidate =
+                    if completion_status == owo_agent_protocol::CompletionStatusV1::Blocked
+                        && !plan_is_current
+                        && single_unplanned_write_rejected(&events)
+                    {
+                        text = "任务尚未完成：本回合缺少事先登记的验收计划，宿主已阻止相应文件修改。请先登记验收计划后继续执行。".to_string();
+                    }
+                    let has_turn_file_candidate =
                         session.execution_receipts.iter().any(|receipt| {
                             receipt.turn_id == turn_id
                                 && receipt.status == "executed"
-                                && receipt
-                                    .changed_files
-                                    .iter()
-                                    .any(|path| single_path_is_source_code(path))
+                                && !receipt.changed_files.is_empty()
                         });
                     let retry_feedback = if can_retry_after_validation
                         && plan_is_current
@@ -543,7 +557,7 @@ impl Agent {
                         single_validation_retry_feedback(session, &turn_id)
                     } else if can_retry_after_validation
                         && !plan_is_current
-                        && has_turn_source_candidate
+                        && has_turn_file_candidate
                         && matches!(
                             completion_status,
                             owo_agent_protocol::CompletionStatusV1::Candidate
@@ -558,7 +572,10 @@ impl Agent {
                         let repeated_failure =
                             !validation_feedback_fingerprints.insert(fingerprint.clone());
                         turn_completion_status = Some(completion_status);
-                        messages.push(ChatMessage::assistant_text(text.clone()));
+                        messages.push(
+                            ChatMessage::assistant_text(text.clone())
+                                .with_reasoning_replay(reasoning_replay.clone()),
+                        );
                         if repeated_failure
                             || validation_feedback_fingerprints.len()
                                 > MAX_HOST_VALIDATION_REPAIR_ROUNDS
@@ -574,7 +591,10 @@ impl Agent {
                         continue;
                     }
                     turn_completion_status = Some(completion_status);
-                    messages.push(ChatMessage::assistant_text(text.clone()));
+                    messages.push(
+                        ChatMessage::assistant_text(text.clone())
+                            .with_reasoning_replay(reasoning_replay.clone()),
+                    );
                     final_text = Some(text.clone());
                     emit(&mut events, &event_cell, TurnEvent::Final { text });
                     break;
@@ -600,7 +620,10 @@ impl Agent {
                         )));
                     }
                     tool_calls_seen = tool_calls_seen.saturating_add(calls.len());
-                    messages.push(ChatMessage::assistant_tool_calls(calls.clone()));
+                    messages.push(
+                        ChatMessage::assistant_tool_calls(calls.clone())
+                            .with_reasoning_replay(reasoning_replay.clone()),
+                    );
                     // §9.1 阶段一——权限判定保持原始 tool-call 顺序：Ask 的独立审批
                     // 与用户审批仍按原序逐个交互，先得到每个调用的 Allow/Deny。
                     let mut prepared: Vec<PreparedCall> = Vec::with_capacity(calls.len());
@@ -667,6 +690,35 @@ impl Agent {
                                 .record(
                                     &session.id,
                                     "tool_schema_rejected",
+                                    Some(call.name.clone()),
+                                    Some(false),
+                                    error.clone(),
+                                );
+                            prepared.push(PreparedCall {
+                                approval: None,
+                                reason: error.clone(),
+                                guard_error: Some(error),
+                            });
+                            continue;
+                        }
+                        // Freeze acceptance before an ordinary file edit. A first plan
+                        // registered after writes is deliberately rejected by ToolHost;
+                        // catching this here lets the model plan and retry without undo.
+                        if self.config.subagent_depth == 0
+                            && matches!(
+                                call.name.as_str(),
+                                "write_file" | "edit_file" | "multi_edit" | "apply_patch"
+                            )
+                            && tools.iter().any(|spec| spec.name == "verification_plan")
+                            && !single_verification_plan_matches_turn(session, prompt, &turn_id)
+                        {
+                            let error = "tool/verification_plan_required: 本次文件修改尚未执行。请先调用 verification_plan，按当前用户原文登记验收要求，再重新提交文件修改；不得改用命令绕过验收。".to_string();
+                            self.audit
+                                .lock()
+                                .map_err(|_| AgentError::Session("审计锁中毒".into()))?
+                                .record(
+                                    &session.id,
+                                    "tool_preflight_rejected",
                                     Some(call.name.clone()),
                                     Some(false),
                                     error.clone(),
@@ -975,8 +1027,11 @@ impl Agent {
                                         buffer.push(TurnEvent::ToolResult {
                                             id: call_id,
                                             tool: tool_name,
-                                            ok: outcome.is_ok(),
-                                            error: outcome.as_ref().err().cloned(),
+                                            ok: crate::tools::execution_error(&call.name, &outcome)
+                                                .is_none(),
+                                            error: crate::tools::execution_error(
+                                                &call.name, &outcome,
+                                            ),
                                             preview: tool_preview(&outcome),
                                             outputs: tool_outputs(&outcome),
                                             command_receipt,
@@ -1203,8 +1258,9 @@ impl Agent {
                                     TurnEvent::ToolResult {
                                         id: call.id.clone(),
                                         tool: call.name.clone(),
-                                        ok: outcome.is_ok(),
-                                        error: outcome.as_ref().err().cloned(),
+                                        ok: crate::tools::execution_error(&call.name, &outcome)
+                                            .is_none(),
+                                        error: crate::tools::execution_error(&call.name, &outcome),
                                         preview: tool_preview(&outcome),
                                         outputs: tool_outputs(&outcome),
                                         command_receipt,
@@ -1227,7 +1283,9 @@ impl Agent {
                     }
                     // —— 回填：按原 tool-call 顺序生成 tool 消息 + 审计 + 计步 ——
                     for (call, result) in calls.iter().zip(results) {
-                        if result.is_ok() && !self.call_is_concurrent_eligible(call) {
+                        if crate::tools::execution_error(&call.name, &result).is_none()
+                            && !self.call_is_concurrent_eligible(call)
+                        {
                             reset_loop_guard_after_progress(
                                 &mut call_signatures,
                                 &tool_call_signature(call),
@@ -1374,8 +1432,10 @@ impl Agent {
                 commit_turn_messages(session, &messages);
                 return Err(AgentError::Aborted);
             }
+            let mut wrap_reasoning_replay = None;
             let wrap_up = match wrap_up {
                 Ok(observed) => {
+                    wrap_reasoning_replay = observed.reasoning_replay;
                     let mut request_metadata = observed.metadata.clone();
                     request_metadata
                         .latency_ms
@@ -1431,7 +1491,10 @@ impl Agent {
                     ),
                 ),
             };
-            messages.push(ChatMessage::assistant_text(text.clone()));
+            messages.push(
+                ChatMessage::assistant_text(text.clone())
+                    .with_reasoning_replay(wrap_reasoning_replay),
+            );
             final_text = Some(text.clone());
             emit(&mut events, &event_cell, TurnEvent::Final { text });
         }

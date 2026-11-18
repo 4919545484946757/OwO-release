@@ -3330,6 +3330,306 @@
           "action",
           "idempotencyKey"
         ]
+      },
+      "ImeTaskOriginCapsule": {
+        "additionalProperties": false,
+        "properties": {
+          "payload": {
+            "additionalProperties": false,
+            "properties": {
+              "audience": {
+                "enum": [
+                  "owo-daemon-ime-task"
+                ],
+                "type": "string"
+              },
+              "binding": {
+                "additionalProperties": false,
+                "properties": {
+                  "request_id": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                    "type": "string"
+                  },
+                  "session_id": {
+                    "pattern": "^(?!0+$)[0-9a-f]{32}$",
+                    "type": "string"
+                  },
+                  "task_revision": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "session_id",
+                  "request_id",
+                  "task_revision"
+                ],
+                "type": "object"
+              },
+              "capsule_id": {
+                "pattern": "^(?!0+$)[0-9a-f]{32}$",
+                "type": "string"
+              },
+              "freshness": {
+                "additionalProperties": false,
+                "properties": {
+                  "issued_at_ms": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "ttl_ms": {
+                    "maximum": 120000,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "issued_at_ms",
+                  "ttl_ms"
+                ],
+                "type": "object"
+              },
+              "ic_version": {
+                "enum": [
+                  1
+                ],
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "issuer": {
+                "enum": [
+                  "owo-intent-gateway"
+                ],
+                "type": "string"
+              },
+              "nonce": {
+                "pattern": "^(?!0+$)[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "origin": {
+                "additionalProperties": false,
+                "properties": {
+                  "application_metadata": {
+                    "enum": [
+                      "connector_claim"
+                    ],
+                    "type": "string"
+                  },
+                  "connector_pid": {
+                    "maximum": 4294967295,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "context_id": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.:-]+$",
+                    "type": "string"
+                  },
+                  "executable_sha256": {
+                    "pattern": "^(?!0+$)[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "process_created_at_hex": {
+                    "pattern": "^(?!0+$)[0-9a-f]{16}$",
+                    "type": "string"
+                  },
+                  "selection_sha256": {
+                    "nullable": true,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "source": {
+                    "enum": [
+                      "ime"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "context_id",
+                  "connector_pid",
+                  "process_created_at_hex",
+                  "executable_sha256",
+                  "selection_sha256",
+                  "application_metadata"
+                ],
+                "type": "object"
+              },
+              "origin_request_sha256": {
+                "pattern": "^(?!0+$)[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "prompt_sha256": {
+                "pattern": "^(?!0+$)[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "scope": {
+                "additionalProperties": false,
+                "properties": {
+                  "mode": {
+                    "enum": [
+                      "agent_task"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "mode"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "ic_version",
+              "capsule_id",
+              "issuer",
+              "audience",
+              "binding",
+              "origin",
+              "origin_request_sha256",
+              "prompt_sha256",
+              "freshness",
+              "nonce",
+              "scope"
+            ],
+            "type": "object"
+          },
+          "signature": {
+            "additionalProperties": false,
+            "properties": {
+              "alg": {
+                "enum": [
+                  "HMAC-SHA256"
+                ],
+                "type": "string"
+              },
+              "key_id": {
+                "enum": [
+                  "gateway-ime-task-v1"
+                ],
+                "type": "string"
+              },
+              "value": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "alg",
+              "key_id",
+              "value"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "payload",
+          "signature"
+        ],
+        "type": "object",
+        "description": "Signed IME task admission provenance. Not tool authorization; task remains queued for the trusted main UI."
+      },
+      "ImeTaskRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "prompt",
+          "origin_capsule"
+        ],
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8192
+          },
+          "origin_capsule": {
+            "$ref": "#/components/schemas/ImeTaskOriginCapsule"
+          }
+        }
+      },
+      "ImeTaskReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_id",
+          "state",
+          "open_route",
+          "requires_main_ui",
+          "origin_verified",
+          "duplicate"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string"
+          },
+          "open_route": {
+            "type": "string"
+          },
+          "requires_main_ui": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "origin_verified": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "duplicate": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ImeTaskStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_id",
+          "state",
+          "open_route",
+          "requires_main_ui",
+          "pending_approvals",
+          "last_sequence"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string"
+          },
+          "open_route": {
+            "type": "string"
+          },
+          "requires_main_ui": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "pending_approvals": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "last_sequence": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -11204,23 +11504,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "x-owo-owobot-worker",
-            "in": "header",
-            "description": "Local managed ACP worker capability. Must accompany the active room turn capability; the Daemon assigns tools according to the project role.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "x-owo-owobot-turn",
-            "in": "header",
-            "description": "Per-turn room capability from the same locally managed collaboration service.",
-            "schema": {
-              "type": "string",
-              "pattern": "^[0-9a-fA-F]{48}$"
-            }
           }
         ],
         "requestBody": {
@@ -13353,6 +13636,9 @@
         "responses": {
           "201": {
             "description": "workflow run started"
+          },
+          "422": {
+            "description": "WORKFLOW_REAL_ROLLBACK_UNSUPPORTED: real workflows with rollback points are rejected before execution"
           }
         }
       }
@@ -14634,6 +14920,1082 @@
             "description": "Malformed or unknown request fields"
           }
         }
+      }
+    },
+    "/prompt/enhance": {
+      "post": {
+        "operationId": "promptEnhance",
+        "summary": "AI prompt enhancement: one stateless model call, task-type aware rewrite, structured result",
+        "description": "Stateless, tool-free prompt enhancement. No session, history, MCP or workspace file access; context is limited to caller-declared facts (workspace path, project name, session mode). Model access reuses the core gateway: preset models via the model field, desktop-saved custom models via model_connection (credentials by env reference only, never persisted). The model must answer with strict JSON; one bounded repair retry on parse/validation failure, then an honest 502. Never falls back to appending fixed templates.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "text"
+                ],
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192,
+                    "description": "The user's original draft prompt."
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "Preset model id override for the configured provider. Ignored when model_connection is present."
+                  },
+                  "model_connection": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/CustomModelConnection"
+                      }
+                    ],
+                    "nullable": true,
+                    "description": "Explicit custom model connection (desktop-saved models; credentials by env reference only). Takes precedence over model."
+                  },
+                  "context": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "workspace": {
+                        "type": "string"
+                      },
+                      "project": {
+                        "type": "string"
+                      },
+                      "session_mode": {
+                        "type": "string",
+                        "enum": [
+                          "agent",
+                          "chat"
+                        ]
+                      }
+                    },
+                    "description": "Caller-known facts only. Anything absent stays unknown; the enhancer must not invent it."
+                  },
+                  "clarifications": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "question",
+                        "answer"
+                      ],
+                      "properties": {
+                        "question": {
+                          "type": "string"
+                        },
+                        "answer": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "description": "Answers to a previous needs_clarification round; resent together with the original text to continue."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Structured enhancement result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ready",
+                        "needs_clarification"
+                      ]
+                    },
+                    "enhanced_prompt": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 16384,
+                      "description": "Present only when status is ready."
+                    },
+                    "clarifying_questions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "maxItems": 3,
+                      "description": "Present only when status is needs_clarification; at most 3, each materially necessary."
+                    },
+                    "change_summary": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "task_type": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Recognized task type label, e.g. coding, frontend, bugfix, docs, data_analysis, research, creative, agent_task, translation, general_qa."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input, or invalid model_connection (prompt_enhance/invalid_input, prompt_enhance/model_connection/*)"
+          },
+          "401": {
+            "description": "Bearer authentication required"
+          },
+          "422": {
+            "description": "Unknown fields or wrong types"
+          },
+          "429": {
+            "description": "Rate limit or shutdown gate busy"
+          },
+          "502": {
+            "description": "Provider failed or invalid output after one repair retry"
+          },
+          "504": {
+            "description": "Model call timeout"
+          }
+        }
+      }
+    },
+    "/agent-tasks": {
+      "get": {
+        "operationId": "agentTasksList",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "按任务状态过滤（draft/queued/running/succeeded 等）"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "任务列表"
+          }
+        }
+      },
+      "post": {
+        "operationId": "agentTasksCreate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "user_goal"
+                ],
+                "properties": {
+                  "user_goal": {
+                    "type": "string",
+                    "description": "非空用户目标"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "execution_strategy": {
+                    "type": "string",
+                    "enum": [
+                      "single_agent",
+                      "work_swarm",
+                      "computer_use",
+                      "workflow",
+                      "cloud_remote"
+                    ]
+                  },
+                  "policy_profile": {
+                    "type": "string"
+                  },
+                  "workspace_ref": {
+                    "type": "string"
+                  },
+                  "session_refs": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "budget": {
+                    "type": "object",
+                    "description": "max_attempts / max_repairs / max_tool_calls"
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "description": "重复提交返回同一任务"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "任务已创建（queued）"
+          },
+          "200": {
+            "description": "幂等重放，返回既有任务"
+          }
+        }
+      }
+    },
+    "/agent-tasks/{id}": {
+      "get": {
+        "operationId": "agentTasksGet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "任务详情（含最新检查点、产物、审批）"
+          }
+        }
+      }
+    },
+    "/agent-tasks/{id}/start": {
+      "post": {
+        "operationId": "agentTasksStart",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "dispatched=true 表示已交给后端；false 表示未注册后端，任务不会伪装成功"
+          }
+        }
+      }
+    },
+    "/agent-tasks/{id}/pause": {
+      "post": {
+        "operationId": "agentTasksPause",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "已暂停"
+          }
+        }
+      }
+    },
+    "/agent-tasks/{id}/resume": {
+      "post": {
+        "operationId": "agentTasksResume",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "description": "Resume an unchanged plan with an empty body. To approve a revised linear workflow, include the exact definition returned by GET /workflow/{name}. Previously completed steps, permissions and workflow settings must stay unchanged.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "approved_workflow_revision": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已恢复"
+          }
+        }
+      }
+    },
+    "/agent-tasks/{id}/cancel": {
+      "post": {
+        "operationId": "agentTasksCancel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "已取消"
+          }
+        }
+      }
+    },
+    "/agent-tasks/{id}/events": {
+      "get": {
+        "operationId": "agentTasksEvents",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "事件日志（sequence 单调递增）"
+          }
+        }
+      }
+    },
+    "/agent-tasks/{id}/artifacts": {
+      "get": {
+        "operationId": "agentTasksArtifacts",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "任务产物列表"
+          }
+        }
+      }
+    },
+    "/agent-tasks/{id}/approvals": {
+      "get": {
+        "operationId": "agentTasksApprovals",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pending_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "审批列表"
+          }
+        }
+      },
+      "post": {
+        "operationId": "agentTasksRequestApproval",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "action"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "object"
+                  },
+                  "expires_at": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "审批请求已创建"
+          }
+        }
+      }
+    },
+    "/agent-tasks/{id}/approvals/{approval_id}": {
+      "post": {
+        "operationId": "agentTasksDecideApproval",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "decision"
+                ],
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "approved",
+                      "rejected"
+                    ]
+                  },
+                  "decided_by": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "审批已落库，返回更新后的任务"
+          }
+        }
+      }
+    },
+    "/agent-tasks/{id}/verify": {
+      "post": {
+        "operationId": "agentTasksVerify",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "VerificationEvidence：goal 为必需证据，其余为可选检查集",
+                "properties": {
+                  "goal": {
+                    "type": "object"
+                  },
+                  "structural": {
+                    "type": "object"
+                  },
+                  "execution": {
+                    "type": "object"
+                  },
+                  "side_effect": {
+                    "type": "object"
+                  },
+                  "review": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "验证报告；只有全部必需检查通过才进入 succeeded，否则进入 repairing 或 needs_user_input"
+          }
+        }
+      }
+    },
+    "/agent-tasks/{id}/events/stream": {
+      "get": {
+        "operationId": "agentTasksEventStream",
+        "summary": "任务事件 SSE（event: task-event，id 为事件序号；终态后 event: done）",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "text/event-stream；可用 Last-Event-ID 或 after 从指定序号之后续传"
+          },
+          "404": {
+            "description": "任务不存在"
+          }
+        }
+      }
+    },
+    "/workspaces": {
+      "get": {
+        "operationId": "workspacesList",
+        "summary": "列出执行工作区租约",
+        "responses": {
+          "200": {
+            "description": "工作区租约列表"
+          }
+        }
+      },
+      "post": {
+        "operationId": "workspacesCreate",
+        "summary": "创建隔离执行工作区（git_worktree 推荐）",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "current_workspace",
+                      "git_worktree",
+                      "local_sandbox",
+                      "remote_workspace"
+                    ]
+                  },
+                  "task_id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "工作区租约（path 可作为任务的 workspace_ref）"
+          },
+          "400": {
+            "description": "未知工作区类型或工作区不是 Git 仓库"
+          },
+          "501": {
+            "description": "该工作区类型尚未达到契约"
+          }
+        }
+      }
+    },
+    "/workspaces/{id}": {
+      "get": {
+        "operationId": "workspacesGet",
+        "summary": "工作区租约详情",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "租约详情"
+          },
+          "404": {
+            "description": "工作区不存在"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "workspacesRelease",
+        "summary": "释放工作区（删除 worktree，不修改用户原工作区）",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "租约状态 updated 为 released"
+          },
+          "404": {
+            "description": "工作区不存在"
+          }
+        }
+      }
+    },
+    "/workspaces/{id}/apply": {
+      "post": {
+        "operationId": "workspacesApply",
+        "summary": "把 Diff 应用到用户原工作区",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "已应用"
+          },
+          "404": {
+            "description": "工作区不存在"
+          },
+          "409": {
+            "description": "状态不满足或原工作区冲突"
+          }
+        }
+      }
+    },
+    "/workspaces/{id}/diff": {
+      "get": {
+        "operationId": "workspacesDiff",
+        "summary": "工作区 Diff（unified patch + 文件清单）",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "diff 与 empty 标记"
+          },
+          "404": {
+            "description": "工作区不存在"
+          }
+        }
+      }
+    },
+    "/workspaces/{id}/reject": {
+      "post": {
+        "operationId": "workspacesReject",
+        "summary": "丢弃改动（已应用时先回滚）",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "已拒绝并删除 worktree"
+          },
+          "404": {
+            "description": "工作区不存在"
+          },
+          "409": {
+            "description": "状态不满足或原工作区冲突"
+          }
+        }
+      }
+    },
+    "/workspaces/{id}/rollback": {
+      "post": {
+        "operationId": "workspacesRollback",
+        "summary": "反向应用已应用的 Diff",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "已回滚"
+          },
+          "404": {
+            "description": "工作区不存在"
+          },
+          "409": {
+            "description": "状态不满足或原工作区冲突"
+          }
+        }
+      }
+    },
+    "/agent-bridge/messages": {
+      "post": {
+        "operationId": "agentBridgeMessages",
+        "summary": "输入法/桌宠协调消息（v1，message_id 幂等）",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "protocol_version",
+                  "message_id",
+                  "timestamp",
+                  "source",
+                  "correlation_id",
+                  "kind"
+                ],
+                "properties": {
+                  "protocol_version": {
+                    "type": "integer",
+                    "enum": [
+                      1
+                    ]
+                  },
+                  "message_id": {
+                    "type": "string"
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "ime",
+                      "pet",
+                      "desktop"
+                    ]
+                  },
+                  "correlation_id": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "intent.submit",
+                      "task.pause",
+                      "task.resume",
+                      "task.cancel",
+                      "task.open"
+                    ]
+                  },
+                  "payload": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "同一 message_id 的幂等重放（duplicate=true）"
+          },
+          "201": {
+            "description": "intent.submit 已创建统一任务"
+          },
+          "400": {
+            "description": "协议版本/来源/时间戳或载荷不合法"
+          },
+          "403": {
+            "description": "来源无此权限，或试图在悬浮窗口提交审批决定"
+          }
+        }
+      }
+    },
+    "/agent-bridge/preferences": {
+      "get": {
+        "operationId": "agentBridgePreferences",
+        "summary": "读取桌宠通知开关",
+        "responses": {
+          "200": {
+            "description": "pet_notifications"
+          }
+        }
+      },
+      "post": {
+        "operationId": "agentBridgeSetPreferences",
+        "summary": "开启/关闭桌宠通知（关闭后状态接口不再返回消息）",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "pet_notifications"
+                ],
+                "properties": {
+                  "pet_notifications": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新后的 pet_notifications"
+          }
+        }
+      }
+    },
+    "/agent-bridge/tasks/{id}/status": {
+      "get": {
+        "operationId": "agentBridgeTaskStatus",
+        "summary": "任务状态与待审批通知（task.status.changed / task.approval.required）",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "版本化消息列表（通知关闭时 messages 为空）"
+          },
+          "404": {
+            "description": "任务不存在"
+          }
+        }
+      }
+    },
+    "/agent-bridge/ime/intents": {
+      "post": {
+        "operationId": "submitImeTaskIntent",
+        "summary": "Verify signed IME intent and queue a unified task; never start execution",
+        "description": "OWO_IME_TASKS_ENABLED is off by default. Issuer key comes only from the trusted host environment. Workspace and policy are host-selected. Stable issuer/binding key is durable across fresh signed nonces; changed content conflicts. Shared bridge-off switch removes this route. Main UI must explicitly start and approve tasks.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImeTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Empty or oversized goal"
+          },
+          "401": {
+            "description": "Bearer required"
+          },
+          "403": {
+            "description": "Disabled, unregistered, wrong source, invalid signature/scope/prompt, expired or clock rollback"
+          },
+          "409": {
+            "description": "Stable intent identity reused with different content"
+          },
+          "422": {
+            "description": "Missing fields, invalid structure or caller-supplied overrides"
+          },
+          "500": {
+            "description": "Persistent task store unavailable"
+          },
+          "200": {
+            "description": "Sanitized unified task identity/state; no execution or approval granted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImeTaskReceipt"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Sanitized unified task identity/state; no execution or approval granted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImeTaskReceipt"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/agent-bridge/ime/tasks/{id}": {
+      "get": {
+        "operationId": "getImeTaskStatus",
+        "summary": "Read sanitized unified task state and cursor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sanitized unified task identity/state; no execution or approval granted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImeTaskStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Bearer required"
+          },
+          "403": {
+            "description": "IME task entry disabled"
+          },
+          "404": {
+            "description": "Task not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     }
   },

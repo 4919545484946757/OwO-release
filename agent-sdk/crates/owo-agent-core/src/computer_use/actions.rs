@@ -1,8 +1,110 @@
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::executor;
+use owo_agent_kernel::task_surface::WindowIdentity;
 
 use super::sim::*;
+
+/// Agent V2 稳定错误码（§5 任务 1.2）。对外错误字符串以 `CODE: 说明` 形式返回，
+/// 调用方与前端可以按前缀分类，不必解析中文文案。
+pub mod codes {
+    pub const EMPTY_GOALS: &str = "EMPTY_GOALS";
+    pub const INVALID_ACTION: &str = "INVALID_ACTION";
+    pub const STALE_WINDOW_IDENTITY: &str = "STALE_WINDOW_IDENTITY";
+    pub const FOREGROUND_CHANGED: &str = "FOREGROUND_CHANGED";
+    pub const ANCHOR_AMBIGUOUS: &str = "ANCHOR_AMBIGUOUS";
+    pub const TARGET_NOT_FOUND: &str = "TARGET_NOT_FOUND";
+    pub const ACTION_NOT_AUTHORIZED: &str = "ACTION_NOT_AUTHORIZED";
+    pub const POST_ACTION_VERIFY_FAILED: &str = "POST_ACTION_VERIFY_FAILED";
+    pub const ACTION_RECEIPT_STORE_FAILED: &str = "ACTION_RECEIPT_STORE_FAILED";
+    pub const BUDGET_EXCEEDED: &str = "BUDGET_EXCEEDED";
+}
+
+/// 组装带稳定错误码的错误串。
+pub fn coded_error(code: &str, message: impl std::fmt::Display) -> String {
+    format!("{code}: {message}")
+}
+
+/// 一次有副作用动作的执行回执（§5 任务 1.3）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionExecutionReceipt {
+    pub action_id: String,
+    pub action: String,
+    pub observed_window: Option<WindowIdentity>,
+    pub started_at: String,
+    pub finished_at: String,
+    pub outcome: ActionOutcome,
+    /// 动作前观察引用（OCR 输出摘要哈希或调用方提供的引用）。
+    pub before_observation_ref: Option<String>,
+    /// 动作后观察引用。
+    pub after_observation_ref: Option<String>,
+    /// 指定 UIA 控件的 ValuePattern 逐字读回结果；其他动作始终为 None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value_readback: Option<String>,
+    pub verification: ActionVerification,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ActionOutcome {
+    Executed,
+    Rejected { reason: String },
+    Failed { reason: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ActionVerification {
+    /// 有明确证据证明目标状态出现。
+    Verified,
+    /// 没有足够证据（不代表失败）。
+    NotVerified,
+    /// 观察到明确失败。
+    Failed { reason: String },
+    /// 按策略跳过，必须带原因。
+    Skipped { reason: String },
+}
+
+/// 动作前窗口身份复核（§5 任务 1.1）。
+///
+/// `expected` 是任务开始时授权到的窗口；`current` 是动作前刚刚重新采集的快照。
+/// 任一不一致都返回带稳定错误码的 `Err`，调用方必须暂停任务，不得继续发送输入。
+pub fn revalidate_window_identity(
+    expected: &WindowIdentity,
+    current: Option<&WindowIdentity>,
+) -> Result<WindowIdentity, String> {
+    let Some(current) = current else {
+        return Err(coded_error(
+            codes::STALE_WINDOW_IDENTITY,
+            "无法重新读取当前窗口身份（窗口可能已关闭）",
+        ));
+    };
+    if !expected.same_window(current) {
+        return Err(coded_error(
+            codes::STALE_WINDOW_IDENTITY,
+            format!(
+                "窗口身份已变化：授权时 {}/pid {} /hwnd {}，当前 {}/pid {} /hwnd {}",
+                expected.app, expected.pid, expected.hwnd, current.app, current.pid, current.hwnd
+            ),
+        ));
+    }
+    if !current.foreground {
+        return Err(coded_error(
+            codes::FOREGROUND_CHANGED,
+            format!("目标窗口 {} 已不在前台，停止向它发送输入", current.app),
+        ));
+    }
+    Ok(current.clone())
+}
+
+/// 观察内容的稳定引用（用于回执里关联前后观察，不把整屏 OCR 塞进事件表）。
+pub fn observation_ref(ocr: &Value) -> String {
+    use sha2::{Digest, Sha256};
+    let bytes = serde_json::to_vec(ocr).unwrap_or_default();
+    let digest = Sha256::digest(&bytes);
+    format!("sha256:{:x}", digest)
+}
 pub fn desktop_click(x: i32, y: i32) -> Result<(), String> {
     executor::click_at_screen(x, y)
 }

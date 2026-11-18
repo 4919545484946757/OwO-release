@@ -939,3 +939,147 @@ body.settings-open .settings-content { overflow-y: auto; overscroll-behavior: co
 #panelRoot .owo-about-panel button:not(.owo-fold):not([role=tab]),
 #panelRoot .owo-pe-panel button:not(.owo-fold):not([role=tab]),
 #panelRoot .owo-fleet-panel button:not(.owo-fold):not([role=tab]) { min-height:40px; font-size:14px; }
+
+/* ===== 任务运行面板（Agent V2 Phase 2/3）：仅作用于 .owo-at-panel ===== */
+/* 任务运行面板（Agent V2 Phase 2/3）。只作用于 .owo-at-panel，复用既有令牌，
+   不覆盖首页、侧栏或其他面板的任何样式。 */
+.owo-at-panel { display: grid; gap: 18px; padding: 4px 0 32px; }
+
+.owo-at-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.owo-at-filters { display: flex; align-items: center; gap: 8px; }
+.owo-at-toolbar select,
+.owo-at-field select,
+.owo-at-field input,
+.owo-at-field textarea {
+  width: 100%; min-height: 34px; padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: var(--ui-r-control, 8px);
+  background: var(--surface); color: var(--text); font: inherit; font-size: 13px;
+}
+.owo-at-toolbar select { width: auto; min-width: 132px; }
+.owo-at-field { display: grid; gap: 6px; }
+.owo-at-field > span { color: var(--text-3); font-size: 12px; }
+.owo-at-field textarea { resize: vertical; line-height: 1.55; }
+
+.owo-at-create {
+  display: grid; gap: 12px; padding: 16px;
+  border: 1px solid var(--border); border-radius: var(--refine-radius, 12px);
+  background: var(--surface-2, var(--surface));
+}
+.owo-at-create-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, .8fr) auto; align-items: end; gap: 12px; }
+.owo-at-create-row button { align-self: end; min-height: 34px; }
+
+.owo-at-notice {
+  padding: 10px 12px; border-radius: var(--ui-r-control, 8px);
+  border: 1px solid var(--border); background: var(--surface-2, var(--surface));
+  color: var(--text-2); font-size: 12.5px; line-height: 1.55;
+}
+.owo-at-notice.is-error { border-color: color-mix(in srgb, var(--red) 38%, var(--border)); color: var(--red); background: var(--red-soft); }
+.owo-at-notice.is-warn { border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); color: var(--text); }
+.owo-at-notice.is-ok { border-color: color-mix(in srgb, var(--green) 38%, var(--border)); color: var(--green); background: var(--green-soft); }
+
+.owo-at-meta { color: var(--text-3); }
+
+.owo-at-list { display: grid; gap: 2px; }
+.owo-at-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  width: 100%; padding: 14px 4px; text-align: left; cursor: pointer;
+  border: 0; border-top: 1px solid var(--border-subtle, var(--border));
+  border-radius: 0; background: transparent; color: var(--text);
+}
+.owo-at-row:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.owo-at-row.is-attention { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 72%, transparent); padding-left: 12px; }
+.owo-at-row-main { display: grid; gap: 4px; min-width: 0; }
+.owo-at-row-main strong { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.owo-at-row-main .sub { color: var(--text-3); font-size: 12px; }
+
+.owo-at-badge {
+  display: inline-block; padding: 2px 9px; border-radius: 999px;
+  font-size: 12px; font-weight: 500; white-space: nowrap;
+  background: var(--surface-2, #f4f4f4); color: var(--text-2);
+}
+.owo-at-tone-run { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.owo-at-tone-ok { color: var(--green); background: var(--green-soft); }
+.owo-at-tone-wait { color: var(--text); background: color-mix(in srgb, var(--text) 9%, transparent); }
+.owo-at-tone-bad { color: var(--red); background: var(--red-soft); }
+
+.owo-at-empty { padding: 28px 4px; color: var(--text-3); font-size: 13px; }
+
+.owo-at-detail { display: grid; gap: 14px; }
+.owo-at-detail-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.owo-at-detail-head h2 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -.01em; }
+.owo-at-goal-text { margin: 0; color: var(--text); font-size: 14px; line-height: 1.65; white-space: pre-wrap; }
+.owo-at-summary { margin: 0; color: var(--text-2); font-size: 13px; }
+.owo-at-hint {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.owo-at-meta-line { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--text-3); font-size: 12px; }
+.owo-at-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.owo-at-verify {
+  display: grid; gap: 10px; padding: 14px;
+  border: 1px solid var(--border); border-radius: var(--refine-radius, 12px);
+  background: var(--surface-2, var(--surface));
+}
+.owo-at-item-actions { display: flex; gap: 8px; }
+
+.owo-at-section { border-top: 1px solid var(--border); padding-top: 10px; }
+.owo-at-section > summary { cursor: pointer; color: var(--text-2); font-size: 13px; font-weight: 600; }
+.owo-at-section > summary::marker { color: var(--text-3); }
+.owo-at-section > *:not(summary) { margin-top: 10px; }
+
+.owo-at-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 9px 0; border-bottom: 1px dashed var(--border-subtle, var(--border));
+}
+.owo-at-item:last-child { border-bottom: 0; }
+.owo-at-item > div { display: grid; gap: 3px; min-width: 0; }
+.owo-at-item .sub { color: var(--text-3); font-size: 12px; }
+.owo-at-item code.hint { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+
+.owo-at-event {
+  display: grid; grid-template-columns: 52px 190px 150px minmax(0, 1fr);
+  align-items: baseline; gap: 10px; padding: 6px 0;
+  border-bottom: 1px dashed var(--border-subtle, var(--border));
+  font-size: 12px;
+}
+.owo-at-event:last-child { border-bottom: 0; }
+.owo-at-seq { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.owo-at-event-type { color: var(--text); font-weight: 550; }
+.owo-at-event code.hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 实时事件：连接状态必须可见，断线时不能看起来和在线一样。 */
+.owo-at-event-log { max-height: 260px; overflow: auto; }
+.owo-at-live { font-weight: 500; color: var(--accent); }
+.owo-at-live.is-connecting,
+.owo-at-live.is-degraded,
+.owo-at-live.is-closed { color: var(--text-3); }
+
+/* 工作区 Diff 审核：只读预览 + 明确的应用/拒绝/回滚入口。 */
+.owo-at-ws-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.owo-at-ws-head .sub { color: var(--text-3); font-size: 12px; overflow-wrap: anywhere; }
+.owo-at-ws-files .owo-at-item { border-bottom: 1px dashed var(--border); }
+.owo-at-diff {
+  max-height: 320px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2, rgba(0, 0, 0, .18));
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+@media (max-width: 900px) {
+  .owo-at-create-row { grid-template-columns: 1fr; }
+  .owo-at-event { grid-template-columns: 46px minmax(0, 1fr); }
+  .owo-at-event .sub, .owo-at-event code.hint { grid-column: 2; }
+}

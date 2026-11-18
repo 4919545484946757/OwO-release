@@ -186,6 +186,10 @@ impl ProductEvalHub {
             batch_label: None,
             provider_endpoint_sha256: None,
             tags: Vec::new(),
+            repair_attempts: 0,
+            desktop_driver: None,
+            fault_driver: None,
+            driver_config: None,
         };
         let cases = product_eval::filter_cases(&bundle, &opts);
         if cases.is_empty() {
@@ -410,6 +414,10 @@ async fn run_job(
         batch_label: None,
         provider_endpoint_sha256: None,
         tags: Vec::new(),
+        repair_attempts: 0,
+        desktop_driver: None,
+        fault_driver: None,
+        driver_config: None,
     };
     let model = handle
         .record

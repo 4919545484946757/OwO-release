@@ -3,7 +3,7 @@
   "id": "code-safe-filename",
   "category": "code",
   "title": "修复文件名清理未处理路径分隔符和空名称的问题",
-  "instruction": "请只修改 src/solution.py 完成“修复文件名清理未处理路径分隔符和空名称的问题”，保持函数签名和调用方输入不变。不要修改 tests/check.py。实现后运行白名单命令 python tests/check.py，并创建 out/change-report.md，写明具体根因、修改方案、边界条件和真实测试结果。验收规则：仅保留 basename；将平台非法字符和连续空白合并替换为一个下划线，去掉首尾空格/点，空结果回退到 untitled。",
+  "instruction": "请只修改 src/solution.py 完成“修复文件名清理未处理路径分隔符和空名称的问题”，保持函数签名和调用方输入不变。不要修改 tests/check.py。实现后运行白名单命令 python tests/check.py，并创建 out/change-report.md，写明具体根因、修改方案、边界条件和真实测试结果。验收规则：仅保留 basename；将平台非法字符和连续空白合并替换为一个下划线，去掉首尾空格/点，空结果回退到 untitled。 out/change-report.md 必须使用二级标题组织，并逐字包含以下四个小节标题：`## 根因`、`## 修复方案`、`## 边界条件`、`## 测试结果`。",
   "inputs": [
     {
       "path": "src/solution.py",

@@ -5,7 +5,8 @@
 //! exposed to this request; the caller reopens the files after review and refuses
 //! the receipt if any source hash changed.
 
-use super::{workspace_file_hash, ModelCallRecord};
+mod evidence;
+use super::{workspace_file_hash, ModelCallRecord, TurnEvent};
 use crate::gateway::{ChatMessage, ModelCallMetadata, ModelOutput, ModelProvider, TokenUsage};
 use crate::plan::{ValidationReceiptV1, ValidationVerdictV1};
 use crate::session::Session;
@@ -120,6 +121,7 @@ pub(super) async fn review_candidate(
     turn_id: &str,
     input_sha256: &str,
     expected_paths: &BTreeMap<String, String>,
+    events: &[TurnEvent],
     allow_model_request: bool,
     abort: &std::sync::atomic::AtomicBool,
     timeout: Option<std::time::Duration>,
@@ -135,7 +137,16 @@ pub(super) async fn review_candidate(
             .as_slice(),
     );
     let environment_id = crate::CasStore::hash_of(session.workspace.to_string_lossy().as_bytes());
-    let (snapshot, snapshot_error) = read_review_snapshot(session, expected_paths);
+    let (review_paths, host_evidence, preparation_error) =
+        match evidence::prepare(session, turn_id, input_sha256, expected_paths, events) {
+            Ok(evidence) => (evidence.paths, evidence.proof, None),
+            Err(error) => (expected_paths.clone(), serde_json::Value::Null, Some(error)),
+        };
+    let (snapshot, snapshot_error) = if preparation_error.is_some() {
+        (None, preparation_error)
+    } else {
+        read_review_snapshot(session, &review_paths)
+    };
     let mut receipt = ValidationReceiptV1 {
         receipt_id: format!("single-review-{}", uuid::Uuid::new_v4()),
         task_id: session.id.clone(),
@@ -149,7 +160,7 @@ pub(super) async fn review_candidate(
         environment_id,
         changeset_sha256: Some(changeset_sha256.clone()),
         detail: snapshot_error,
-        subject_sha256: expected_paths
+        subject_sha256: review_paths
             .iter()
             .map(|(path, hash)| (format!("workspace-path:{path}"), hash.clone()))
             .collect(),
@@ -194,6 +205,7 @@ pub(super) async fn review_candidate(
                         "user_request_quotes": requirement.covers_requirement_ids,
                         "validator_id": requirement.validator_id,
                         "scope": requirement.scope,
+                        "arguments": requirement.arguments,
                     })
                 })
                 .collect::<Vec<_>>()
@@ -211,10 +223,22 @@ pub(super) async fn review_candidate(
                 .chain(requirement.covers_requirement_ids.iter().cloned())
         })
         .collect::<BTreeSet<_>>();
+    let output_contract = serde_json::json!({
+        "required_fields": ["status", "summary", "review_result", "evidence", "open_issues"],
+        "status_on_approval": "done",
+        "review_result_required_fields": ["verdict", "findings", "reviewed_requirement_ids"],
+        "verdict_options": ["approved", "changes_requested", "rejected"],
+        "reviewed_requirement_ids": &expected_requirement_ids,
+        "evidence_required_sources": snapshot.keys().collect::<Vec<_>>(),
+        "evidence_item_fields": ["source", "note"],
+        "approval_requires_empty_open_issues": true,
+    });
     let review_contract = serde_json::json!({
         "validator": "single-independent-source-review-v2",
         "requirements": &requirements,
+        "output_contract": &output_contract,
         "expected_requirement_ids": &expected_requirement_ids,
+        "host_evidence_sha256": crate::CasStore::hash_of(serde_json::to_vec(&host_evidence).unwrap_or_default().as_slice()),
     });
     receipt.arguments_sha256 = crate::CasStore::hash_of(
         serde_json::to_vec(&review_contract)
@@ -229,12 +253,22 @@ pub(super) async fn review_candidate(
         "只有充分检查且无阻断问题时才可 approved。approved 时 evidence 必须逐文件引用全部受审路径。",
         "严格输出 WorkerOutputV1 JSON：status, summary, review_result；review_result 包含 verdict、findings、reviewed_requirement_ids；",
         "reviewed_requirement_ids 必须逐项回显宿主列出的每个 requirement_id 与 user-request 引用 ID，且不得增删；",
+        "顶层 evidence 必须是数组，每项包含 source（精确受审路径）和 note；不能只在 summary 或 review_result 中提及文件。",
+        "approved 时顶层 status 必须是 done，open_issues 必须为空数组。",
         "finding 包含 severity, detail, evidence_refs。不要输出代码补丁。"
     );
     let mut user = format!(
         "【原始用户请求】\n{prompt}\n\n【宿主验收计划】\n{}\n\n【受审源码快照：每个文件均绑定 SHA-256】\n",
         serde_json::to_string_pretty(&requirements).unwrap_or_else(|_| "[]".to_string())
     );
+    user.push_str(&format!(
+        "\n【评审输出契约：只约束结构，不预设评审结论】\n{}\n",
+        serde_json::to_string_pretty(&output_contract).unwrap_or_default()
+    ));
+    user.push_str(&format!(
+        "\n【宿主执行与验证证据：非模型自述】\n{}\n",
+        serde_json::to_string_pretty(&host_evidence).unwrap_or_default()
+    ));
     for (path, (hash, content)) in &snapshot {
         user.push_str(&format!(
             "\n--- FILE {path} sha256={hash} ---\n{content}\n--- END FILE ---\n"
@@ -315,7 +349,7 @@ pub(super) async fn review_candidate(
     let canonical_root = session.workspace.canonicalize().ok();
     let snapshot_still_matches = canonical_root
         .as_deref()
-        .is_some_and(|root| review_targets_still_match(root, expected_paths));
+        .is_some_and(|root| review_targets_still_match(root, &review_paths));
     if !snapshot_still_matches {
         receipt.verdict = ValidationVerdictV1::Stale;
         receipt.detail = Some("独立评审期间源码变化，评审收据与最终版本不一致".to_string());
@@ -677,7 +711,22 @@ fn parse_review_output(
         | owo_agent_workswarm::WorkerReviewVerdict::Rejected => ValidationVerdictV1::Failed,
         owo_agent_workswarm::WorkerReviewVerdict::Approved => ValidationVerdictV1::Unverified,
     };
-    let detail = if detail.is_empty() {
+    let detail = if verdict == ValidationVerdictV1::Unverified
+        && review.verdict == owo_agent_workswarm::WorkerReviewVerdict::Approved
+    {
+        let missing_sources = snapshot
+            .keys()
+            .filter(|path| {
+                !worker
+                    .evidence
+                    .iter()
+                    .any(|evidence| evidence.source.contains(path.as_str()))
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        format!("评审响应没有满足批准契约：status={:?}, open_issues={}, 阻断发现={}, 缺少顶层 evidence.source={missing_sources:?}；原摘要：{}",
+            worker.status, worker.open_issues.len(), review.findings.iter().filter(|finding| finding.severity.blocks_approval()).count(), worker.summary)
+    } else if detail.is_empty() {
         worker.summary
     } else {
         format!("{}；{}", worker.summary, detail)

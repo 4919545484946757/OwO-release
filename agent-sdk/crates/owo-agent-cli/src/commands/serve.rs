@@ -54,6 +54,66 @@ pub(crate) async fn run_serve(args: ServeArgs) -> Result<(), Box<dyn std::error:
     } else {
         ensure_data_root(None, &workspace)
     };
+    let lock_path = root.join("server.lock");
+    // Keep the lock file on disk so contenders always lock the same file.
+    let lock = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&lock_path);
+    let _data_lock = match lock {
+        Ok(file) => file,
+        Err(error) if desktop_ctx => emit_core_fatal(
+            "storage/not_writable",
+            &format!("{}: {error}", display_path(&lock_path)),
+        ),
+        Err(error) => return Err(error.into()),
+    };
+    // Use one desktop handoff deadline for both the lock and the legacy PID check.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(40);
+    loop {
+        match _data_lock.try_lock() {
+            Ok(()) => break,
+            Err(std::fs::TryLockError::WouldBlock) => {
+                if !desktop_ctx || std::time::Instant::now() >= deadline {
+                    return Err(format!("检测到运行中的服务（{}）", lock_path.display()).into());
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            }
+            Err(std::fs::TryLockError::Error(error)) => return Err(error.into()),
+        }
+    }
+    // R8：强杀恢复——陈旧 pid 文件清理；检测到存活实例则显式拒绝双开。
+    //
+    // R10（2026-09-22 桌面端"连不上"根因）：桌面壳换工作区/换提供商时会先请旧核心
+    // 优雅退出、再立刻拉起新核心，两者必然有毫秒到数秒的重叠；旧实例在途回合
+    // drain 上限是 30s，期间 pid 文件一直存在。此前这里**一次判死**，于是壳拉起的
+    // 新核心秒退，日志留下 Error: 检测到运行中的服务（pid=…），用户看到的是
+    // "服务明明在跑、界面却连不上"。桌面上下文下改为有界等待上一代退出再继续：
+    // 这不是放松双开保护（CLI 语义不变），而是把"上一代正在退"识别成等待而非冲突。
+    let mut recovery = owo_agent_server::shutdown::recover_force_kill(&root);
+    if desktop_ctx {
+        while let Err(ref reason) = recovery {
+            if reason.contains("检测到运行中的服务") && std::time::Instant::now() < deadline
+            {
+                tracing::warn!("上一代核心仍在退出（{reason}），等待其退出后继续启动");
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                recovery = owo_agent_server::shutdown::recover_force_kill(&root);
+                continue;
+            }
+            if reason.contains("检测到运行中的服务") {
+                tracing::error!("等待上一代核心退出超时（40s），按双开冲突拒绝启动");
+            }
+            break;
+        }
+    }
+    if let Some(recovery) = recovery? {
+        tracing::warn!(
+            "检测到强杀残留（pid={:?}），已清理 pid 文件并恢复干净状态",
+            recovery.stale_pid
+        );
+    }
+    let _pid_file = owo_agent_server::shutdown::PidFile::create(&root)?;
     let plugin_state = owo_agent_core::PluginStateStore::new(Some(root.join("plugin_state.json")));
     // 审查 N1：工作区信任门。未信任的工作区不加载插件（插件 manifest 可自带命令/
     // MCP，会在启动时拉起子进程）——信任经桌面端弹窗/`POST /workspace/trust`/设置页保存。
@@ -111,38 +171,6 @@ pub(crate) async fn run_serve(args: ServeArgs) -> Result<(), Box<dyn std::error:
         root.clone(),
         workspace.clone(),
     ));
-    // R8：强杀恢复——陈旧 pid 文件清理；检测到存活实例则显式拒绝双开。
-    //
-    // R10（2026-09-22 桌面端"连不上"根因）：桌面壳换工作区/换提供商时会先请旧核心
-    // 优雅退出、再立刻拉起新核心，两者必然有毫秒到数秒的重叠；旧实例在途回合
-    // drain 上限是 30s，期间 pid 文件一直存在。此前这里**一次判死**，于是壳拉起的
-    // 新核心秒退，日志留下 Error: 检测到运行中的服务（pid=…），用户看到的是
-    // "服务明明在跑、界面却连不上"。桌面上下文下改为有界等待上一代退出再继续：
-    // 这不是放松双开保护（CLI 语义不变），而是把"上一代正在退"识别成等待而非冲突。
-    let mut recovery = owo_agent_server::shutdown::recover_force_kill(&root);
-    if desktop_ctx {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(40);
-        while let Err(ref reason) = recovery {
-            if reason.contains("检测到运行中的服务") && std::time::Instant::now() < deadline
-            {
-                tracing::warn!("上一代核心仍在退出（{reason}），等待其退出后继续启动");
-                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                recovery = owo_agent_server::shutdown::recover_force_kill(&root);
-                continue;
-            }
-            if reason.contains("检测到运行中的服务") {
-                tracing::error!("等待上一代核心退出超时（40s），按双开冲突拒绝启动");
-            }
-            break;
-        }
-    }
-    if let Some(recovery) = recovery? {
-        tracing::warn!(
-            "检测到强杀残留（pid={:?}），已清理 pid 文件并恢复干净状态",
-            recovery.stale_pid
-        );
-    }
-    let _pid_file = owo_agent_server::shutdown::PidFile::create(&root)?;
     // §13 批次三（R10 持久化组接线）：启动恢复用量快照（records/budgets/硬熔断）。
     let restored_usage = owo_agent_server::restore_usage_snapshot(&root);
     if restored_usage > 0 {

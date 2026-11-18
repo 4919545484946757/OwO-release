@@ -422,6 +422,7 @@ mod tests {
             y: 624,
             width: 170,
             height: 36,
+            value_safety: None,
         }];
         let lines = vec![OcrLine {
             text: "发送".into(),

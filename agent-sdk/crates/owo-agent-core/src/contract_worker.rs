@@ -262,14 +262,11 @@ pub(crate) async fn enforce_worker_output_contract_controlled(
         }
     };
 
-    let messages = [ChatMessage {
-        role: "user".to_string(),
-        content: Some(contract_repair_prompt(is_critic, &first_violation, text)),
-        tool_calls: None,
-        tool_call_id: None,
-        images: Vec::new(),
-        input: None,
-    }];
+    let messages = [ChatMessage::user(contract_repair_prompt(
+        is_critic,
+        &first_violation,
+        text,
+    ))];
     let refusal = if abort.is_some_and(|signal| signal.load(std::sync::atomic::Ordering::Relaxed)) {
         Some("worker_aborted: 输出修复前任务已取消")
     } else if !allow_repair {
@@ -513,6 +510,7 @@ mod enforcement_usage_tests {
         ) -> Result<ObservedModelOutput, String> {
             *self.requested_model.lock().unwrap() = model.map(str::to_string);
             Ok(ObservedModelOutput {
+                reasoning_replay: None,
                 output: ModelOutput::Text(
                     r#"{"status":"done","summary":"fixed","artifact":{"kind":"note","format":"text","content":"accepted"},"evidence":[],"open_issues":[]}"#.to_string(),
                 ),

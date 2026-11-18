@@ -1,7 +1,7 @@
 "use strict";
 const {app,ipcMain,clipboard,globalShortcut,Menu}=require('electron');
 const fs=require('node:fs'),path=require('node:path');
-function installPetFeed({pet,main,workspace,dataRoot,port,pets=()=>[pet()],ensureAgents=()=>{},moveActor,resetActor,setVisible,present=()=>{},queryVisible}) {
+function installPetFeed({pet,main,workspace,dataRoot,port,pets=()=>[pet()],ensureAgents=()=>{},moveActor,resetActor,setVisible,present=()=>{},setRegion=()=>({ok:false}),setDragging=()=>({ok:false})}) {
   const statePath=()=>path.join(dataRoot(),'pet-feed-run.json');
   function trusted(event,window) {
     if(!window||window.isDestroyed()||event.sender!==window.webContents||event.senderFrame!==window.webContents.mainFrame)throw Error('untrusted pet feed sender');
@@ -30,19 +30,20 @@ function installPetFeed({pet,main,workspace,dataRoot,port,pets=()=>[pet()],ensur
     present({id:value.id,status:value.status,activeRoles:value.activeRoles});return {ok:true};
   });
   ipcMain.handle('pet:feed:forward' ,(event,text)=>{actor(event);if(typeof text!=='string'||!text.trim()||text.length>8000)throw Error('invalid feed');const w=pet();if(w&&!w.isDestroyed()){if(setVisible)Promise.resolve(setVisible(true)).catch(()=>{});w.webContents.send('pet:feed:text',text);}});
-  ipcMain.handle('pet:actor:query',event=>{const w=actor(event);return {alive:true,visible:w===pet()&&queryVisible?queryVisible():w.isVisible()};});
+  ipcMain.handle('pet:actor:query',event=>{const w=actor(event);return {alive:true,visible:w.isVisible()};});
   ipcMain.handle('pet:actor:visible',(event,visible)=>{actor(event);if(typeof visible!=='boolean')throw Error('invalid visibility');return setVisible?setVisible(visible):{ok:false};});
   ipcMain.handle('pet:actor:move',(event,dx,dy)=>{const w=actor(event);if(!Number.isFinite(dx)||!Number.isFinite(dy))throw Error('invalid movement');if(moveActor)return moveActor(w,dx,dy);const [x,y]=w.getPosition();w.setPosition(x+Math.max(-500,Math.min(500,dx)),y+Math.max(-500,Math.min(500,dy)));return {ok:true};});
   ipcMain.handle('pet:actor:reset',event=>{const w=actor(event);return resetActor?resetActor(w):{ok:false};});
-  ipcMain.handle('pet:actor:ignore-mouse',(event,ignore)=>{const w=actor(event);if(typeof ignore!=='boolean')throw Error('invalid mouse mode');w.setIgnoreMouseEvents(ignore,{forward:true});return {ok:true};});
   // 桌宠窗口常驻不可聚焦，避免抢键盘；只有聊天面板打开期间临时可聚焦，
   // 否则输入框拿不到系统键盘焦点，打字全落到上一个前台窗口。
-  // 另外 Windows 下 WS_EX_NOACTIVATE 会让 Chromium 丢掉 mousedown（只剩 mouseup），
-  // 点击就会"时灵时不灵"。所以指针进入命中区时也临时可聚焦，但**不**主动 focus，
-  // 只有真的点下去才激活，移出后再交还。
+  // 指针命中区的可聚焦切换由主进程的指针轮询负责（见 main.js 的 setPetPointerInside）。
   const chatFocused=new WeakSet();
   ipcMain.handle('pet:actor:chat-focus',(event,open)=>{const w=actor(event);if(typeof open!=='boolean')throw Error('invalid chat focus');if(open){chatFocused.add(w);w.setFocusable(true);w.show();w.moveTop();w.focus();}else{chatFocused.delete(w);if(w.isFocused())w.blur();w.setFocusable(false);}return {ok:true};});
-  ipcMain.handle('pet:actor:hover',(event,inside)=>{const w=actor(event);if(typeof inside!=='boolean')throw Error('invalid hover');if(chatFocused.has(w))return {ok:true};if(inside){w.setFocusable(true);}else{if(w.isFocused())w.blur();w.setFocusable(false);}return {ok:true};});
+  // 命中区由页面量出来上报（形象方块 / 聊天面板），穿透判定留在主进程：窗口一旦
+  // 穿透就收不到 mousemove，页面没有能力把自己再切回来（见 main.js 的说明）。
+  ipcMain.handle('pet:actor:region',(event,rect)=>{const w=actor(event);if(!rect||typeof rect!=='object')throw Error('invalid region');return setRegion(w,rect);});
+  // 拖动期间必须一直握着输入权：中途转成穿透会让 pointer capture 失效，窗口粘住不动。
+  ipcMain.handle('pet:actor:dragging',(event,value)=>{const w=actor(event);if(typeof value!=='boolean')throw Error('invalid dragging');return setDragging(w,value);});
   // 点击/拖动会激活窗口（需要它才能收到 mousedown），但互动结束要把键盘还回去：
   // 只 blur，不撤 focusable，否则指针没离开命中区时下一次点击又会被吞掉。
   ipcMain.handle('pet:actor:blur',event=>{const w=actor(event);if(chatFocused.has(w))return {ok:true};if(w.isFocused())w.blur();return {ok:true};});
