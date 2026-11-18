@@ -1,0 +1,17 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "owo-sharedcore",
+  "version": "0.1.0",
+  "description": "多 Agent 共享核心上下文与并行开发协调：Context Hub、任务 DAG、写范围冲突检测、契约版本、事件日志。",
+  "author": {
+    "name": "OwO Agent SDK"
+  },
+  "homepage": "https://github.com/owo-agent",
+  "license": "MIT",
+  "keywords": ["multi-agent", "parallel", "shared-context", "workflow", "sharedcore"],
+  "extensions": {
+    "com.owo.agent": {
+      "recommended": true
+    }
+  }
+}

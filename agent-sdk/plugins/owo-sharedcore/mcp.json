@@ -1,0 +1,14 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "sharedcore": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["./servers/sharedcore_server.py"],
+      "env": {
+        "OWO_SHAREDCORE_ROOT": "${PLUGIN_ROOT}"
+      },
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}
