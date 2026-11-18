@@ -349,6 +349,42 @@ test("buildRetryBody：POST /teams/{id}/steer 冻结契约（command=retry）", 
 
 // ---------- 渲染守卫 ----------
 
+test("summaryHtml renders proportional bars, total and legend per category", () => {
+  const html = T.summaryHtml({ human: [{}, {}], failed: [{}] });
+  assert.match(html, /owo-ac-summary/);
+  assert.equal((html.match(/class="ac-bar /g) || []).length, 2);
+  assert.match(html, /ac-bar warn" style="flex-grow:2"/);
+  assert.match(html, /ac-bar bad" style="flex-grow:1"/);
+  assert.match(html, /<span class="ac-total">3<\/span>/);
+  assert.match(html, /等待人工结果 2/);
+  assert.match(html, /失败步骤（可重试） 1/);
+  // 空待办：无条、总数 0、无图例。
+  const empty = T.summaryHtml({});
+  assert.doesNotMatch(empty, /ac-bar /);
+  assert.match(empty, /ac-total">0</);
+  assert.doesNotMatch(empty, /ac-legend/);
+});
+
+test("inboxSummaryHtml counts by inbox kind and colors tones", () => {
+  const html = T.inboxSummaryHtml([
+    { kind: "human_result", status: "pending" },
+    { kind: "human_result", status: "pending" },
+    { kind: "artifact_review", status: "pending" },
+    { kind: "step_retry", status: "failed" },
+  ]);
+  assert.match(html, /ac-bar warn" style="flex-grow:2"/);
+  assert.match(html, /ac-bar info" style="flex-grow:1"/);
+  assert.match(html, /ac-bar bad" style="flex-grow:1"/);
+  assert.match(html, /<span class="ac-total">4<\/span>/);
+  assert.match(html, /human_result 2/);
+  assert.match(html, /step_retry 1/);
+  // 已解决条目不计入；空收件箱 → 空态。
+  assert.match(T.inboxSummaryHtml([{ kind: "human_result", status: "resolved" }]), /ac-total">0</);
+  const empty = T.inboxSummaryHtml([]);
+  assert.match(empty, /ac-total">0</);
+  assert.doesNotMatch(empty, /ac-bar /);
+});
+
 test("sectionsHtml：四类目节骨架 + 计数 + 重试按钮 data 属性 + 提交锁 + 结果区", () => {
   const items = {
     human: [{ kind: "human", team_id: "t-1", awaiting_team: true, tasks: [{ task_id: "s-1", role: "plan", status: "running" }] }],

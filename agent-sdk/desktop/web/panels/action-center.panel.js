@@ -699,10 +699,78 @@
       return "";
     }
 
+    /// 分类负载条：四类待办按量着色的比例条 + 总数（一眼看清负载分布）。
+    function summaryHtml(items) {
+      items = items || {};
+      var tones = { human: "warn", review: "info", failed: "bad", lease: "ok" };
+      var counts = SEC_DEFS.map(function (def) {
+        return { key: def.key, count: (items[def.key] || []).length, tone: tones[def.key] || "" };
+      });
+      var total = counts.reduce(function (sum, item) { return sum + item.count; }, 0);
+      var bars = counts
+        .filter(function (item) { return item.count > 0; })
+        .map(function (item) {
+          return '<i class="ac-bar ' + item.tone + '" style="flex-grow:' + item.count + '" title="' +
+            esc(SEC_DEFS.find(function (def) { return def.key === item.key; }).title) + " ×" + item.count + '"></i>';
+        })
+        .join("");
+      return (
+        '<div class="owo-ac-summary' + (total ? "" : " zero") + '" role="img" aria-label="待办分布：共 ' + total + ' 项">' +
+        '<div class="ac-bars">' + (bars || '<i class="ac-none"></i>') + "</div>" +
+        '<span class="ac-total' + (total > 5 ? " hot" : "") + '">' + total + "</span>" +
+        '<span class="hint">项待办</span>' +
+        (counts.some(function (item) { return item.count > 0; })
+          ? '<span class="ac-legend">' + counts.filter(function (item) { return item.count > 0; })
+              .map(function (item) {
+                return '<span><i class="' + item.tone + '"></i>' + esc(
+                  (SEC_DEFS.find(function (def) { return def.key === item.key; }) || {}).title || item.key
+                ) + " " + item.count + "</span>";
+              }).join("") + "</span>"
+          : "") +
+        "</div>"
+      );
+    }
+
+    /// Inbox 模式的负载条：按待办类型（kind）计数着色。
+    function inboxSummaryHtml(items) {
+      var grouped = groupInbox(items || []);
+      var tones = {
+        human_result: "warn",
+        artifact_review: "info",
+        change_set: "warn",
+        step_retry: "bad",
+      };
+      var entries = Object.keys(grouped)
+        .map(function (kind) {
+          return { kind: kind, count: (grouped[kind] || []).length };
+        })
+        .filter(function (entry) { return entry.count > 0; });
+      var total = entries.reduce(function (sum, entry) { return sum + entry.count; }, 0);
+      var bars = entries
+        .map(function (entry) {
+          return '<i class="ac-bar ' + (tones[entry.kind] || "") + '" style="flex-grow:' + entry.count +
+            '" title="' + esc(entry.kind) + " ×" + entry.count + '"></i>';
+        })
+        .join("");
+      return (
+        '<div class="owo-ac-summary' + (total ? "" : " zero") + '" role="img" aria-label="待办分布：共 ' + total + ' 项">' +
+        '<div class="ac-bars">' + (bars || '<i class="ac-none"></i>') + "</div>" +
+        '<span class="ac-total' + (total > 5 ? " hot" : "") + '">' + total + "</span>" +
+        '<span class="hint">项待办</span>' +
+        (entries.length
+          ? '<span class="ac-legend">' + entries.map(function (entry) {
+              return "<span><i class=\"" + (tones[entry.kind] || "") + '"></i>' + esc(entry.kind) + " " + entry.count + "</span>";
+            }).join("") + "</span>"
+          : "") +
+        "</div>"
+      );
+    }
+
     function sectionsHtml(items, st) {
       items = items || {};
       var busy = (st && st.retryBusy) || {};
       var results = (st && st.retryResults) || {};
+      var summary = summaryHtml(items);
       return SEC_DEFS.map(function (def) {
         var list = items[def.key] || [];
         var body = list.length
@@ -716,7 +784,7 @@
           '<div class="owo-ac-items">' + body + "</div>" +
           "</section>"
         );
-      }).join("");
+      }).join("") + summary;
     }
 
     function shellHtml() {
@@ -765,7 +833,7 @@
       if (box) {
         box.innerHTML =
           state.inboxSource === "inbox"
-            ? inboxSectionsHtml(state.inbox)
+            ? inboxSectionsHtml(state.inbox) + inboxSummaryHtml(state.inbox)
             : sectionsHtml(state.items, state);
       }
       paintErrors();
@@ -1018,6 +1086,8 @@
     var TEST_API = {
       state: state,
       normStatus: normStatus,
+      summaryHtml: summaryHtml,
+      inboxSummaryHtml: inboxSummaryHtml,
       isRetryableStep: isRetryableStep,
       candidateTeams: candidateTeams,
       projectIdsOf: projectIdsOf,

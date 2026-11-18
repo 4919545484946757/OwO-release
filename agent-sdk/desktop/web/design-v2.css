@@ -532,6 +532,42 @@ a:focus-visible {
   display: inline-block;
 }
 
+/* 待办中心：分类负载条 */
+#panelRoot .owo-ac-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  margin-top: 10px;
+}
+#panelRoot .owo-ac-summary .ac-bars {
+  display: flex;
+  flex: 1 1 auto;
+  height: 14px;
+  border-radius: 5px;
+  overflow: hidden;
+  gap: 2px;
+  background: var(--surface-3);
+}
+#panelRoot .owo-ac-summary .ac-bar { display: block; min-width: 14px; border-radius: 4px; }
+#panelRoot .owo-ac-summary .ac-bar.warn { background: var(--yellow); }
+#panelRoot .owo-ac-summary .ac-bar.info { background: var(--accent); }
+#panelRoot .owo-ac-summary .ac-bar.bad { background: var(--red); }
+#panelRoot .owo-ac-summary .ac-bar.ok { background: var(--green); }
+#panelRoot .owo-ac-summary .ac-none { display: block; flex: 1; }
+#panelRoot .owo-ac-summary .ac-total { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+#panelRoot .owo-ac-summary .ac-total.hot { color: var(--red); }
+#panelRoot .owo-ac-summary .ac-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--text-2); }
+#panelRoot .owo-ac-summary .ac-legend span { display: inline-flex; align-items: center; gap: 5px; }
+#panelRoot .owo-ac-summary .ac-legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+#panelRoot .owo-ac-summary .ac-legend .warn { background: var(--yellow); }
+#panelRoot .owo-ac-summary .ac-legend .info { background: var(--accent); }
+#panelRoot .owo-ac-summary .ac-legend .bad { background: var(--red); }
+#panelRoot .owo-ac-summary .ac-legend .ok { background: var(--green); }
+
 /* 新任务向导：连接式步骤指示器 */
 #panelRoot .owo-pl-wizard {
   display: flex;
