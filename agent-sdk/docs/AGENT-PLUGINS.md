@@ -80,7 +80,8 @@ owo-demo-kit/
 
 作者侧签名：`owo-agent plugin sign <包目录> --key <私钥文件>`（私钥支持 raw 32 字节 /
 hex / base64，只读入内存、不落盘）；`owo-agent plugin check <包目录>` 会显示
-「签名：ed25519 校验通过」或「签名：校验失败」。
+「签名：ed25519 校验通过」或「签名：校验失败」。`plugin catalog` 会在包信息后追加
+`[signed]`（只报有无）；桌面「插件与技能」与 `GET /plugins` 的 `signed` 字段同源。
 
 随包示例：`plugins/owo-demo-kit/`（一个技能 + 一个 stdio 服务器，Python 标准库实现）。
 
