@@ -351,6 +351,43 @@ a:focus-visible {
 #panelRoot .owo-market-panel > details { grid-column: 1 / -1; }
 #panelRoot .owo-market-panel > details summary { font-size: 12.5px; color: var(--text-2); }
 
+/* 项目首页：指标卡 / 两块内容 / 起步模板统一成"同一套卡片" */
+#panelRoot .home-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  border: 0;
+}
+#panelRoot .home-summary-card {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: 14px 16px;
+  text-align: left;
+}
+#panelRoot .home-summary-card strong { display: block; margin: 4px 0 2px; font-size: 24px; letter-spacing: -0.02em; }
+#panelRoot .home-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+#panelRoot .home-section {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: 14px 16px;
+}
+#panelRoot .home-starter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+#panelRoot .home-starter-grid button {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: 12px 14px;
+  text-align: left;
+}
+#panelRoot .home-starter-grid button:hover { border-color: var(--border-strong); }
+#panelRoot .panel-empty-state {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  padding: 18px;
+}
+
 /* ---------- 面板 / 设置 ---------- */
 #panelRoot { padding: 22px 28px 40px; }
 #panelRoot > * { max-width: 1120px; margin-left: auto; margin-right: auto; }
