@@ -189,25 +189,23 @@ async fn list(State(state): State<std::sync::Arc<owo_agent_server::AppState>>) -
         }
     };
     let mut playbooks: Vec<Value> = Vec::new();
-    let mut truncated = false;
-    for entry in entries.flatten() {
-        // 目录规模上限：避免超大目录造成读放大（残余风险见 REVIEW-playbooks-api.md）。
-        if playbooks.len() >= MAX_PLAYBOOK_FILES {
-            truncated = true;
-            break;
-        }
-        let path = entry.path();
-        let name = path
-            .file_name()
-            .map(|value| value.to_string_lossy().into_owned());
-        if !path.is_file()
-            || name
-                .as_deref()
-                .is_some_and(|value| value.ends_with(".state.json"))
-            || path.extension().and_then(|value| value.to_str()) != Some("json")
-        {
-            continue;
-        }
+    // 先过滤候选、按文件名排序再截断：截断子集确定，"前 500 个"与目录顺序无关。
+    let mut files: Vec<std::path::PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.is_file()
+                && path.extension().and_then(|value| value.to_str()) == Some("json")
+                && !path
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .is_some_and(|name| name.ends_with(".state.json"))
+        })
+        .collect();
+    files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    let truncated = files.len() > MAX_PLAYBOOK_FILES;
+    files.truncate(MAX_PLAYBOOK_FILES);
+    for path in files {
         // 对外只用工作区相对路径（正斜杠）：客户端回传时可以原样作为 `file`。
         let canonical = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
         let display = canonical

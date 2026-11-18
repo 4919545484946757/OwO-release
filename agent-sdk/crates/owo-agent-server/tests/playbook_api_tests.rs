@@ -241,6 +241,16 @@ async fn list_truncates_oversized_directories() {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["count"], 500, "{body}");
     assert_eq!(body["truncated"], true, "{body}");
+    let ids: Vec<&str> = body["playbooks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|playbook| playbook["id"].as_str())
+        .collect();
+    // 截断子集按文件名字典序确定：p0 在，末尾的 p99 被截掉（p500 排在 p50 之后、p51 之前）。
+    assert!(ids.contains(&"p0"), "应包含字典序第一个文件");
+    assert!(!ids.contains(&"p99"), "字典序末尾的文件应被截断");
+    assert!(ids.contains(&"p500"), "p500 按字典序在保留范围内");
 }
 
 #[tokio::test]
