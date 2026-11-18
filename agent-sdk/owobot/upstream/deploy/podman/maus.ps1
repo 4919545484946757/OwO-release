@@ -1,4 +1,4 @@
-# Windows/WSL2 entry point. Run setup once, then pass Compose arguments verbatim.
+﻿# Windows/WSL2 entry point. Run setup once, then pass Compose arguments verbatim.
 $ErrorActionPreference = 'Stop'
 if (-not $args.Count -or $args[0] -in @('--help', '-h', 'help')) {
     Write-Output 'Usage: .\deploy\podman\maus.ps1 setup | <compose arguments>'

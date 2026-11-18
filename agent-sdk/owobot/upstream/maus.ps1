@@ -1,4 +1,4 @@
-[string[]]$ComposeArgs = @(if ($args.Count) { $args } else { 'ps' })
+﻿[string[]]$ComposeArgs = @(if ($args.Count) { $args } else { 'ps' })
 $ErrorActionPreference = 'Stop'
 $dockerCommand = Get-Command docker.exe -ErrorAction SilentlyContinue
 $dockerPath = if ($dockerCommand) { $dockerCommand.Source } else { Join-Path $env:LOCALAPPDATA 'Programs\DockerDesktop\resources\bin\docker.exe' }
