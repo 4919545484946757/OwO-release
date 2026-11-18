@@ -22,7 +22,7 @@
 
 - 剧本格式：`plan` / `check` / `human` 步骤，依赖、判据、命令、`max_attempts`。
 - CLI：`validate`（文件/目录，`--strict`）、`plan`、`next`、`record`、`status`、`reset`、
-  `list`、`init`（骨架或 `--from` 派生）、`archive`/`history`/`diff`（支持 latest/previous/oldest 与 `--to current`）。
+  `list`、`init`（骨架或 `--from` 派生）、`archive`/`history`/`diff`（支持 latest/previous/oldest 与 `--to current`）、`export`/`import`（单文件包，含状态与归档）。
 - 模型工具组（可选）：`playbook_next` / `playbook_record` / `playbook_check` / `playbook_run`。
 - `/advance --playbook`：宿主按剧本推进，完成由宿主判定；提示含重试预算与上次失败类型。
 - HTTP：`GET /playbooks`、`GET /playbooks/status`、`GET /playbooks/history`、

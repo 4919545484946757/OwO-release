@@ -102,15 +102,32 @@ pub(crate) enum PlaybookAction {
     },
     /// 列出历次归档与各自进度
     History { file: PathBuf },
-    /// 对比两次归档（哪一步变化/退化；标记可用 latest/previous/oldest）
+    /// 对比两次归档（哪一步变化/退化；标记可用 latest/previous/oldest/current）
     Diff {
         file: PathBuf,
-        /// 基准归档标记（或 latest/previous/oldest）
+        /// 基准归档标记（或 latest/previous/oldest/current）
         #[arg(long)]
         from: String,
-        /// 目标归档标记（或 latest/previous/oldest）
+        /// 目标归档标记（或 latest/previous/oldest/current）
         #[arg(long)]
         to: String,
+    },
+    /// 导出剧本（含当前状态与归档）为单文件包
+    Export {
+        file: PathBuf,
+        /// 输出包路径
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// 从包导入剧本（含状态与归档；--force 覆盖）
+    Import {
+        bundle: PathBuf,
+        /// 剧本输出路径（默认 playbooks/<id>.json）
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// 覆盖已存在的剧本/状态/归档
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -143,6 +160,10 @@ pub(crate) fn run_playbook_cmd(args: PlaybookArgs) -> Result<(), Box<dyn std::er
         } => archive(&file, marker.as_deref(), force, args.json),
         PlaybookAction::History { file } => history(&file, args.json),
         PlaybookAction::Diff { file, from, to } => diff(&file, &from, &to, args.json),
+        PlaybookAction::Export { file, out } => export(&file, &out, args.json),
+        PlaybookAction::Import { bundle, out, force } => {
+            import(&bundle, out.as_deref(), force, args.json)
+        }
     }
 }
 
@@ -1489,6 +1510,200 @@ fn diff(file: &Path, from: &str, to: &str, json: bool) -> Result<(), Box<dyn std
     Ok(())
 }
 
+/// 导出包格式版本。
+const PLAYBOOK_BUNDLE_VERSION: u64 = 1;
+
+fn to_boxed(error: String) -> Box<dyn std::error::Error> {
+    error.into()
+}
+
+/// 导出剧本 + 当前状态 + 归档为单文件包（便于分享/备份/排障）。
+fn export(file: &Path, out: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let playbook = load(file)?;
+    ensure_valid(&playbook)?;
+    let state_path = default_run_path(file);
+    let state = if state_path.exists() {
+        let content = std::fs::read_to_string(&state_path)?;
+        let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+        Some(serde_json::from_str::<PlaybookRun>(content)?)
+    } else {
+        None
+    };
+    let mut archives: Vec<serde_json::Value> = Vec::new();
+    let dir = runs_dir(file);
+    if dir.exists() {
+        let mut entries: Vec<_> = std::fs::read_dir(&dir)?.flatten().collect();
+        entries.sort_by_key(|entry| entry.file_name());
+        for entry in entries {
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                continue;
+            }
+            let marker = path
+                .file_stem()
+                .map(|value| value.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let Ok(content) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+            let Ok(run) = serde_json::from_str::<PlaybookRun>(content) else {
+                continue;
+            };
+            if run.playbook_id != playbook.id {
+                continue;
+            }
+            archives.push(serde_json::json!({ "marker": marker, "run": run }));
+        }
+    }
+    if let Some(parent) = out.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
+    let archive_count = archives.len();
+    let has_state = state.is_some();
+    let bundle = serde_json::json!({
+        "schema_version": PLAYBOOK_BUNDLE_VERSION,
+        "playbook": playbook,
+        "state": state,
+        "archives": archives,
+    });
+    std::fs::write(out, serde_json::to_string_pretty(&bundle)?)?;
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "ok": true,
+                "id": playbook.id,
+                "out": out.to_string_lossy(),
+                "archives": archive_count,
+                "has_state": has_state,
+            })
+        );
+    } else {
+        println!(
+            "已导出：{}（状态 {}，归档 {} 条）",
+            out.display(),
+            if has_state { "有" } else { "无" },
+            archive_count
+        );
+    }
+    Ok(())
+}
+
+/// 从包导入剧本（同时恢复状态与归档）。
+fn import(
+    bundle: &Path,
+    out: Option<&Path>,
+    force: bool,
+    json: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let content = std::fs::read_to_string(bundle)?;
+    let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+    let value: serde_json::Value = serde_json::from_str(content)?;
+    let version = value
+        .get("schema_version")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    if version != PLAYBOOK_BUNDLE_VERSION {
+        return Err(to_boxed(format!("不支持的包版本：{version}")));
+    }
+    let playbook_value = value
+        .get("playbook")
+        .cloned()
+        .ok_or_else(|| to_boxed("包缺少 playbook".to_string()))?;
+    let playbook: Playbook = serde_json::from_value(playbook_value)?;
+    ensure_valid(&playbook)?;
+    let target = out
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("playbooks").join(format!("{}.json", playbook.id)));
+    if target.exists() && !force {
+        return Err(to_boxed(format!(
+            "{} 已存在（用 --force 覆盖）",
+            target.display()
+        )));
+    }
+    let state = match value.get("state").cloned() {
+        None | Some(serde_json::Value::Null) => None,
+        Some(state) => Some(serde_json::from_value::<PlaybookRun>(state)?),
+    };
+    if let Some(state) = &state {
+        if state.playbook_id != playbook.id {
+            return Err(to_boxed("包里的状态属于另一个剧本".to_string()));
+        }
+    }
+    let mut archives: Vec<(String, PlaybookRun)> = Vec::new();
+    if let Some(items) = value.get("archives").and_then(serde_json::Value::as_array) {
+        for item in items {
+            let Some(marker) = item.get("marker").and_then(serde_json::Value::as_str) else {
+                continue;
+            };
+            validate_marker(marker).map_err(to_boxed)?;
+            let Some(run) = item.get("run") else { continue };
+            let run: PlaybookRun = serde_json::from_value(run.clone())?;
+            if run.playbook_id == playbook.id {
+                archives.push((marker.to_string(), run));
+            }
+        }
+    }
+    let runs = runs_dir(&target);
+    for (marker, _) in &archives {
+        let path = runs.join(format!("{marker}.json"));
+        if path.exists() && !force {
+            return Err(to_boxed(format!(
+                "归档 {} 已存在（用 --force 覆盖）",
+                path.display()
+            )));
+        }
+    }
+    let state_path = default_run_path(&target);
+    if state_path.exists() && !force {
+        return Err(to_boxed(format!(
+            "{} 已存在（用 --force 覆盖）",
+            state_path.display()
+        )));
+    }
+    if let Some(parent) = target.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
+    std::fs::write(&target, serde_json::to_string_pretty(&playbook)?)?;
+    if let Some(state) = &state {
+        save_run(&state_path, state)?;
+    }
+    if !archives.is_empty() {
+        std::fs::create_dir_all(&runs)?;
+        for (marker, run) in &archives {
+            std::fs::write(
+                runs.join(format!("{marker}.json")),
+                serde_json::to_string_pretty(run)?,
+            )?;
+        }
+    }
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "ok": true,
+                "id": playbook.id,
+                "path": target.to_string_lossy(),
+                "archives": archives.len(),
+                "has_state": state.is_some(),
+            })
+        );
+    } else {
+        println!(
+            "已导入：{}（状态 {}，归档 {} 条）",
+            target.display(),
+            if state.is_some() { "有" } else { "无" },
+            archives.len()
+        );
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1532,6 +1747,42 @@ mod tests {
             .to_string();
         assert!(last.contains("\"phase\":\"end\""), "{last}");
         assert!(last.contains("human-cli"), "{last}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn export_import_roundtrip_restores_state_and_archives() {
+        let dir = scratch("bundle");
+        let file = write_playbook(&dir);
+        let mut run = load_run(&file, None).unwrap().run;
+        run.record_pass("a", "证据");
+        save_run(&default_run_path(&file), &run).unwrap();
+        let runs = runs_dir(&file);
+        std::fs::create_dir_all(&runs).unwrap();
+        std::fs::write(
+            runs.join("r1.json"),
+            serde_json::to_string_pretty(&run).unwrap(),
+        )
+        .unwrap();
+
+        let bundle = dir.join("bundle.json");
+        export(&file, &bundle, true).unwrap();
+        let bundle_value: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&bundle).unwrap()).unwrap();
+        assert_eq!(bundle_value["schema_version"], 1);
+        assert_eq!(bundle_value["archives"].as_array().unwrap().len(), 1);
+
+        let target = dir.join("imported").join("demo.json");
+        import(&bundle, Some(&target), false, true).unwrap();
+        let restored = load_run(&target, None).unwrap();
+        assert!(matches!(
+            restored.run.states.get("a"),
+            Some(StepState::Passed { .. })
+        ));
+        assert!(runs_dir(&target).join("r1.json").exists());
+        // 已存在时拒绝覆盖，--force 才允许。
+        assert!(import(&bundle, Some(&target), false, true).is_err());
+        import(&bundle, Some(&target), true, true).unwrap();
         let _ = std::fs::remove_dir_all(&dir);
     }
 

@@ -100,8 +100,12 @@ owo-agent playbook init review2 --from playbooks/code-review.json
 owo-agent playbook archive playbooks/code-review.json --marker 2026-11-18-a   # 中途快照；完成时会自动留档 complete-<时间戳>
 owo-agent playbook history playbooks/code-review.json
 owo-agent playbook history --json playbooks/code-review.json
-owo-agent playbook diff playbooks/code-review.json --from 2026-11-18-a --to 2026-11-18-b   # 也显示失败类型变化（timeout → exit_nonzero）
+$ owo-agent playbook diff playbooks/code-review.json --from 2026-11-18-a --to 2026-11-18-b   # 也显示失败类型变化（timeout → exit_nonzero）
 # 标记也可用 latest / previous / oldest；--to current 直接和当前状态比
+
+# 导出/导入单文件包（含当前状态与全部归档；便于分享/备份/排障）
+owo-agent playbook export playbooks/code-review.json --out code-review.bundle.json
+owo-agent playbook import code-review.bundle.json --out playbooks/code-review2.json
 owo-agent playbook diff playbooks/code-review.json --from previous --to latest
 
 # 机器可读（status / next / record / reset / list / init / archive / history / diff 都支持）
