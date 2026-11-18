@@ -3,6 +3,22 @@
 > 记录用户可见的能力变化。内部进度索引见 `docs/PROGRESS-2026-11-18.md`，
 > 前沿调研见 `docs/TRENDS-2026-11.md`。功能状态以当前源码与测试为准。
 
+## 2026-11-18（SharedCore 多 Agent 共享上下文）
+
+### 新增
+
+- **SharedCore 插件**（`plugins/owo-sharedcore`，Agent Plugins 1.0.0）：项目级共享上下文
+  （规则/架构/契约/任务 DAG/事件）落在 `<workspace>/.sharedcore/`。
+- 10 个 MCP 工具：`init` / `status` / `context` / `task_add` / `plan` / `claim` /
+  `update` / `contract` / `event` / `brief`。
+- 并行调度：依赖检查 + 写范围前缀冲突检测 + 并行批次（`max_parallel`）；契约提案/接受使用
+  `expected_version` CAS；事件只追加。
+- 使用方式：启用插件后像普通对话一样说"用 SharedCore 并行开发……"，技能指导主 Agent
+  拆任务、生成 brief、用 `fanout_subagents` 并行执行。
+- 自检：`scripts/sharedcore-selfcheck.py` 端到端覆盖批次/冲突/CAS/简报；宿主实测 MCP
+  已连接（tools=10）。
+- 能力目录新增 `agents.sharedcore`（Beta）。
+
 ## 2026-11-18（工作流与插件治理）
 
 ### 新增

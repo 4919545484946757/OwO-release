@@ -91,6 +91,29 @@ const E_PLUGIN_ENTRYPOINTS: &[Entrypoint] = &[
     },
 ];
 
+const E_SHAREDCORE_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent plugin install plugins/owo-sharedcore",
+        label: "安装/启用 SharedCore 插件（禁用即移除工具面）",
+    },
+    Entrypoint {
+        kind: "service",
+        target: "sharedcore_init|status|context|task_add|plan|claim|update|contract|event|brief",
+        label: "10 个协调工具（MCP，经宿主权限/审计）",
+    },
+    Entrypoint {
+        kind: "cli",
+        target: "python agent-sdk/scripts/sharedcore-selfcheck.py",
+        label: "端到端自检（批次/冲突/契约 CAS/简报）",
+    },
+    Entrypoint {
+        kind: "ui",
+        target: "工作台 →「SharedCore」面板",
+        label: "看任务 DAG、并行批次与共享事件（后续接入）",
+    },
+];
+
 const E_PLAYBOOK_ENTRYPOINTS: &[Entrypoint] = &[
     Entrypoint {
         kind: "cli",
@@ -343,6 +366,23 @@ pub static CAPABILITIES: &[CapabilityDescriptor] = &[
         ],
         advanced: false,
         dependencies: &[],
+    },
+    CapabilityDescriptor {
+        id: CapabilityId("agents.sharedcore"),
+        user_name: "多 Agent 共享上下文并行开发",
+        summary: "SharedCore 插件：项目级结构化上下文（规则/契约/任务 DAG/事件）由多个子 Agent 共享；按写范围拆分并行批次，契约变更走版本 CAS，状态落在工作区 .sharedcore/",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_SHAREDCORE_ENTRYPOINTS,
+        required_effects: &[
+            ToolEffectClass::Read,
+            ToolEffectClass::Write,
+            ToolEffectClass::Execute,
+        ],
+        advanced: false,
+        dependencies: &[
+            CapabilityId("plugins.agent-plugins"),
+            CapabilityId("sessions.turns"),
+        ],
     },
     CapabilityDescriptor {
         id: CapabilityId("workflows.custom"),
