@@ -236,8 +236,13 @@ owo-agent playbook status --json playbooks/code-review.json
 
 ## 9. 下一步
 
-1. **执行驱动**：`playbook run` 按 `next_ready()` 推进；`check` 步骤经 Tool Host 执行并
-   记录证据，`model` 步骤走一次 Agent 回合，`human` 步骤挂审批；
-2. **运行记录**：`PlaybookRun` 落盘到 `<data>/playbooks/runs/`，支持中断续跑；
-3. **与 `/advance` 协同**：`/advance` 负责"按进度不空转"，剧本负责"按什么顺序做"；
-4. **桌面面板**：剧本列表 + 运行进度（见 `docs/UI-SURFACING.md` 的 surfacing 清单）。
+已完成（原 §9 计划）：`check` 经 Tool Host 执行并记录证据、`model` 走 Agent 回合、
+`human` 挂审批；`PlaybookRun` 落盘并支持中断续跑；与 `/advance --playbook` 协同；
+桌面面板接入。
+
+仍待做（按价值，详见 `PROGRESS-2026-11-18.md` §6 与 `TRENDS-2026-11.md`）：
+
+1. **严格 exactly-once**：当前是"派发日志发现 + 人工确认"，不是分布式事务；
+2. **退避策略**与**并行/嵌套工作流**；
+3. **远端插件市场**（当前本地 `market.json`）；
+4. 面板不编辑剧本正文（只生成骨架）。
