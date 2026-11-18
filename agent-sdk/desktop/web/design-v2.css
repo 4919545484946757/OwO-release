@@ -532,6 +532,48 @@ a:focus-visible {
   display: inline-block;
 }
 
+/* 记忆面板：时间线直方图 + 实体热度芯片 */
+#panelRoot .owo-mem-tl-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+#panelRoot .owo-mem-tl-day { flex: 0 0 84px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+#panelRoot .owo-mem-tl-track {
+  flex: 1 1 auto;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+#panelRoot .owo-mem-tl-track i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+  min-width: 2px;
+}
+#panelRoot .owo-mem-tl-count { flex: 0 0 auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+#panelRoot .owo-mem-ent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text);
+}
+#panelRoot .owo-mem-ent i {
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
 /* ---------- 面板 / 设置 ---------- */
 #panelRoot { padding: 22px 28px 40px; }
 #panelRoot > * { max-width: 1120px; margin-left: auto; margin-right: auto; }

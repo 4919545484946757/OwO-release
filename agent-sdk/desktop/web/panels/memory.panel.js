@@ -205,6 +205,30 @@ window.OwoPanels.memory = (function () {
         if (currentBox) currentBox.innerHTML = '<div class="owo-memory-hit">' + H.esc(H.friendlyError(error)) + "</div>";
       });
   }
+  /// 时间线直方图：每天一条横条，宽度按占比，尾部带计数（替代纯文本行）。
+  function timelineBars(buckets) {
+    var rows = (buckets || []).slice(0, 30);
+    if (!rows.length) return '<div class="owo-memory-row">暂无观察记录</div>';
+    var max = 1;
+    rows.forEach(function (bucket) {
+      max = Math.max(max, Number(bucket.count) || 0);
+    });
+    return rows
+      .map(function (bucket) {
+        var count = Number(bucket.count) || 0;
+        var percent = max > 0 ? Math.round((count / max) * 100) : 0;
+        var width = Math.max(percent, count > 0 ? 4 : 1);
+        return (
+          '<div class="owo-mem-tl-row">' +
+          '<span class="owo-mem-tl-day">' + H.esc(bucket.day) + "</span>" +
+          '<span class="owo-mem-tl-track" aria-hidden="true">' +
+          '<i style="width:' + width + '%"></i></span>' +
+          '<span class="owo-mem-tl-count">' + count + "</span></div>"
+        );
+      })
+      .join("");
+  }
+
   function loadTimeline() {
     var request = ++timelineGeneration;
     var owner = panelGeneration;
@@ -213,9 +237,7 @@ window.OwoPanels.memory = (function () {
         if (request !== timelineGeneration || owner !== panelGeneration) return;
         var current = document.getElementById("owo-memory-timeline");
         if (!current) return;
-        current.innerHTML = ((data && data.buckets) || []).map(function (bucket) {
-          return '<div class="owo-memory-row"><b>' + H.esc(bucket.day) + "</b> ｜ " + H.esc(bucket.count) + " 条</div>";
-        }).join("");
+        current.innerHTML = timelineBars((data && data.buckets) || []);
       })
       .catch(function (error) {
         if (request !== timelineGeneration || owner !== panelGeneration) return;
@@ -223,6 +245,29 @@ window.OwoPanels.memory = (function () {
         if (current) current.innerHTML = '<div class="owo-memory-row">' + H.esc(H.friendlyError(error)) + "</div>";
       });
   }
+
+  /// 实体频次热度芯片：底色不透明度按频次占比，数字在芯片内。
+  function entityChips(entities) {
+    var rows = (entities || []).slice(0, 30);
+    if (!rows.length) return '<div class="owo-memory-card">暂无实体</div>';
+    var max = 1;
+    rows.forEach(function (entity) {
+      max = Math.max(max, Number(entity.count) || 0);
+    });
+    return rows
+      .map(function (entity) {
+        var count = Number(entity.count) || 0;
+        var weight = max > 0 ? count / max : 0;
+        var alpha = (0.15 + 0.55 * weight).toFixed(2);
+        return (
+          '<span class="owo-mem-ent" style="background:color-mix(in oklab, var(--accent) ' +
+          Math.round(alpha * 100) + '%, var(--surface-2))" title="' + H.esc(entity.entity) + " ×" + count + '">' +
+          H.esc(entity.entity) + "<i>" + count + "</i></span>"
+        );
+      })
+      .join("");
+  }
+
   function loadEntities() {
     var request = ++entitiesGeneration;
     var owner = panelGeneration;
@@ -231,13 +276,7 @@ window.OwoPanels.memory = (function () {
         if (request !== entitiesGeneration || owner !== panelGeneration) return;
         var current = document.getElementById("owo-memory-entities");
         if (!current) return;
-        current.innerHTML = ((data && data.entities) || []).map(function (entity) {
-          var related = (entity.related || []).map(function (relation) {
-            return H.esc(relation.entity) + "×" + H.esc(relation.count);
-          }).join(", ");
-          return '<span class="owo-memory-card"><b>' + H.esc(entity.entity) + "</b>×" + H.esc(entity.count) +
-            (related ? " <small>(" + related + ")</small>" : "") + "</span>";
-        }).join("");
+        current.innerHTML = entityChips((data && data.entities) || []);
       })
       .catch(function (error) {
         if (request !== entitiesGeneration || owner !== panelGeneration) return;
@@ -353,6 +392,6 @@ window.OwoPanels.memory = (function () {
     mount: mount,
     refresh: refresh,
     dispose: dispose,
-    _test: { doRecall: doRecall, loadEntries: loadEntries, addRelation: addRelation, mineSkill: mineSkill },
+    _test: { doRecall: doRecall, loadEntries: loadEntries, addRelation: addRelation, mineSkill: mineSkill, timelineBars: timelineBars, entityChips: entityChips },
   };
 })();
