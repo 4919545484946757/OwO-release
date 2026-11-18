@@ -326,15 +326,16 @@ async fn history(
     let mut runs: Vec<Value> = Vec::new();
     let mut truncated = false;
     if let Ok(entries) = std::fs::read_dir(&dir) {
-        for entry in entries.flatten() {
-            if runs.len() >= MAX_PLAYBOOK_FILES {
-                truncated = true;
-                break;
-            }
-            let path = entry.path();
-            if path.extension().and_then(|value| value.to_str()) != Some("json") {
-                continue;
-            }
+        // 与列表一致：先过滤、按文件名排序、再截断，保证保留子集确定。
+        let mut files: Vec<std::path::PathBuf> = entries
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("json"))
+            .collect();
+        files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+        truncated = files.len() > MAX_PLAYBOOK_FILES;
+        files.truncate(MAX_PLAYBOOK_FILES);
+        for path in files {
             let marker = path
                 .file_stem()
                 .map(|value| value.to_string_lossy().into_owned())
