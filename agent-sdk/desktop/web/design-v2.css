@@ -1,0 +1,341 @@
+/* ==========================================================================
+   Design v2 · 对标 Codex / DSH 的视觉收口层
+   只做设计收口：中性色、间距节奏、控件尺寸、对话列宽、卡片层级。
+   结构（HTML/JS）不动，避免影响已有交互与测试。
+   ========================================================================== */
+
+:root {
+  /* 中性色：带一点暖绿，不用纯灰 */
+  --bg: #f7f7f4;
+  --surface: #ffffff;
+  --surface-2: #f2f3ef;
+  --surface-3: #e9ebe5;
+  --border: #e6e7e1;
+  --border-strong: #d2d5cc;
+  --text: #191b18;
+  --text-2: #52564f;
+  --text-3: #757a72;
+  --accent: #146c50;
+  --accent-hover: #0f5a42;
+  --accent-soft: #e7f0eb;
+  --accent-ink: #ffffff;
+  --green: #157a58;
+  --green-soft: #e6f2ec;
+  --user-bubble: #f0f3ef;
+  --user-bubble-border: #e2e6df;
+  --sidebar-bg: #f3f4f0;
+  --sidebar-hover: rgba(25, 27, 24, 0.05);
+
+  /* 形状：一套圆角 + 两档阴影 */
+  --r-sm: 6px;
+  --r-md: 9px;
+  --r-lg: 13px;
+  --r-xl: 18px;
+  --shadow-sm: 0 1px 2px rgba(24, 28, 22, 0.06);
+  --shadow-md: 0 10px 30px -18px rgba(24, 28, 22, 0.28);
+
+  /* 尺寸 */
+  --session-width: 236px;
+  --header-height: 50px;
+}
+
+/* ---------- 侧栏 ---------- */
+#sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 8px 8px 10px;
+}
+
+.codex-sidebar-top {
+  height: 34px;
+  margin-bottom: 2px;
+}
+
+.codex-workspace-switcher {
+  height: 42px;
+  padding: 5px 8px;
+  border-radius: var(--r-md);
+  gap: 8px;
+}
+.codex-workspace-switcher:hover { background: var(--sidebar-hover); }
+.codex-workspace-meta small { font-size: 10.5px; color: var(--text-3); }
+.codex-workspace-meta strong { font-size: 13px; font-weight: 600; }
+
+.workbench-create-task {
+  height: 34px;
+  margin: 8px 0 10px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.workbench-shortcuts { gap: 1px; }
+.workbench-shortcuts button,
+.codex-nav button {
+  min-height: 30px;
+  padding: 0 9px;
+  border-radius: var(--r-md);
+  gap: 9px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.workbench-shortcuts button:hover,
+.codex-nav button:hover { background: var(--sidebar-hover); color: var(--text); }
+.workbench-shortcuts button[aria-current="page"],
+.codex-nav button.active,
+.codex-nav button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+.workbench-shortcuts .nav-icon { opacity: 0.75; }
+
+.codex-sessions-heading { margin-top: 14px; padding: 0 6px; }
+.codex-sessions-head {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+.codex-new-chat,
+.codex-icon-btn { color: var(--text-3); }
+.codex-new-chat:hover,
+.codex-icon-btn:hover { color: var(--text); background: var(--sidebar-hover); }
+
+.codex-sessions li {
+  min-height: 30px;
+  padding: 5px 9px;
+  border-radius: var(--r-md);
+  font-size: 12.5px;
+}
+.codex-sessions li.active { background: var(--surface); box-shadow: var(--shadow-sm); }
+
+.codex-sidebar-footer { border-top: 1px solid var(--border); padding-top: 8px; }
+.codex-footer-btn {
+  min-height: 30px;
+  border-radius: var(--r-md);
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.codex-footer-btn:hover { background: var(--sidebar-hover); color: var(--text); }
+.codex-user { border-radius: var(--r-md); padding: 4px 6px; }
+.codex-user:hover { background: var(--sidebar-hover); }
+
+/* ---------- 主区域 ---------- */
+.workspace-page-head {
+  height: var(--header-height);
+  padding: 0 26px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+}
+.workspace-page-title h1 {
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.workspace-page-title span { font-size: 11px; color: var(--text-3); }
+
+.codex-stage { padding: 0 0 8px; }
+#messages {
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 20px 24px 28px;
+}
+.msg { font-size: 14px; line-height: 1.65; }
+.msg + .msg { margin-top: 14px; }
+.msg.user {
+  background: var(--user-bubble);
+  border: 1px solid var(--user-bubble-border);
+  border-radius: 13px 13px 4px 13px;
+  padding: 9px 13px;
+  max-width: 88%;
+  margin-left: auto;
+}
+.msg.assistant { padding: 0; }
+
+/* 空状态：降低体量，突出"开始做" */
+.codex-empty {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 56px 24px 8px;
+  gap: 12px;
+  align-items: flex-start;
+}
+.codex-empty > * { max-width: 100%; }
+#emptyStateWorkspaceBtn,
+.codex-empty-action { align-self: flex-start; }
+.workspace-welcome-actions { align-self: stretch; }
+.codex-empty-logo { align-self: flex-start; }
+.codex-empty-logo .agent-orb svg { width: 34px; height: 34px; border-radius: 9px; }
+.codex-empty h2 { font-size: 25px; letter-spacing: -0.025em; margin: 2px 0 0; }
+.codex-empty p { font-size: 13px; color: var(--text-3); max-width: 34em; line-height: 1.6; }
+
+.workspace-welcome-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.welcome-tile {
+  min-height: 76px;
+  padding: 12px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.welcome-tile:hover { border-color: var(--border-strong); background: var(--surface); }
+.welcome-tile.primary { background: var(--surface); color: var(--text); }
+.welcome-tile .welcome-tile-text strong { font-size: 13px; font-weight: 600; }
+.welcome-tile .welcome-tile-text small { font-size: 11.5px; color: var(--text-3); line-height: 1.45; }
+.welcome-tile-go { display: none; }
+.workspace-welcome-flow { margin-top: 10px; font-size: 11.5px; color: var(--text-3); }
+
+/* ---------- 输入区 ---------- */
+#chatForm {
+  max-width: 780px;
+  width: calc(100% - 48px);
+  margin: 0 auto 16px;
+  padding: 9px 11px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+#chatForm:focus-within {
+  border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-md);
+}
+#prompt {
+  font-size: 14.5px;
+  line-height: 1.55;
+  padding: 4px 2px 2px;
+  min-height: 26px;
+}
+#prompt::placeholder { color: #92978e; }
+
+.prompt-toolbar { padding-top: 6px; }
+.prompt-tools button,
+.codex-composer-right button {
+  min-height: 26px;
+  border-radius: 999px;
+  font-size: 11.5px;
+}
+.prompt-tools > button[aria-label],
+.prompt-tools #attachmentBtn,
+.prompt-tools #micBtn {
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0;
+}
+.prompt-tools #attachmentBtn:hover,
+.prompt-tools #micBtn:hover { background: var(--surface-2); }
+
+.composer-plan-task {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  padding: 0 10px;
+}
+.composer-plan-task:hover { background: var(--surface-2); color: var(--text); }
+
+#sendBtn,
+#chatForm button[type="submit"] {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  border-radius: 999px;
+}
+
+.codex-project-chip,
+.codex-access-chip,
+.codex-model-chip {
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.codex-project-chip:hover,
+.codex-access-chip:hover,
+.codex-model-chip:hover { background: var(--surface-2); }
+
+.model-gate {
+  border-radius: var(--r-md);
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-2);
+  padding: 8px 10px;
+}
+
+/* ---------- 按钮 / 表单 / 焦点 ---------- */
+button.primary,
+.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  border-radius: var(--r-md);
+  min-height: 32px;
+  font-size: 13px;
+  font-weight: 550;
+  box-shadow: none;
+}
+button.primary:hover,
+.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+button:not(.primary), select, input, textarea { border-color: var(--border); }
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- 面板 / 设置 ---------- */
+#panelRoot { padding: 22px 28px 40px; }
+#panelRoot > * { max-width: 1120px; margin-left: auto; margin-right: auto; }
+
+/* 面板标题与工作台页头重复：页头已给标题+说明，面板内不再重复一次 */
+#panelRoot .owo-pb-tools { justify-content: flex-end; }
+#panelRoot .owo-pb-tools h3 { display: none; }
+#panelRoot .owo-sc-head > div:first-child { display: none; }
+
+.owo-pb-card,
+.owo-sc-card,
+.tool-card,
+.settings-card {
+  border-radius: var(--r-lg);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+/* 滚动条：细一点，融进背景 */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--border-strong) 80%, transparent);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: var(--text-3); }
+::-webkit-scrollbar-track { background: transparent; }
+
+@media (max-width: 1100px) {
+  .workspace-welcome-actions { grid-template-columns: 1fr; }
+  #messages { padding: 16px 18px 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

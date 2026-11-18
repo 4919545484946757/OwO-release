@@ -63,7 +63,7 @@
 
     function nav() {
       return (
-        '<section data-panel="playbook" class="owo-pb-panel">' +
+        '<section data-panel="playbook" data-layout="custom" class="owo-pb-panel">' +
         '<div class="owo-pb-tools"><h3>任务剧本</h3>' +
         '<button type="button" class="owo-pb-refresh" aria-label="刷新剧本列表">刷新</button></div>' +
         '<div class="hint">按剧本推进：查看进度、记录通过/失败/跳过。' +
