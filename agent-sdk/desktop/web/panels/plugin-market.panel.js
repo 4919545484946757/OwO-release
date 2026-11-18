@@ -207,10 +207,10 @@
       var li = document.createElement("li");
       var risks = Array.isArray(plugin.risks) ? plugin.risks.join("；") : "";
       var riskBadge = risks
-        ? '<span class="sub owo-market-risk">⚠ ' + this.esc(risks) + "</span>"
+        ? '<span class="sub owo-market-risk"><svg class="owo-market-ico" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2 1.5 13.5h13z"/><path d="M8 6.5v3M8 11.5v.01"/></svg> ' + this.esc(risks) + "</span>"
         : "";
       var updateBadge = plugin.has_update
-        ? '<span class="sub">⬆ 可更新</span>'
+        ? '<span class="sub owo-market-update"><svg class="owo-market-ico" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V3M4 7l4-4 4 4"/></svg> 可更新</span>'
         : "";
       var initial = this.esc(String(plugin.name || plugin.id || "?").trim().slice(0, 1).toUpperCase());
       li.innerHTML =

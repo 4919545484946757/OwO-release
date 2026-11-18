@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["wrong-output", "missing-artifact", "timeout"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**"],
+  "repetitions": 3,
+  "id": "document-article-field-extraction",
+  "category": "document",
+  "title": "文章元信息抽取",
+  "instruction": "读取 inputs/article.txt，抽取标题、作者和年份，写出 out/extract.json。JSON 只能包含 title、author、year 三个顶层字段，year 必须是数值，不得臆造材料中没有的信息。",
+  "inputs": [
+    {
+      "path": "inputs/article.txt",
+      "content": "标题：边缘计算的能耗权衡\n作者：陈明\n年份：2026\n摘要：本文比较三种调度策略的能耗与延迟。\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/extract.json"],
+  "checkers": [
+    { "type": "json_keys_exact", "path": "out/extract.json", "keys": ["title", "author", "year"] },
+    { "type": "json_field_equals", "path": "out/extract.json", "field": "title", "expected": "边缘计算的能耗权衡" },
+    { "type": "json_field_equals", "path": "out/extract.json", "field": "author", "expected": "陈明" },
+    { "type": "json_field_equals", "path": "out/extract.json", "field": "year", "expected": 2026 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/extract.json": "{\"title\": \"边缘计算的能耗权衡\", \"author\": \"陈明\", \"year\": 2026}\n"
+  }
+}

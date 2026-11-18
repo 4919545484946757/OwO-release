@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["wrong-output", "missing-artifact", "timeout"],
+  "expected_side_effects": ["read:sources/**", "write:out/**"],
+  "repetitions": 3,
+  "id": "research-compliance-readiness-brief",
+  "category": "research",
+  "title": "合规就绪度的多来源证据简报",
+  "instruction": "阅读 sources/policy.md、sources/audit-findings.md 与 sources/evidence-index.md，形成 out/brief.md。必须判断是否达到合规就绪，引用留存期、加密算法、复审周期、审计发现数量和证据文档数量，并说明材料无法证明的事项。包含“## 决策”“## 证据”“## 风险”三节，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "sources/policy.md",
+      "content": "# 留存政策\n\n- 日志留存：180 天\n- 加密算法：AES-256\n- 复审周期：90 天\n"
+    },
+    {
+      "path": "sources/audit-findings.md",
+      "content": "# 审计发现\n\n- 未关闭项：4\n- 高等级：1\n- 中等级：3\n"
+    },
+    {
+      "path": "sources/evidence-index.md",
+      "content": "# 证据索引\n\n- 文档总数：9\n- 已过期：2\n"
+    }
+  ],
+  "allow_read": ["sources/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/brief.md"],
+  "checkers": [
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 决策" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 证据" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 风险" },
+    { "type": "contains", "path": "out/brief.md", "text": "180 天" },
+    { "type": "contains", "path": "out/brief.md", "text": "AES-256" },
+    { "type": "contains", "path": "out/brief.md", "text": "90 天" },
+    { "type": "contains", "path": "out/brief.md", "text": "4 项" },
+    { "type": "contains", "path": "out/brief.md", "text": "9 份" },
+    { "type": "not_contains", "path": "out/brief.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/brief.md", "min_lines": 10 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/brief.md": "# 合规就绪度简报\n\n## 决策\n\n判定为“未就绪”：仍有 4 项未关闭审计发现（含 1 项高等级），且 9 份证据中有 2 份已过期。先关闭高等级发现并更新过期证据，再复审。\n\n## 证据\n\n- 政策：日志留存 180 天，加密算法 AES-256，复审周期 90 天。\n- 审计发现：4 项未关闭，其中高等级 1 项、中等级 3 项。\n- 证据索引：文档总数 9 份，已过期 2 份。\n\n## 风险\n\n- 材料没有高等级发现的具体内容，不能判断修复工作量。\n- 9 份证据只覆盖当前索引，不能证明全部控制项都有证据。\n- 政策要求 90 天复审，但没有最近一次复审日期，无法确认是否逾期。\n"
+  }
+}

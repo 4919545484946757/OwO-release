@@ -3890,6 +3890,60 @@
         }
       }
     },
+    "/owobot/worker-sessions": {
+      "get": {
+        "operationId": "owobotWorkerSessions",
+        "summary": "OwOBot worker session ownership index for sidebar task aggregation",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Worker session links and per-thread task aggregation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["sessions", "tasks"],
+                  "properties": {
+                    "sessions": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": ["groupId", "threadId", "role", "workspace", "title", "createdAt", "updatedAt"],
+                        "properties": {
+                          "groupId": { "type": "string" },
+                          "threadId": { "type": "string" },
+                          "role": { "type": "string" },
+                          "workspace": { "type": "string" },
+                          "title": { "type": "string" },
+                          "createdAt": { "type": "string" },
+                          "updatedAt": { "type": "string" }
+                        }
+                      }
+                    },
+                    "tasks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["threadId", "groupId", "workspace", "title", "updatedAt", "sessionIds"],
+                        "properties": {
+                          "threadId": { "type": "string" },
+                          "groupId": { "type": "string" },
+                          "workspace": { "type": "string" },
+                          "title": { "type": "string" },
+                          "updatedAt": { "type": "string" },
+                          "sessionIds": { "type": "array", "items": { "type": "string" } }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "OwO bearer authorization required" }
+        }
+      }
+    },
     "/owobot/open": {
       "post": {
         "operationId": "openOwobot",

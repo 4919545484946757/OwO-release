@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "failure_classes": [
+    "wrong-output",
+    "missing-artifact",
+    "timeout"
+  ],
+  "expected_side_effects": [
+    "read:inputs/**",
+    "write:out/**"
+  ],
+  "repetitions": 3,
+  "id": "document-csv-sales-summary",
+  "category": "document",
+  "title": "CSV 销售数据汇总",
+  "instruction": "读取 inputs/sales.csv，计算总销售额（units × unit_price）和区域数，写出 out/summary.md 与 out/summary.json。summary.json 只能包含 total、count、currency 三个顶层字段，total 用数值，currency 固定为 USD；summary.md 写明总销售额与区域数，金额保留两位小数（例如 75.00）。",
+  "inputs": [
+    {
+      "path": "inputs/sales.csv",
+      "content": "region,units,unit_price\nEast,10,2.5\nWest,4,5.0\nNorth,3,10.0\n"
+    }
+  ],
+  "allow_read": [
+    "inputs/**"
+  ],
+  "allow_write": [
+    "out/**"
+  ],
+  "allow_commands": [],
+  "expected_artifacts": [
+    "out/summary.md",
+    "out/summary.json"
+  ],
+  "checkers": [
+    {
+      "type": "contains",
+      "path": "out/summary.md",
+      "text": "总销售额"
+    },
+    {
+      "type": "contains",
+      "path": "out/summary.md",
+      "text": "75.00"
+    },
+    {
+      "type": "regex",
+      "path": "out/summary.md",
+      "pattern": "(?:^|[^0-9])3\\s*个\\s*区域|区域数[^\n]{0,12}3"
+    },
+    {
+      "type": "line_count_min",
+      "path": "out/summary.md",
+      "min_lines": 3
+    },
+    {
+      "type": "json_field_equals",
+      "path": "out/summary.json",
+      "field": "total",
+      "expected": 75.0
+    },
+    {
+      "type": "json_field_equals",
+      "path": "out/summary.json",
+      "field": "count",
+      "expected": 3
+    },
+    {
+      "type": "json_keys_exact",
+      "path": "out/summary.json",
+      "keys": [
+        "total",
+        "count",
+        "currency"
+      ]
+    }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/summary.md": "# 销售汇总\n\n- 总销售额：75.00 USD\n- 区域数：3 个区域\n",
+    "out/summary.json": "{\"total\": 75.0, \"count\": 3, \"currency\": \"USD\"}\n"
+  }
+}

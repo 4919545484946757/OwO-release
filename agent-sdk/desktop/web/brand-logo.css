@@ -1,0 +1,29 @@
+/* Transparent user artwork: shared by the title bar, sidebar and welcome area. */
+.owo-brand-img, .sidebar-logo-img, .owo-mascot-img {
+  object-fit: contain;
+  filter: brightness(0);
+}
+body.dark-theme .owo-brand-img,
+body.dark-theme .sidebar-logo-img,
+body.dark-theme .owo-mascot-img {
+  filter: brightness(0) invert(1);
+}
+body.empty-conversation #emptyState .codex-empty-logo {
+  display: grid !important;
+  place-items: center;
+  width: 80px !important;
+  height: 80px !important;
+}
+body.empty-conversation #emptyState .owo-mascot-slot {
+  display: grid;
+  place-items: center;
+  width: 80px !important;
+  height: 80px !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+body.empty-conversation #emptyState .owo-mascot-img {
+  width: 80px !important;
+  height: 80px !important;
+}

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["timeout", "wrong-output", "unapproved-side-effect"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**", "checkpoint:resume"],
+  "repetitions": 3,
+  "id": "long-horizon-transient-error-retry",
+  "category": "long_horizon",
+  "title": "瞬时错误后的有界重试",
+  "instruction": "执行 inputs/plan.md 的四步任务。第 3 步会返回一次瞬时错误（transient-error），你必须只重试该步骤一次，并确保前面的写操作不重复执行。最终写出 out/final-result.json 与 out/recovery-report.md；报告必须包含“## 恢复路径”“## 未重复执行副作用”“## 恢复后产物”，并记录重试次数。",
+  "inputs": [
+    {
+      "path": "inputs/plan.md",
+      "content": "# 执行计划\n\n1. 读取输入。\n2. 计算中间指标并写检查点。\n3. 调用汇总接口（可能瞬时失败）。\n4. 写出最终结果与报告。\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/recovery-report.md", "out/final-result.json"],
+  "fault_injection": {
+    "kind": "transient-error",
+    "after_step": 3,
+    "note": "第 3 步首次调用返回瞬时错误；只重试该步一次，已完成步骤不重放。"
+  },
+  "checkers": [
+    { "type": "regex", "path": "out/recovery-report.md", "pattern": "^## 恢复路径" },
+    { "type": "contains", "path": "out/recovery-report.md", "text": "未重复执行副作用" },
+    { "type": "contains", "path": "out/recovery-report.md", "text": "transient-error" },
+    { "type": "contains", "path": "out/recovery-report.md", "text": "恢复后产物" },
+    { "type": "contains", "path": "out/recovery-report.md", "text": "1 次" },
+    { "type": "line_count_min", "path": "out/recovery-report.md", "min_lines": 8 },
+    { "type": "json_keys_exact", "path": "out/final-result.json", "keys": ["status", "completed_steps", "side_effects_replayed", "retries"] },
+    { "type": "json_field_equals", "path": "out/final-result.json", "field": "status", "expected": "completed" },
+    { "type": "json_field_equals", "path": "out/final-result.json", "field": "completed_steps", "expected": 4 },
+    { "type": "json_field_equals", "path": "out/final-result.json", "field": "side_effects_replayed", "expected": 0 },
+    { "type": "json_field_equals", "path": "out/final-result.json", "field": "retries", "expected": 1 },
+    { "type": "not_contains", "path": "out/recovery-report.md", "text": "TBD" }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/recovery-report.md": "# 长程任务恢复报告\n\n## 恢复路径\n\n- 注入 transient-error：第 3 步首次调用返回瞬时错误。\n- 只重试第 3 步 1 次，重试成功后继续第 4 步。\n- 前两步检查点保持不变，没有重新执行。\n\n## 未重复执行副作用\n\n- 未重复执行副作用：第 2 步的中间指标只写入一次，side_effects_replayed = 0。\n\n## 恢复后产物\n\n- out/final-result.json 状态为 completed，retries = 1。\n",
+    "out/final-result.json": "{\"status\": \"completed\", \"completed_steps\": 4, \"side_effects_replayed\": 0, \"retries\": 1}\n"
+  }
+}

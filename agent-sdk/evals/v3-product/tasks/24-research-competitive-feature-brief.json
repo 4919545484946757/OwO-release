@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "failure_classes": [
+    "wrong-output",
+    "missing-artifact",
+    "timeout"
+  ],
+  "expected_side_effects": [
+    "read:sources/**",
+    "write:out/**"
+  ],
+  "repetitions": 3,
+  "id": "research-competitive-feature-brief",
+  "category": "research",
+  "title": "竞品功能与定价的证据简报",
+  "instruction": "阅读 sources/product-a.md 与 sources/product-b.md，形成 out/brief.md。必须比较单价、集成数量与 SSO 能力，给出选型建议，并说明材料无法验证的竞争结论。包含“## 决策”“## 证据”“## 风险”三节，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "sources/product-a.md",
+      "content": "# 产品 A\n\n- 单价：20 美元/席位\n- 集成数量：5\n- 支持 SSO：是\n"
+    },
+    {
+      "path": "sources/product-b.md",
+      "content": "# 产品 B\n\n- 单价：15 美元/席位\n- 集成数量：3\n- 支持 SSO：否\n"
+    }
+  ],
+  "allow_read": [
+    "sources/**"
+  ],
+  "allow_write": [
+    "out/**"
+  ],
+  "allow_commands": [],
+  "expected_artifacts": [
+    "out/brief.md"
+  ],
+  "checkers": [
+    {
+      "type": "regex",
+      "path": "out/brief.md",
+      "pattern": "^## 决策"
+    },
+    {
+      "type": "regex",
+      "path": "out/brief.md",
+      "pattern": "^## 证据"
+    },
+    {
+      "type": "regex",
+      "path": "out/brief.md",
+      "pattern": "^## 风险"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "20 美元"
+    },
+    {
+      "type": "regex",
+      "path": "out/brief.md",
+      "pattern": "(?:^|[^0-9])5\\s*个\\s*集成|集成(?:数量)?[^\n]{0,8}[：:]\\s*5"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "15 美元"
+    },
+    {
+      "type": "regex",
+      "path": "out/brief.md",
+      "pattern": "(?:^|[^0-9])3\\s*个\\s*集成|集成(?:数量)?[^\n]{0,8}[：:]\\s*3"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "SSO"
+    },
+    {
+      "type": "not_contains",
+      "path": "out/brief.md",
+      "text": "TBD"
+    },
+    {
+      "type": "line_count_min",
+      "path": "out/brief.md",
+      "min_lines": 10
+    }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/brief.md": "# 竞品功能简报\n\n## 决策\n\n若组织要求 SSO 与更多集成，选择产品 A：20 美元/席位、5 个集成、支持 SSO。若预算优先且不需要 SSO，产品 B 的 15 美元/席位与 3 个集成可作备选。\n\n## 证据\n\n- 产品 A：单价 20 美元/席位，5 个集成，支持 SSO。\n- 产品 B：单价 15 美元/席位，3 个集成，不支持 SSO。\n- 价格差为 5 美元/席位，产品 A 多 2 个集成并提供 SSO。\n\n## 风险\n\n- 材料没有性能与稳定性数据，不能推出产品 A 整体更优。\n- 集成数量不等于集成深度，材料未说明具体集成对象。\n- 未覆盖迁移成本与合同期限，不能据此计算总拥有成本。\n"
+  }
+}

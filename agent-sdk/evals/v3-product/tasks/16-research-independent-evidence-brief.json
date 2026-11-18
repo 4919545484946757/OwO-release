@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "failure_classes": [
+    "wrong-output",
+    "missing-artifact",
+    "timeout"
+  ],
+  "expected_side_effects": [
+    "read:sources/**",
+    "write:out/**"
+  ],
+  "repetitions": 3,
+  "id": "research-independent-evidence-brief",
+  "category": "research",
+  "title": "多来源发布就绪评估与证据简报",
+  "instruction": "阅读 sources/release.md 和 sources/telemetry.md，形成 out/brief.md。必须分别说明发布回滚条件、遥测缺口和证据边界；引用每份材料的具体阈值或指标；明确列出至少一项不能从材料推出的结论；包含“## 决策”“## 证据”“## 风险”三节，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "sources/release.md",
+      "content": "# 发布门槛\n\n- 金丝雀比例：5%。\n- 回滚条件：错误率超过 2% 持续 10 分钟。\n- 发布窗口：工作日 10:00–16:00。\n"
+    },
+    {
+      "path": "sources/telemetry.md",
+      "content": "# 观测摘要\n\n- 覆盖：核心 API 请求的 83%。\n- p95 延迟：420 ms，样本周期 24 小时。\n- 缺口：移动端崩溃事件尚未接入。\n"
+    }
+  ],
+  "allow_read": [
+    "sources/**"
+  ],
+  "allow_write": [
+    "out/**"
+  ],
+  "allow_commands": [],
+  "expected_artifacts": [
+    "out/brief.md"
+  ],
+  "checkers": [
+    {
+      "type": "regex",
+      "path": "out/brief.md",
+      "pattern": "^## 决策"
+    },
+    {
+      "type": "regex",
+      "path": "out/brief.md",
+      "pattern": "^## 证据"
+    },
+    {
+      "type": "regex",
+      "path": "out/brief.md",
+      "pattern": "^## 风险"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "2%"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "10 分钟"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "83%"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "420 ms"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "移动端"
+    },
+    {
+      "type": "not_contains",
+      "path": "out/brief.md",
+      "text": "TBD"
+    },
+    {
+      "type": "line_count_min",
+      "path": "out/brief.md",
+      "min_lines": 10
+    }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/brief.md": "# 发布就绪评估\n\n## 决策\n\n建议仅在工作日 10:00–16:00 启动 5% 金丝雀。若错误率超过 2% 并持续 10 分钟，自动回滚。\n\n## 证据\n\n核心 API 请求覆盖率为 83%；24 小时样本的 p95 延迟为 420 ms。\n发布窗口来自 release 材料，覆盖率和延迟来自 telemetry 材料。\n\n## 风险\n\n移动端崩溃事件未接入，当前遥测不能证明移动端发布安全。\n材料不足以推出全量用户体验、长期稳定性或未观测端的错误率。\n本材料只描述指定 24 小时窗口，不能代表长期运行趋势。\n"
+  }
+}

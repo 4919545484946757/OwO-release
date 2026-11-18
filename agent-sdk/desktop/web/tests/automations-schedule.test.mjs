@@ -23,6 +23,7 @@ test("daily schedule requires valid 24-hour HH:MM", () => {
   assert.deepEqual(JSON.parse(JSON.stringify(buildSchedule("daily", "09:05"))), {
     kind: "daily",
     time: "09:05",
+    timezone: "local",
   });
   for (const value of ["24:00", "9:05", "12:60", "noon"]) {
     assert.throws(() => buildSchedule("daily", value), /HH:MM/);
@@ -78,6 +79,7 @@ function makeAutomationHarness(overrides = {}) {
       get innerHTML() { return this._innerHTML; },
       set innerHTML(value) { this._innerHTML = String(value); this.children = []; },
       disabled: false,
+      classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
       addEventListener(name, handler) { this.handlers[name] = handler; },
       appendChild(child) { child.parentElement = this; this.children.push(child); return child; },
       setAttribute(name, value) { this[name] = value; },
@@ -86,7 +88,8 @@ function makeAutomationHarness(overrides = {}) {
       querySelector(selector) {
         if (selector.startsWith("#")) return document.getElementById(selector.slice(1));
         if (selector === 'button[type="submit"]') return submitButton;
-        return this.children.find((child) => selector === ".automation-runs" && child.className === "list automation-runs") || null;
+        if (selector === ".automation-runs") return this.children.find((child) => child.className === "list automation-runs") || null;
+        return element();
       },
       remove() {
         if (this.parentElement) this.parentElement.children = this.parentElement.children.filter((child) => child !== this);
@@ -127,12 +130,14 @@ function makeAutomationHarness(overrides = {}) {
   panel.mount(element(), helpers);
   return new Promise((resolve) => setTimeout(() => {
     const list = document.getElementById("owo-aut-list");
-    const actions = list.children[0] && list.children[0].children[0];
+    const firstTask = () => list.children.find((child) => String(child.className || "").includes("owo-aut-task")) || element();
+    const actions = firstTask().children[0];
     resolve({
       calls,
       notifications,
       panel,
       taskList: list,
+      firstTask,
       reminderList: document.getElementById("owo-aut-reminders"),
       toggleButton: actions && actions.children[0] || element("button"),
       runsButton: actions && actions.children[1] || element("button"),
@@ -195,7 +200,7 @@ test("automation deletion stays locked across panel remounts until confirmation 
   h.panel.dispose();
   h.remount();
   await new Promise((resolve) => setTimeout(resolve, 0));
-  const currentDelete = h.taskList.children[0].children[0].children[2];
+  const currentDelete = h.firstTask().children[0].children[2];
   assert.equal(currentDelete.disabled, true, "页面重进后删除操作仍显示忙碌");
   await currentDelete.handlers.click({ stopPropagation() {} });
   assert.equal(h.calls.filter(([method]) => method === "CONFIRM").length, 1,
@@ -206,7 +211,7 @@ test("automation deletion stays locked across panel remounts until confirmation 
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(h.calls.filter(([method, path]) => method === "DELETE" && path === "/automations/daily%2F1").length, 0,
     "确认来自已关闭的页面，不能再执行删除");
-  const refreshedDelete = h.taskList.children[0].children[0].children[2];
+  const refreshedDelete = h.firstTask().children[0].children[2];
   assert.equal(refreshedDelete.disabled, false);
 });
 
@@ -249,7 +254,7 @@ test("automation and reminder lists show inline errors and recover through retry
 
   assert.equal(attempts.tasks, 2);
   assert.equal(attempts.reminders, 2);
-  assert.match(h.taskList.children[0].innerHTML, /恢复后的任务/);
+  assert.match(h.firstTask().innerHTML, /恢复后的任务/);
   assert.equal(h.reminderList.children[0].textContent, "恢复后的提醒");
 });
 
@@ -331,8 +336,8 @@ test("late automation list responses cannot repaint after a newer refresh or dis
   await Promise.all([first, second]);
   pending[0]([{ id: "stale", name: "Disposed result", enabled: true, schedule: {}, action: {} }]);
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.match(h.taskList.children[0].innerHTML, /Newest result/);
-  assert.doesNotMatch(h.taskList.children[0].innerHTML, /Stale result/);
+  assert.match(h.firstTask().innerHTML, /Newest result/);
+  assert.doesNotMatch(h.firstTask().innerHTML, /Stale result/);
   const afterDispose = h.panel.refresh();
   h.panel.dispose();
   pending[3]([{ id: "disposed", name: "Disposed result", enabled: true, schedule: {}, action: {} }]);
@@ -357,7 +362,7 @@ test("automatic toggle stays locked across panel remounts until the original req
   h.panel.dispose();
   h.remount();
   await new Promise((resolve) => setTimeout(resolve, 0));
-  const currentToggle = h.taskList.children[0].children[0].children[0];
+  const currentToggle = h.firstTask().children[0].children[0];
   assert.equal(currentToggle.disabled, true, "重新打开页面时同一任务仍显示处理中");
   assert.equal(currentToggle.textContent, "处理中…");
   await currentToggle.handlers.click({ stopPropagation() {} });
@@ -367,7 +372,7 @@ test("automatic toggle stays locked across panel remounts until the original req
   resolveToggle({});
   await pending;
   await new Promise((resolve) => setTimeout(resolve, 0));
-  const refreshedToggle = h.taskList.children[0].children[0].children[0];
+  const refreshedToggle = h.firstTask().children[0].children[0];
   assert.equal(refreshedToggle.disabled, false, "原请求结束后新页面重新读取状态并解锁");
 });
 
@@ -390,7 +395,7 @@ test("failed automation run history offers retry and ignores a response after re
   const click = () => h.runsButton.handlers.click({ stopPropagation() {} });
   await click();
   await new Promise((resolve) => setTimeout(resolve, 0));
-  let runBox = h.taskList.children[0].children[1];
+  let runBox = h.firstTask().children[1];
   assert.equal(runBox.children[0].role, "alert");
   const retry = runBox.children[0].children[1];
   assert.equal(retry["aria-label"], "重新加载执行记录");
@@ -400,7 +405,7 @@ test("failed automation run history offers retry and ignores a response after re
   await new Promise((resolve) => setTimeout(resolve, 0));
   resolveStale([{ at: "2030-06-15T11:00:00Z", status: "failed", output: "stale record" }]);
   await new Promise((resolve) => setTimeout(resolve, 0));
-  runBox = h.taskList.children[0].children[1];
+  runBox = h.firstTask().children[1];
   assert.equal(runAttempts, 3);
   assert.match(runBox.children[0].innerHTML, /fresh record/);
   assert.doesNotMatch(runBox.children[0].innerHTML, /stale record/);
@@ -423,14 +428,15 @@ test("task filtering searches action content and keeps paused state exact", asyn
   ] });
   const search = h.nodes.get("owo-aut-search"), filter = h.nodes.get("owo-aut-filter");
   search.value = "PROJECT"; search.handlers.input();
-  assert.equal(h.taskList.children.length, 1);
-  assert.match(h.taskList.children[0].innerHTML, /Daily/);
-  assert.match(h.taskList.children[0].innerHTML, /09:00 UTC/);
+  const rows = () => h.taskList.children.filter((child) => String(child.className || "").includes("owo-aut-task"));
+  assert.equal(rows().length, 1);
+  assert.match(h.firstTask().innerHTML, /Daily/);
+  assert.match(h.firstTask().innerHTML, /09:00 UTC/);
   filter.value = "paused"; filter.handlers.change();
   assert.match(h.taskList.innerHTML, /没有符合条件/);
   search.value = ""; search.handlers.input();
-  assert.equal(h.taskList.children.length, 1);
-  assert.match(h.taskList.children[0].innerHTML, /Other/);
+  assert.equal(rows().length, 1);
+  assert.match(h.firstTask().innerHTML, /Other/);
 });
 
 test("draft and selected reminder tab survive same-host remount without creating a task", async () => {
@@ -479,7 +485,7 @@ test("toggle and deletion share a task lock until its state refresh finishes", a
   assert.equal(h.toggleButton.disabled, true);
   resolveRefresh([{ id: "t1", name: "Task", enabled: false, schedule: {}, action: {} }]);
   await pending;
-  assert.equal(h.taskList.children[0].children[0].children[0].textContent, "启用");
+  assert.equal(h.firstTask().children[0].children[0].textContent, "启用");
 });
 
 test("run history retains complete multiline output and unknown status", async () => {
@@ -491,7 +497,7 @@ test("run history retains complete multiline output and unknown status", async (
   ] });
   await h.runsButton.handlers.click({ stopPropagation() {} });
   await new Promise(resolve => setTimeout(resolve, 0));
-  const html = h.taskList.children[0].children[1].children[0].innerHTML;
+  const html = h.firstTask().children[1].children[0].innerHTML;
   assert.match(html, /状态未知/);
   assert.ok(html.includes(output));
   assert.match(html, /本地时间/);

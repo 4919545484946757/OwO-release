@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["wrong-output", "missing-artifact", "timeout"],
+  "expected_side_effects": ["read:sources/**", "write:out/**"],
+  "repetitions": 3,
+  "id": "research-vendor-comparison-brief",
+  "category": "research",
+  "title": "供应商方案比对的证据简报",
+  "instruction": "阅读 sources/vendor-a.md、sources/vendor-b.md 与 sources/pricing-notes.md，形成 out/brief.md。必须比较单价、SLA 与上线周期，说明采购决策及其依据，并指出材料没有覆盖的风险。包含“## 决策”“## 证据”“## 风险”三节，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "sources/vendor-a.md",
+      "content": "# 供应商 A\n\n- 单价：12 美元/席位\n- SLA：99.9%\n- 上线周期：3 周\n"
+    },
+    {
+      "path": "sources/vendor-b.md",
+      "content": "# 供应商 B\n\n- 单价：9 美元/席位\n- SLA：99.5%\n- 上线周期：6 周\n"
+    },
+    {
+      "path": "sources/pricing-notes.md",
+      "content": "# 报价备注\n\n- 年付折扣：15%\n- 最低采购量：50 席位\n- 报价不含税费\n"
+    }
+  ],
+  "allow_read": ["sources/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/brief.md"],
+  "checkers": [
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 决策" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 证据" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 风险" },
+    { "type": "contains", "path": "out/brief.md", "text": "12 美元" },
+    { "type": "contains", "path": "out/brief.md", "text": "9 美元" },
+    { "type": "contains", "path": "out/brief.md", "text": "99.9%" },
+    { "type": "contains", "path": "out/brief.md", "text": "99.5%" },
+    { "type": "contains", "path": "out/brief.md", "text": "15%" },
+    { "type": "contains", "path": "out/brief.md", "text": "50 席位" },
+    { "type": "not_contains", "path": "out/brief.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/brief.md", "min_lines": 10 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/brief.md": "# 供应商比对简报\n\n## 决策\n\n若 SLA 优先，选择供应商 A：单价 12 美元/席位、SLA 99.9%、上线 3 周。若预算优先，可评估供应商 B 的 9 美元/席位，但须接受 99.5% SLA 与 6 周上线。\n\n## 证据\n\n- 供应商 A：12 美元/席位，SLA 99.9%，上线周期 3 周。\n- 供应商 B：9 美元/席位，SLA 99.5%，上线周期 6 周。\n- 报价备注：年付折扣 15%，最低采购量 50 席位，报价不含税费。\n\n## 风险\n\n- 材料没有安全评审与数据驻留信息，不能推出合规结论。\n- 报价不含税费，实际总成本高于单价乘以席位。\n- 两家 SLA 均为承诺值，没有历史可用性样本支撑。\n"
+  }
+}

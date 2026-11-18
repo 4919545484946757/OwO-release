@@ -14,9 +14,174 @@
   border: 0;
 }
 
-.owobot-panel-status {
-  margin: 1rem;
+/* 启动 / 失败状态：骨架与结构化错误，均在工作区盒模型内居中铺陈。 */
+.owobot-panel-state,
+.owobot-panel-error {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 0;
+  padding: 24px;
+}
+.owobot-panel-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(560px, 100%);
+}
+.owobot-skeleton-title { height: 28px; width: 40%; }
+.owobot-skeleton-row { height: 44px; }
+.owobot-panel-caption {
+  margin: 4px 0 0;
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+}
+.owobot-panel-error {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 16px;
   color: var(--text-2);
 }
+.owobot-panel-error-icon {
+  flex: none;
+  display: inline-flex;
+  color: var(--red);
+}
+.owobot-panel-error-text { max-width: 420px; }
+.owobot-panel-error-text strong {
+  display: block;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.owobot-panel-error-text p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.owobot-panel-error-hint { color: var(--text-3); }
+.owobot-panel-error > button { flex: none; align-self: center; }
 
-.owobot-panel-root > button { align-self: start; margin-inline: 1rem; }
+/* 模型连接回退提示：工作台照常铺满，这条只占顶部一行，可关闭。 */
+.owobot-panel-note {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.owobot-panel-note > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.owobot-panel-note-close {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.owobot-panel-note-close:hover { background: var(--surface); color: var(--text); }
+.owobot-panel-note-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* OwOBot 整窗模式：入口把当前窗口整体切换为 OwOBot（不新开系统窗口）。
+   panelRoot 由 enterOwobotMode() 移到 body 直下；这里隐藏其余外壳，把它铺满
+   模式栏以下的整窗。层级：setup-root(10000) > modal/toast(80) > 模式栏(6) >
+   本容器(5)，引导与弹窗仍可覆盖。 */
+body.owobot-mode { overflow: hidden; }
+body.owobot-mode > *:not(#panelRoot):not(#owobotModeBar):not(#setupRoot):not(#modalRoot):not(#toastRoot) { display: none !important; }
+body.owobot-mode > #panelRoot {
+  position: fixed;
+  inset: 44px 0 0 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 !important;
+  overflow: hidden;
+  background: var(--bg);
+}
+body.owobot-mode > #panelRoot .owobot-panel-frame { flex: 1 1 auto; width: 100%; min-height: 0; }
+
+/* 模式栏：常驻窄条，只标注当前去向；退出收在标题上，不遮挡 OwOBot 自己的顶栏按钮。 */
+#owobotModeBar { display: none; }
+body.owobot-mode > #owobotModeBar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 44px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.owobot-mode-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .14s cubic-bezier(0.2, 0, 0, 1), color .14s cubic-bezier(0.2, 0, 0, 1);
+}
+.owobot-mode-title:hover { background: var(--surface-2); }
+.owobot-mode-title:active { transform: scale(0.98); }
+.owobot-mode-title:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.owobot-mode-title::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+/* 整窗后外壳主题按钮不可见，模式栏右侧补一个浅/深切换。 */
+.owobot-mode-theme {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .14s cubic-bezier(0.2, 0, 0, 1), color .14s cubic-bezier(0.2, 0, 0, 1);
+}
+.owobot-mode-theme:hover { background: var(--surface-2); color: var(--text); }
+.owobot-mode-theme:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

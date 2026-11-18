@@ -837,6 +837,7 @@ function syncSidebarHome() {
 // 首页是一个「没有选中会话」的干净对话视图：不预建空会话，
 // 真正发送时 sendPrompt 会按需创建，避免每次点首页都留下一条空记录。
 function showHomeView(options = {}) {
+  if (document.body.classList.contains("owobot-mode")) exitOwobotMode();
   // 输入区的弹出菜单（模型/权限/提示词）是绝对定位浮层，换页后不会自己消失，
   // 会压在新页面上看起来像残留卡片；离开对话视图时先关掉。
   if (typeof closeComposerMenu === "function") closeComposerMenu();
@@ -875,14 +876,14 @@ function newMessageBlock(node) {
   return node;
 }
 
-// 思考块渲染约束：实测单回合推理可超 10 万字，整段灌 DOM 会拖垮页面、
-// 也让用户误以为「只有思考没有结果」。超出上限的部分只计数不渲染；
-// 增量按 120ms 批量落 DOM，避免每个 delta 一次重排 + 滚动。
-const THINKING_RENDER_LIMIT = 30000;
+// 思考块渲染约束：增量按 120ms 批量落 DOM，避免每个 delta 一次重排 + 滚动。
+// 这里不再设"只渲染前 N 字"的硬上限：字数一超就丢内容，用户看到的是被截断的
+// 半句思考（线上曾出现只剩开头几个字符）。长内容靠折叠外壳 + 限高滚动区保证
+// 可读性，而不是靠丢弃文本。
 const THINKING_FLUSH_MS = 120;
 
-// 思考过程块：**默认折叠**——它是过程不是结论，展开着会把回答挤到屏幕外
-// （实测单回合推理可超 10 万字）。摘要行给出发起/字数线索，点开才看内容。
+// 思考过程块：思考期间展开（用户要能看见"正在想什么"），结束后自动收起
+// （它是过程不是结论，收起后回答回到视野中央）。正文限高滚动见 CSS。
 function ensureThinking() {
   if (state.thinking) return state.thinking;
   const el = document.createElement("details");
@@ -897,12 +898,39 @@ function ensureThinking() {
   body.className = "thinking-body";
   el.append(summary, body);
   el.classList.add("is-live");
+  // 思考进行中默认展开：只折叠的话用户看不到"正在想什么"，深思考的价值就没了。
+  // 正文限高滚动（CSS），所以展开也不会把回答挤走；结束且用户没手动动过时自动收起。
+  const block = {
+    el,
+    summary,
+    body,
+    chars: 0,
+    pending: "",
+    flushTimer: null,
+    autoOpened: true,
+    manual: false,
+  };
+  el.open = true;
+  summary.addEventListener("click", () => {
+    block.manual = true;
+  });
   newMessageBlock(el);
-  state.thinking = { el, summary, body, chars: 0, pending: "", flushTimer: null };
+  state.thinking = block;
   return state.thinking;
 }
 
-function pushReasoning(delta) {
+function flushThinkingPending(block) {
+  if (!block) return;
+  if (block.flushTimer) {
+    clearTimeout(block.flushTimer);
+    block.flushTimer = null;
+  }
+  if (!block.pending) return;
+  block.body.appendChild(document.createTextNode(block.pending));
+  block.pending = "";
+}
+
+function pushReasoning(delta, options) {
   if (!delta) return;
   // 运行时学习：这个模型真的会推理事后才知道（deepseek-flash 名字上看不出来）。
   // 只在每个回合记一次，避免每个增量都读 localStorage。
@@ -916,8 +944,23 @@ function pushReasoning(delta) {
   // 工具时间线：那会让一个几十步的回合变成几十枚一行胶囊。工具步骤持续归入同一段，
   // 段落位置由 pushToolUse 保持在最末（见那里的说明）。
   const block = ensureThinking();
+  // 断线重放送来的是这一段思考的完整快照（服务端按 64KiB 分段合并后落库），
+  // 不是增量；直接替换文本，避免把已经显示过的内容再拼一遍。
+  if (options && options.replace) {
+    if (block.flushTimer) {
+      clearTimeout(block.flushTimer);
+      block.flushTimer = null;
+    }
+    block.pending = "";
+    block.chars = delta.length;
+    block.body.textContent = delta;
+    markThinkingLive(block);
+    updateThinkingPeek(block);
+    followScroll();
+    return;
+  }
   block.chars += delta.length;
-  if (block.chars > THINKING_RENDER_LIMIT) return;
+  markThinkingLive(block);
   block.pending += delta;
   if (block.flushTimer) return;
   block.flushTimer = setTimeout(() => {
@@ -928,6 +971,28 @@ function pushReasoning(delta) {
     updateThinkingPeek(block);
     followScroll();
   }, THINKING_FLUSH_MS);
+}
+
+/// 实时态：摘要行 shimmer + 下拉箭头旋转；工具执行中被打断后再次思考时恢复。
+function markThinkingLive(block) {
+  if (!block || block.el.classList.contains("is-live")) return;
+  block.el.classList.add("is-live");
+  block.el.classList.remove("is-paused");
+  const hint = block.summary.querySelector(".thinking-hint");
+  if (hint) hint.textContent = "思考中…";
+}
+
+/// 工具执行期间思考不会结束（同一回合的推理仍归入同一段），只把它标成"暂停"，
+/// 避免"思考中…"在跑工具时一直闪，状态与真实进度对不上。
+function pauseThinking() {
+  const block = state.thinking;
+  if (!block) return;
+  flushThinkingPending(block);
+  block.el.classList.remove("is-live");
+  block.el.classList.add("is-paused");
+  const hint = block.summary.querySelector(".thinking-hint");
+  if (hint) hint.textContent = `已思考 ${block.chars} 字 · 工具执行中`;
+  updateThinkingPeek(block);
 }
 
 /// 折叠状态下给一截"正在想什么"的实时预览：深度思考的价值在于能看到模型在想什么，
@@ -942,34 +1007,48 @@ function updateThinkingPeek(block) {
   peek.classList.toggle("hidden", !tail);
 }
 
-// 思考结束：不再自动折叠，只把提示更新为字数（点摘要可手动折叠；
-// 超限时注明仅展示前 N 字，避免用户误以为思考被截断丢失）。
+// 思考结束：把提示更新为字数（点摘要可手动折叠；用户没动过则自动收起，
+// 让回答回到视野中央）。这里不再提示"内容被截断"——渲染路径不会再丢字。
 function finishThinking() {
   const block = state.thinking;
   if (!block) return;
-  if (block.flushTimer) {
-    clearTimeout(block.flushTimer);
-    block.flushTimer = null;
-  }
-  if (block.pending) {
-    block.body.appendChild(document.createTextNode(block.pending));
-    block.pending = "";
-  }
+  flushThinkingPending(block);
   block.el.classList.remove("is-live");
+  block.el.classList.remove("is-paused");
   const hint = block.summary.querySelector(".thinking-hint");
-  if (hint) {
-    hint.textContent =
-      block.chars > THINKING_RENDER_LIMIT
-        ? `（${block.chars} 字，仅展示前 ${THINKING_RENDER_LIMIT} 字）`
-        : `（${block.chars} 字）`;
-  }
+  if (hint) hint.textContent = `（${block.chars} 字）`;
   // 思考结束：撤掉实时预览（点开折叠块看全文即可）。
   const peek = block.summary.querySelector(".thinking-peek");
   if (peek) {
     peek.textContent = "";
     peek.classList.add("hidden");
   }
+  if (block.autoOpened && !block.manual) block.el.open = false;
   state.thinking = null;
+}
+
+/// 历史思考块：会话重新加载时用持久化的思考文本重建，外观与实时思考块一致，
+/// 只是不带动画、默认收起（历史内容不需要"盯进度"）。旧实现完全没有这条路径，
+/// 刷新后思考过程整段消失，只剩孤零零的回答。
+function addHistoricalThinking(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) return null;
+  const el = document.createElement("details");
+  el.className = "thinking-block is-historical";
+  const summary = document.createElement("summary");
+  summary.innerHTML =
+    '<span class="thinking-label">思考过程</span>' +
+    '<span class="thinking-hint">（' +
+    trimmed.length +
+    ' 字）</span>' +
+    '<span class="thinking-peek hidden"></span>' +
+    '<span class="thinking-chev" aria-hidden="true">⌄</span>';
+  const body = document.createElement("div");
+  body.className = "thinking-body";
+  body.textContent = trimmed;
+  el.append(summary, body);
+  newMessageBlock(el);
+  return el;
 }
 
 // ---------- 工具步骤时间线：每次调用一枚可展开的 chip（对标 Codex 逐步可追溯） ----------
@@ -1198,13 +1277,19 @@ function createToolStep(payload = {}) {
   result.append(resultCaption, resultPre);
   body.appendChild(result);
   row.append(summary, body);
-  // 结算：成功写结果预览（服务端 preview），失败写原因并自动展开（失败必须一眼可见）。
-  // 成功的步骤不再逐条写「完成」——绿点本身就是完成，一个回合几十条"完成"只是噪音。
+  // 结算：成功写结果预览（服务端 preview）+ 耗时，失败写原因并自动展开（失败必须一眼可见）。
+  // 成功的步骤不再逐条写「完成」——绿点本身就是完成，一个回合几十条"完成"只是噪音；
+  // 但耗时是有信息量的执行状态，保留在行尾。
+  const startedAt = Date.now();
+  const historical = Boolean(payload.historical);
   const settle = (outcome = {}) => {
     const ok = outcome.ok !== false;
+    const elapsed = Date.now() - startedAt;
     row.classList.remove("is-running");
     row.classList.add(ok ? "is-ok" : "is-fail");
-    stateEl.textContent = ok ? "" : "失败";
+    const duration = elapsed >= 950 ? `${(elapsed / 1000).toFixed(1)}s` : `${Math.max(1, elapsed)}ms`;
+    // 历史回放的耗时是"重建耗时"，不是真实执行耗时，不能当成执行状态展示。
+    stateEl.textContent = historical ? (ok ? "" : "失败") : ok ? duration : `失败 · ${duration}`;
     const text = ok ? clipToolPreview(outcome.preview) : String(outcome.error || "未知原因");
     if (text) {
       resultPre.textContent = text;
@@ -1333,7 +1418,9 @@ function updateToolRun(run) {
 }
 
 function pushToolUse(payload) {
-  finishThinking();
+  // 工具与思考在同一回合里交替出现：这里只把思考段标成"暂停"，不结束它。
+  // 结束即丢弃引用，下一段推理会另起一个零散思考块，一个回合被切成好几截。
+  pauseThinking();
   const run = ensureToolRun();
   run.total += 1;
   run.running += 1;
@@ -1411,7 +1498,12 @@ function appendHistoryToolSteps(calls, resultsById, existing = null) {
   const run = existing || { ...createToolRunShell(), total: 0, running: 0, failed: 0, steps: new Map() };
   let failed = 0;
   for (const call of calls) {
-    const step = createToolStep({ id: call.id, tool: call.name, args: call.arguments });
+    const step = createToolStep({
+      id: call.id,
+      tool: call.name,
+      args: call.arguments,
+      historical: true,
+    });
     const outcome = resultsById.get(String(call.id || ""));
     let ok = true;
     if (outcome) {
@@ -2212,6 +2304,7 @@ async function refreshSettings() {
     syncLocalPrefs();
     renderCustomModels();
     syncProviderModels();
+    hydrateRemoteModels();
     updateModelChipMeta();
     renderProviderForm();
     await refreshModelOutputSettings();
@@ -3101,7 +3194,8 @@ function renderHomeRecent(emptyOverride = false) {
   }
   const sessions = !emptyOverride && state.sessionsKnown && Array.isArray(state.sessionIndex) ? state.sessionIndex : [];
   const rows = sessions
-    .filter((session) => !session.archived && !owoSessionHasAutoTitle(session))
+    .filter((session) => !session.archived && !owoSessionHasAutoTitle(session)
+      && !(state.owobotWorkerIds || new Set()).has(session.id))
     .sort((a, b) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")))
     .slice(0, 3);
   if (!rows.length) {
@@ -3735,6 +3829,16 @@ function openModelMenu() {
   const catalog = composerModelCatalog();
   const choices = catalog.entries;
   if (!choices.length) {
+    // 空目录以前是静默跳设置，用户只看到“点了就跳走”。这里先把原因说清楚：
+    // 当前模型既不在自定义连接里，服务商也没有就绪（缺端点或密钥）。
+    const current = getComposerModel();
+    const store = window.OwoCustomModels?.status?.();
+    const suffix = store?.problem ? "（凭据状态：" + store.problem + "）" : "";
+    showToast(
+      (current ? "当前模型 " + current + " 没有可用连接" : "还没有可用的模型连接") +
+        "，请先在设置里保存端点与密钥" + suffix,
+      "error",
+    );
     openModelGateSettings();
     return;
   }
@@ -4601,6 +4705,29 @@ function updateModelChipMeta() {
   else if (warningBadge) warningBadge.remove();
 }
 
+/// 读取当前端点真实提供的模型列表；失败时保留预设列表，不阻塞设置页。
+/// 通过桌面壳的 models:probe 走主进程请求（渲染层受同源策略限制）。
+function hydrateRemoteModels() {
+  const settings = state.settings || {};
+  const baseUrl = String((settings.provider && settings.provider.base_url) || "").trim();
+  const key = baseUrl.replace(/\/+$/, "").toLowerCase();
+  if (!key || !window.OwoCustomModels || typeof window.OwoCustomModels.probe !== "function") return;
+  const catalog = window.OwoRemoteModels || (window.OwoRemoteModels = { baseUrl: "", ids: null, pending: "" });
+  if (catalog.pending === key) return;
+  if (catalog.baseUrl === key && Array.isArray(catalog.ids)) return;
+  catalog.pending = key;
+  window.OwoCustomModels.probe({ id: "__owo_model_probe__", baseUrl, apiFormat: "openai" })
+    .then((result) => {
+      if (catalog.pending !== key) return;
+      catalog.pending = "";
+      if (!result || !result.ok || !Array.isArray(result.ids) || !result.ids.length) return;
+      catalog.baseUrl = key;
+      catalog.ids = result.ids.map(String).slice(0, 200);
+      syncProviderModels();
+    })
+    .catch(() => { if (catalog.pending === key) catalog.pending = ""; });
+}
+
 /// 按当前服务商筛选模型候选：保留兼容模型与自定义模型；当前默认模型若不兼容则禁用并提示。
 /// provider-presets.js 的 models 清单驱动兼容性判断；空清单（自定义端点）不做限制。
 /// 判定顺序：runtime.provider（核心识别出的服务商 id）→ settings.provider.base_url.
@@ -4645,6 +4772,11 @@ function syncProviderModels(presetOverride) {
   if (imageInput) imageInput.disabled = false;
   const currentModel = String(select.value || getDefaultModel());
   const baseUrl = String((settings.provider && settings.provider.base_url) || "").toLowerCase();
+  const remoteCatalog = window.OwoRemoteModels;
+  const remoteIds = remoteCatalog && remoteCatalog.baseUrl === baseUrl.replace(/\/+$/, "") &&
+    Array.isArray(remoteCatalog.ids) && remoteCatalog.ids.length
+    ? remoteCatalog.ids
+    : null;
   const preset = presetOverride !== undefined
     ? presetOverride
     : ModelRouting.findModelProviderPreset(currentModel, loadCustomModels(), runtime.provider, registry.presets(), baseUrl);
@@ -4664,21 +4796,57 @@ function syncProviderModels(presetOverride) {
     option.dataset.provider = "1";
     select.appendChild(option);
   }
+  if (remoteIds) {
+    for (const id of remoteIds) {
+      if (select.querySelector('option[value="' + CSS.escape(id) + '"]')) continue;
+      const option = document.createElement("option");
+      option.value = id;
+      option.textContent = id + (isReasoningModel(id) ? "（深度思考）" : "");
+      option.dataset.provider = "1";
+      select.appendChild(option);
+    }
+    for (const option of [...select.options]) {
+      if (!option.value || option.dataset.custom === "1" || option.dataset.addModel === "1") continue;
+      if (remoteIds.includes(option.value)) continue;
+      if (option.value === currentModel) {
+        option.dataset.unlisted = "1";
+        option.textContent = option.value + "（当前 · 服务端未列出）";
+        continue;
+      }
+      option.remove();
+    }
+  }
   let currentUnsupported = false;
   for (const option of select.options) {
-    if (!option.value) continue;
-    const state = ModelRouting.providerModelOptionState(
-      option.value, supportedModels, currentModel, option.dataset.custom === "1"
-    );
-    option.hidden = state.hidden;
-    option.disabled = state.disabled;
-    if (option.value === currentModel && state.disabled) currentUnsupported = true;
+    if (!option.value || option.dataset.addModel === "1") continue;
+    const optionState = remoteIds
+      ? { hidden: false, disabled: false }
+      : ModelRouting.providerModelOptionState(
+        option.value, supportedModels, currentModel, option.dataset.custom === "1"
+      );
+    option.hidden = optionState.hidden;
+    option.disabled = optionState.disabled;
+    if (option.value === currentModel && optionState.disabled) currentUnsupported = true;
   }
+  if (remoteIds && currentModel && !remoteIds.includes(currentModel)) {
+    const currentOption = select.querySelector('option[value="' + CSS.escape(currentModel) + '"]');
+    if (currentOption && currentOption.dataset.custom !== "1") currentUnsupported = true;
+  }
+  let addOption = select.querySelector('option[data-add-model="1"]');
+  if (!addOption) {
+    addOption = document.createElement("option");
+    addOption.value = "__owo_add_model__";
+    addOption.dataset.addModel = "1";
+    addOption.textContent = "＋ 添加模型…";
+  }
+  select.appendChild(addOption);
   const hint = $("modelCompatibilityHint");
   if (hint) {
     hint.hidden = !currentUnsupported;
     hint.textContent = currentUnsupported
-      ? "\u5f53\u524d\u9ed8\u8ba4\u6a21\u578b\u4e0d\u5728\u8be5\u670d\u52a1\u5546\u7684\u5e38\u7528\u6a21\u578b\u5217\u8868\u4e2d\uff0c\u8bf7\u5207\u6362\u5230\u5f53\u524d\u670d\u52a1\u5546\u652f\u6301\u7684\u6a21\u578b\u3002"
+      ? (remoteIds
+        ? "当前默认模型未在服务端模型列表中出现，建议切换到列表中的模型。"
+        : "\u5f53\u524d\u9ed8\u8ba4\u6a21\u578b\u4e0d\u5728\u8be5\u670d\u52a1\u5546\u7684\u5e38\u7528\u6a21\u578b\u5217\u8868\u4e2d\uff0c\u8bf7\u5207\u6362\u5230\u5f53\u524d\u670d\u52a1\u5546\u652f\u6301\u7684\u6a21\u578b\u3002")
       : "";
   }
   refreshComposerModelChip();
@@ -4688,7 +4856,10 @@ function renderCustomModels() {
   if (!list) return;
   const models = loadCustomModels().filter(model => !model.disabled);
   const storage = $("customModelStorageState");
-  if (storage) storage.textContent = window.OwoCustomModels.status().problem ? "部分旧配置尚未迁移或凭据存储不可用。原数据已保留，请检查桌面核心与加密存储。" : "模型配置跨重启保存；密钥由桌面壳加密托管，不返回给页面。";
+  const modelProblem = window.OwoCustomModels.status().problem;
+  if (storage) storage.textContent = modelProblem === "credentials/unlock_failed"
+    ? "有模型的密钥在当前环境解不开（常见于旧机器或旧凭据留下的密文）。请在下方编辑该模型、重新填写 API Key 保存一次。"
+    : modelProblem ? "部分旧配置尚未迁移或凭据存储不可用。原数据已保留，请检查桌面核心与加密存储。" : "模型配置跨重启保存；密钥由桌面壳加密托管，不返回给页面。";
   const select = $("settingsModel");
   for (const option of [...select.options]) {
     if (option.dataset.custom === "1") option.remove();
@@ -4974,7 +5145,21 @@ $("customModelAddBtn").addEventListener("click", () => openCustomModelDialog(nul
 $("modelOutputModel").addEventListener("change", () => refreshModelOutputSettings());
 $("modelOutputSaveBtn").addEventListener("click", () => saveModelOutputSettings());
 $("modelOutputResetBtn").addEventListener("click", () => resetModelOutputSettings());
-$("settingsModel").addEventListener("change", () => saveSettings());
+let settingsModelPrevious = "";
+$("settingsModel").addEventListener("focus", () => {
+  const select = $("settingsModel");
+  if (select.value && select.value !== "__owo_add_model__") settingsModelPrevious = select.value;
+});
+$("settingsModel").addEventListener("change", () => {
+  const select = $("settingsModel");
+  if (select.value === "__owo_add_model__") {
+    select.value = settingsModelPrevious || getDefaultModel() || "";
+    openCustomModelDialog(null);
+    return;
+  }
+  settingsModelPrevious = select.value;
+  saveSettings();
+});
 
 // 本地偏好：select / toggle → LOCAL_PREFS（仅本机生效）
 const PREF_SELECT_MAP = {
@@ -5315,7 +5500,7 @@ async function refreshModelOutputSettings() {
           : []),
         ...Object.keys(state.modelOutputTokens),
         String(status.model || ""),
-      ].map((name) => String(name || "").trim()).filter(Boolean));
+      ].map((name) => String(name || "").trim()).filter((name) => name && name !== "__owo_add_model__"));
       candidateList.replaceChildren(...Array.from(names, (name) => {
         const option = document.createElement("option");
         option.value = name;
@@ -5801,6 +5986,8 @@ function applyTheme(theme) {
     LOCAL_PREFS.theme = dark ? "dark" : "light";
     localStorage.setItem("owo.prefs", JSON.stringify(LOCAL_PREFS));
   }
+  // OwOBot 面板是独立文档，外壳换主题时通知它一起换肤。
+  document.dispatchEvent(new CustomEvent("owo:theme-change", { detail: { theme: dark ? "dark" : "light" } }));
 }
 // 新版工作台以深色为主。旧版本每次启动都会写入浅色偏好，因此一次性迁移到深色，
 // 之后仍完整尊重用户主动切换的主题。
@@ -5983,6 +6170,7 @@ function setToolsVisible(visible, preserveRoute) {
   syncSidebarHome();
 }
 function setSettingsPageVisible(visible) {
+  if (visible && document.body.classList.contains("owobot-mode")) exitOwobotMode();
   // 进设置页同样要收起输入区浮层，否则它会盖在设置卡片上。
   if (visible && typeof closeComposerMenu === "function") closeComposerMenu();
   workbenchView.showSettings(visible);

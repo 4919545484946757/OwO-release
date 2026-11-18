@@ -220,7 +220,7 @@
               : "") +
             '</span> <button type="button" class="owo-wf-edit">编辑</button> <button type="button" class="owo-wf-export">导出</button> <button type="button" class="owo-wf-delete">删除</button> <button type="button" class="owo-wf-improve" title="把这条件工作流的真实运行证据交给 AI，生成改进候选">按证据改进</button> <button type="button" class="owo-wf-rerun">再跑</button> <button type="button" class="owo-wf-run">建队</button>' +
             (row.attention.length
-              ? '<div class="hint owo-wf-risk">⚠ 需要修复：' + esc(row.attention.join("；")) + "</div>"
+              ? '<div class="hint owo-wf-risk"><svg class="owo-wf-risk-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2 1.5 13.5h13z"/><path d="M8 6.5v3M8 11.5v.01"/></svg> 需要修复：' + esc(row.attention.join("；")) + "</div>"
               : "") +
             "</li>"
           );
@@ -338,14 +338,14 @@
         .map(function (item) {
           var row = helper ? helper.describeStatsRow(item) : { id: "?", runs: 0 };
           var line =
-            "<strong>" +
+            '<span class="owo-wf-stat-main"><strong>' +
             esc(row.name || row.id) +
-            "</strong> <code>" +
+            '</strong> <code class="panel-mono">' +
             esc(row.id) +
-            "</code> <span class=\"hint\">" +
+            '</code></span> <span class="hint">' +
             esc(row.origin) +
             (row.riskLabel ? " · 风险 " + esc(row.riskLabel) : "") +
-            " · 运行 " +
+            '</span> <span class="hint owo-wf-stat-nums panel-num">运行 ' +
             row.runs +
             " · 成功 " +
             row.succeeded +
@@ -353,10 +353,10 @@
             row.failed +
             " · 成功率 " +
             esc(row.successRate) +
-            (row.lastRunAt ? " · 最后 " + esc(row.lastRunAt) : "") +
-            "</span>";
+            "</span>" +
+            (row.lastRunAt ? ' <span class="hint owo-wf-stat-last panel-num">最后 ' + esc(row.lastRunAt) + "</span>" : "");
           if (row.attention.length) {
-            line += '<div class="hint owo-wf-risk">⚠ 需要修复：' + esc(row.attention.join("；")) + "</div>";
+            line += '<div class="hint owo-wf-risk"><svg class="owo-wf-risk-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2 1.5 13.5h13z"/><path d="M8 6.5v3M8 11.5v.01"/></svg> 需要修复：' + esc(row.attention.join("；")) + "</div>";
           }
           if (row.lastFailure) {
             line +=

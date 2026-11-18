@@ -1944,3 +1944,22 @@ fn unknown_tool_error_lists_available_tools() {
     );
     assert!(error.contains("未执行任何操作"));
 }
+
+/// 桌面端按线路给模型加前缀（`cn:deepseek-v4.1-flash`）。判定思考回放能力时
+/// 必须剥掉前缀：否则这类模型既不会把 reasoning_content 写进历史，也不会在
+/// 下一轮把它回放给协议，刷新后思考过程整段消失、多轮工具调用还会掉上下文。
+#[test]
+fn reasoning_replay_recognises_prefixed_deepseek_models() {
+    assert!(is_deepseek_family("deepseek-v4.1-flash"));
+    assert!(is_deepseek_family("cn:deepseek-v4.1-flash"));
+    assert!(is_deepseek_family("DeepSeek-Reasoner"));
+    assert!(!is_deepseek_family("gpt-4o-mini"));
+    assert!(!is_deepseek_family("auto/GLM-5.3-Flash"));
+    assert!(!is_deepseek_family(""));
+
+    let replay = ReasoningReplay::for_model("cn:deepseek-v4.1-flash", "think".into())
+        .expect("prefixed deepseek models keep their reasoning replay");
+    assert_eq!(replay.model, "cn:deepseek-v4.1-flash");
+    assert_eq!(replay.content, "think");
+    assert!(ReasoningReplay::for_model("gpt-4o-mini", "x".into()).is_none());
+}

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["wrong-output", "missing-artifact", "timeout"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**"],
+  "repetitions": 3,
+  "id": "document-release-email-draft",
+  "category": "document",
+  "title": "发布通知邮件草稿",
+  "instruction": "根据 inputs/context.md 撰写 out/email.md。邮件必须包含“主题：”行、称呼、发布日期、负责人、回滚安排和结束语；不得加入材料之外的事实，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "inputs/context.md",
+      "content": "# 发布上下文\n\n- 发布日期：11 月 12 日\n- 负责人：李四\n- 回滚方案：已在 runbook 中评审\n- 收件人：发布评审组\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/email.md"],
+  "checkers": [
+    { "type": "regex", "path": "out/email.md", "pattern": "^主题：" },
+    { "type": "contains", "path": "out/email.md", "text": "发布评审组" },
+    { "type": "contains", "path": "out/email.md", "text": "11 月 12 日" },
+    { "type": "contains", "path": "out/email.md", "text": "李四" },
+    { "type": "contains", "path": "out/email.md", "text": "回滚" },
+    { "type": "not_contains", "path": "out/email.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/email.md", "min_lines": 6 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/email.md": "主题：11 月 12 日发布通知\n\n发布评审组：\n\n本次发布定于 11 月 12 日，负责人李四。回滚方案已在 runbook 中评审，发布期间按该方案执行。\n\n请相关同事提前确认准备事项。\n\n抄送：运维值班。\n\n谢谢。\n"
+  }
+}

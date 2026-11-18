@@ -186,10 +186,10 @@ hr { border-top: 1px solid var(--border-subtle) !important; }
 .workbench-panel-rail {
   background: var(--sidebar-bg) !important;
   border-right: 1px solid var(--border-subtle) !important;
-  padding: 14px 10px 28px !important;
+  padding: 16px 12px 24px !important;
 }
 .workbench-panel-search input {
-  height: 34px !important;
+  height: 32px !important;
   color: var(--text) !important;
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
@@ -197,24 +197,24 @@ hr { border-top: 1px solid var(--border-subtle) !important; }
   font-size: 13px !important;
   box-shadow: none !important;
 }
-.workbench-panel-search input:focus { border-color: var(--text-3) !important; box-shadow: 0 0 0 3px rgba(13, 13, 13, .06) !important; }
-#panelNav { margin-top: 10px !important; }
+.workbench-panel-search input:focus { border-color: var(--text-2) !important; box-shadow: none !important; }
+#panelNav { margin-top: 8px !important; }
 #panelNav button {
   min-height: 32px !important;
-  padding: 0 10px !important;
+  padding: 0 12px !important;
   color: var(--text-2) !important;
   background: transparent !important;
   border: 0 !important;
   border-radius: 8px !important;
-  font-size: 13.5px !important;
-  font-weight: 450 !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
   box-shadow: none !important;
 }
 #panelNav button:hover { color: var(--text) !important; background: var(--sidebar-hover) !important; }
-#panelNav button.active { color: var(--text) !important; background: var(--sidebar-active) !important; font-weight: 550 !important; }
-#panelNav .workbench-nav-primary { border-bottom: 1px solid var(--border-subtle) !important; padding-bottom: 10px !important; margin-bottom: 8px !important; }
-#panelNav .workbench-nav-heading { color: var(--text-3) !important; font-size: 12px !important; font-weight: 500 !important; letter-spacing: 0 !important; padding: 0 10px 6px !important; }
-#panelNav details > summary { color: var(--text-3) !important; font-size: 12.5px !important; font-weight: 500 !important; }
+#panelNav button.active { color: var(--text) !important; background: var(--sidebar-active) !important; font-weight: 500 !important; }
+#panelNav .workbench-nav-primary { border-bottom: 1px solid var(--border-subtle) !important; padding-bottom: 8px !important; margin-bottom: 8px !important; }
+#panelNav .workbench-nav-heading { color: var(--text-3) !important; font-size: 12px !important; font-weight: 500 !important; letter-spacing: .04em !important; padding: 0 12px 8px !important; }
+#panelNav details > summary { color: var(--text-3) !important; font-size: 12px !important; font-weight: 500 !important; }
 #panelNav details > summary:hover { color: var(--text) !important; }
 #panelNav details[open] > summary { color: var(--text-2) !important; }
 
@@ -617,11 +617,11 @@ body.dark-theme #sidebar {
 
 /* ---- workbench rail ---- */
 body.tools-open.panel-open .workbench-panel-layout { grid-template-columns: 220px minmax(0, 1fr) !important; }
-#sidebar#sidebar .workbench-panel-rail { background: var(--sidebar-bg) !important; border-right: 1px solid var(--border-subtle) !important; padding: 14px 10px 28px !important; }
+#sidebar#sidebar .workbench-panel-rail { background: var(--sidebar-bg) !important; border-right: 1px solid var(--border-subtle) !important; padding: 16px 12px 24px !important; }
 #sidebar#sidebar #panelSearch {
-  height: 34px !important;
-  min-height: 34px !important;
-  padding: 0 11px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
   border-radius: 8px !important;
@@ -630,24 +630,25 @@ body.tools-open.panel-open .workbench-panel-layout { grid-template-columns: 220p
 }
 #sidebar#sidebar #panelSearch:focus { background: var(--surface) !important; border-color: var(--border-strong) !important; }
 #sidebar#sidebar #panelSearch::placeholder { color: var(--text-3) !important; }
-#sidebar#sidebar #panelNav { gap: 1px !important; }
+#sidebar#sidebar #panelNav { gap: 2px !important; }
 #sidebar#sidebar #panelNav button {
-  min-height: 30px !important;
+  min-height: 32px !important;
   height: auto !important;
-  padding: 6px 10px !important;
+  padding: 8px 12px !important;
+  line-height: 1.5 !important;
   color: var(--text-2) !important;
   background: transparent !important;
   border: 0 !important;
   border-radius: 8px !important;
   font-size: 13px !important;
-  font-weight: 450 !important;
+  font-weight: 400 !important;
   box-shadow: none !important;
 }
 #sidebar#sidebar #panelNav button:hover { color: var(--text) !important; background: var(--sidebar-hover) !important; }
-#sidebar#sidebar #panelNav button.active { color: var(--text) !important; background: var(--sidebar-active) !important; font-weight: 550 !important; }
+#sidebar#sidebar #panelNav button.active { color: var(--text) !important; background: var(--sidebar-active) !important; font-weight: 500 !important; }
 #sidebar#sidebar #panelNav button::before { content: none !important; display: none !important; }
-#sidebar#sidebar #panelNav .workbench-nav-heading { padding: 0 10px 6px !important; color: var(--text-3) !important; font-size: 11px !important; font-weight: 500 !important; letter-spacing: .04em !important; text-transform: none; }
-#sidebar#sidebar #panelNav .workbench-nav-section > summary { min-height: 28px !important; padding: 0 10px !important; color: var(--text-3) !important; font-size: 11.5px !important; font-weight: 500 !important; }
+#sidebar#sidebar #panelNav .workbench-nav-heading { padding: 0 12px 8px !important; color: var(--text-3) !important; font-size: 12px !important; font-weight: 500 !important; letter-spacing: .04em !important; text-transform: none; }
+#sidebar#sidebar #panelNav .workbench-nav-section > summary { min-height: 28px !important; padding: 0 12px !important; color: var(--text-3) !important; font-size: 12px !important; font-weight: 500 !important; }
 
 /* ---- settings rail ---- */
 #sidebar#sidebar .settings-nav { background: var(--sidebar-bg) !important; border-right: 1px solid var(--border-subtle) !important; }

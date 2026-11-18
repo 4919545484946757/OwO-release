@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["wrong-output", "missing-artifact", "timeout"],
+  "expected_side_effects": ["read:sources/**", "write:out/**"],
+  "repetitions": 3,
+  "id": "research-literature-effect-comparison",
+  "category": "research",
+  "title": "两项研究效应量的证据简报",
+  "instruction": "阅读 sources/paper-a.md 与 sources/paper-b.md，形成 out/brief.md。必须比较两项研究的样本量、效应量与显著性，说明能否合并结论，并列出材料无法支持的推断。包含“## 决策”“## 证据”“## 风险”三节，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "sources/paper-a.md",
+      "content": "# 研究 A\n\n- 样本量：120\n- 效应量：+0.18\n- p 值：0.03\n- 研究人群：在职成年人\n"
+    },
+    {
+      "path": "sources/paper-b.md",
+      "content": "# 研究 B\n\n- 样本量：80\n- 效应量：+0.04\n- p 值：0.41\n- 研究人群：大学生\n"
+    }
+  ],
+  "allow_read": ["sources/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/brief.md"],
+  "checkers": [
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 决策" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 证据" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 风险" },
+    { "type": "contains", "path": "out/brief.md", "text": "120" },
+    { "type": "contains", "path": "out/brief.md", "text": "0.18" },
+    { "type": "contains", "path": "out/brief.md", "text": "0.03" },
+    { "type": "contains", "path": "out/brief.md", "text": "80" },
+    { "type": "contains", "path": "out/brief.md", "text": "0.41" },
+    { "type": "not_contains", "path": "out/brief.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/brief.md", "min_lines": 10 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/brief.md": "# 研究效应量简报\n\n## 决策\n\n建议把研究 A 作为主要证据：样本 120、效应量 +0.18、p 值 0.03。研究 B 的效应量 +0.04、p 值 0.41，不足以支持显著效应，暂不合并。\n\n## 证据\n\n- 研究 A：样本量 120，效应量 +0.18，p 值 0.03，人群为在职成年人。\n- 研究 B：样本量 80，效应量 +0.04，p 值 0.41，人群为大学生。\n- 两项研究的效应量与显著性方向不一致，不能直接相加。\n\n## 风险\n\n- 两项研究人群不同，不能推出同一人群的结论。\n- 材料没有给出置信区间与测量方法，无法判断效应量可比性。\n- 研究 B 不显著不代表没有效应，只是当前样本不足以证明。\n"
+  }
+}

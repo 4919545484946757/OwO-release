@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "failure_classes": [
+    "wrong-output",
+    "missing-artifact",
+    "timeout"
+  ],
+  "expected_side_effects": [
+    "read:inputs/**",
+    "write:out/**"
+  ],
+  "repetitions": 3,
+  "id": "document-report-table-of-contents",
+  "category": "document",
+  "title": "报告目录生成",
+  "instruction": "读取 inputs/report-sections.md，生成 out/toc.md，第一行写“# 目录”，其后逐行列出编号章节。目录按原顺序编号，每行形如“1. 背景”，保留全部四个章节，不得增删章节，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "inputs/report-sections.md",
+      "content": "1. 背景\n2. 方案\n3. 风险\n4. 附录\n"
+    }
+  ],
+  "allow_read": [
+    "inputs/**"
+  ],
+  "allow_write": [
+    "out/**"
+  ],
+  "allow_commands": [],
+  "expected_artifacts": [
+    "out/toc.md"
+  ],
+  "checkers": [
+    {
+      "type": "regex",
+      "path": "out/toc.md",
+      "pattern": "^\\d+\\. "
+    },
+    {
+      "type": "contains",
+      "path": "out/toc.md",
+      "text": "1. 背景"
+    },
+    {
+      "type": "contains",
+      "path": "out/toc.md",
+      "text": "2. 方案"
+    },
+    {
+      "type": "contains",
+      "path": "out/toc.md",
+      "text": "3. 风险"
+    },
+    {
+      "type": "contains",
+      "path": "out/toc.md",
+      "text": "4. 附录"
+    },
+    {
+      "type": "not_contains",
+      "path": "out/toc.md",
+      "text": "TBD"
+    },
+    {
+      "type": "line_count_min",
+      "path": "out/toc.md",
+      "min_lines": 5
+    }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/toc.md": "# 报告目录\n\n1. 背景\n2. 方案\n3. 风险\n4. 附录\n"
+  }
+}

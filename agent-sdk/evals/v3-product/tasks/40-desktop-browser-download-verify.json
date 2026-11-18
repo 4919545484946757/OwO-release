@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["permission-denied", "timeout", "unapproved-side-effect", "wrong-output"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**", "desktop:ui-observe", "desktop:ui-act"],
+  "repetitions": 3,
+  "id": "desktop-browser-download-verify",
+  "category": "desktop",
+  "title": "浏览器下载并在文件管理器验证",
+  "instruction": "必须在真实 Windows 桌面环境中执行；模拟器或离屏渲染结果不得计入。用真实浏览器从 inputs/download.html 的下载链接保存 CSV 到 out/downloaded.csv，再用文件资源管理器确认文件存在且大小非零，把过程写入 out/desktop-report.md。报告必须包含“## 操作步骤”“## 验证”，并注明真实 Windows 桌面环境。",
+  "inputs": [
+    {
+      "path": "inputs/download.html",
+      "content": "<a download=\"downloaded.csv\" href=\"data:text/csv,region,amount%0AEast,25\">下载 CSV</a>\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/desktop-report.md", "out/downloaded.csv"],
+  "checkers": [
+    { "type": "regex", "path": "out/desktop-report.md", "pattern": "^## 操作步骤" },
+    { "type": "regex", "path": "out/desktop-report.md", "pattern": "^## 验证" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "真实 Windows 桌面环境" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "浏览器" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "文件资源管理器" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "downloaded.csv" },
+    { "type": "contains", "path": "out/downloaded.csv", "text": "region,amount" },
+    { "type": "not_contains", "path": "out/desktop-report.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/desktop-report.md", "min_lines": 8 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/desktop-report.md": "# 桌面操作报告\n\n## 应用\n\n- 浏览器（Microsoft Edge）\n- 文件资源管理器（Windows 11）\n\n## 操作步骤\n\n- 在真实 Windows 桌面环境中用浏览器打开 inputs/download.html。\n- 点击下载链接，把 downloaded.csv 保存到 out/。\n- 用文件资源管理器打开 out/，确认文件存在且大小非零。\n\n## 验证\n\n- 文件资源管理器显示 downloaded.csv 非空。\n- 打开文件确认首行为 region,amount。\n",
+    "out/downloaded.csv": "region,amount\nEast,25\n"
+  }
+}

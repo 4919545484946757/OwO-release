@@ -531,10 +531,10 @@ impl AppState {
                     })
                 },
             )),
+            owobot: owobot::Collaboration::new(data_root.clone()),
             data_root,
             elements,
             auth_token,
-            owobot: owobot::Collaboration::new(),
             rate_limiter,
             shutdown_gate,
             // V1 四期（第三路）：评审闭环复用 WorkSwarm 的 space.db（独立连接 + busy_timeout）。

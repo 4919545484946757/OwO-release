@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "failure_classes": [
+    "wrong-output",
+    "missing-artifact",
+    "timeout"
+  ],
+  "expected_side_effects": [
+    "read:inputs/**",
+    "write:out/**"
+  ],
+  "repetitions": 3,
+  "id": "document-meeting-minutes",
+  "category": "document",
+  "title": "会议纪要提取",
+  "instruction": "读取 inputs/meeting-notes.txt，提取参会人、决定和行动项（参会人以顿号分隔并列在同一行），写成 out/minutes.md。必须包含“## 参会人”“## 决定”“## 行动项”三节，行动项写明负责人与截止日期，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "inputs/meeting-notes.txt",
+      "content": "会议：发布评审\n参会：张三、李四、王五\n决定：推迟到 11 月 12 日发布\n行动：李四负责补充回滚演练，截止 11 月 8 日\n"
+    }
+  ],
+  "allow_read": [
+    "inputs/**"
+  ],
+  "allow_write": [
+    "out/**"
+  ],
+  "allow_commands": [],
+  "expected_artifacts": [
+    "out/minutes.md"
+  ],
+  "checkers": [
+    {
+      "type": "regex",
+      "path": "out/minutes.md",
+      "pattern": "^## 参会人"
+    },
+    {
+      "type": "regex",
+      "path": "out/minutes.md",
+      "pattern": "^## 决定"
+    },
+    {
+      "type": "regex",
+      "path": "out/minutes.md",
+      "pattern": "^## 行动项"
+    },
+    {
+      "type": "contains",
+      "path": "out/minutes.md",
+      "text": "张三、李四、王五"
+    },
+    {
+      "type": "contains",
+      "path": "out/minutes.md",
+      "text": "11 月 12 日"
+    },
+    {
+      "type": "contains",
+      "path": "out/minutes.md",
+      "text": "李四"
+    },
+    {
+      "type": "contains",
+      "path": "out/minutes.md",
+      "text": "11 月 8 日"
+    },
+    {
+      "type": "not_contains",
+      "path": "out/minutes.md",
+      "text": "TBD"
+    },
+    {
+      "type": "line_count_min",
+      "path": "out/minutes.md",
+      "min_lines": 8
+    }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/minutes.md": "# 发布评审会议纪要\n\n## 会议信息\n\n- 主题：发布评审\n- 记录人：王五\n\n## 参会人\n\n- 张三、李四、王五\n\n## 决定\n\n- 推迟到 11 月 12 日发布。\n\n## 行动项\n\n- 李四负责补充回滚演练，截止 11 月 8 日。\n"
+  }
+}

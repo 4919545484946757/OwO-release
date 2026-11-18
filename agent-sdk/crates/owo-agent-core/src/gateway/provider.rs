@@ -466,9 +466,7 @@ impl OpenAiCompatibleProvider {
                         .collect();
                     wire["tool_calls"] = Value::Array(wire_calls);
                 }
-                if message.role == "assistant"
-                    && effective_model.to_ascii_lowercase().starts_with("deepseek")
-                {
+                if message.role == "assistant" && is_deepseek_family(&effective_model) {
                     if let Some(replay) = &message.reasoning_replay {
                         if replay.model == effective_model {
                             wire["reasoning_content"] = Value::String(replay.content.clone());

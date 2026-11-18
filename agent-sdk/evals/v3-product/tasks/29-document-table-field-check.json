@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["wrong-output", "missing-artifact", "timeout"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**"],
+  "repetitions": 3,
+  "id": "document-table-field-check",
+  "category": "document",
+  "title": "表格字段完整性核对",
+  "instruction": "读取 inputs/records.md 的字段表，统计字段总数、必填字段数和缺失字段数，写出 out/field-check.json（仅含 total_fields、required_fields、missing_fields 三个数值字段）与 out/field-check.md。missing_fields 只统计“必填=是且状态不是正常”的字段。",
+  "inputs": [
+    {
+      "path": "inputs/records.md",
+      "content": "| 字段 | 类型 | 必填 | 状态 |\n| --- | --- | --- | --- |\n| id | int | 是 | 正常 |\n| email | str | 是 | 正常 |\n| age | int | 否 | 缺失 |\n| created_at | date | 是 | 正常 |\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/field-check.json", "out/field-check.md"],
+  "checkers": [
+    { "type": "json_keys_exact", "path": "out/field-check.json", "keys": ["total_fields", "required_fields", "missing_fields"] },
+    { "type": "json_field_equals", "path": "out/field-check.json", "field": "total_fields", "expected": 4 },
+    { "type": "json_field_equals", "path": "out/field-check.json", "field": "required_fields", "expected": 3 },
+    { "type": "json_field_equals", "path": "out/field-check.json", "field": "missing_fields", "expected": 0 },
+    { "type": "contains", "path": "out/field-check.md", "text": "age" },
+    { "type": "contains", "path": "out/field-check.md", "text": "缺失" },
+    { "type": "line_count_min", "path": "out/field-check.md", "min_lines": 4 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/field-check.json": "{\"total_fields\": 4, \"required_fields\": 3, \"missing_fields\": 0}\n",
+    "out/field-check.md": "# 字段核对报告\n\n- 字段总数：4\n- 必填字段：3\n- age 状态为缺失，但 age 不是必填字段，因此必填缺失数为 0。\n"
+  }
+}

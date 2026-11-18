@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["wrong-output", "missing-artifact", "timeout"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**"],
+  "repetitions": 3,
+  "id": "document-markdown-merge",
+  "category": "document",
+  "title": "多份 Markdown 合并",
+  "instruction": "按 part-a.md、part-b.md 的原始顺序合并为 out/merged.md。保留两份材料各自的标题与正文，不得改写正文；在文件开头增加“## 合并说明”，说明合并顺序与来源文件。不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "inputs/part-a.md",
+      "content": "# 背景\n\nA 部分内容。\n"
+    },
+    {
+      "path": "inputs/part-b.md",
+      "content": "# 方案\n\nB 部分内容。\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/merged.md"],
+  "checkers": [
+    { "type": "regex", "path": "out/merged.md", "pattern": "^## 合并说明" },
+    { "type": "contains", "path": "out/merged.md", "text": "# 背景" },
+    { "type": "contains", "path": "out/merged.md", "text": "# 方案" },
+    { "type": "contains", "path": "out/merged.md", "text": "A 部分内容。" },
+    { "type": "contains", "path": "out/merged.md", "text": "B 部分内容。" },
+    { "type": "not_contains", "path": "out/merged.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/merged.md", "min_lines": 6 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/merged.md": "# 合并文档\n\n## 合并说明\n\n已按 part-a.md、part-b.md 的原始顺序合并，未改写正文。\n\n# 背景\n\nA 部分内容。\n\n# 方案\n\nB 部分内容。\n"
+  }
+}

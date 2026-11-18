@@ -104,15 +104,21 @@
     let pendingRead = null;
     const progressEvents = new Set(["token_delta", "reasoning_delta", "model_call", "tool_start", "tool_result", "permission_request", "user_question", "user_answered", "progress", "plan_update", "compaction", "final", "turn_stats", "turn_failed"]);
     const decoder = new TextDecoder(), encoder = new TextEncoder(), reader = response.body.getReader();
-    const dispatch = (event, payload, id) => {
-      const sequence = Number(id);
-      if (id != null && Number.isSafeInteger(sequence) && sequence > 0 && sequence <= cursor) return;
+    const dispatch = (event, payload, id, replay = false) => {
       if (!payload || typeof payload !== "object") throw streamError("无效的回合事件");
+      const sequence = Number(id);
+      const hasSeq = id != null && Number.isSafeInteger(sequence) && sequence > 0;
       const type = event === "message" ? payload.type : event;
+      // 思考增量按"内容"而不是"id"去重：旧版服务端把连续 reasoning_delta 合并进同一行并
+      // 复用该行 seq，SSE id 因此重复；按 id 去重会把第一条之后的思考全部丢弃（只剩开头几个
+      // 字符）。实时推送的 reasoning_delta 一定是纯增量，重复投递最多造成重复文本、不会丢内容；
+      // 断线重放一侧仍由 eventsAfterCursor 按 seq 过滤，不会重复补投。
+      const incrementalReasoning = type === "reasoning_delta";
+      if (!replay && hasSeq && sequence <= cursor && !incrementalReasoning) return;
       completion.observe(type, payload);
       if (progressEvents.has(type)) nextRecovery = Date.now() + idleMs;
-      onEvent(type, payload);
-      if (id != null && Number.isSafeInteger(sequence) && sequence > cursor) cursor = sequence;
+      onEvent(type, payload, { id: hasSeq ? sequence : null, replay });
+      if (hasSeq && sequence > cursor) cursor = sequence;
     };
     const consume = (flush) => {
       const blocks = buffer.split(/\r?\n\r?\n/);
@@ -145,7 +151,7 @@
             let advanced = false;
             for (const record of eventsAfterCursor(page, turnId, cursor)) {
               if (Number(record.seq) <= cursor) continue;
-              dispatch(record.payload?.type, record.payload, record.seq); advanced = true;
+              dispatch(record.payload?.type, record.payload, record.seq, true); advanced = true;
             }
             if (completion.terminal) break;
             if (advanced) continue;
@@ -172,7 +178,7 @@
       let advanced = false;
       for (const record of eventsAfterCursor(page, turnId, cursor)) {
         if (Number(record.seq) <= cursor) continue;
-        dispatch(record.payload?.type, record.payload, record.seq); advanced = true;
+        dispatch(record.payload?.type, record.payload, record.seq, true); advanced = true;
       }
       if (completion.terminal) break;
       if (advanced) { emptyPages = 0; continue; } // Drain completed turns spanning multiple pages.

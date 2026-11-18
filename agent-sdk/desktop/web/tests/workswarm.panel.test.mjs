@@ -92,7 +92,8 @@ function fakeBtn(stepId) {
   const attrs = { "data-ws-retry": stepId };
   return {
     disabled: false,
-    textContent: "↻ 重试此节点",
+    // 2026-11-17 重试图标改为 CSS ::before 单描边 SVG，按钮文本不再含 ↻ 字符。
+    textContent: "重试此节点",
     __idleText: null,
     getAttribute: (k) => (k in attrs ? attrs[k] : null),
     setAttribute: (k, v) => {
@@ -388,7 +389,7 @@ test("handleRetryClick：快速双击只产生一次请求；结束后解锁并�
   assert.equal(btn.getAttribute("data-busy"), null, "结束后必须解锁");
   assert.equal(btn.getAttribute("aria-busy"), null);
   assert.equal(btn.disabled, false);
-  assert.equal(btn.textContent, "↻ 重试此节点");
+  assert.equal(btn.textContent, "重试此节点");
 });
 
 function fakeBtnDisabled() {

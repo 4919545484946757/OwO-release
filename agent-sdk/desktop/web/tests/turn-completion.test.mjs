@@ -112,3 +112,37 @@ test("replay timeout cancels its request and cannot accept provisional output", 
  }}),/turn\/replay_timeout/);
  assert.equal(replaySignal.aborted,true);
 });
+
+// 思考增量是纯增量通道：旧版服务端把连续 reasoning_delta 合并进同一行、复用该行 seq，
+// SSE id 因此重复。若按 id 去重，第一条之后的思考全部被丢弃——线上表现就是
+// 「思考过程只剩开头几个字符」。增量事件必须放行，非增量事件继续按游标去重。
+test("repeated SSE ids on reasoning deltas never drop increments", async () => {
+ const seen=[];
+ const body = frame(15,"reasoning_delta",{delta:"The"}) + frame(15,"reasoning_delta",{delta:" user"})
+   + frame(15,"reasoning_delta",{delta:" asks who"}) + frame(16,"final",{text:"ok"})
+   + frame(17,"turn_stats",{completion_status:"accepted"});
+ const result = await api.consumeResponse(response(body),{onEvent:(type,payload)=>{ if(type==="reasoning_delta") seen.push(payload.delta); }});
+ assert.equal(seen.join(""),"The user asks who");
+ assert.equal(result.completionStatus,"accepted");
+});
+
+test("non-incremental frames still collapse on a repeated cursor id", async () => {
+ const seen=[];
+ const body = frame(5,"token_delta",{delta:"a"}) + frame(5,"token_delta",{delta:"b"})
+   + frame(6,"final",{text:"ab"}) + frame(7,"turn_stats",{completion_status:"accepted"});
+ await api.consumeResponse(response(body),{onEvent:(type,payload)=>{ if(type==="token_delta") seen.push(payload.delta); }});
+ assert.deepEqual(seen,["a"],"重复游标的非增量事件仍是重复投递，必须丢弃");
+});
+
+test("replayed reasoning is flagged as a snapshot for replace-rendering", async () => {
+ const seen=[];
+ const result = await api.consumeResponse(response(frame(1,"final",{text:"答案"}),"turn-1"),{
+  onEvent:(type,payload,meta)=>{ if(type==="reasoning_delta") seen.push([payload.delta,meta.replay,meta.id]); },
+  replay:async(id)=>({active:false,state:"completed",events:[
+   {turn_id:id,seq:2,payload:{type:"reasoning_delta",delta:"完整思考"}},
+   {turn_id:id,seq:3,payload:{type:"turn_stats",completion_status:"accepted"}},
+  ]}),
+ });
+ assert.deepEqual(seen,[["完整思考",true,2]]);
+ assert.equal(result.completionStatus,"accepted");
+});

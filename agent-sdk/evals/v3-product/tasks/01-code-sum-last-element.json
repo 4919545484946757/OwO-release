@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "failure_classes": [
+    "wrong-output",
+    "missing-artifact",
+    "timeout",
+    "unapproved-side-effect"
+  ],
+  "expected_side_effects": [
+    "read:src/**",
+    "read:tests/**",
+    "write:src/**",
+    "write:out/**",
+    "command:python tests/check.py"
+  ],
+  "repetitions": 3,
+  "id": "code-sum-last-element",
+  "category": "code",
+  "title": "修复列表求和漏掉末项的边界错误",
+  "instruction": "请只修改 src/solution.py 完成“修复列表求和漏掉末项的边界错误”，保持函数签名和调用方输入不变。不要修改 tests/check.py。实现后运行白名单命令 python tests/check.py，并创建 out/change-report.md，写明具体根因、修改方案、边界条件和真实测试结果。验收规则：求和必须遍历到最后一个元素。 out/change-report.md 必须使用二级标题组织，并逐字包含以下四个小节标题：`## 根因`、`## 修复方案`、`## 边界条件`、`## 测试结果`。",
+  "inputs": [
+    {
+      "path": "src/solution.py",
+      "content": "def sum_all(values):\n    return sum(values[:-1])\n"
+    },
+    {
+      "path": "tests/check.py",
+      "content": "from pathlib import Path\nimport sys\nsys.path.insert(0, str(Path(__file__).resolve().parents[1] / \"src\"))\nfrom solution import sum_all\n\nassert sum_all([2, 4, 6]) == 12\nprint(\"PASS-01\")\n"
+    }
+  ],
+  "allow_read": [
+    "src/**",
+    "tests/**"
+  ],
+  "allow_write": [
+    "src/**",
+    "out/**"
+  ],
+  "allow_commands": [
+    "python tests/check.py"
+  ],
+  "expected_artifacts": [
+    "out/change-report.md"
+  ],
+  "checkers": [
+    {
+      "type": "command_check",
+      "command": "python tests/check.py",
+      "cwd": null,
+      "expect_exit": 0,
+      "stdout_contains": [
+        "PASS-01"
+      ],
+      "stdout_not_contains": [],
+      "timeout_secs": 30
+    },
+    {
+      "type": "contains",
+      "path": "out/change-report.md",
+      "text": "## 根因"
+    },
+    {
+      "type": "contains",
+      "path": "out/change-report.md",
+      "text": "## 修复方案"
+    },
+    {
+      "type": "contains",
+      "path": "out/change-report.md",
+      "text": "## 边界条件"
+    },
+    {
+      "type": "contains",
+      "path": "out/change-report.md",
+      "text": "## 测试结果"
+    },
+    {
+      "type": "not_contains",
+      "path": "out/change-report.md",
+      "text": "TODO"
+    },
+    {
+      "type": "regex",
+      "path": "out/change-report.md",
+      "pattern": "^# "
+    },
+    {
+      "type": "line_count_min",
+      "path": "out/change-report.md",
+      "min_lines": 9
+    }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/change-report.md": "# 修复报告：修复列表求和漏掉末项的边界错误\n\n## 根因\n\n根据源代码与失败用例说明实际缺陷及其触发条件。\n\n## 修复方案\n\n说明具体实现以及保持不变的公开接口。\n\n## 边界条件\n\n求和必须遍历到最后一个元素。\n\n## 测试结果\n\n运行 python tests/check.py，实际输出 PASS-01。\n",
+    "src/solution.py": "def sum_all(values):\n    return sum(values)\n"
+  }
+}

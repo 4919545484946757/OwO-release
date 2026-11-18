@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["permission-denied", "timeout", "unapproved-side-effect", "wrong-output"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**", "desktop:ui-observe", "desktop:ui-act"],
+  "repetitions": 3,
+  "id": "desktop-screenshot-evidence",
+  "category": "desktop",
+  "title": "截图工具采集窗口证据",
+  "instruction": "必须在真实 Windows 桌面环境中执行；模拟器或离屏渲染结果不得计入。用真实 Windows 截图工具对打开的 inputs/sample.txt（记事本）窗口截图，并把截图步骤、可见内容说明和验证结果写入 out/desktop-report.md。报告必须包含“## 操作步骤”“## 验证”，并注明真实 Windows 桌面环境。",
+  "inputs": [
+    {
+      "path": "inputs/sample.txt",
+      "content": "样例文档：截图证据测试。\n第二行：包含关键字 OWO-EVIDENCE。\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/desktop-report.md"],
+  "checkers": [
+    { "type": "regex", "path": "out/desktop-report.md", "pattern": "^## 操作步骤" },
+    { "type": "regex", "path": "out/desktop-report.md", "pattern": "^## 验证" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "真实 Windows 桌面环境" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "截图工具" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "OWO-EVIDENCE" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "记事本" },
+    { "type": "not_contains", "path": "out/desktop-report.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/desktop-report.md", "min_lines": 8 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/desktop-report.md": "# 桌面操作报告\n\n## 应用\n\n- 记事本（Windows 11）\n- 截图工具（Windows 11）\n\n## 操作步骤\n\n- 在真实 Windows 桌面环境中用记事本打开 inputs/sample.txt。\n- 启动截图工具，选择窗口模式截取记事本窗口。\n- 核对截图中可见关键字 OWO-EVIDENCE。\n\n## 验证\n\n- 截图来自真实可见窗口，不是离屏渲染。\n- 截图中两行文本与源文件一致。\n"
+  }
+}

@@ -257,7 +257,8 @@ test("renderStatsRows：运行/成败/成功率/最近失败（HTML）", () => {
       },
     ],
   });
-  assert.match(rows, /⚠ 需要修复：从未成功（失败 2 次）/);
+  // 2026-11-17 图标统一为单描边 SVG，去掉 ⚠ 表情符号；告警文案断言不变。
+  assert.match(rows, /需要修复：从未成功（失败 2 次）/);
   assert.match(rows, /运行 2 次/);
   // "fresh"（未运行）那一条后面不应出现告警。
   assert.ok(
@@ -325,7 +326,7 @@ test("renderStatsRows：运行/成败/成功率/最近失败（HTML）", () => {
       },
     ],
   });
-  assert.match(flagged, /⚠ 需要修复：从未成功（失败 2 次）/);
+  assert.match(flagged, /需要修复：从未成功（失败 2 次）/);
   assert.match(html, /等待人工 1/);
 });
 

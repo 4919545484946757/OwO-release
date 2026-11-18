@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["wrong-output", "missing-artifact", "timeout"],
+  "expected_side_effects": ["read:sources/**", "write:out/**"],
+  "repetitions": 3,
+  "id": "research-support-escalation-brief",
+  "category": "research",
+  "title": "客服工单与 SLA 的升级简报",
+  "instruction": "阅读 sources/tickets.md 与 sources/sla.md，形成 out/brief.md。必须统计工单构成、判断 SLA 超时情况、给出升级建议，引用工单数、分类数量、响应与解决时限，并说明材料无法确定的根因。包含“## 决策”“## 证据”“## 风险”三节，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "sources/tickets.md",
+      "content": "# 工单统计\n\n- 工单总数：48\n- 计费问题：21\n- 登录问题：15\n- 其他：12\n"
+    },
+    {
+      "path": "sources/sla.md",
+      "content": "# SLA\n\n- 首次响应：4 小时\n- 解决时限：2 个工作日\n- 当前超时工单：5\n"
+    }
+  ],
+  "allow_read": ["sources/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/brief.md"],
+  "checkers": [
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 决策" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 证据" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 风险" },
+    { "type": "contains", "path": "out/brief.md", "text": "48" },
+    { "type": "contains", "path": "out/brief.md", "text": "21" },
+    { "type": "contains", "path": "out/brief.md", "text": "15" },
+    { "type": "contains", "path": "out/brief.md", "text": "4 小时" },
+    { "type": "contains", "path": "out/brief.md", "text": "2 个工作日" },
+    { "type": "contains", "path": "out/brief.md", "text": "5" },
+    { "type": "not_contains", "path": "out/brief.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/brief.md", "min_lines": 10 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/brief.md": "# 客服升级简报\n\n## 决策\n\n优先升级计费问题：48 条工单中计费 21 条最多；同时处理 5 条已超时工单，按首次响应 4 小时、解决 2 个工作日的 SLA 追责。\n\n## 证据\n\n- 工单统计：总数 48，计费问题 21，登录问题 15，其他 12。\n- SLA：首次响应 4 小时，解决时限 2 个工作日，当前超时工单 5。\n- 计费问题占比最高，是升级处理的优先类别。\n\n## 风险\n\n- 材料没有工单根因，不能推出计费问题由同一缺陷导致。\n- 没有超时工单的分类分布，无法判断升级资源应投向哪一类。\n- SLA 时限与实际处理时长未关联，不能确认超时比例。\n"
+  }
+}

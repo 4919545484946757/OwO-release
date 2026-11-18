@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "failure_classes": [
+    "wrong-output",
+    "missing-artifact",
+    "timeout"
+  ],
+  "expected_side_effects": [
+    "read:sources/**",
+    "write:out/**"
+  ],
+  "repetitions": 3,
+  "id": "research-migration-risk-brief",
+  "category": "research",
+  "title": "数据库迁移风险的多来源简报",
+  "instruction": "阅读 sources/current-arch.md、sources/migration-plan.md 与 sources/constraints.md，形成 out/brief.md。必须评估迁移计划是否满足停机与回滚约束，引用服务数量、代码规模、阶段数、工期和窗口；列出至少一项无法从材料确认的结论。包含“## 决策”“## 证据”“## 风险”三节，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "sources/current-arch.md",
+      "content": "# 当前架构\n\n- 服务数量：3\n- 代码规模：42k 行\n- 数据库：Postgres 13\n"
+    },
+    {
+      "path": "sources/migration-plan.md",
+      "content": "# 迁移计划\n\n- 阶段数：6\n- 总工期：8 周\n- 切换窗口：4 小时\n"
+    },
+    {
+      "path": "sources/constraints.md",
+      "content": "# 约束\n\n- 停机不得超过 15 分钟\n- 回滚必须在 30 分钟内完成\n- 不新增外部依赖\n"
+    }
+  ],
+  "allow_read": [
+    "sources/**"
+  ],
+  "allow_write": [
+    "out/**"
+  ],
+  "allow_commands": [],
+  "expected_artifacts": [
+    "out/brief.md"
+  ],
+  "checkers": [
+    {
+      "type": "regex",
+      "path": "out/brief.md",
+      "pattern": "^## 决策"
+    },
+    {
+      "type": "regex",
+      "path": "out/brief.md",
+      "pattern": "^## 证据"
+    },
+    {
+      "type": "regex",
+      "path": "out/brief.md",
+      "pattern": "^## 风险"
+    },
+    {
+      "type": "regex",
+      "path": "out/brief.md",
+      "pattern": "(?:^|[^0-9])3\\s*个\\s*服务|服务(?:数量)?[^\n]{0,10}[：:]\\s*3"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "42k"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "6"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "8 周"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "15 分钟"
+    },
+    {
+      "type": "contains",
+      "path": "out/brief.md",
+      "text": "30 分钟"
+    },
+    {
+      "type": "not_contains",
+      "path": "out/brief.md",
+      "text": "TBD"
+    },
+    {
+      "type": "line_count_min",
+      "path": "out/brief.md",
+      "min_lines": 10
+    }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/brief.md": "# 数据库迁移风险简报\n\n## 决策\n\n计划进入预演阶段，但不能直接切换：切换窗口 4 小时明显长于停机 15 分钟约束，需要先给出在线迁移或缩短窗口的方案。\n\n## 证据\n\n- 当前架构：3 个服务、42k 行代码、Postgres 13。\n- 迁移计划：6 个阶段、总工期 8 周、切换窗口 4 小时。\n- 约束：停机不得超过 15 分钟，回滚必须在 30 分钟内完成，不新增外部依赖。\n\n## 风险\n\n- 材料没有给出回滚演练结果，不能确认 30 分钟回滚可达。\n- 计划未说明 3 个服务的切换顺序，不能推出业务无感。\n- 8 周工期是估算，材料没有资源与依赖排期证据。\n"
+  }
+}

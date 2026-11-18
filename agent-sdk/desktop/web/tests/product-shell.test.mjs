@@ -61,7 +61,8 @@ test("collapsed conversation groups remain reachable and restore after search", 
   group.nextElementSibling=row;
   const input={value:""};
   const source=read("app-domain.js").match(/function filterSessionList\(\) \{[\s\S]*?\n\}/)[0];
-  const filter=runInNewContext(source+"\nfilterSessionList;",{state:{sessionIndex:[],sessionsKnown:false},window:{},taskListFilter:"all",taskNavigationFacts:()=>({}),syncTaskNavigation:()=>{},$:id=>id==="sessionSearch"?input:{querySelectorAll:()=>[group,row]},collapsedGroups:new Set(["workspace"]),Boolean,String});
+  // 假 DOM 按选择器分发：协作区在本用例中不存在，返回空，避免把普通行误当协作区。
+  const filter=runInNewContext(source+"\nfilterSessionList;",{state:{sessionIndex:[],sessionsKnown:false},window:{},taskListFilter:"all",taskNavigationFacts:()=>({}),syncTaskNavigation:()=>{},$:id=>id==="sessionSearch"?input:{querySelectorAll:selector=>selector===".owobot-area"?[]:[group,row]},collapsedGroups:new Set(["workspace"]),Boolean,String});
   filter();assert.equal(group.classList.contains("hidden"),false);assert.equal(row.classList.contains("hidden"),true);
   input.value="research";filter();assert.equal(row.classList.contains("hidden"),false);assert.equal(group.attrs["aria-expanded"],"true");
   input.value="";filter();assert.equal(row.classList.contains("hidden"),true);assert.equal(group.classList.contains("hidden"),false);

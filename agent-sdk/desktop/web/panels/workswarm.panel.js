@@ -279,17 +279,27 @@
 
 
     // ---------- 三态（加载/空/失败）、提交锁、终态门控、重试委托 ----------
+    // 单描边 SVG 图标（16 视口 / 1.5 描边 / currentColor），替代表情符号。
+    function wsIco(inner, size) {
+      return '<svg class="owo-ws-ico" viewBox="0 0 16 16" width="' + (size || 14) + '" height="' + (size || 14) +
+        '" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + "</svg>";
+    }
+    var WS_ICO_WARN = '<path d="M8 2 1.5 13.5h13z"/><path d="M8 6.5v3M8 11.5v.01"/>';
+    var WS_ICO_RETRY = '<path d="M13.5 8a5.5 5.5 0 1 1-1.9-4.16"/><path d="M13.5 2.5v3h-3"/>';
+    var WS_ICO_STOP = '<circle cx="8" cy="8" r="6"/><path d="M5.5 8h5"/>';
+    var WS_ICO_CLOCK = '<circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2 1.5"/>';
+
     // 生成统一的加载中 / 失败状态片段；retryKind 注册到重试委托。
     function stateBox(kind, msg, retryKind) {
       var cls = kind === "error" ? "hint err" : kind === "loading" ? "hint owo-ws-loading" : "hint";
-      var icon = kind === "error" ? "⚠ " : kind === "loading" ? "⏳ " : "";
+      var icon = kind === "error" ? wsIco(WS_ICO_WARN) + " " : "";
       var role = kind === "error" ? ' role="alert"' : kind === "loading" ? ' role="status" aria-live="polite"' : "";
       var html = '<div class="' + cls + '"' + role + ">" + icon + esc(msg) + "</div>";
       if (retryKind)
         html +=
-          '<div style="margin-top:4px"><button type="button" class="owo-ws-mini" data-retry="' +
+          '<div style="margin-top:4px"><button type="button" class="owo-ws-mini owo-ws-retry-ico" data-retry="' +
           esc(retryKind) +
-          '">↻ 重试</button></div>';
+          '">' + wsIco(WS_ICO_RETRY) + " 重试</button></div>";
       return html;
     }
 
@@ -533,9 +543,9 @@
       if (gate) {
         // 七期：停止中/已停止给出专门文案（其余沿用静态终态文案，不覆盖）。
         if (st === "stopping") {
-          gate.textContent = "⏳ 正在停止：取消指令已受理，等待运行中的 Worker 退出（通常数秒内完成）…";
+          gate.innerHTML = wsIco(WS_ICO_CLOCK) + " 正在停止：取消指令已受理，等待运行中的 Worker 退出（通常数秒内完成）…";
         } else if (st === "stopped") {
-          gate.textContent = "⛔ 团队已停止：运行操作已停用（任务进度、审计与产物保留，可继续查看）。";
+          gate.innerHTML = wsIco(WS_ICO_STOP) + " 团队已停止：运行操作已停用（任务进度、审计与产物保留，可继续查看）。";
         }
         gate.style.display = gated ? "" : "none";
       }
@@ -1816,7 +1826,7 @@
           line =
             '<div class="owo-ws-sumline">' + head + err +
             '<button type="button" class="owo-ws-mini owo-ws-retry" data-ws-retry="' + esc(s.failedStep.task_id) +
-            '" aria-label="重试此节点 ' + esc(s.failedStep.role) + '">↻ 重试此节点</button></div>';
+            '" aria-label="重试此节点 ' + esc(s.failedStep.role) + '">重试此节点</button></div>';
         } else {
           line = '<div class="owo-ws-sumline">' + head + err + '<span class="hint">团队已终态，重试不可用</span></div>';
         }
@@ -1847,16 +1857,16 @@
       var act = el("#ws-d-active");
       if (act) {
         act.textContent = iv
-          ? "◦ 意外中断，可恢复"
+          ? "意外中断，可恢复"
           : state.active
-            ? "● 运行中"
+            ? "运行中"
             : st === "succeeded"
-              ? "✓ 已完成"
+              ? "已完成"
               : st === "created"
-                ? "○ 等待启动"
+                ? "等待启动"
                 : st === "awaiting_human"
-                  ? "◷ 等待你处理"
-                  : "○ 已暂停";
+                  ? "等待你处理"
+                  : "已暂停";
         act.className = "owo-ws-active" + (iv ? " interrupted" : state.active ? " on" : "");
       }
       var title = el("#ws-d-title");
@@ -3288,7 +3298,7 @@
               '<td class="hint">' + esc(x.team_id) + "</td>" +
               "<td>" + esc(normStatus(x.mode)) + "</td>" +
               "<td>" + listBadge + "</td>" +
-              '<td class="' + (x.active ? "owo-ws-active on" : "hint") + '">' + (x.active ? "●" : "○") + "</td>" +
+              '<td><span class="owo-ws-dot' + (x.active ? " on" : "") + '" title="' + (x.active ? "运行中" : "未运行") + '"></span></td>' +
               "<td>" + ((x.members || []).length) + "</td>" +
               '<td class="hint">' + esc(x.project_space_id || "—") + "</td>" +
               '<td class="hint">' + esc(x.created_at) + "</td>" +
@@ -3754,9 +3764,9 @@
         '<h3>运行摘要 <span class="hint">状态 / 活动阶段 / 任务计数 / 失败步骤 / 尝试 / 产物</span></h3>' +
         '<div id="ws-d-summary" class="owo-ws-sumbox" aria-live="polite">' + stateBox("loading", "正在汇总运行状态…") + "</div>" +
         "</div>" +
-        '<div class="owo-ws-interrupted" id="ws-d-interrupted" role="alert">⚠ 运行已中断，可恢复' +
+        '<div class="owo-ws-interrupted" id="ws-d-interrupted" role="alert">' + wsIco(WS_ICO_WARN) + " 运行已中断，可恢复" +
         '<span class="owo-ws-int-detail">检测到上次进程未正常收尾遗留的运行态：任务进度已保留，未自动重放任何写操作。可用「继续（continue）」恢复运行，或对失败/被中断节点点「重试此节点」。</span></div>' +
-        '<div class="owo-ws-gate" id="ws-d-gate">⛔ 团队已进入终态：运行操作与人节点结果提交已停用（仍可查看任务、产物与审计）。</div>' +
+        '<div class="owo-ws-gate" id="ws-d-gate">' + wsIco(WS_ICO_STOP) + " 团队已进入终态：运行操作与人节点结果提交已停用（仍可查看任务、产物与审计）。</div>" +
         '<div class="owo-ws-sec">' +
         '<h3>运行操作 <span class="hint">继续 / 重试失败节点 / 转向 / 更换成员 / 取消</span></h3>' +
         '<div class="owo-ws-inline">' +

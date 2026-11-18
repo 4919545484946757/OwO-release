@@ -126,6 +126,15 @@ pub(crate) async fn turn(
         .owobot
         .bind_worker_turn(&headers, &session.workspace, &mut request)
         .await?;
+    if let Some(worker) = &worker {
+        state.owobot.record_worker_turn(
+            &id,
+            worker,
+            &session.workspace,
+            &request.prompt,
+            &chrono::Utc::now().to_rfc3339(),
+        );
+    }
     let turn_model = request
         .model_connection
         .as_ref()
@@ -417,12 +426,22 @@ pub(crate) async fn turn(
                     .filter(|effect| effect.class == owo_agent_core::EffectClass::Write)
                     .map(|_| spec.name)
             }));
+            // 协作角色额外获得宿主已声明可信只读的 MCP 工具；写工具仍只走暂存与审批。
+            let mut reader_names: Vec<String> = role
+                .readers()
+                .iter()
+                .map(|name| (*name).to_string())
+                .collect();
+            reader_names.extend(crate::owobot::mcp_reader_names(
+                &state.agent.visible_tool_specs(),
+            ));
+            let reader_names: Vec<&str> = reader_names.iter().map(String::as_str).collect();
             Arc::new(
                 state
                     .agent
                     .with_project_tools(
                         provider.unwrap_or_else(|| state.agent.provider()),
-                        role.readers(),
+                        &reader_names,
                         tools,
                     )
                     .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error))?,

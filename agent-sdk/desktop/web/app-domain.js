@@ -607,10 +607,15 @@ function renderSessionListFailure(error, selectId) {
 }
 
 async function refreshSessionsImpl(selectId, generation, selectionVersion) {
-  const sessions = await api("/sessions");
+  const [sessions, owobotLinks] = await Promise.all([
+    api("/sessions"),
+    // 旧核心没有归属索引端点：按无归属处理，保持旧列表行为，不报错。
+    api("/owobot/worker-sessions").catch(() => null),
+  ]);
   if (generation !== sessionListRefreshGeneration) return;
   state.sessionIndex = sessions;
   state.sessionsKnown = true;
+  state.owobotWorkerIds = owoWorkerSessionIds(owobotLinks);
   if (typeof renderHomeRecent === "function") renderHomeRecent();
   // 用户在请求期间切换了会话时，按实时状态标记选中项；列表刷新不拥有选中状态。
   const selectedSessionId = selectionVersion === state.selectionVersion
@@ -620,6 +625,7 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
   const visible = sessions.filter((session) =>
     (showArchived || !session.archived)
     && (!owoSessionHasAutoTitle(session) || session.id === selectedSessionId)
+    && !state.owobotWorkerIds.has(session.id)
   );
   const visibleIds = new Set(visible.map((session) => session.id));
   const byParent = new Map();
@@ -663,7 +669,7 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
   // 没有真实标题的会话不把内部 ID 当名称显示：空标题、ID 本身，或服务端自动生成的「会话 xxxx」。
   // 只影响展示，session.id 与数据层不变。
   const sessionDisplayTitle = owoSessionDisplayTitle;
-  const renderSession = (session, depth, groupWorkspace, container = list, pinnedChat = false) => {
+  const renderSession = (session, depth, groupWorkspace, container = list, pinnedChat = false, titleOverride = "") => {
     const li = document.createElement("li");
     li.dataset.groupWorkspace = groupWorkspace || "";
     li.dataset.sessionId = session.id;
@@ -688,7 +694,7 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
     const updated = raw ? raw.slice(5, 16).replace("T", " ") : "";
     li.title = `${session.model || "默认模型"} · ${raw.slice(0, 19).replace("T", " ")}` +
       (isChat ? " · 对话模式" : "");
-    const displayTitle = sessionDisplayTitle(session);
+    const displayTitle = titleOverride || sessionDisplayTitle(session);
     li.innerHTML = `
       <div class="owo-session-row" style="margin-left:${depth * 28}px">
         <button type="button" class="owo-session-title" data-session-select aria-current="${session.id === selectedSessionId ? "page" : "false"}" title="打开会话：${esc(displayTitle)}">
@@ -985,8 +991,11 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
     }
     if (collapsed) {
       // 折叠：隐藏本组标题之后、下一个组标题之前的全部条目（含 fork 子树）。
+      // 协作分区标签与 OwOBot 分组是独立分区，不能被上一个项目的折叠吞掉。
       let node = header.nextElementSibling;
-      while (node && !node.classList.contains("codex-session-group")) {
+      while (node && !node.classList.contains("codex-session-group")
+        && !node.classList.contains("codex-section-label")
+        && !node.classList.contains("owobot-area")) {
         const next = node.nextElementSibling;
         node.classList.add("hidden");
         node = next;
@@ -1055,8 +1064,142 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
     }
     renderProjectGroup(group, list);
   }
+  renderOwobotGroup(list, owobotLinks, {
+    sessions,
+    activeTurns: state.activeTurns,
+    renderSession,
+    openTask: (task) => enterOwobotMode(task),
+  });
   if (!list.children.length) list.innerHTML = '<li class="sub">暂无会话</li>';
   filterSessionList();
+}
+
+function owoWorkerSessionIds(links) {
+  const ids = new Set();
+  if (links && links.sessions && typeof links.sessions === "object") {
+    for (const id of Object.keys(links.sessions)) ids.add(id);
+  }
+  return ids;
+}
+
+// OwOBot 协作分组：任务级条目（标题=目标、运行状态、时间），角色会话收在任务下
+// 作审计层；点任务深链 OwOBot 整窗对应 thread。对标 Devin 父/子会话与 Dots 活动区。
+function renderOwobotGroup(list, links, options) {
+  const tasks = Array.isArray(links?.tasks) ? links.tasks : [];
+  if (!tasks.length) return;
+  const sessionById = new Map((options.sessions || []).map((session) => [session.id, session]));
+  const sectionLabel = document.createElement("li");
+  sectionLabel.className = "codex-section-label";
+  sectionLabel.textContent = "协作";
+  sectionLabel.setAttribute("aria-hidden", "true");
+  const area = document.createElement("li");
+  area.className = "owobot-area";
+  const header = document.createElement("div");
+  header.className = "codex-session-group owobot-group-header";
+  header.setAttribute("role", "button");
+  header.setAttribute("tabindex", "0");
+  const collapsed = localStorage.getItem("owo.owobotGroupCollapsed") === "1";
+  header.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  header.title = "OwOBot 协作任务" + (collapsed ? "（点击展开）" : "（点击折叠）");
+  const caret = document.createElement("span");
+  caret.className = "codex-group-caret" + (collapsed ? " collapsed" : "");
+  caret.setAttribute("aria-hidden", "true");
+  const label = document.createElement("span");
+  label.className = "codex-group-label";
+  label.textContent = "OwOBot 协作";
+  const count = document.createElement("span");
+  count.className = "codex-group-count";
+  count.textContent = String(tasks.length);
+  header.append(caret, label, count);
+  const taskList = document.createElement("ul");
+  taskList.className = "owobot-task-list";
+  taskList.hidden = collapsed;
+  let openThreads = new Set();
+  try { openThreads = new Set(JSON.parse(localStorage.getItem("owo.owobotTasksOpen") || "[]")); } catch (_) {}
+  const rememberOpen = () => {
+    try { localStorage.setItem("owo.owobotTasksOpen", JSON.stringify([...openThreads])); } catch (_) {}
+  };
+  for (const task of tasks) {
+    const members = (task.sessionIds || [])
+      .map((id) => sessionById.get(id))
+      .filter(Boolean);
+    const li = document.createElement("li");
+    li.className = "owobot-task";
+    li.dataset.owobotThread = task.threadId;
+    const row = document.createElement("div");
+    row.className = "owobot-task-row";
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "owobot-task-open";
+    open.title = "打开 OwOBot 任务：" + (task.title || task.threadId);
+    const title = document.createElement("span");
+    title.className = "owobot-task-title";
+    title.textContent = task.title || "未命名任务";
+    open.appendChild(title);
+    if (members.some((session) => options.activeTurns.has(session.id))) {
+      const badge = document.createElement("span");
+      badge.className = "owobot-task-badge";
+      badge.textContent = "运行中";
+      open.appendChild(badge);
+    }
+    const time = document.createElement("span");
+    time.className = "sub";
+    const raw = task.updatedAt || "";
+    time.textContent = raw ? raw.slice(5, 16).replace("T", " ") : "";
+    open.appendChild(time);
+    open.addEventListener("click", (event) => {
+      event.stopPropagation();
+      options.openTask({ thread: task.threadId, workspace: task.workspace });
+    });
+    const disclosure = document.createElement("button");
+    disclosure.type = "button";
+    disclosure.className = "owobot-task-disclosure";
+    const membersOpen = openThreads.has(task.threadId);
+    const syncDisclosure = (expanded) => {
+      disclosure.setAttribute("aria-expanded", expanded ? "true" : "false");
+      disclosure.setAttribute("aria-label", (expanded ? "收起" : "展开") + "角色会话：" + (task.title || task.threadId));
+      disclosure.title = expanded ? "收起角色会话" : "展开角色会话";
+    };
+    syncDisclosure(membersOpen);
+    disclosure.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>';
+    const memberList = document.createElement("ul");
+    memberList.className = "owobot-task-members";
+    memberList.hidden = !membersOpen;
+    for (const session of members) {
+      const role = links.sessions?.[session.id]?.role || "";
+      options.renderSession(session, 0, task.workspace || "", memberList, false, role ? "角色：" + role : "");
+    }
+    disclosure.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const expanded = memberList.hidden;
+      memberList.hidden = !expanded;
+      syncDisclosure(expanded);
+      if (expanded) openThreads.add(task.threadId);
+      else openThreads.delete(task.threadId);
+      rememberOpen();
+    });
+    row.append(open, disclosure);
+    li.append(row, memberList);
+    taskList.appendChild(li);
+  }
+  const toggle = () => {
+    const nowCollapsed = !taskList.hidden;
+    taskList.hidden = nowCollapsed;
+    header.setAttribute("aria-expanded", nowCollapsed ? "false" : "true");
+    header.title = "OwOBot 协作任务" + (nowCollapsed ? "（点击展开）" : "（点击折叠）");
+    caret.classList.toggle("collapsed", nowCollapsed);
+    try { localStorage.setItem("owo.owobotGroupCollapsed", nowCollapsed ? "1" : "0"); } catch (_) {}
+  };
+  header.addEventListener("click", toggle);
+  header.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    event.stopPropagation();
+    toggle();
+  });
+  area.append(header, taskList);
+  list.appendChild(sectionLabel);
+  list.appendChild(area);
 }
 /// 工作区显示名：取路径最后一段（Windows 反斜杠与 POSIX 斜杠都支持）。
 function workspaceLabel(workspace) {
@@ -1117,6 +1260,9 @@ function filterSessionList() {
     if (li.classList.contains("codex-pinned-area")) continue;
     // 分区标签不是会话行，不参与搜索过滤。
     if (li.classList.contains("codex-section-label")) continue;
+    // OwOBot 协作区（含任务行与角色会话行）由下方专属循环处理，
+    // 不受项目折叠影响，搜索时按任务命中强制展开。
+    if (typeof li.closest === "function" && li.closest(".owobot-area")) continue;
     // 空项目提示：只在无搜索时显示，搜索时视为未命中。
     if (li.classList.contains("codex-project-empty")) {
       li.classList.toggle("hidden", Boolean(query) || collapsedGroups.has(li.dataset.groupWorkspace || ""));
@@ -1140,12 +1286,60 @@ function filterSessionList() {
       .some((li) => !li.classList.contains("hidden"));
     area.classList.toggle("hidden", !anyVisible);
   }
+  // OwOBot 协作区：搜索时按任务/角色会话命中强制展开，无命中整区隐藏；
+  // 非搜索时恢复本地记忆的折叠态，与项目折叠互不影响。
+  for (const area of $("sessionList").querySelectorAll(".owobot-area")) {
+    const header = area.querySelector(".owobot-group-header");
+    const taskList = area.querySelector(".owobot-task-list");
+    const caret = header ? header.querySelector(".codex-group-caret") : null;
+    const sectionLabel = area.previousElementSibling;
+    const labelIsSection = sectionLabel && sectionLabel.classList.contains("codex-section-label");
+    const tasks = taskList ? [...taskList.querySelectorAll(".owobot-task")] : [];
+    if (query) {
+      let anyVisible = false;
+      for (const task of tasks) {
+        const row = task.querySelector(".owobot-task-row");
+        const rowHit = Boolean(row) && row.textContent.toLowerCase().includes(query);
+        const memberList = task.querySelector(".owobot-task-members");
+        const memberRows = memberList ? [...memberList.querySelectorAll("li")] : [];
+        const memberHit = memberRows.some((li) => li.textContent.toLowerCase().includes(query));
+        const hit = rowHit || memberHit;
+        task.classList.toggle("hidden", !hit);
+        if (memberList) memberList.hidden = !memberHit;
+        task.querySelector(".owobot-task-disclosure")?.setAttribute("aria-expanded", memberHit ? "true" : "false");
+        if (hit) anyVisible = true;
+      }
+      area.classList.toggle("hidden", !anyVisible);
+      if (labelIsSection) sectionLabel.classList.toggle("hidden", !anyVisible);
+      if (taskList) taskList.hidden = !anyVisible;
+      if (caret) caret.classList.add("searching");
+      if (header) header.setAttribute("aria-expanded", anyVisible ? "true" : "false");
+      continue;
+    }
+    area.classList.remove("hidden");
+    if (labelIsSection) sectionLabel.classList.remove("hidden");
+    const groupCollapsed = localStorage.getItem("owo.owobotGroupCollapsed") === "1";
+    let tasksOpen = new Set();
+    try { tasksOpen = new Set(JSON.parse(localStorage.getItem("owo.owobotTasksOpen") || "[]")); } catch (_) {}
+    if (taskList) taskList.hidden = groupCollapsed;
+    if (caret) caret.classList.remove("searching");
+    if (header) header.setAttribute("aria-expanded", groupCollapsed ? "false" : "true");
+    for (const task of tasks) {
+      task.classList.remove("hidden");
+      const open = tasksOpen.has(task.dataset.owobotThread);
+      const memberList = task.querySelector(".owobot-task-members");
+      if (memberList) memberList.hidden = !open;
+      task.querySelector(".owobot-task-disclosure")?.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+  }
   // 组标题：搜索后没有可见子项的组一并隐藏，不留空标题。
   for (const li of items) {
     if (!li.classList.contains("codex-session-group")) continue;
     let node = li.nextElementSibling;
     let anyVisible = false;
-    while (node && !node.classList.contains("codex-session-group")) {
+    while (node && !node.classList.contains("codex-session-group")
+      && !node.classList.contains("codex-section-label")
+      && !node.classList.contains("owobot-area")) {
       if (!node.classList.contains("hidden")) {
         anyVisible = true;
         break;
@@ -1664,6 +1858,14 @@ async function selectSession(id, forceHistory = false) {
       }
       if (message.role === "assistant") {
         const calls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
+        // 历史思考：刷新或切回会话后，思考过程来自 assistant 消息上持久化的
+        // reasoning_replay。旧实现完全忽略该字段，用户只能看到回答，看不到
+        // 这段回答是怎么想出来的；有工具调用时思考应排在工具轨迹之前。
+        const replayText =
+          message.reasoning_replay && typeof message.reasoning_replay.content === "string"
+            ? message.reasoning_replay.content.trim()
+            : "";
+        if (replayText && (message.content || calls.length)) addHistoricalThinking(replayText);
         if (calls.length) {
           historyToolRun = appendHistoryToolSteps(calls, toolResults, historyToolRun);
           lastRole = "tool";
@@ -1999,7 +2201,7 @@ async function sendPrompt() {
     const response = await window.OwoApi.stream("/session/" + encodeURIComponent(turnSessionId) + "/turn", {
       method: "POST", json: { prompt, attachments, content_parts, turn_id: state.activeTurns.get(turnSessionId).turnId, ...(modelConnection ? { model_connection: modelConnection } : {}) }, signal: controller.signal,
     });
-    const handlePayload = (event, payload) => {
+    const handlePayload = (event, payload, meta) => {
       writeTargetSid = turnSessionId;
       const previousTurn = state.turn;
       state.turn = turn;
@@ -2007,7 +2209,8 @@ async function sendPrompt() {
       switch (event) {
         case "reasoning_delta":
           setRunPhase("reasoning");
-          pushReasoning(payload.delta || "");
+          // 断线重放送来的是整段思考的快照，要替换而不是追加，否则会重复拼接。
+          pushReasoning(payload.delta || "", { replace: Boolean(meta && meta.replay) });
           break;
         case "token_delta": {
           finishThinking();
@@ -2301,7 +2504,7 @@ async function uploadAttachments(files) {
 const APPROVAL_TIMEOUT_MS = 300000;
 const APPROVAL_URGENT_MS = 60000;
 // 原始标题（无待审批时恢复用）；取不到就留空，标题改写自动跳过。
-const BASE_DOC_TITLE = typeof document !== "undefined" ? document.title || "" : "";
+const BASE_DOC_TITLE = typeof document !== "undefined" ? (document.title || "") : "";
 
 function showApproval(payload) {
   const requestId = payload.request_id;
@@ -2450,10 +2653,11 @@ function renderApprovals() {
   }
   bar.classList.toggle("urgent", anyUrgent);
   // 用户可能已切到别的窗口：把待审批数量写进标题栏，任务栏也看得见。
-  if (typeof document !== "undefined" && BASE_DOC_TITLE) {
+  const baseTitle = owobotModeActive ? "OwOBot" : BASE_DOC_TITLE;
+  if (typeof document !== "undefined" && baseTitle) {
     document.title = items.length
-      ? `⚠ 待审批（${items.length}） · ${BASE_DOC_TITLE}`
-      : BASE_DOC_TITLE;
+      ? `⚠ 待审批（${items.length}） · ${baseTitle}`
+      : baseTitle;
   }
 }
 
@@ -3639,6 +3843,103 @@ async function createComputerTask() {
 
 // ---------- 扩展面板（第四轮：notes / plugin-market / workflow / goal；第五轮：team / eval / observability / memory / command） ----------
 
+// OwOBot 整窗模式：入口把当前窗口整体切换为 OwOBot——不嵌在工作台工作区里，
+// 也不新开系统窗口。panelRoot 移出侧栏成为 body 直下的全屏容器，顶部一条窄模式栏
+// 提供「返回工作台」；退出时还原父节点、标题与会话视图。浏览器与桌面壳行为一致。
+let owobotModeActive = false;
+let owobotModeHome = null;
+
+const PANEL_EMPTY_STATE_HTML = '<div class="panel-empty-state"><strong>选择工具面板</strong><span>需要查看项目状态或管理能力时，再从上方选择对应面板。</span></div>';
+
+function ensureOwobotModeBar() {
+  let bar = $("owobotModeBar");
+  if (bar) return bar;
+  bar = document.createElement("div");
+  bar.id = "owobotModeBar";
+  // 侧栏本身就能切换去向，模式栏不再放「返回工作台」按钮，
+  // 只留当前去向；点标题即可退回工作台，避免整窗模式没有出口。
+  const home = document.createElement("button");
+  home.type = "button";
+  home.id = "owobotModeHome";
+  home.className = "owobot-mode-title";
+  home.textContent = "OwOBot";
+  home.title = "返回工作台";
+  home.setAttribute("aria-label", "返回工作台");
+  home.addEventListener("click", () => exitOwobotMode());
+  // 整窗后外壳的侧栏和主题按钮都被隐藏，这里补一个浅/深切换，
+  // 面板会跟着换肤（见 panels/owobot.panel.js）。
+  const theme = document.createElement("button");
+  theme.type = "button";
+  theme.id = "owobotModeTheme";
+  theme.className = "owobot-mode-theme";
+  theme.addEventListener("click", () => {
+    $("themeToggle")?.click();
+    syncOwobotThemeButton();
+  });
+  bar.append(home, theme);
+  document.body.appendChild(bar);
+  syncOwobotThemeButton();
+  return bar;
+}
+
+function syncOwobotThemeButton() {
+  const button = $("owobotModeTheme");
+  if (!button) return;
+  const dark = document.body.classList.contains("dark-theme");
+  button.textContent = dark ? "☀" : "☾";
+  button.title = dark ? "切换到浅色" : "切换到深色";
+  button.setAttribute("aria-label", button.title);
+}
+
+function enterOwobotMode(task) {
+  const root = $("panelRoot");
+  if (!root || !window.OwoPanels?.owobot) return false;
+  if (task) window.OwoPanels.owobot.open(task);
+  if (owobotModeActive) {
+    // 已在整窗：带任务就重挂载消费它，无任务保持当前画面，不重载 iframe。
+    if (task) mountPanel("owobot");
+    return true;
+  }
+  owobotModeActive = true;
+  owobotModeHome = { parent: root.parentNode, next: root.nextSibling, title: BASE_DOC_TITLE };
+  document.body.classList.add("owobot-mode");
+  document.title = "OwOBot";
+  ensureOwobotModeBar();
+  document.body.appendChild(root);
+  // 主题层用 !important 锁死 #panelRoot 的 1080px 居中盒模型（chatgpt-theme /
+  // frontend-visual-system），样式表层级压不住；inline important 是唯一稳定覆盖点。
+  root.style.setProperty("max-width", "none", "important");
+  root.style.setProperty("margin", "0", "important");
+  root.style.setProperty("padding", "0", "important");
+  mountPanel("owobot");
+  return true;
+}
+
+function exitOwobotMode() {
+  if (!owobotModeActive) return false;
+  owobotModeActive = false;
+  const home = owobotModeHome;
+  owobotModeHome = null;
+  document.body.classList.remove("owobot-mode");
+  // 先走视图状态机：dispose 当前面板、收起工具视图并清掉 #owobot 路由。
+  setToolsVisible(false);
+  const root = $("panelRoot");
+  if (root) {
+    root.style.removeProperty("max-width");
+    root.style.removeProperty("margin");
+    root.style.removeProperty("padding");
+    if (home?.parent) {
+      if (home.next && home.next.parentNode === home.parent) home.parent.insertBefore(root, home.next);
+      else home.parent.appendChild(root);
+    }
+    // iframe 随占位文案一起丢弃：再开工具视图不会看到残留在工作区里的 OwOBot。
+    root.innerHTML = PANEL_EMPTY_STATE_HTML;
+  }
+  document.title = home?.title || BASE_DOC_TITLE;
+  renderApprovals();
+  return true;
+}
+
 // 挂载顺序（与 index.html 的 script 引入顺序一致）。
 const PANEL_ORDER = [
   "home",
@@ -3717,10 +4018,7 @@ function panelHelpers() {
     openChat: async () => { setSettingsPageVisible(false); showHomeView({ keepMode: true }); $("prompt").focus(); },
     openSession: async id => { setSettingsPageVisible(false); await selectSession(id); },
     openTeam: id => { openPanelById("workswarm"); window.OwoPanels.workswarm.open(id); },
-    openOwobot: task => {
-      window.OwoPanels.owobot.open(task);
-      openPanelById("owobot");
-    },
+    openOwobot: task => { enterOwobotMode(task || null); },
     get(path, options) {
       const requestOptions = Object.assign({}, options || {});
       // /health is intentionally public in the server contract. Tool panels must be
@@ -4077,6 +4375,10 @@ function openPanelById(id) {
   if (!id || !window.OwoPanels || !window.OwoPanels[id]) return false;
   // 输入区弹出菜单换页后不会自己关闭，会压在新面板上（截图里"选择模型"浮在OwOBot 上方）。
   if (typeof closeComposerMenu === "function") closeComposerMenu();
+  // OwOBot 不进工作台工作区：导航、快捷搜索与 #owobot 深链都切换整窗模式。
+  if (id === "owobot") return enterOwobotMode(null);
+  // 整窗模式下 rail 常驻：切去其它功能先退出 OwOBot，回到同页布局。
+  if (owobotModeActive) exitOwobotMode();
   // showTools also leaves settings without creating an intermediate chat route.
   // Clear the sidebar group filter so the shared extension panel stays visible.
   window.OwoWorkbenchView.clearGroupFilters(document.body);
@@ -4145,19 +4447,27 @@ function initPanels() {
   // 保留有效的工具/设置深链；旧面板、拼错的 hash 不得劫持默认会话页。
   const initialRoute = window.OwoWorkbenchView.resolveInitialRoute(location.hash, PANEL_ORDER);
   // 面板 hash 只用于当前会话内导航；工作台重新加载/重启后回到聊天首页，避免把上次的分栏布局误当成首屏。
-  if (location.hash && initialRoute.kind !== "chat") {
+  // 例外：#owobot 是整窗模式而非分栏布局，刷新后应留在 OwOBot。
+  const rawHash = (location.hash || "").replace(/^#/, "");
+  if (location.hash && initialRoute.kind !== "chat" && rawHash !== "owobot") {
     history.replaceState(null, "", location.pathname + location.search);
   }
   // 首屏默认是对话视图；检查器面板直到用户显式打开才挂载并请求数据。
   // 旧行为自动挂载第一个面板（通常是 Notes），在设置门之前发出额外 API 请求。
   const root = $("panelRoot");
-  if (root) {
-    root.innerHTML = '<div class="panel-empty-state"><strong>选择工具面板</strong><span>需要查看项目状态或管理能力时，再从上方选择对应面板。</span></div>';
-  }
+  if (root && rawHash !== "owobot") root.innerHTML = PANEL_EMPTY_STATE_HTML;
 }
 
-window.addEventListener("hashchange", () => applyDeepLink());
-window.addEventListener("popstate", () => { if (!applyDeepLink()) setSettingsPageVisible(false); });
+window.addEventListener("hashchange", () => {
+  const raw = (location.hash || "").replace(/^#/, "");
+  if (owobotModeActive && raw !== "owobot") exitOwobotMode();
+  applyDeepLink();
+});
+window.addEventListener("popstate", () => {
+  const raw = (location.hash || "").replace(/^#/, "");
+  if (owobotModeActive && raw !== "owobot") exitOwobotMode();
+  if (!applyDeepLink()) setSettingsPageVisible(false);
+});
 
 function openWorkbenchSearch() {
   const entries = window.OwoWorkbenchNavigation.search("", PANEL_ORDER).filter(item => window.OwoPanels?.[item.id]);

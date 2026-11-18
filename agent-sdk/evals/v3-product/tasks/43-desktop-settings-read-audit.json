@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["permission-denied", "timeout", "unapproved-side-effect", "wrong-output"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**", "desktop:ui-observe"],
+  "repetitions": 3,
+  "id": "desktop-settings-read-audit",
+  "category": "desktop",
+  "title": "系统设置只读审计",
+  "instruction": "必须在真实 Windows 桌面环境中执行；模拟器或离屏渲染结果不得计入。只读打开真实 Windows“设置”的显示页面，记录分辨率、缩放比例和显示器数量，写入 out/desktop-report.md。不得修改任何系统设置。报告必须包含“## 操作步骤”“## 验证”，并注明真实 Windows 桌面环境。",
+  "inputs": [
+    {
+      "path": "inputs/expected-settings.md",
+      "content": "# 预期设置\n\n- 分辨率：1920x1080\n- 缩放：125%\n- 显示器数量：2\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/desktop-report.md"],
+  "checkers": [
+    { "type": "regex", "path": "out/desktop-report.md", "pattern": "^## 操作步骤" },
+    { "type": "regex", "path": "out/desktop-report.md", "pattern": "^## 验证" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "真实 Windows 桌面环境" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "设置" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "1920x1080" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "125%" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "2" },
+    { "type": "not_contains", "path": "out/desktop-report.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/desktop-report.md", "min_lines": 8 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/desktop-report.md": "# 桌面操作报告\n\n## 应用\n\n- Windows 设置（显示）\n\n## 操作步骤\n\n- 在真实 Windows 桌面环境中打开“设置”的显示页面，全程只读。\n- 记录分辨率 1920x1080、缩放 125%、显示器数量 2。\n\n## 验证\n\n- 记录值与 inputs/expected-settings.md 一致。\n- 未点击任何修改设置的控件，系统配置保持不变。\n"
+  }
+}

@@ -1,0 +1,550 @@
+/* OwO 桌面 · Codex 成熟度精修层（2026-11-11 · 第二/三轮）
+   方向：保留现有结构与简洁白色主题、保留左侧纯图标导航，不改产品风格；
+   按 Codex 的成熟度打磨字体、布局、输入框、侧栏与组件细节。优先级：
+     #01 字体体系与排版（字号 / 字重 / 字体栈 / 基线 / 文字层级）
+     #02 整体布局与间距（图标轨 64 / 二层侧栏 300 / 居中 composer 统一宽 / 顶部对齐）
+     #03 输入框与工具栏（高度 / 留白 / 按钮分组 / 图标统一 / 交互状态 / 托盘一体化）
+     #04 侧栏细节（行高 / 文件夹与对话层级 / 选中悬停 / 信息密度）
+     #05 组件视觉规范（圆角 / 边框 / 背景层次 / 阴影 / 图标线宽 / 状态）
+   第三轮：中央组上移、Logo 移至右上角、加号菜单收纳低频入口、模型选择器独立成区。
+   本文件最后加载，仅视觉与布局覆盖；按钮 id / data-* / 事件全部沿用，不改业务逻辑。
+   删除 index.html 中的 link 即可整体回退。 */
+
+/* Inter（latin 可变字重）本地 bundled；中文走 MiSans / Noto Sans SC，离线回退系统字体 */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("assets/fonts/inter-latin-wght-normal.woff2") format("woff2");
+}
+
+/* =====================================================================
+   #01 字体体系与排版 —— 先动手的部分
+   ===================================================================== */
+:root, body {
+  /* 字体栈：优先 Inter + 现代中文无衬线（MiSans / Noto Sans SC），离线回退系统字体 */
+  --font-ui: "Inter", "MiSans", "Noto Sans SC", "Segoe UI Variable Text", "Segoe UI",
+    "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --font-display: "Inter", "MiSans", "Noto Sans SC", "Segoe UI Variable Display", "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+
+  /* 统一字号 / 字重规范 */
+  --fs-title: 30px;   --fw-title: 550;   /* 页面主标题（Codex 大字、不重） */
+  --fs-side: 14px;    --fw-side: 450;    /* 侧边栏项目 */
+  --fs-nav: 13.5px;   --fw-nav: 450;     /* 导航与菜单 */
+  --fs-tool: 13.5px;  --fw-tool: 450;    /* 工具栏 */
+  --fs-aux: 12px;     --fw-aux: 400;     /* 辅助信息 */
+  --fs-input: 15px;   --fw-input: 400;   /* 输入框文字 */
+
+  /* 精细中性灰阶： primary 高对比，secondary / tertiary 逐级退后（去蓝，贴 Codex） */
+  --text: #1b1d20; --text-2: #565c64; --text-3: #8e959e;
+  --wh-ink: #1b1d20; --wh-ink-2: #565c64; --wh-ink-3: #8e959e;
+
+  /* 几何令牌（#02 / #05 复用） */
+  --rail-w: 55px;             /* Codex 比例：55px 窄导航轨（固定，不随窗口变化） */
+  --align-rail-w: 55px;
+  --session-width: 305px;     /* 55 导航栏 + 250 项目面板（面板宽度不变） */
+  --align-card-top: 8px;
+  --align-card-r: 14px;       /* 卡片圆角 */
+  --align-composer-w: 780px;  /* 输入框 / 托盘 / 脚注统一宽度（2026-11-15 拉长至 780） */
+  /* 首页底色令牌直接钉死为 Codex 中性灰，避免 var 回退链把蓝系兜底带进来 */
+  --align-window: #f4f4f2;    /* 最外层窗口 */
+  --align-rail: #f6f6f4;      /* 图标轨 */
+  --align-session: #fafaf9;   /* 二层会话栏 */
+  --align-canvas: #fdfdfc;    /* 主内容纸面 */
+  --align-line: #e6e7e4;      /* 发丝线 */
+  --align-line-soft: #eeeeec; /* 更软的发丝 */
+  --r-card: 14px; --r-ctl: 8px; --r-row: 7px;
+}
+body.dark-theme {
+  --text: #e8eaed; --text-2: #a9afb8; --text-3: #7d848e;
+  --wh-ink: #e8eaed; --wh-ink-2: #a9afb8; --wh-ink-3: #7d848e;
+  --align-window: #141517;
+  --align-rail: #141517;
+  --align-session: #17181a;
+  --align-canvas: #1a1c1f;
+  --align-line: #2b2e33;
+  --align-line-soft: #232529;
+}
+
+body {
+  font-family: var(--font-ui) !important;
+  font-size: var(--fs-side);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+/* 标题用 display 栈 + 明确字重，与正文拉开层级 */
+h1, h2, h3, .codex-empty h2, .settings-page-title strong, .workbench-panel-header h2 {
+  font-family: var(--font-display);
+}
+/* 图标 + 文字行统一垂直居中，修正视觉基线 */
+.workbench-shortcuts > button, .codex-nav button, .codex-footer-btn,
+.prompt-tools > button, .codex-composer-right > button, .context-tray-item,
+.menubar-menu-btn, .owo-session-title, .codex-session-group {
+  align-items: center !important;
+}
+/* 辅助信息统一退到三级灰 + 小字号 */
+.sub, .hint, .composer-footnote, .codex-sessions-head, .empty-state-kicker,
+.codex-workspace-meta strong, .task-status-owner, .context-tray-device {
+  color: var(--text-3) !important;
+  font-size: var(--fs-aux) !important;
+  font-weight: var(--fw-aux) !important;
+}
+
+/* =====================================================================
+   #02 整体布局与间距
+   ===================================================================== */
+body { background: var(--align-window) !important; }
+
+/* 图标轨 72px：图标居中、留白充足；Logo 在轨内水平居中 */
+#sidebar { margin-top: var(--align-card-top) !important; background: transparent !important; border-right: 0 !important; }
+#sidebar .codex-sidebar { background: transparent !important; grid-template-columns: var(--rail-w) minmax(0, 1fr) !important; }
+#sidebar .codex-sidebar::before { background: var(--align-rail) !important; width: var(--rail-w) !important; }
+/* 第五轮：sidebar-top 被 workbench-home 推到 ws 行右端，绝对定位 logo 随它越界裁切；
+   还原 static 让 logo 重新锚到 .codex-sidebar（position:relative），落回图标轨顶部 */
+#sidebar .codex-sidebar-top { position: static !important; }
+#sidebar .codex-sidebar-top .sidebar-brand { width: 0 !important; min-width: 0 !important; padding: 0 !important; margin: 0 !important; }
+#sidebar .sidebar-product-mark { left: calc((var(--rail-w) - 26px) / 2) !important; top: 16px !important; width: 26px !important; height: 26px !important; z-index: 2; }
+#sidebar .sidebar-product-mark .sidebar-logo-img { width: 24px !important; height: 24px !important; }
+#sidebar .workbench-shortcuts > button, #sidebar .codex-footer-btn, #sidebar .codex-sidebar-footer #themeToggleSide {
+  width: 36px !important; height: 36px !important; min-width: 36px !important; min-height: 36px !important;
+  border-radius: var(--r-ctl) !important;
+}
+#sidebar .workbench-shortcuts > button svg, #sidebar .codex-footer-btn svg, #sidebar .codex-sidebar-footer #themeToggleSide svg {
+  width: 18px !important; height: 18px !important;
+}
+
+/* 二层会话栏 + 主区 = 一张收敛圆角的大卡，贴窗口右/底边，发丝分隔 */
+#sidebar .codex-sidebar::after {
+  content: ""; position: absolute; z-index: 0; pointer-events: none;
+  top: 0; left: var(--rail-w); right: 0; bottom: 0;
+  background: var(--align-session);
+  border: 1px solid var(--align-line); border-right: 0; border-bottom: 0;
+  border-radius: var(--align-card-r) 0 0 0;
+}
+#sidebar .codex-sidebar > * { position: relative; z-index: 1; }
+body > main:not(#setupRoot) {
+  margin: var(--align-card-top) 0 0 0 !important;
+  background: var(--align-canvas) !important;
+  border: 0 !important;
+  border-top: 1px solid var(--align-line) !important;
+  border-left: 1px solid var(--align-line) !important;
+  border-radius: 0 var(--align-card-r) 0 0 !important;
+  box-shadow: none !important;
+}
+body.empty-conversation > main:not(#setupRoot),
+body.empty-conversation > main:not(#setupRoot) > .workspace-page-head,
+body.empty-conversation main > .codex-stage { background: var(--align-canvas) !important; }
+body.sidebar-collapsed > main:not(#setupRoot) {
+  margin-left: var(--align-card-top) !important;
+  border-radius: var(--align-card-r) var(--align-card-r) 0 0 !important;
+}
+body.inspector-open > main:not(#setupRoot) { border-radius: 0 !important; }
+
+/* 顶部导航与主内容建立对齐关系：头部收紧、分段控件居中且与 composer 同轴 */
+body.empty-conversation main > .workspace-page-head {
+  height: 48px !important; min-height: 48px !important;
+  padding: 0 16px 0 24px !important; border-bottom: 0 !important;
+}
+.workspace-page-title h1 { font-size: var(--fs-side) !important; font-weight: 600 !important; color: var(--text) !important; }
+.workspace-page-title > span { font-size: var(--fs-aux) !important; color: var(--text-3) !important; }
+#modeSwitch.mode-switch {
+  gap: 2px !important; padding: 3px !important; height: 30px !important;
+  background: var(--surface-2, var(--wh-hover)) !important; border: 0 !important; border-radius: 9px !important;
+}
+/* chatgpt-theme 用双 id 抬高度，这里同权重压回 30 / 24 的紧凑分段（Codex 观感） */
+#modeSwitch#modeSwitch.mode-switch { height: 30px !important; padding: 3px !important; border-radius: 9px !important; }
+#modeSwitch#modeSwitch.mode-switch [data-mode-switch] {
+  min-width: 96px !important; height: 24px !important; min-height: 24px !important; padding: 0 18px !important;
+  font-size: var(--fs-nav) !important; font-weight: var(--fw-nav) !important; border-radius: 7px !important;
+}
+#modeSwitch.mode-switch [data-mode-switch] {
+  min-width: 96px !important; height: 24px !important; min-height: 24px !important; padding: 0 18px !important;
+  font-size: var(--fs-nav) !important; font-weight: var(--fw-nav) !important; border-radius: 7px !important;
+  color: var(--text-2) !important;
+}
+#modeSwitch.mode-switch [data-mode-switch].is-active {
+  color: var(--text) !important; background: var(--surface, var(--wh-raise)) !important;
+  font-weight: 600 !important; box-shadow: var(--shadow-xs, 0 1px 2px rgba(0,0,0,.06)) !important;
+}
+
+/* 首页纵向节奏：标题 / 输入框作为一组居中，整体比窗口中心偏上（第三轮上移约 75px） */
+body.empty-conversation > main:not(#setupRoot) { position: relative; padding-bottom: 48px !important; }
+/* 第五轮：整组下移约 90 物理 px（956 高时 ≈70 CSS）；vh clamp 随窗口高度收敛，低窗口不顶底 */
+body.empty-conversation main > .codex-stage { flex: 0 0 auto !important; min-height: 0 !important; margin-top: auto !important; position: static !important; padding-top: clamp(0px, 9vh, 96px) !important; }
+/* 入场动画只动 opacity：transform 动画会把 #emptyState 变成绝对定位含块，Logo 就无法锚到 main 右上角 */
+body.empty-conversation #emptyState.codex-empty { animation: owo-align-fade .32s var(--ease-ui, ease) both !important; }
+@keyframes owo-align-fade { from { opacity: 0; } to { opacity: 1; } }
+body.empty-conversation main > .composer-footnote { margin-bottom: auto !important; }
+body.empty-conversation #emptyState.codex-empty { margin: 0 auto 18px !important; width: min(var(--align-composer-w), calc(100% - 64px)) !important; }
+/* Logo 不再独占标题上方：移到内容区右上角，作为独立品牌形象 */
+body.empty-conversation #emptyState .codex-empty-logo {
+  position: absolute; top: 40px; right: 40px; margin: 0 !important;
+  width: 64px !important; height: 64px !important; opacity: .85;
+}
+body.empty-conversation #emptyState .owo-mascot-slot { width: 64px !important; height: 64px !important; border-radius: 16px !important; }
+body.empty-conversation #emptyState .owo-mascot-img { width: 58px !important; height: 58px !important; }
+body.empty-conversation #emptyState h2 {
+  margin: 0 !important; font-size: var(--fs-title) !important; font-weight: var(--fw-title) !important;
+  line-height: 1.25 !important; letter-spacing: -.025em !important; color: var(--text) !important;
+}
+body.empty-conversation #emptyState p#emptyStateDescription { display: none !important; }
+body.empty-conversation #emptyState .empty-state-kicker { display: none !important; }
+@media (max-height: 700px) {
+  body.empty-conversation #emptyState .codex-empty-logo { display: none !important; }
+  body.empty-conversation #emptyState.codex-empty { margin-bottom: 10px !important; }
+}
+
+/* =====================================================================
+   #03 输入框与工具栏 —— 页面最精致的交互组件
+   ===================================================================== */
+body.empty-conversation main:has(#emptyState:not([hidden])) #chatForm#chatForm,
+#chatForm {
+  width: min(var(--align-composer-w), calc(100% - 64px)) !important;
+  padding: 12px 12px 10px 14px !important; gap: 2px !important;
+  background: var(--surface, var(--wh-input)) !important;
+  border: 1px solid var(--align-line) !important; border-bottom: 0 !important;
+  border-radius: var(--r-card) var(--r-card) 0 0 !important;
+  box-shadow: 0 1px 2px rgba(16,18,20,.035), 0 12px 32px -24px rgba(16,18,20,.28) !important;
+}
+body.dark-theme #chatForm { box-shadow: 0 1px 2px rgba(0,0,0,.35), 0 14px 32px -24px rgba(0,0,0,.75) !important; }
+#chatForm:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--align-line)) !important;
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 10px 28px -22px rgba(16,24,32,.22) !important;
+}
+/* 聚焦时托盘边框同步主色，保持单卡片观感 */
+body.empty-conversation main:has(#chatForm:focus-within) > .composer-context-tray {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--align-line)) !important;
+}
+/* 输入文字 15px / 400，降低空白高度（匹配 workbench-home 的高优先级选择器以压过 58px） */
+body.empty-conversation main:has(#emptyState:not([hidden])) #chatForm#chatForm #prompt#prompt, #chatForm #prompt {
+  min-height: 44px !important; max-height: 240px !important; padding: 2px 4px 2px 2px !important;
+  font-size: var(--fs-input) !important; font-weight: var(--fw-input) !important; line-height: 1.6 !important;
+  color: var(--text) !important;
+}
+#chatForm #prompt::placeholder { color: var(--text-3) !important; }
+
+/* 工具条：左右两组、中间留白；统一按钮高度 / 图标尺寸 / 间距 / 基线 */
+#chatForm .prompt-toolbar {
+  display: flex !important; align-items: center !important; justify-content: flex-start !important;
+  flex-wrap: nowrap !important; gap: 2px 4px !important; min-height: 30px !important; margin: 0 !important; padding: 0 !important;
+}
+#chatForm .prompt-tools { display: flex !important; align-items: center !important; order: 1 !important; flex: 0 1 auto !important; flex-wrap: nowrap !important; min-width: 0 !important; gap: 2px !important; }
+#chatForm .prompt-toolbar > #mediaBtn { order: 2 !important; flex: none !important; }
+#chatForm .prompt-toolbar > #slashHint { order: 3 !important; flex: none !important; }
+#chatForm .codex-composer-right { display: flex !important; align-items: center !important; order: 4 !important; margin-left: auto !important; flex: 0 0 auto !important; gap: 4px !important; }
+/* 左组按钮统一规格（与 workbench-home 同权重、后加载压过其 32px/12.5px） */
+body.empty-conversation #chatForm#chatForm .prompt-tools > button, body.empty-conversation #chatForm#chatForm .prompt-tools .composer-plan-task,
+body.empty-conversation #chatForm#chatForm .prompt-toolbar > #mediaBtn, body.empty-conversation #chatForm#chatForm .prompt-toolbar > #slashHint, body.empty-conversation #chatForm#chatForm #accessChip {
+  display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important;
+  height: 28px !important; min-height: 28px !important; min-width: 28px !important; padding: 0 8px !important;
+  color: var(--text-2) !important; background: transparent !important; border: 0 !important; border-radius: var(--r-ctl) !important;
+  font-size: var(--fs-tool) !important; font-weight: var(--fw-tool) !important; line-height: 1 !important; white-space: nowrap;
+  transition: background-color .12s var(--ease-ui, ease), color .12s var(--ease-ui, ease);
+}
+body.empty-conversation #chatForm#chatForm .prompt-tools > #attachmentBtn, body.empty-conversation #chatForm#chatForm .prompt-toolbar > #mediaBtn { width: 28px !important; padding: 0 !important; }
+#chatForm .prompt-tools > button:hover, #chatForm .prompt-tools .composer-plan-task:hover,
+#chatForm .prompt-toolbar > #mediaBtn:hover, #chatForm .prompt-toolbar > #slashHint:hover, #chatForm #accessChip:hover {
+  color: var(--text) !important; background: var(--surface-2, var(--wh-hover)) !important;
+}
+#chatForm .prompt-tools > button svg, #chatForm .prompt-toolbar > #mediaBtn svg, #chatForm #accessChip svg { width: 17px !important; height: 17px !important; }
+#chatForm .prompt-toolbar > #slashHint span { color: var(--text-3) !important; font-weight: 600 !important; }
+/* 右组：模型选择 / 语音 / 发送 协调组合 */
+body #chatForm#chatForm #modelChip, body #chatForm#chatForm #promptChip, body #chatForm#chatForm #effortChip {
+  display: inline-flex !important; align-items: center !important; gap: 6px !important;
+  height: 26px !important; padding: 0 10px !important; max-width: 240px !important;
+  color: var(--text) !important; background: transparent !important; border: 0 !important; border-radius: var(--r-ctl) !important;
+  font-size: var(--fs-tool) !important; font-weight: var(--fw-tool) !important;
+}
+#chatForm #modelChip:hover, #chatForm #promptChip:hover, #chatForm #effortChip:hover { background: var(--surface-2, var(--wh-hover)) !important; }
+#chatForm #modelChip #modelChipText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body #chatForm#chatForm .codex-composer-right #micBtn { width: 28px !important; height: 28px !important; min-width: 28px !important; padding: 0 !important; color: var(--text-2) !important; background: transparent !important; border: 0 !important; border-radius: var(--r-ctl) !important; }
+body #chatForm#chatForm .codex-composer-right #micBtn:hover { color: var(--text) !important; background: var(--surface-2, var(--wh-hover)) !important; }
+#chatForm #micBtn svg { width: 17px !important; height: 17px !important; }
+/* 发送：彩色实心、与语音同尺寸同圆角，禁用态保留彩色降透明度 */
+body #chatForm#chatForm #sendBtn.codex-send {
+  display: grid !important; place-items: center; width: 28px !important; height: 28px !important; min-width: 28px !important;
+  margin-left: 4px !important; padding: 0 !important; border: 0 !important; border-radius: var(--r-ctl) !important;
+  color: var(--accent-ink, #fff) !important; background: var(--accent) !important; opacity: 1 !important;
+  transition: background-color .12s var(--ease-ui, ease), opacity .12s var(--ease-ui, ease);
+}
+body #chatForm#chatForm #sendBtn.codex-send:hover:not(:disabled) { background: var(--accent-hover) !important; }
+body #chatForm#chatForm #sendBtn.codex-send:disabled { background: var(--accent) !important; opacity: .4 !important; }
+body #chatForm#chatForm #sendBtn.codex-send.is-stop { background: var(--red, #c2392f) !important; opacity: 1 !important; }
+#chatForm #sendBtn svg { width: 17px !important; height: 17px !important; }
+/* 空间不足时项目名省略、模型名可压缩；中等窗口收起低频 chip，保住权限与模型 */
+#chatForm .prompt-tools > #composerProjectBtn { max-width: 190px !important; }
+#chatForm #composerProjectName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body #chatForm#chatForm #modelChip { flex: 0 1 auto !important; min-width: 96px !important; }
+@media (max-width: 1080px) {
+  /* 权重需压过左组统一规格的 display:inline-flex，否则收起不生效 */
+  #chatForm .prompt-tools > .composer-plan-task,
+  body.empty-conversation #chatForm#chatForm .prompt-tools > .composer-plan-task { display: none !important; }
+}
+@media (max-width: 940px) {
+  #chatForm .codex-composer-right > #promptChip, #chatForm .codex-composer-right > #effortChip,
+  body #chatForm#chatForm .codex-composer-right > #promptChip,
+  body #chatForm#chatForm .codex-composer-right > #effortChip { display: none !important; }
+}
+
+/* 上下文托盘：Composer 下半区——共享宽度与外轮廓，上输入 / 下资源，发丝分隔而非独立卡片 */
+.composer-context-tray {
+  display: flex; align-items: center; gap: 2px;
+  width: min(var(--align-composer-w), calc(100% - 64px)); margin: 0 auto; padding: 4px 6px;
+  background: var(--surface, var(--wh-input));
+  border: 1px solid var(--align-line); border-top: 1px solid var(--align-line-soft);
+  border-radius: 0 0 var(--r-card) var(--r-card);
+}
+body.empty-conversation main > .composer-context-tray { order: 3; }
+.composer-context-tray .context-tray-item {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; min-width: 0;
+  color: var(--text-2); background: transparent; border: 0; border-radius: 7px;
+  font-size: var(--fs-aux); font-weight: var(--fw-tool); line-height: 1; cursor: pointer; white-space: nowrap;
+  transition: background-color .12s var(--ease-ui, ease), color .12s var(--ease-ui, ease);
+}
+.composer-context-tray .context-tray-item:hover { color: var(--text); background: var(--surface-3, var(--wh-press)); }
+.composer-context-tray .context-tray-item svg { width: 14px; height: 14px; flex: none; color: var(--text-3); }
+.composer-context-tray .context-tray-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.composer-context-tray #trayProjectBtn { max-width: 200px; }
+.composer-context-tray #trayProjectBtn span { color: var(--text); font-weight: 600; }
+.composer-context-tray .context-tray-spacer { flex: 1 1 auto; }
+.composer-context-tray .context-tray-device { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; color: var(--text-3); font-size: var(--fs-aux); white-space: nowrap; }
+.composer-context-tray .context-tray-device svg { width: 14px; height: 14px; }
+body:not(.empty-conversation) .composer-context-tray { display: none !important; }
+body.empty-conversation main > .empty-examples { display: none !important; }
+/* 脚注与 composer 同宽对齐；底部 auto margin 承接首页居中 */
+body.empty-conversation main > .composer-footnote {
+  order: 6 !important;
+  width: min(var(--align-composer-w), calc(100% - 64px)) !important; margin: 8px auto auto !important;
+  font-size: var(--fs-aux) !important; color: var(--text-3) !important;
+}
+@media (max-width: 820px) {
+  .composer-context-tray { width: calc(100% - 20px); }
+  .composer-context-tray .context-tray-device span { display: none; }
+}
+
+/* =====================================================================
+   #04 侧栏细节 —— 紧凑信息布局 + 清晰层级 + 精细状态
+   ===================================================================== */
+/* 工作区入口 / 新建对话：统一侧栏字号 */
+#sidebar #sidebarWorkspaceBtn.codex-workspace-switcher { height: 36px !important; min-height: 36px !important; border-radius: var(--r-ctl) !important; }
+#sidebar .codex-workspace-meta span { font-size: var(--fs-side) !important; font-weight: 600 !important; color: var(--text) !important; }
+#sidebar .codex-sidebar > #sidebarNewChat.workbench-create-task {
+  height: 30px !important; min-height: 30px !important; margin: 2px 8px 2px 6px !important; padding: 0 8px !important; gap: 8px !important;
+  justify-content: flex-start !important; color: var(--text-2) !important; background: transparent !important;
+  border: 0 !important; border-radius: var(--r-ctl) !important; box-shadow: none !important;
+  font-size: var(--fs-side) !important; font-weight: var(--fw-side) !important;
+}
+#sidebar .codex-sidebar > #sidebarNewChat.workbench-create-task:hover { background: var(--sidebar-hover, var(--wh-hover)) !important; color: var(--text) !important; }
+#sidebar .codex-sidebar > #sidebarNewChat .nav-icon { width: 16px !important; height: 16px !important; color: var(--text-2) !important; }
+#sidebar .sidebar-kbd { font-size: 10.5px !important; color: var(--text-3) !important; }
+
+/* 最近对话标题：辅助层级 */
+#sidebar .codex-sessions-heading { min-height: 24px !important; margin: 10px 12px 2px 8px !important; }
+#sidebar .codex-sessions-head { font-size: var(--fs-aux) !important; font-weight: 600 !important; letter-spacing: .02em !important; color: var(--text-3) !important; }
+
+/* 文件夹分组：小一号、半粗、三级灰，与对话标题拉开权重 */
+#sessionList .codex-session-group {
+  height: 24px !important; min-height: 24px !important; margin-top: 8px !important; padding: 0 6px 0 10px !important;
+  gap: 7px !important; border-radius: var(--r-row) !important;
+  font-size: var(--fs-aux) !important; font-weight: 600 !important; color: var(--text-3) !important;
+}
+#sessionList .codex-session-group:first-child { margin-top: 2px !important; }
+#sessionList .codex-session-group:hover { color: var(--text-2) !important; background: var(--sidebar-hover, var(--wh-hover)) !important; }
+#sessionList .codex-group-caret, #sessionList .codex-group-count, #sessionList .mode-badge { display: none !important; }
+#sessionList .codex-session-group .codex-group-label { display: inline-flex !important; align-items: center; font-size: var(--fs-aux) !important; font-weight: 600 !important; }
+#sessionList .codex-session-group .codex-group-label::before {
+  content: ""; flex: none; width: 14px; height: 14px; margin-right: 7px; background: currentColor; opacity: .85;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'/%3E%3C/svg%3E") center / 16px no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'/%3E%3C/svg%3E") center / 16px no-repeat;
+}
+/* 对话行：紧凑行高 + 一致缩进 + 正文级字号 */
+#sessionList.codex-sessions { padding: 0 8px 10px 8px !important; gap: 1px !important; }
+#sessionList .owo-session-row { margin-left: 0 !important; min-height: 26px !important; }
+#sessionList > li:not(.codex-session-group):not(.session-load-error) { margin-left: 12px !important; border-radius: var(--r-row) !important; }
+#sessionList .owo-session-title { height: 26px !important; min-height: 26px !important; padding: 0 4px 0 8px !important; gap: 8px !important; }
+#sessionList .owo-session-title strong { font-size: 13px !important; font-weight: var(--fw-side) !important; color: var(--text-2) !important; }
+#sessionList .owo-session-title .sub { display: none !important; }
+#sessionList .owo-session-more { width: 24px !important; height: 24px !important; border-radius: 6px !important; color: var(--text-3) !important; }
+/* 精细三态：普通透明 / 悬停浅底 / 选中实底 + 加重 + 主色左标 */
+#sessionList > li:not(.codex-session-group):hover { background: var(--sidebar-hover, var(--wh-hover)) !important; }
+#sessionList > li:not(.codex-session-group):hover .owo-session-title strong { color: var(--text) !important; }
+#sessionList > li.active:not(.codex-session-group) {
+  background: var(--sidebar-active, var(--wh-press)) !important; box-shadow: none !important;
+}
+#sessionList > li.active:not(.codex-session-group) .owo-session-title strong { color: var(--text) !important; font-weight: 600 !important; }
+#sessionList > li.active:not(.codex-session-group) { position: relative; }
+#sessionList > li.active:not(.codex-session-group)::before {
+  content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2.5px; border-radius: 2px; background: var(--accent);
+}
+#sessionList li.running .owo-session-title::before { content: ""; flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); margin-right: 2px; }
+
+/* =====================================================================
+   #05 组件视觉规范 —— 少边框 / 控圆角 / 背景层次 / 统一线宽 / 精细状态
+   ===================================================================== */
+/* 菜单栏：收紧到 40，与原生 titleBarOverlay / body 网格行同步（main.js / app.js 同改 40） */
+:root { --titlebar-h: 40px; }
+#menubar { height: 40px !important; min-height: 40px !important; background: var(--align-window) !important; border-bottom: 1px solid var(--align-line-soft) !important; }
+.menubar-menu-btn { display: inline-flex !important; align-items: center !important; height: 28px !important; font-size: var(--fs-nav) !important; font-weight: var(--fw-nav) !important; color: var(--text-2) !important; border-radius: var(--r-ctl) !important; }
+.menubar-menu-btn:hover, .menubar-menu-btn.open { color: var(--text) !important; background: var(--sidebar-hover, var(--wh-hover)) !important; }
+.menubar-nav-btn { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; color: var(--text-3); background: transparent; border: 0; border-radius: 7px; cursor: pointer; transition: background-color .12s ease, color .12s ease; }
+.menubar-nav-btn:hover:not(:disabled) { color: var(--text); background: var(--sidebar-hover, var(--wh-hover)); }
+.menubar-nav-btn:disabled { opacity: .35; cursor: default; }
+.menubar-nav-btn svg { width: 16px; height: 16px; }
+#sidebarCollapseBtn.codex-icon-btn { width: 28px !important; height: 28px !important; color: var(--text-3) !important; }
+
+/* 统一关键图标线宽（发送箭头保留稍粗以突出） */
+.workbench-shortcuts > button svg, .codex-nav button svg, .codex-footer-btn svg,
+.prompt-tools > button svg, .prompt-toolbar > #mediaBtn svg, .codex-composer-right > button:not(#sendBtn) svg,
+.context-tray-item svg, .menubar-nav-btn svg, .menubar-sidebar-toggle svg { stroke-width: 1.6; }
+
+/* 收敛杂项圆角与边框：chip / 状态 pill / 按钮统一小圆角、发丝边 */
+.codex-model-chip, .codex-access-chip, .codex-project-chip, #taskStatusPill { border-radius: var(--r-ctl) !important; }
+#taskStatusPill { font-size: var(--fs-aux) !important; color: var(--text-2) !important; border-color: var(--align-line) !important; }
+body.empty-conversation .workspace-page-actions #inspectorToggle {
+  display: inline-flex !important; height: 28px !important; padding: 0 9px !important;
+  font-size: var(--fs-aux) !important; color: var(--text-2) !important; border-radius: var(--r-ctl) !important;
+}
+body.empty-conversation .workspace-page-actions #inspectorToggle:hover { color: var(--text) !important; background: var(--sidebar-hover, var(--wh-hover)) !important; }
+
+/* 滚动条沿用品牌色（覆盖区域） */
+#sessionList::-webkit-scrollbar-thumb, .composer-context-tray::-webkit-scrollbar-thumb { background: var(--border-strong, var(--align-line)); }
+
+/* =====================================================================
+   对比度精修：次要图标退到二级灰，避免「几乎不可见」；关键控件清晰可辨
+   ===================================================================== */
+#menubarTheme, #connectionDetails summary { color: var(--text-2) !important; }
+#menubarTheme { color: var(--text) !important; font-size: 15px !important; font-weight: 600 !important; }
+#menubarTheme:hover { color: var(--text) !important; }
+.menubar-nav-btn { color: var(--text-2) !important; }
+.menubar-nav-btn:disabled { color: var(--text-3) !important; opacity: .45 !important; }
+#sidebarCollapseBtn.codex-icon-btn { color: var(--text-2) !important; }
+/* 图标轨常态图标提到二级灰，选中仍用主色 */
+#sidebar .workbench-shortcuts > button, #sidebar .codex-footer-btn, #sidebar .codex-sidebar-footer #themeToggleSide { color: var(--text-2) !important; }
+#sidebar .workbench-shortcuts > button:hover, #sidebar .codex-footer-btn:hover, #sidebar .codex-sidebar-footer #themeToggleSide:hover { color: var(--text) !important; }
+#sidebar .workbench-shortcuts > button.is-current, #sidebar .workbench-shortcuts > button[aria-current="page"] { color: var(--accent-text) !important; }
+/* 会话头部 / 工具栏微图标清晰可读 */
+#sidebar .codex-sessions-heading .codex-icon-btn { color: var(--text-2) !important; opacity: 1 !important; }
+#chatForm .prompt-tools > button svg, #chatForm .prompt-toolbar > #mediaBtn svg, #chatForm #accessChip svg,
+#chatForm #micBtn svg, #chatForm #modelChip svg, #chatForm #promptChip svg, #chatForm #effortChip svg { color: var(--text-2) !important; opacity: 1 !important; }
+#chatForm #accessChip .codex-access-dot { color: var(--text-2) !important; }
+/* 模型选择器内部留白，信号条 / 箭头不贴字 */
+body #chatForm#chatForm #modelChip { gap: 7px !important; }
+#chatForm #modelChip .composer-effort-bars { margin-left: 1px; color: var(--text-2) !important; }
+#chatForm #modelChip .composer-model-chevron { margin-left: 1px; color: var(--text-3) !important; }
+/* 发送禁用态保留主色但稍增存在感 */
+body #chatForm#chatForm #sendBtn.codex-send:disabled { opacity: .5 !important; }
+
+/* =====================================================================
+   第三轮：低频入口收进加号菜单 / 模型选择器独立成区 / 响应式收敛
+   ===================================================================== */
+/* 媒体生成与 / 命令收进加号菜单：按钮保留在 DOM，事件与审批链路原样复用。
+   权重需压过上方左组统一规格里的 display:inline-flex。 */
+body.empty-conversation #chatForm#chatForm .prompt-toolbar > #mediaBtn,
+body.empty-conversation #chatForm#chatForm .prompt-toolbar > #slashHint,
+#chatForm .prompt-toolbar > #mediaBtn, #chatForm .prompt-toolbar > #slashHint { display: none !important; }
+/* 模型选择器：浅灰底的独立紧凑选择区，与左侧透明工具按钮拉开层级 */
+body #chatForm#chatForm #modelChip {
+  background: var(--surface-2, var(--wh-hover)) !important; font-weight: 500 !important;
+}
+body #chatForm#chatForm #modelChip:hover:not(:disabled) { background: var(--surface-3, var(--wh-press)) !important; }
+body #chatForm#chatForm #modelChip:disabled { opacity: .75 !important; }
+.composer-plus-menu { min-width: 248px; }
+@media (max-width: 860px) {
+  body.empty-conversation > main:not(#setupRoot) { padding-bottom: 24px !important; }
+  body.empty-conversation main > .codex-stage { padding-top: 24px !important; }
+  body.empty-conversation #emptyState .codex-empty-logo { display: none !important; }
+  body.empty-conversation #emptyState h2 { font-size: 24px !important; }
+  body.empty-conversation main:has(#emptyState:not([hidden])) #chatForm#chatForm, #chatForm,
+  .composer-context-tray, body.empty-conversation main > .composer-footnote { width: calc(100% - 24px) !important; }
+  #chatForm .prompt-tools > .composer-plan-task, #chatForm .prompt-tools > #accessChip,
+  #chatForm .prompt-tools > #composerProjectBtn, #chatForm .codex-composer-right > #promptChip,
+  #chatForm .codex-composer-right > #effortChip,
+  body.empty-conversation #chatForm#chatForm .prompt-tools > .composer-plan-task,
+  body.empty-conversation #chatForm#chatForm .prompt-tools > #accessChip,
+  body.empty-conversation #chatForm#chatForm .prompt-tools #composerProjectBtn#composerProjectBtn,
+  body #chatForm#chatForm .codex-composer-right > #promptChip,
+  body #chatForm#chatForm .codex-composer-right > #effortChip { display: none !important; }
+  body #chatForm#chatForm #modelChip { max-width: 150px !important; }
+}
+@media (max-width: 820px) {
+  /* 脚注隐藏后由托盘承接底部 auto margin，首页组仍整体居中 */
+  body.empty-conversation main > .composer-context-tray { margin-bottom: auto !important; }
+}
+
+/* =====================================================================
+   第四轮：模型弹窗层级 / 首页最近任务 / 居中节奏承接
+   ===================================================================== */
+/* 模型弹窗：380 宽、550 高、列表内部滚动；行高紧凑、分组清晰 */
+.composer-menu.composer-menu-model {
+  width: min(380px, calc(100vw - 24px)) !important;
+  max-width: min(380px, calc(100vw - 24px)) !important;
+  max-height: min(550px, calc(100vh - 48px)) !important;
+  padding: 8px !important;
+}
+.composer-menu-model .composer-model-list { max-height: none !important; }
+.composer-menu-model .composer-menu-group { padding: 6px 8px 2px !important; font-size: 10.5px !important; letter-spacing: .06em !important; }
+.composer-menu-model .composer-menu-item { min-height: 32px !important; font-size: 13px !important; border-radius: 7px !important; }
+/* 当前模型：主色浅底 + 加重 + 主色勾，与 hover 明确区分 */
+.composer-menu-model .composer-menu-item.active,
+.composer-menu-model .composer-menu-item.active:hover {
+  background: var(--accent-soft, color-mix(in srgb, var(--accent) 10%, transparent)) !important;
+  color: var(--text) !important; font-weight: 600 !important;
+}
+.composer-menu-model .composer-menu-check { color: var(--accent-text, var(--accent)) !important; }
+.composer-menu-model .model-free-badge {
+  margin-left: 6px !important; padding: 1px 6px !important; border: 0 !important; border-radius: 999px !important;
+  background: var(--surface-2, var(--wh-hover)) !important; color: var(--text-3) !important;
+  font-size: 10px !important; font-weight: 500 !important;
+}
+/* 媒体能力信息：次级文字，与模型列表发丝分隔，不再拥挤 */
+.composer-menu-model .composer-model-list > .composer-model-scope {
+  margin: 4px 0 0 !important; padding: 6px 8px 2px !important; border-top: 1px solid var(--align-line-soft) !important;
+  color: var(--text-3) !important; font-size: 11px !important;
+}
+/* 思考强度独立成组 */
+.composer-menu-model .composer-model-effort { margin-top: 6px !important; padding: 8px 6px 2px !important; border-top: 1px solid var(--align-line-soft) !important; }
+.composer-menu-model .composer-effort-title { font-size: 11px !important; font-weight: 600 !important; color: var(--text-2) !important; }
+.composer-menu-model .composer-effort-segment { height: 28px !important; min-height: 28px !important; font-size: 12px !important; }
+.composer-menu-model .composer-effort-desc { font-size: 11px !important; color: var(--text-3) !important; }
+.composer-menu-model .composer-menu-foot { padding-top: 6px !important; }
+
+/* 首页最近任务：轻量文字列表，真实会话数据；无会话隐藏，不做大卡片 */
+.home-recent { order: 5; width: min(var(--align-composer-w), calc(100% - 64px)); margin: 40px auto auto; display: flex; flex-direction: column; gap: 2px; }
+.home-recent[hidden], body:not(.empty-conversation) .home-recent { display: none !important; }
+.home-recent-head { padding: 0 8px; margin-bottom: 4px; color: var(--text-3); font-size: var(--fs-aux); font-weight: 600; letter-spacing: .02em; }
+.home-recent-row {
+  display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px;
+  border: 0; background: transparent; border-radius: var(--r-row); cursor: pointer; text-align: left;
+  color: var(--text-2); font-size: 13px; font-family: var(--font-ui);
+  transition: background-color .12s var(--ease-ui, ease), color .12s var(--ease-ui, ease);
+}
+.home-recent-row:hover { background: var(--sidebar-hover, var(--wh-hover)); color: var(--text); }
+.home-recent-row svg { flex: none; width: 14px; height: 14px; color: var(--text-3); stroke-width: 1.6; }
+.home-recent-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-recent-time { flex: none; color: var(--text-3); font-size: 11px; font-weight: 400; opacity: .85; }
+/* 有最近任务时脚注移到列表下方并承接底部 auto margin，首页组仍整体居中 */
+body.empty-conversation main:has(> .home-recent:not([hidden])) > .home-recent { margin-bottom: 0 !important; }
+body.empty-conversation main:has(> .home-recent:not([hidden])) > .composer-footnote { margin: 10px auto auto !important; }
+@media (max-width: 860px) {
+  .home-recent { width: calc(100% - 24px); }
+}
+@media (max-width: 820px) {
+  body.empty-conversation main:has(> .home-recent:not([hidden])) > .composer-context-tray { margin-bottom: 0 !important; }
+  /* 脚注在此断点隐藏，底部 auto margin 交还给列表 */
+  body.empty-conversation main:has(> .home-recent:not([hidden])) > .home-recent { margin-bottom: auto !important; }
+}
+
+/* 第五轮：首页工具栏单行化——提示词 chip 收进加号菜单、项目 chip 由托盘承接入口 */
+body.empty-conversation #chatForm#chatForm .codex-composer-right > #promptChip,
+body.empty-conversation #chatForm#chatForm .prompt-tools > #composerProjectBtn#composerProjectBtn { display: none !important; }
+
+/* 暗色 toast：chatgpt-theme 把背景与文字都设成 var(--text)，暗色下同色不可读，文字强制深色 */
+body.dark-theme #toastRoot .toast { color: #111615 !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-context-tray .context-tray-item, .menubar-nav-btn, #chatForm .prompt-tools > button, #chatForm #sendBtn { transition: none; }
+}

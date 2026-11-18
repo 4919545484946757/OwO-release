@@ -11,7 +11,7 @@ use axum::http::{header, HeaderMap, HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use owo_agent_protocol::{CustomModelConnection, TurnRequest};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::{Path as FsPath, PathBuf};
@@ -22,6 +22,20 @@ use tokio::sync::Mutex;
 const COOKIE: &str = "owo_collaboration";
 const WORKER_PROOF: &str = "x-owo-owobot-worker";
 const TURN_PROOF: &str = "x-owo-owobot-turn";
+
+/// worker 回合的会话归属（服务端权威标记）：侧栏据此把角色会话收进任务分组，
+/// 而不是平铺进用户聊天历史。落盘一份，daemon 重启后不丢归属。
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WorkerSessionLink {
+    pub group_id: String,
+    pub thread_id: String,
+    pub role: String,
+    pub workspace: String,
+    pub title: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum WorkerRole {
@@ -207,10 +221,17 @@ pub(crate) struct Collaboration {
     live: Mutex<HashMap<PathBuf, runtime::Running>>,
     starting: Mutex<()>,
     delivery_gate: Arc<std::sync::Mutex<()>>,
+    worker_links: std::sync::Mutex<HashMap<String, WorkerSessionLink>>,
+    worker_links_path: PathBuf,
 }
 
 impl Collaboration {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(data_root: PathBuf) -> Self {
+        let worker_links_path = data_root.join("owobot-worker-sessions.json");
+        let worker_links = std::fs::read_to_string(&worker_links_path)
+            .ok()
+            .and_then(|raw| serde_json::from_str(&raw).ok())
+            .unwrap_or_default();
         Self {
             home: std::env::var_os("OWOBOT_HOME")
                 .map(PathBuf::from)
@@ -225,7 +246,94 @@ impl Collaboration {
             live: Mutex::new(HashMap::new()),
             starting: Mutex::new(()),
             delivery_gate: Arc::new(std::sync::Mutex::new(())),
+            worker_links: std::sync::Mutex::new(worker_links),
+            worker_links_path,
         }
+    }
+
+    /// 每次 worker 回合绑定成功后记录归属；标题取该会话首回合的目标文本，
+    /// 任务级标题在读取侧按线程内最早会话推导（组长先绑定）。
+    pub(crate) fn record_worker_turn(
+        &self,
+        session_id: &str,
+        worker: &WorkerTurn,
+        workspace: &FsPath,
+        prompt: &str,
+        now: &str,
+    ) {
+        let Ok(mut links) = self.worker_links.lock() else {
+            return;
+        };
+        let link = links
+            .entry(session_id.to_owned())
+            .or_insert_with(|| WorkerSessionLink {
+                group_id: worker.scope.group_id.clone(),
+                thread_id: worker.scope.thread_id.clone(),
+                role: worker.role.name().to_owned(),
+                workspace: workspace.to_string_lossy().into_owned(),
+                title: prompt.chars().take(200).collect(),
+                created_at: now.to_owned(),
+                updated_at: now.to_owned(),
+            });
+        link.role = worker.role.name().to_owned();
+        link.updated_at = now.to_owned();
+        let snapshot = links.clone();
+        drop(links);
+        // 归属是展示层索引：写盘失败不阻断回合，下一回合会再记一次。
+        let _ = std::fs::write(
+            &self.worker_links_path,
+            serde_json::to_vec(&snapshot).unwrap_or_default(),
+        );
+    }
+
+    pub(crate) fn worker_sessions_wire(&self) -> serde_json::Value {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Task {
+            thread_id: String,
+            group_id: String,
+            workspace: String,
+            title: String,
+            updated_at: String,
+            session_ids: Vec<String>,
+        }
+        let links = self
+            .worker_links
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_default();
+        let mut by_thread: HashMap<String, Task> = HashMap::new();
+        let mut title_stamp: HashMap<String, String> = HashMap::new();
+        for (session_id, link) in &links {
+            let task = by_thread
+                .entry(link.thread_id.clone())
+                .or_insert_with(|| Task {
+                    thread_id: link.thread_id.clone(),
+                    group_id: link.group_id.clone(),
+                    workspace: link.workspace.clone(),
+                    title: link.title.clone(),
+                    updated_at: link.updated_at.clone(),
+                    session_ids: Vec::new(),
+                });
+            task.session_ids.push(session_id.clone());
+            if link.updated_at > task.updated_at {
+                task.updated_at = link.updated_at.clone();
+            }
+            let stamp = title_stamp
+                .entry(link.thread_id.clone())
+                .or_insert_with(|| link.created_at.clone());
+            if link.created_at < *stamp {
+                *stamp = link.created_at.clone();
+                task.title = link.title.clone();
+                task.workspace = link.workspace.clone();
+            }
+        }
+        let mut tasks: Vec<Task> = by_thread.into_values().collect();
+        for task in &mut tasks {
+            task.session_ids.sort();
+        }
+        tasks.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+        json!({ "sessions": links, "tasks": tasks })
     }
 
     pub(crate) fn web_dir(&self) -> PathBuf {
@@ -337,6 +445,11 @@ impl Collaboration {
             .filter_map(|part| part.trim().split_once('='))
             .any(|(name, value)| name == COOKIE && self.browser_session.verify(value))
     }
+}
+
+/// GET /owobot/worker-sessions：侧栏聚合 OwOBot 任务、收起角色会话的归属索引。
+pub(crate) async fn worker_sessions(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    Json(state.owobot.worker_sessions_wire())
 }
 
 #[derive(Default, Deserialize)]
@@ -702,6 +815,49 @@ fn route_allowed(method: &Method, path: &str, group: &str) -> bool {
     }
 }
 
+/// 协作角色额外可见的 MCP 工具名。
+///
+/// 只取宿主已按「server + tool + schema hash」声明为可信只读的工具（`effect = Read` 且
+/// `host_verified_readonly`）；MCP 自报的 `readOnlyHint` 不算，写工具仍走暂存与审批。
+/// 服务器白名单来自 `OWO_OWOBOT_MCP_SERVERS`（逗号分隔，`*` 表示全部）；未配置时不注入。
+pub(crate) fn mcp_reader_names(specs: &[owo_agent_core::tools::ToolSpec]) -> Vec<String> {
+    let configured = std::env::var("OWO_OWOBOT_MCP_SERVERS").unwrap_or_default();
+    let servers: Vec<&str> = configured
+        .split(',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .collect();
+    mcp_reader_names_for(specs, &servers)
+}
+
+fn mcp_reader_names_for(
+    specs: &[owo_agent_core::tools::ToolSpec],
+    servers: &[&str],
+) -> Vec<String> {
+    if servers.is_empty() {
+        return Vec::new();
+    }
+    let every_server = servers.contains(&"*");
+    specs
+        .iter()
+        .filter(|spec| {
+            let Some(rest) = spec.name.strip_prefix("mcp__") else {
+                return false;
+            };
+            let Some((server, _tool)) = rest.split_once("__") else {
+                return false;
+            };
+            if !every_server && !servers.contains(&server) {
+                return false;
+            }
+            spec.effect.as_ref().is_some_and(|effect| {
+                effect.class == owo_agent_core::EffectClass::Read && effect.host_verified_readonly
+            })
+        })
+        .map(|spec| spec.name.clone())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -741,7 +897,8 @@ mod tests {
 
     #[test]
     fn cookies_and_origin_are_bound_to_the_collaboration_gateway() {
-        let collaboration = Collaboration::new();
+        let temp = tempfile::TempDir::new().unwrap();
+        let collaboration = Collaboration::new(temp.path().to_path_buf());
         let mut headers = HeaderMap::new();
         headers.insert(header::HOST, HeaderValue::from_static("127.0.0.1:4096"));
         assert!(!collaboration.accepts(&headers));
@@ -767,5 +924,123 @@ mod tests {
             HeaderValue::from_static("http://127.0.0.1:4096"),
         );
         assert!(same_origin(&Method::POST, &headers));
+    }
+
+    fn mcp_spec(
+        name: &str,
+        class: owo_agent_core::EffectClass,
+        verified: bool,
+    ) -> owo_agent_core::tools::ToolSpec {
+        owo_agent_core::tools::ToolSpec {
+            name: name.to_string(),
+            description: String::new(),
+            input_schema: serde_json::json!({ "type": "object" }),
+            effect: Some(owo_agent_core::ToolEffect {
+                tool: name.to_string(),
+                class,
+                source: "mcp:github".to_string(),
+                risk_note: None,
+                annotations: None,
+                host_verified_readonly: verified,
+            }),
+        }
+    }
+
+    #[test]
+    fn collaboration_roles_only_see_declared_readonly_mcp_tools() {
+        let specs = vec![
+            mcp_spec(
+                "mcp__github__search_issues",
+                owo_agent_core::EffectClass::Read,
+                true,
+            ),
+            mcp_spec(
+                "mcp__github__create_issue",
+                owo_agent_core::EffectClass::Write,
+                false,
+            ),
+            mcp_spec(
+                "mcp__github__list_repos",
+                owo_agent_core::EffectClass::Read,
+                false,
+            ),
+            mcp_spec(
+                "mcp__slack__search",
+                owo_agent_core::EffectClass::Read,
+                true,
+            ),
+            mcp_spec("read_file", owo_agent_core::EffectClass::Read, true),
+        ];
+        assert_eq!(
+            mcp_reader_names_for(&specs, &["github"]),
+            vec!["mcp__github__search_issues".to_string()]
+        );
+        assert!(mcp_reader_names_for(&specs, &[]).is_empty());
+        assert_eq!(mcp_reader_names_for(&specs, &["*"]).len(), 2);
+    }
+
+    #[test]
+    fn worker_links_aggregate_tasks_and_survive_reload() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let collaboration = Collaboration::new(temp.path().to_path_buf());
+        let make_turn = |role: WorkerRole, bot_id: &str, depth: u32| WorkerTurn {
+            role,
+            model: None,
+            dispatcher: None,
+            delivery: delivery::Store::new(
+                temp.path(),
+                PathBuf::from("D:/proj"),
+                "group-1".to_owned(),
+                Arc::new(std::sync::Mutex::new(())),
+            )
+            .unwrap(),
+            scope: CollaborationTurn {
+                bot_id: bot_id.to_owned(),
+                group_id: "group-1".to_owned(),
+                thread_id: "thread-1".to_owned(),
+                depth,
+                assignment_id: None,
+            },
+            readonly: false,
+        };
+        let lead = make_turn(WorkerRole::Lead, "bot-lead", 0);
+        let worker = make_turn(WorkerRole::Worker, "bot-worker", 1);
+        collaboration.record_worker_turn(
+            "session-lead",
+            &lead,
+            FsPath::new("D:/proj"),
+            "整理本周交付清单",
+            "2026-11-17T10:00:00+00:00",
+        );
+        collaboration.record_worker_turn(
+            "session-worker",
+            &worker,
+            FsPath::new("D:/proj"),
+            "子任务：核对文件",
+            "2026-11-17T10:01:00+00:00",
+        );
+        let wire = collaboration.worker_sessions_wire();
+        assert_eq!(wire["sessions"].as_object().unwrap().len(), 2);
+        let tasks = wire["tasks"].as_array().unwrap();
+        assert_eq!(tasks.len(), 1, "同线程的角色会话必须聚合成一个任务");
+        assert_eq!(tasks[0]["threadId"], "thread-1");
+        assert_eq!(
+            tasks[0]["title"], "整理本周交付清单",
+            "任务标题取线程内最早会话的目标文本，而不是角色指令"
+        );
+        assert_eq!(tasks[0]["updatedAt"], "2026-11-17T10:01:00+00:00");
+        assert_eq!(
+            tasks[0]["sessionIds"],
+            serde_json::json!(["session-lead", "session-worker"])
+        );
+        drop(collaboration);
+        let reloaded = Collaboration::new(temp.path().to_path_buf());
+        let wire = reloaded.worker_sessions_wire();
+        assert_eq!(
+            wire["sessions"].as_object().unwrap().len(),
+            2,
+            "归属落盘后重启不丢"
+        );
+        assert_eq!(wire["tasks"].as_array().unwrap().len(), 1);
     }
 }

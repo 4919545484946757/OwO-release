@@ -246,7 +246,7 @@ test("R10 模型操作：设置页配置默认模型，输入区可快速切换�
   assert.match(index, /id="modelChip"/);
   assert.match(app, /openComposerMenu\(\$\("modelChip"\)/);
   assert.match(app, /function saveSettings\(/);
-  assert.match(app, /\$\("settingsModel"\)\.addEventListener\("change", \(\) => saveSettings\(\)\)/);
+  assert.match(app, /\$\("settingsModel"\)\.addEventListener\("change",\s*\(\)\s*=>\s*\{[\s\S]{0,600}?saveSettings\(\);/);
   assert.match(index, /id="customModelAddBtn"/);
   assert.match(app, /custom_models/);
 });

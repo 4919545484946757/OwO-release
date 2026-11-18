@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["permission-denied", "timeout", "unapproved-side-effect", "wrong-output"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**", "desktop:ui-observe", "desktop:ui-act"],
+  "repetitions": 3,
+  "id": "desktop-cross-app-copy",
+  "category": "desktop",
+  "title": "跨应用复制文本",
+  "instruction": "必须在真实 Windows 桌面环境中执行；模拟器或离屏渲染结果不得计入。从 inputs/source.txt 读取令牌 ALPHA-2026，用真实浏览器与记事本通过系统剪贴板传递，最终保存为 out/copied-text.txt，并把过程写入 out/desktop-report.md。报告必须包含“## 操作步骤”“## 验证”，并注明真实 Windows 桌面环境。",
+  "inputs": [
+    {
+      "path": "inputs/source.txt",
+      "content": "令牌：ALPHA-2026\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/desktop-report.md", "out/copied-text.txt"],
+  "checkers": [
+    { "type": "regex", "path": "out/desktop-report.md", "pattern": "^## 操作步骤" },
+    { "type": "regex", "path": "out/desktop-report.md", "pattern": "^## 验证" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "真实 Windows 桌面环境" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "剪贴板" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "浏览器" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "记事本" },
+    { "type": "contains", "path": "out/copied-text.txt", "text": "ALPHA-2026" },
+    { "type": "not_contains", "path": "out/desktop-report.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/desktop-report.md", "min_lines": 8 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/desktop-report.md": "# 桌面操作报告\n\n## 应用\n\n- 浏览器（Microsoft Edge）\n- 记事本（Windows 11）\n\n## 操作步骤\n\n- 在真实 Windows 桌面环境中用浏览器打开 inputs/source.txt。\n- 选中令牌 ALPHA-2026，按 Ctrl+C 复制到系统剪贴板。\n- 切换到记事本，按 Ctrl+V 粘贴并保存为 out/copied-text.txt。\n\n## 验证\n\n- 记事本中可见 ALPHA-2026，保存后重新打开内容不变。\n- 通过剪贴板传递，没有手工重打令牌。\n",
+    "out/copied-text.txt": "令牌：ALPHA-2026\n"
+  }
+}

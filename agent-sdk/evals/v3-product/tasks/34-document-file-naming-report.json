@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["wrong-output", "missing-artifact", "timeout"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**"],
+  "repetitions": 3,
+  "id": "document-file-naming-report",
+  "category": "document",
+  "title": "文件命名规范化报告",
+  "instruction": "读取 inputs/file-list.txt，为每个文件写出一条问题与一个 kebab-case 建议名称，输出 out/naming-report.md。必须指出空格、大写扩展名和版本号等问题，保留版本号语义，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "inputs/file-list.txt",
+      "content": "Report Final.docx\nmeeting notes.txt\nIMG_2026.PNG\ndata final v2.csv\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/naming-report.md"],
+  "checkers": [
+    { "type": "contains", "path": "out/naming-report.md", "text": "空格" },
+    { "type": "contains", "path": "out/naming-report.md", "text": "扩展名为大写" },
+    { "type": "contains", "path": "out/naming-report.md", "text": "版本号" },
+    { "type": "contains", "path": "out/naming-report.md", "text": "kebab-case" },
+    { "type": "contains", "path": "out/naming-report.md", "text": "report-final.docx" },
+    { "type": "contains", "path": "out/naming-report.md", "text": "data-final-v2.csv" },
+    { "type": "not_contains", "path": "out/naming-report.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/naming-report.md", "min_lines": 10 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/naming-report.md": "# 文件命名规范化报告\n\n## 问题清单\n\n- \"Report Final.docx\" 含空格与大写。\n- \"meeting notes.txt\" 含空格。\n- \"IMG_2026.PNG\" 扩展名为大写，且含下划线。\n- \"data final v2.csv\" 含空格与版本号。\n\n## 建议名称\n\n- report-final.docx\n- meeting-notes.txt\n- img-2026.png\n- data-final-v2.csv\n\n## 结论\n\n统一使用小写 kebab-case，并保留版本号后缀。\n"
+  }
+}

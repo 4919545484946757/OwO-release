@@ -6798,6 +6798,7 @@ async fn owobot_gateway_requires_its_own_browser_capability() {
             .unwrap();
         assert_eq!(response.status().as_u16(), 401, "{method} {path}");
     }
+}
 
 // Agent V2 Phase 2/3：统一 Task Runtime HTTP 行为契约。
 // 重点不是"接口存在"，而是：空目标被拒、幂等重放、未注册后端不伪装成功、

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["permission-denied", "timeout", "unapproved-side-effect", "wrong-output"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**", "desktop:ui-observe", "desktop:ui-act"],
+  "repetitions": 3,
+  "id": "desktop-clipboard-chain",
+  "category": "desktop",
+  "title": "多应用剪贴板链式操作",
+  "instruction": "必须在真实 Windows 桌面环境中执行；模拟器或离屏渲染结果不得计入。依次在浏览器读取 inputs/token.txt、在记事本追加时间戳行、在文件资源管理器新建 out/clipboard.txt 保存最终文本。最终文件必须包含原始令牌与追加行，并把过程写入 out/desktop-report.md。报告必须包含“## 操作步骤”“## 验证”，并注明真实 Windows 桌面环境。",
+  "inputs": [
+    {
+      "path": "inputs/token.txt",
+      "content": "TOKEN-42\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/desktop-report.md", "out/clipboard.txt"],
+  "checkers": [
+    { "type": "regex", "path": "out/desktop-report.md", "pattern": "^## 操作步骤" },
+    { "type": "regex", "path": "out/desktop-report.md", "pattern": "^## 验证" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "真实 Windows 桌面环境" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "剪贴板" },
+    { "type": "contains", "path": "out/clipboard.txt", "text": "TOKEN-42" },
+    { "type": "contains", "path": "out/clipboard.txt", "text": "已追加" },
+    { "type": "not_contains", "path": "out/desktop-report.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/desktop-report.md", "min_lines": 8 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/desktop-report.md": "# 桌面操作报告\n\n## 应用\n\n- 浏览器（Microsoft Edge）\n- 记事本（Windows 11）\n- 文件资源管理器（Windows 11）\n\n## 操作步骤\n\n- 在真实 Windows 桌面环境中用浏览器打开 inputs/token.txt 并复制 TOKEN-42。\n- 在记事本粘贴令牌并追加一行“已追加”。\n- 通过文件资源管理器新建 out/clipboard.txt，粘贴最终文本并保存。\n\n## 验证\n\n- out/clipboard.txt 同时包含 TOKEN-42 与“已追加”。\n- 三款应用之间通过系统剪贴板传递，没有手工改写令牌。\n",
+    "out/clipboard.txt": "TOKEN-42\n已追加\n"
+  }
+}

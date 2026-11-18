@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["wrong-output", "missing-artifact", "timeout"],
+  "expected_side_effects": ["read:sources/**", "write:out/**"],
+  "repetitions": 3,
+  "id": "research-incident-postmortem-brief",
+  "category": "research",
+  "title": "故障事件复盘的多来源证据简报",
+  "instruction": "阅读 sources/incident-log.md、sources/runbook.md 与 sources/customer-reports.md，形成 out/brief.md。必须分别给出回滚决策、量化证据和证据边界；引用每份材料的具体时间、比例或数量；明确列出至少一项材料无法推出的结论。包含“## 决策”“## 证据”“## 风险”三节，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "sources/incident-log.md",
+      "content": "# 事件日志\n\n- 首次告警：14:02\n- 影响请求：1,240 次\n- 错误率峰值：18%\n- 恢复时间：14:37\n"
+    },
+    {
+      "path": "sources/runbook.md",
+      "content": "# 回滚手册\n\n- 回滚阈值：错误率连续 5 分钟超过 10%\n- 回滚耗时目标：8 分钟\n- 负责人：SRE 值班\n"
+    },
+    {
+      "path": "sources/customer-reports.md",
+      "content": "# 客户反馈\n\n- 收到 37 条工单\n- 其中 12 条报告支付失败\n"
+    }
+  ],
+  "allow_read": ["sources/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/brief.md"],
+  "checkers": [
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 决策" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 证据" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 风险" },
+    { "type": "contains", "path": "out/brief.md", "text": "14:02" },
+    { "type": "contains", "path": "out/brief.md", "text": "18%" },
+    { "type": "contains", "path": "out/brief.md", "text": "5 分钟" },
+    { "type": "contains", "path": "out/brief.md", "text": "8 分钟" },
+    { "type": "contains", "path": "out/brief.md", "text": "37" },
+    { "type": "contains", "path": "out/brief.md", "text": "支付失败" },
+    { "type": "not_contains", "path": "out/brief.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/brief.md", "min_lines": 10 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/brief.md": "# 故障事件复盘简报\n\n## 决策\n\n错误率峰值为 18%，超过手册的 5 分钟 10% 回滚阈值；决策为按手册回滚，目标 8 分钟完成。\n\n## 证据\n\n- 事件日志：首次告警 14:02，错误率峰值 18%，恢复时间 14:37。\n- 运行手册：错误率连续 5 分钟超过 10% 才回滚，回滚耗时目标 8 分钟。\n- 客户反馈：37 条工单，其中 12 条报告支付失败。\n\n## 风险\n\n- 材料没有给出根因，不能推出某个组件必然故障。\n- 客户反馈不是全量样本，不能据此计算整体失败率。\n- 日志只覆盖本次事件窗口，不能代表长期稳定性。\n"
+  }
+}

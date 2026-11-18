@@ -30,14 +30,22 @@ pub struct ReasoningReplay {
 }
 impl ReasoningReplay {
     pub(crate) fn for_model(model: &str, content: String) -> Option<Self> {
-        model
-            .to_ascii_lowercase()
-            .starts_with("deepseek")
-            .then(|| Self {
-                model: model.to_string(),
-                content,
-            })
+        // 线路前缀（`cn:` 之类）不是模型名的一部分：先剥掉再判族。否则
+        // `cn:deepseek-v4.1-flash` 会被当成「非 DeepSeek」，思考既不落库也不回放，
+        // 刷新后思考过程整段消失、多轮工具调用还会丢掉协议续接所需的上下文。
+        is_deepseek_family(model).then(|| Self {
+            model: model.to_string(),
+            content,
+        })
     }
+}
+
+/// 模型是否属于 DeepSeek 推理族。模型名可能带线路前缀（`cn:deepseek-v4.1-flash`），
+/// 判定前取最后一段再比较大小写无关的前缀。
+pub(crate) fn is_deepseek_family(model: &str) -> bool {
+    let trimmed = model.trim();
+    let bare = trimmed.rsplit(':').next().unwrap_or(trimmed);
+    bare.to_ascii_lowercase().starts_with("deepseek")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

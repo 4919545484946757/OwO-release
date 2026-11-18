@@ -89,6 +89,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     let session_detail = get(session_api::get_session).delete(session_api::delete_session);
     let protected = Router::new()
         .route("/owobot/open", post(owobot::open))
+        .route("/owobot/worker-sessions", get(owobot::worker_sessions))
         .route("/expression", post(expression_api::expression))
         .route("/prompt/enhance", post(prompt_enhance_api::enhance))
         .route("/input/preflight", post(turn_api::input_preflight))

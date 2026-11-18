@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["permission-denied", "timeout", "unapproved-side-effect", "wrong-output"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**", "desktop:ui-observe", "desktop:ui-act"],
+  "repetitions": 3,
+  "id": "desktop-file-manager-organize",
+  "category": "desktop",
+  "title": "文件管理器整理文件",
+  "instruction": "必须在真实 Windows 桌面环境中执行；模拟器或离屏渲染结果不得计入。用真实文件资源管理器把 inputs/files/ 下的四个文件按扩展名移入 images/ 与 docs/ 子目录，并把移动清单与验证结果写入 out/desktop-report.md。报告必须包含“## 操作步骤”“## 验证”，并注明真实 Windows 桌面环境。",
+  "inputs": [
+    {
+      "path": "inputs/files/manifest.txt",
+      "content": "a.png\nb.jpg\nc.md\nd.txt\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/desktop-report.md"],
+  "checkers": [
+    { "type": "regex", "path": "out/desktop-report.md", "pattern": "^## 操作步骤" },
+    { "type": "regex", "path": "out/desktop-report.md", "pattern": "^## 验证" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "真实 Windows 桌面环境" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "文件资源管理器" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "a.png" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "images/" },
+    { "type": "contains", "path": "out/desktop-report.md", "text": "docs/" },
+    { "type": "not_contains", "path": "out/desktop-report.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/desktop-report.md", "min_lines": 8 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/desktop-report.md": "# 桌面操作报告\n\n## 应用\n\n- 文件资源管理器（Windows 11）\n\n## 操作步骤\n\n- 在真实 Windows 桌面环境中打开 inputs/files/。\n- 新建 images/ 与 docs/ 两个子目录。\n- 把 a.png、b.jpg 移动到 images/，把 c.md、d.txt 移动到 docs/。\n\n## 验证\n\n- 在文件资源管理器地址栏确认两个子目录各含两个文件。\n- 移动清单与 manifest.txt 一致，无遗漏或重复。\n"
+  }
+}

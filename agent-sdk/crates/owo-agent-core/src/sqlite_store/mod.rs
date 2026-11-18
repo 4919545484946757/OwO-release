@@ -1459,4 +1459,79 @@ mod tests {
         let _ = std::fs::remove_file(format!("{}-wal", path.display()));
         let _ = std::fs::remove_file(format!("{}-shm", path.display()));
     }
+    /// 思考增量会被合并进同一行（避免上万行的写放大），但合并后的序号必须继续前进：
+    /// seq 同时是 SSE 的 `id` 与断线重放游标，前端按 `id <= cursor` 去重。复用旧 seq
+    /// 会让第一条之后的思考增量全部被当成重复事件丢弃（线上表现为只剩开头几个字符）。
+    #[test]
+    fn reasoning_deltas_merge_into_one_row_but_keep_advancing_seq() {
+        let path = std::env::temp_dir().join(format!(
+            "owo-sqlite-reasoning-seq-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+        let store = SqliteSessionStore::open(&path).unwrap();
+        let session = store.create(Path::new("."), "mock", None).unwrap();
+        let reasoning = |delta: &str| SseEvent::ReasoningDelta {
+            delta: delta.to_string(),
+        };
+
+        let first = store
+            .append_turn_event(&session.id, "turn-r", &reasoning("The"))
+            .unwrap();
+        let second = store
+            .append_turn_event(&session.id, "turn-r", &reasoning(" user"))
+            .unwrap();
+        let third = store
+            .append_turn_event(&session.id, "turn-r", &reasoning(" asks who"))
+            .unwrap();
+        assert_eq!(
+            (first.seq, second.seq, third.seq),
+            (1, 2, 3),
+            "每一次思考增量都要消耗新的 seq，否则 SSE id 重复会被前端去重丢弃"
+        );
+        assert!(
+            matches!(&second.payload, SseEvent::ReasoningDelta { delta } if delta == "The user"),
+            "合并行的内容始终是该段思考的完整快照"
+        );
+        assert!(
+            matches!(&third.payload, SseEvent::ReasoningDelta { delta } if delta == "The user asks who"),
+            "每次合并都包含此前全部增量"
+        );
+
+        // 行数不变：三次增量只留一行，写放大没有回来。
+        let all = store
+            .turn_events_after(&session.id, Some("turn-r"), 0, 10)
+            .unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].seq, 3);
+        assert!(matches!(
+            all[0].payload,
+            SseEvent::ReasoningDelta { ref delta } if delta == "The user asks who"
+        ));
+
+        // 断线重放：游标停在 1 的客户端仍要能拿到合并后的最新全文。
+        let replay = store
+            .turn_events_after(&session.id, Some("turn-r"), 1, 10)
+            .unwrap();
+        assert_eq!(replay.len(), 1);
+        assert!(matches!(
+            replay[0].payload,
+            SseEvent::ReasoningDelta { ref delta } if delta == "The user asks who"
+        ));
+
+        // 后续普通事件不会与合并行撞号。
+        let token = store
+            .append_turn_event(
+                &session.id,
+                "turn-r",
+                &SseEvent::TokenDelta {
+                    delta: "I am OwO".to_string(),
+                },
+            )
+            .unwrap();
+        assert_eq!(token.seq, 4);
+        drop(store);
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(format!("{}-wal", path.display()));
+        let _ = std::fs::remove_file(format!("{}-shm", path.display()));
+    }
 }

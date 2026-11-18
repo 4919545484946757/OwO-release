@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["wrong-output", "missing-artifact", "timeout"],
+  "expected_side_effects": ["read:sources/**", "write:out/**"],
+  "repetitions": 3,
+  "id": "research-security-advisory-triage",
+  "category": "research",
+  "title": "安全公告与资产清单的处置简报",
+  "instruction": "阅读 sources/advisory.md 与 sources/asset-inventory.md，形成 out/brief.md。必须给出受影响主机数量、建议的修复版本和处置优先级，引用 CVSS、版本范围与主机数量，并说明资产清单无法回答的问题。包含“## 决策”“## 证据”“## 风险”三节，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "sources/advisory.md",
+      "content": "# 安全公告\n\n- 漏洞编号：CVE-2026-0001\n- CVSS：8.1\n- 受影响版本：2.0–2.3\n- 修复版本：2.4\n- 利用条件：需要认证\n"
+    },
+    {
+      "path": "sources/asset-inventory.md",
+      "content": "# 资产清单\n\n- 版本 2.3：14 台主机\n- 版本 2.4：6 台主机\n- 版本 1.9：2 台主机\n"
+    }
+  ],
+  "allow_read": ["sources/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/brief.md"],
+  "checkers": [
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 决策" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 证据" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 风险" },
+    { "type": "contains", "path": "out/brief.md", "text": "8.1" },
+    { "type": "contains", "path": "out/brief.md", "text": "2.3" },
+    { "type": "contains", "path": "out/brief.md", "text": "2.4" },
+    { "type": "contains", "path": "out/brief.md", "text": "14" },
+    { "type": "contains", "path": "out/brief.md", "text": "认证" },
+    { "type": "not_contains", "path": "out/brief.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/brief.md", "min_lines": 10 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/brief.md": "# 安全公告处置简报\n\n## 决策\n\n优先把运行 2.3 的 14 台主机升级到修复版本 2.4；CVSS 8.1 且受影响版本覆盖 2.3，处置优先级为高。\n\n## 证据\n\n- 公告：CVE-2026-0001，CVSS 8.1，受影响版本 2.0–2.3，修复版本 2.4。\n- 资产清单：2.3 有 14 台主机，2.4 有 6 台主机，1.9 有 2 台主机。\n- 利用条件：需要认证，说明远程未认证利用的门槛更高。\n\n## 风险\n\n- 公告未说明 1.9 是否受影响，资产清单也无法回答。\n- 资产清单没有补丁窗口与业务优先级，不能排出升级顺序。\n- 需要认证不等于没有风险，凭据泄露后仍可能被利用。\n"
+  }
+}

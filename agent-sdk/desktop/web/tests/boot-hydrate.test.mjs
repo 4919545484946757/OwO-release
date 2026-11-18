@@ -77,5 +77,7 @@ test("hidden inspector panels are mounted on demand, not during chat startup", (
   assert.ok(init);
   assert.match(init[0], /button\.addEventListener\("click", \(\) => openPanelById\(id\)\)/);
   assert.doesNotMatch(init[0], /mountPanel\(first/);
-  assert.match(init[0], /panel-empty-state/);
+  // 占位文案抽成共享常量（整窗退出时也要还原它），契约改为盯常量本身。
+  assert.match(init[0], /PANEL_EMPTY_STATE_HTML|panel-empty-state/);
+  assert.match(appDomain, /const PANEL_EMPTY_STATE_HTML = '<div class="panel-empty-state">/);
 });

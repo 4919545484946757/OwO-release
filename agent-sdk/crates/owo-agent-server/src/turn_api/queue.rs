@@ -80,21 +80,36 @@ impl TurnEventQueue {
         }
 
         if state.events.len() >= TURN_EVENT_COALESCE_AT {
-            if let (
-                Some(QueuedTurnEvent {
-                    event: SseEvent::TokenDelta { delta: previous },
-                    ..
+            // 正文与思考都是纯文本增量：拥塞时把相邻同类事件并成一条。思考尤其需要
+            // 合并——一次回合可吐数万条 reasoning_delta，逐条占队列会让慢消费者在
+            // 几十秒内就撞上容量上限，被迫中断 SSE 再走断线重放。
+            let merged_event = match (state.events.back(), &event) {
+                (
+                    Some(QueuedTurnEvent {
+                        event: SseEvent::TokenDelta { delta: previous },
+                        ..
+                    }),
+                    SseEvent::TokenDelta { delta },
+                ) => Some(SseEvent::TokenDelta {
+                    delta: join_delta(previous, delta),
                 }),
-                SseEvent::TokenDelta { delta },
-            ) = (state.events.back(), &event)
-            {
-                let old_bytes = event_wire_size(&SseEvent::TokenDelta {
-                    delta: previous.clone(),
-                });
-                let mut merged = String::with_capacity(previous.len() + delta.len());
-                merged.push_str(previous);
-                merged.push_str(delta);
-                let merged_event = SseEvent::TokenDelta { delta: merged };
+                (
+                    Some(QueuedTurnEvent {
+                        event: SseEvent::ReasoningDelta { delta: previous },
+                        ..
+                    }),
+                    SseEvent::ReasoningDelta { delta },
+                ) => Some(SseEvent::ReasoningDelta {
+                    delta: join_delta(previous, delta),
+                }),
+                _ => None,
+            };
+            if let Some(merged_event) = merged_event {
+                let old_bytes = state
+                    .events
+                    .back()
+                    .map(|last| event_wire_size(&last.event))
+                    .unwrap_or(0);
                 let new_bytes = event_wire_size(&merged_event);
                 let next_bytes = state
                     .buffered_bytes
@@ -169,6 +184,14 @@ impl TurnEventQueue {
         }
         self.notify.notify_one();
     }
+}
+
+/// 拼接两段增量文本。预留容量避免长思考反复扩容（单条可到 64KiB）。
+fn join_delta(previous: &str, delta: &str) -> String {
+    let mut merged = String::with_capacity(previous.len() + delta.len());
+    merged.push_str(previous);
+    merged.push_str(delta);
+    merged
 }
 
 pub(crate) fn event_wire_size(event: &SseEvent) -> usize {

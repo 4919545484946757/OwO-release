@@ -1,0 +1,74 @@
+/* UI 精修 · 2026-11-02
+   只做微调：次级文字对比度、快捷入口 hover、输入框工具栏对齐、历史会话缩进、模式切换选中态。
+   所有规则限定在对应组件作用域内；不改布局尺寸、主题配色、图标与业务逻辑。
+   本文件最后加载，删除 index.html 中的 link 即可整体回退。 */
+
+/* ---------- 1. 次级 / 辅助文字对比度 ---------- */
+/* 深色：原 #7d7d7d 在 #212121 / #252525 上约 4.1:1，12px 以下偏暗；提亮到 #9a9a9a 左右，仍低于 --text-2。 */
+body.dark-theme.empty-conversation #emptyState p { color: #9a9a9a !important; }
+body.dark-theme.empty-conversation .empty-examples .example-copy small { color: #979797 !important; }
+body.dark-theme.empty-conversation main > .composer-footnote { color: #969696 !important; }
+body.dark-theme #sidebar .codex-sessions .owo-session-title .sub { color: #9a9a9a !important; }
+
+/* 浅色：#8c8c8c 在白底约 3.5:1；降到 #7e7e7e 约 4.3:1，不改灰阶关系。 */
+body:not(.dark-theme).empty-conversation #emptyState p,
+body:not(.dark-theme).empty-conversation .empty-examples .example-copy small { color: #7e7e7e !important; }
+
+/* ---------- 2. 首页快捷入口：更细微的按钮反馈 ---------- */
+/* 只增强 hover / active 与过渡，不加边框、不加底板、不改尺寸和排列。 */
+body.empty-conversation main > .empty-examples > button {
+  transition: background-color .14s var(--wh-ease), color .14s var(--wh-ease), transform .12s var(--wh-ease) !important;
+}
+body.dark-theme.empty-conversation main > .empty-examples > button:hover { background: rgba(255, 255, 255, .07) !important; }
+body.dark-theme.empty-conversation main > .empty-examples > button:active { background: rgba(255, 255, 255, .095) !important; }
+body.empty-conversation main > .empty-examples > button:active { transform: scale(.995) !important; }
+
+/* ---------- 3. 输入框工具栏：统一高度 / 图标 / 热区 ---------- */
+/* mic 原本 30x30，比工具栏其余 32px 控件矮 2px，改为 32。 */
+#chatForm .prompt-toolbar #micBtn {
+  width: 32px !important; height: 32px !important; min-width: 32px !important; padding: 0 !important;
+}
+#chatForm .prompt-toolbar #micBtn svg { width: 17px; height: 17px; }
+/* mediaBtn 没有自己的 chip 类，过去继承全局 button 的灰底 + 1px 边框，成为工具栏里唯一的实体按钮；
+   这里对齐同组图标键：透明底、无边框、32x32、hover 才有底色。 */
+#chatForm .prompt-toolbar #mediaBtn {
+  width: 32px !important; height: 32px !important; min-width: 32px !important; padding: 0 !important;
+  color: var(--text-2) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+}
+#chatForm .prompt-toolbar #mediaBtn:hover {
+  color: var(--text) !important;
+  background: var(--surface-2) !important;
+}
+#chatForm .prompt-toolbar #mediaBtn svg { width: 17px; height: 17px; }
+/* 左右两组内部间距统一为 4px（右侧原为 2px） */
+#chatForm#chatForm .prompt-toolbar .codex-composer-right { gap: 4px !important; }
+
+/* ---------- 4. 历史会话列表：缩进、截断与行距 ---------- */
+/* 条目缩进 28px → 24px，把 4px 还给标题的可用宽度，减少过早省略。 */
+#sidebar #sessionList li:not(.codex-session-group) { margin-left: 24px !important; }
+/* 标题行高 19.5 → 20px，右侧留 2px，省略号不贴住箭头/操作区。 */
+#sidebar #sessionList .owo-session-title strong { line-height: 20px !important; padding-right: 2px; }
+
+/* ---------- 5. 对话 / 工作区切换：选中态 ---------- */
+/* 深色下选中块原是 #2a2a2a，比容器 #303030 更暗，看起来像凹下去；提到亮一档并补一道内发丝线。 */
+body.dark-theme #modeSwitch#modeSwitch.mode-switch [data-mode-switch].is-active,
+body.dark-theme #modeSwitch#modeSwitch button[aria-selected="true"] {
+  background: #3a3a3a !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .35), inset 0 0 0 1px rgba(255, 255, 255, .06) !important;
+}
+body.dark-theme #modeSwitch#modeSwitch.mode-switch [data-mode-switch]:not(.is-active):hover { color: #e6e6e6 !important; }
+
+/* ---------- 6. 附件预览：主布局不变，只在已有 chips 行内显示缩略图/类型标记 ---------- */
+#attachmentChips .chip.has-preview { display: inline-flex; align-items: center; gap: 6px; padding-right: 8px; }
+#attachmentChips .chip .attachment-kind,
+#attachmentChips .chip .attachment-thumb {
+  width: 20px; height: 20px; border-radius: 5px; flex: 0 0 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; letter-spacing: .02em;
+  color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); overflow: hidden;
+}
+#attachmentChips .chip .attachment-thumb { object-fit: cover; padding: 0; }
+#chatForm.is-dropping { outline: 2px dashed var(--accent); outline-offset: 3px; }

@@ -33,6 +33,9 @@ const ALLOWED_PREFIX_HASHES = new Set([
   ENHANCE_MODEL_PREFIX_HASH,
   ENV_TRAY_PREFIX_HASH,
   CODE_SIDEBAR_PREFIX_HASH,
+  "21e7103d43b564d1d8849770733fad9661358ce5c4acf822c7bbd5fee34e850a",
+  // 2026-11-18 默认模型下拉：移除硬编码的过期模型项，改由服务商预设/端点模型动态填充。
+  "9a47eb62418b955c787ac7785965d6aed6933adca97bf54e9031ee0e1c8d4293",
 ]);
 test("welcome, rail, top bar and composer keep the a01b1bf1 visual baseline", () => {
   const html = read("index.html");

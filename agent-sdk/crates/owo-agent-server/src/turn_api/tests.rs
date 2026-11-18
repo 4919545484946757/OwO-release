@@ -223,3 +223,50 @@ fn replay_page_without_more_data_reports_interrupted_and_failures_are_terminal()
         TurnReplayState::Failed
     );
 }
+
+/// 思考增量与正文一样是纯文本流：拥塞时同样合并。一次回合可吐数万条
+/// reasoning_delta，逐条占队列会让慢消费者很快撞上容量上限、被断开重连。
+#[test]
+fn coalesces_adjacent_reasoning_deltas_and_tracks_latest_seq() {
+    let (queue, _receiver, receiver_weak) = queue_and_receiver();
+    let total = TURN_EVENT_COALESCE_AT + 9;
+    for seq in 1..=total {
+        queue
+            .push(
+                Some(seq as u64),
+                SseEvent::ReasoningDelta {
+                    delta: "想".to_string(),
+                },
+                &receiver_weak,
+            )
+            .expect("queue has room and a live receiver");
+    }
+    {
+        let state = queue.state.lock().expect("queue lock");
+        assert_eq!(state.events.len(), TURN_EVENT_COALESCE_AT);
+        let last = state.events.back().expect("queue is not empty");
+        assert_eq!(
+            last.seq,
+            Some(total as u64),
+            "合并后的思考事件必须携带最新 seq，前端游标才能前进"
+        );
+    }
+
+    queue.close();
+    let mut actual = String::new();
+    loop {
+        match queue.pop() {
+            TurnEventPop::Event(event) => match event.event {
+                SseEvent::ReasoningDelta { delta } => actual.push_str(&delta),
+                unexpected => panic!("unexpected event: {unexpected:?}"),
+            },
+            TurnEventPop::Closed => break,
+            other => panic!("unexpected queue result: {other:?}"),
+        }
+    }
+    assert_eq!(
+        actual.chars().count(),
+        total,
+        "合并只减少事件条数，不丢字符"
+    );
+}

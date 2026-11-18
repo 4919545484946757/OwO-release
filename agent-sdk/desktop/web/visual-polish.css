@@ -108,67 +108,40 @@ body.panel-open #sidebar { background: var(--bg); padding: 20px 32px 24px; }
 body.tools-open.panel-open #sidebar #workbenchPanelSection {
   padding: 12px 0 0; background: transparent; border: 0; border-radius: 0; box-shadow: none;
 }
-.workbench-panel-header { padding: 0 8px 28px; }
-body.tools-open #sidebar .workbench-panel-header h2 { font-size: 28px; font-weight: 600; margin: 6px 0 8px; }
+.workbench-panel-header { padding: 0 8px 24px; }
+body.tools-open #sidebar .workbench-panel-header h2 { font-size: 20px; font-weight: 600; margin: 8px 0 8px; }
 .workbench-panel-header p { color: var(--text-2); font-size: 13px; }
-.workbench-eyebrow { font-size: 10px; color: var(--text-3); letter-spacing: .1em; }
+.workbench-eyebrow { font-size: 12px; color: var(--text-3); letter-spacing: .04em; }
 .workbench-panel-layout { grid-template-columns: 190px minmax(0,1fr); gap: 32px; }
 .workbench-panel-rail { padding-right: 20px; border-color: var(--border); }
 .workbench-panel-search input { background: transparent; border-color: var(--border); }
-.workbench-nav-group { font-size: 11px; font-weight: 500; margin: 20px 10px 8px; }
-#panelNav button { height: 34px; padding: 0 12px; border-radius: 7px; font-size: 13px; font-weight: 400; }
-#panelNav button.active { color: var(--accent-text); background: var(--accent-soft); font-weight: 550; }
-body.panel-open #panelRoot { padding: 0 16px 36px 0; }
+.workbench-nav-group { font-size: 12px; font-weight: 500; margin: 24px 12px 8px; letter-spacing: .04em; }
+#panelNav button { height: 32px; padding: 0 12px; border-radius: 8px; font-size: 13px; font-weight: 400; }
+#panelNav button.active { color: var(--accent-text); background: var(--accent-soft); font-weight: 500; }
+body.panel-open #panelRoot { padding: 0 16px 32px 0; }
 #panelRoot { animation: owo-surface-enter var(--motion-page) var(--ease-ui) both; }
 #panelRoot section[data-panel] { background: transparent; box-shadow: none; }
-#panelRoot h3 { font-size: 16px; font-weight: 600; margin-top: 28px; margin-bottom: 16px; }
+#panelRoot h3 { font-size: 16px; font-weight: 600; margin-top: 24px; margin-bottom: 16px; }
 #panelRoot .section-toolbar h3 { margin: 0; }
 #panelRoot :is(.owo-card,.owo-pl-card,.owo-ws-card,.owo-ac-card,.owo-pe-card) {
-  background: var(--surface); border-color: var(--border); border-radius: 10px; box-shadow: none;
+  background: var(--surface); border-color: var(--border); border-radius: 12px; box-shadow: none;
 }
 #panelRoot :is(.owo-toc,.owo-toc-section) { background: transparent; box-shadow: none; }
 #panelRoot :is(th,td) { border-color: var(--border); padding-top: 12px; padding-bottom: 12px; }
 #panelRoot th { color: var(--text-2); font-size: 12px; font-weight: 500; background: transparent; }
 #panelRoot tbody tr:hover { background: var(--surface-2); }
 #panelRoot .owo-toc-item.active { color: var(--accent-text); background: var(--accent-soft); }
-#panelRoot pre,.owo-result { font: 12px/1.7 var(--font-mono); }
+#panelRoot pre,.owo-result { font: 12px/1.6 var(--font-mono); }
 
-/* Home: a typographic overview, separated by rules instead of a wall of cards. */
+/* Home: grouped cards live in owo-brand.css / workbench-pages.css; keep only the page wrapper here. */
 .project-home { border: 0 !important; border-radius: 0 !important; padding: 2px 0 !important; }
-#panelRoot .home-intro { padding: 0 0 24px; }
-#panelRoot .home-intro h3 { font-size: 22px !important; font-weight: 550; margin: 0 0 8px !important; }
+#panelRoot .home-intro h3 { font-size: 20px !important; font-weight: 600; margin: 0 0 8px !important; }
 #panelRoot .home-intro p { color: var(--text-2); font-size: 14px; }
-#panelRoot .home-summary-grid { gap: 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-#panelRoot .home-summary-card {
-  background: transparent; border: 0; border-radius: 0; box-shadow: none;
-  padding: 22px 20px; gap: 9px; justify-items: start; align-content: start; min-height: 126px;
-}
-#panelRoot .home-summary-card + .home-summary-card { border-left: 1px solid var(--border); }
-#panelRoot .home-summary-card:first-child { padding-left: 0; }
-#panelRoot .home-summary-card span { font-size: 12px; color: var(--text-2); }
-#panelRoot .home-summary-card strong { font-size: 26px; font-weight: 550; letter-spacing: -.03em; }
-#panelRoot .home-summary-card small { color: var(--text-3); font-size: 12px; white-space: normal; }
-#panelRoot .home-summary-card:hover { background: var(--surface-2); border-color: var(--border); }
-#panelRoot .home-summary-card:hover strong { color: var(--accent-text); }
-#panelRoot .home-environment { background: transparent; border-radius: 0; padding: 14px 0; margin: 0 0 24px; gap: 8px 18px; color: var(--text-3); font-size: 12px; }
-#panelRoot .home-environment strong { color: var(--text-2); font-weight: 500; }
-#panelRoot .home-columns { gap: 32px; }
-#panelRoot .home-section { min-width: 0; }
-#panelRoot .home-task-row {
-  background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0;
-  margin: 0; padding: 16px 8px; gap: 5px 12px; box-shadow: none;
-}
-#panelRoot .home-task-row:hover { background: var(--surface-2); border-color: var(--border); }
-#panelRoot .home-task-row strong { font-weight: 550; }
-#panelRoot .home-task-row small { font-size: 12px; }
-#panelRoot .home-starters { margin-top: 36px; padding-top: 12px; border-top: 1px solid var(--border); }
-#panelRoot .home-starter-grid { gap: 12px; }
-#panelRoot .home-starter-grid button { border: 0; background: transparent; border-radius: 8px; padding: 16px 12px; box-shadow: none; line-height: 1.6; white-space: normal; }
-#panelRoot .home-starter-grid button:hover { background: var(--surface-2); border-color: transparent; }
-#panelRoot .home-starter-grid small { font-size: 12px; color: var(--text-3); }
-.panel-empty-state { background: transparent; border: 0; border-radius: 0; padding: 32px 16px; gap: 10px; min-height: 155px; color: var(--text-2); }
-#panelRoot .panel-empty-state strong { font-size: 15px; font-weight: 550; color: var(--text); }
-#panelRoot .panel-empty-state span { max-width: 360px; line-height: 1.7; color: var(--text-3); }
+#panelRoot .home-columns { gap: 24px; }
+.panel-empty-state { background: transparent; border: 0; border-radius: 0; padding: 32px 16px; gap: 8px; min-height: 152px; color: var(--text-2); }
+#panelRoot .panel-empty-state strong { font-size: 14px; font-weight: 600; color: var(--text); }
+#panelRoot .panel-empty-state span { max-width: 360px; line-height: 1.6; color: var(--text-3); }
+#panelRoot .panel-empty-icon { color: var(--text-3); }
 
 /* Task manuscript: a request brief, transparent answer and compact execution trail. */
 #chatScroll { background: var(--bg); }
@@ -424,9 +397,9 @@ body.panel-open #panelRoot > section[data-panel] { border: 0; border-radius: 0; 
  .workbench-panel-search { display: flex; align-items: center; gap: 12px; }
  .workbench-panel-search > span { flex: 0 0 auto; font-size: 12px; }
  .workbench-panel-search input { flex: 1; min-width: 0; height: 32px; }
- #panelNav button { height: 30px; font-size: 12px; padding: 0 10px; }
- #panelRoot .home-intro { padding-bottom: 14px; }
- #panelRoot .home-intro h3 { font-size: 18px !important; }
+ #panelNav button { height: 32px; font-size: 13px; padding: 0 12px; }
+ #panelRoot .home-intro { padding-bottom: 16px; }
+ #panelRoot .home-intro h3 { font-size: 20px !important; }
 }
 
 /* Task-led navigation: a primary action, five destinations, then recent conversations. */

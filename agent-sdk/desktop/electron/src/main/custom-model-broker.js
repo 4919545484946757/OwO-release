@@ -22,8 +22,15 @@ function probe(vault, input) {
       let bytes = 0, data = "";
       response.on("data", chunk => { bytes += chunk.length; if (bytes > 262144) req.destroy(Error("credentials/probe_too_large")); else data += chunk; });
       response.on("end", () => {
-        let count = null; try { const body = JSON.parse(data); if (Array.isArray(body.data)) count = body.data.length; } catch {}
-        resolve({ ok: response.statusCode >= 200 && response.statusCode < 300, status: response.statusCode, models: count });
+        let count = null, ids = null;
+        try {
+          const body = JSON.parse(data);
+          if (Array.isArray(body.data)) {
+            count = body.data.length;
+            ids = body.data.map(item => String((item && item.id) || "")).filter(Boolean).slice(0, 200);
+          }
+        } catch {}
+        resolve({ ok: response.statusCode >= 200 && response.statusCode < 300, status: response.statusCode, models: count, ids });
       });
     });
     req.on("timeout", () => req.destroy(Error("credentials/probe_timeout")));

@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "failure_classes": [
+    "wrong-output",
+    "missing-artifact",
+    "timeout"
+  ],
+  "expected_side_effects": [
+    "read:inputs/**",
+    "write:out/**"
+  ],
+  "repetitions": 3,
+  "id": "document-data-cleaning-notes",
+  "category": "document",
+  "title": "数据清洗说明",
+  "instruction": "读取 inputs/dirty.csv，统计空 email、重复 id 和无效日期的问题数量，并写出清洗规则到 out/cleaning-notes.md，清洗规则必须位于“## 清洗规则”小节下。必须给出三类问题各自的数量或行数，说明处理方式，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "inputs/dirty.csv",
+      "content": "id,email,created_at\n1,a@example.com,2026-01-02\n2,,2026-01-03\n2,b@example.com,not-a-date\n"
+    }
+  ],
+  "allow_read": [
+    "inputs/**"
+  ],
+  "allow_write": [
+    "out/**"
+  ],
+  "allow_commands": [],
+  "expected_artifacts": [
+    "out/cleaning-notes.md"
+  ],
+  "checkers": [
+    {
+      "type": "contains",
+      "path": "out/cleaning-notes.md",
+      "text": "空 email"
+    },
+    {
+      "type": "contains",
+      "path": "out/cleaning-notes.md",
+      "text": "重复 id"
+    },
+    {
+      "type": "contains",
+      "path": "out/cleaning-notes.md",
+      "text": "无效日期"
+    },
+    {
+      "type": "contains",
+      "path": "out/cleaning-notes.md",
+      "text": "1 条"
+    },
+    {
+      "type": "regex",
+      "path": "out/cleaning-notes.md",
+      "pattern": "^## 清洗规则"
+    },
+    {
+      "type": "not_contains",
+      "path": "out/cleaning-notes.md",
+      "text": "TBD"
+    },
+    {
+      "type": "line_count_min",
+      "path": "out/cleaning-notes.md",
+      "min_lines": 8
+    }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/cleaning-notes.md": "# 数据清洗说明\n\n## 问题统计\n\n- 空 email：1 条\n- 重复 id：1 组（2 行使用 id=2）\n- 无效日期：1 条（not-a-date）\n\n## 清洗规则\n\n- 丢弃空 email 行。\n- 重复 id 保留首次出现的行。\n- 无效日期置空并登记到问题清单。\n"
+  }
+}

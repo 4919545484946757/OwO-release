@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["timeout", "wrong-output", "unapproved-side-effect"],
+  "expected_side_effects": ["read:inputs/**", "write:out/**", "checkpoint:resume"],
+  "repetitions": 3,
+  "id": "long-horizon-requirement-change",
+  "category": "long_horizon",
+  "title": "中途需求变更后的重规划",
+  "instruction": "执行 inputs/plan.md 的四步任务。第 2 步完成后用户改变需求（requirement-change）：最终结果必须新增 summary 字段。你必须在保留已完成步骤的前提下重规划并写出 out/final-result.json 与 out/recovery-report.md；报告必须包含“## 恢复路径”“## 未重复执行副作用”“## 恢复后产物”。",
+  "inputs": [
+    {
+      "path": "inputs/plan.md",
+      "content": "# 执行计划\n\n1. 读取输入。\n2. 生成基础结果并记录检查点。\n3. 应用需求变更。\n4. 写出最终结果与报告。\n\n# 需求变更\n\n第 2 步后要求 final-result.json 增加 summary 字段，其余步骤保持不变。\n"
+    }
+  ],
+  "allow_read": ["inputs/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/recovery-report.md", "out/final-result.json"],
+  "fault_injection": {
+    "kind": "requirement-change",
+    "after_step": 2,
+    "note": "第 2 步后要求新增 summary 字段；检查点保留已完成步骤，只调整后续输出契约。"
+  },
+  "checkers": [
+    { "type": "regex", "path": "out/recovery-report.md", "pattern": "^## 恢复路径" },
+    { "type": "contains", "path": "out/recovery-report.md", "text": "未重复执行副作用" },
+    { "type": "contains", "path": "out/recovery-report.md", "text": "requirement-change" },
+    { "type": "contains", "path": "out/recovery-report.md", "text": "恢复后产物" },
+    { "type": "contains", "path": "out/recovery-report.md", "text": "summary" },
+    { "type": "line_count_min", "path": "out/recovery-report.md", "min_lines": 8 },
+    { "type": "json_keys_exact", "path": "out/final-result.json", "keys": ["status", "completed_steps", "side_effects_replayed", "summary"] },
+    { "type": "json_field_equals", "path": "out/final-result.json", "field": "status", "expected": "completed" },
+    { "type": "json_field_equals", "path": "out/final-result.json", "field": "completed_steps", "expected": 4 },
+    { "type": "json_field_equals", "path": "out/final-result.json", "field": "side_effects_replayed", "expected": 0 },
+    { "type": "not_contains", "path": "out/recovery-report.md", "text": "TBD" }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/recovery-report.md": "# 长程任务恢复报告\n\n## 恢复路径\n\n- 注入 requirement-change：第 2 步后用户要求新增 summary 字段。\n- 保留第 1、2 步检查点，从第 3 步开始应用新输出契约。\n- 第 4 步写出带 summary 字段的最终结果。\n\n## 未重复执行副作用\n\n- 未重复执行副作用：基础结果的写入没有重放，side_effects_replayed = 0。\n\n## 恢复后产物\n\n- out/final-result.json 状态为 completed，并包含 summary 字段。\n",
+    "out/final-result.json": "{\"status\": \"completed\", \"completed_steps\": 4, \"side_effects_replayed\": 0, \"summary\": \"需求变更已应用\"}\n"
+  }
+}

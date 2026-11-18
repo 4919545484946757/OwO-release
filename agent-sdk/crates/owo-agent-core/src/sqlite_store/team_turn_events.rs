@@ -226,18 +226,33 @@ pub(super) fn append_event_tx(
         .unwrap_or(0);
     // 思维链合并：模型一次回合可吐数万条 reasoning_delta，逐条入库会造成
     // ~95% 的写放大（实测单会话 7.8 万行）。连续 reasoning 增量并入上一行，
-    // 单行超过 64KiB 才另起一行，既有 seq 语义与断点续传都不受影响。
+    // 单行超过 64KiB 才另起一行。
+    //
+    // 合并行必须换用新的 seq：seq 同时是 SSE 的 `id` 和断线重放游标，前端按
+    // `id <= cursor` 去重。若复用上一行的旧 seq，第一条思考增量之后的全部增量
+    // 都会被前端当成重复事件丢弃（线上表现为思考过程只剩开头三个字符），
+    // 断线重放也会因 after_seq 已越过该行而补不回新增文本。
+    // 行数不变（仍旧没有写放大），但序号继续前进，实时流与重放都能拿到完整内容。
     if let SseEvent::ReasoningDelta { delta } = payload {
-        let previous: Option<(i64, String)> = transaction
+        let previous: Option<(i64, String, String)> = transaction
             .query_row(
-                "SELECT seq, payload_json FROM turn_events
+                "SELECT seq, turn_id, payload_json FROM turn_events
                      WHERE session_id = ?1 ORDER BY seq DESC LIMIT 1",
                 [session_id],
-                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                },
             )
             .optional()
             .map_err(sqlite_error)?;
-        if let Some((previous_seq, previous_json)) = previous {
+        // 只在同一回合内合并：跨回合并入会让上一回合的行带着新回合的内容，
+        // 按 turn_id 重放时既查不到、又污染旧回合的思考。
+        let previous = previous.filter(|(_, previous_turn, _)| previous_turn == turn_id);
+        if let Some((previous_seq, _, previous_json)) = previous {
             if let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&previous_json) {
                 if value.get("type").and_then(|kind| kind.as_str()) == Some("reasoning_delta") {
                     let merged = format!(
@@ -249,21 +264,32 @@ pub(super) fn append_event_tx(
                         delta
                     );
                     if merged.len() <= 64 * 1024 {
+                        let next_seq = last_seq
+                            .max(previous_seq)
+                            .checked_add(1)
+                            .ok_or_else(|| AgentError::Session("回合事件 seq 已耗尽".into()))?;
                         value["delta"] = serde_json::Value::String(merged.clone());
                         let merged_json = serde_json::to_string(&value).map_err(|error| {
                             AgentError::Session(format!("回合事件编码失败：{error}"))
                         })?;
                         transaction
                             .execute(
-                                "UPDATE turn_events SET payload_json = ?1
+                                "UPDATE turn_events SET payload_json = ?1, seq = ?4
                                      WHERE session_id = ?2 AND seq = ?3",
-                                params![merged_json, session_id, previous_seq],
+                                params![merged_json, session_id, previous_seq, next_seq],
+                            )
+                            .map_err(sqlite_error)?;
+                        transaction
+                            .execute(
+                                "INSERT INTO turn_event_cursors(session_id, last_seq) VALUES (?1, ?2)
+                                     ON CONFLICT(session_id) DO UPDATE SET last_seq = excluded.last_seq",
+                                params![session_id, next_seq],
                             )
                             .map_err(sqlite_error)?;
                         return Ok(TurnEventRecord {
                             session_id: session_id.to_string(),
                             turn_id: turn_id.to_string(),
-                            seq: previous_seq as u64,
+                            seq: next_seq as u64,
                             created_at: chrono::Utc::now().to_rfc3339(),
                             payload: SseEvent::ReasoningDelta { delta: merged },
                         });

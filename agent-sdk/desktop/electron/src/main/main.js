@@ -1603,7 +1603,11 @@ ipcMain.handle("prompt:enhance", async (event, input = {}) => {
 for (const operation of ["list", "upsert", "remove", "migrate", "probe"]) {
   ipcMain.handle("models:" + operation, async (event, input = {}) => {
     modelBroker.assertFrame(event, mainWindow, core);
-    if (operation === "list") return { ...modelVault().snapshot(), error: vaultStartupError || null };
+    if (operation === "list") {
+      const snapshot = modelVault().snapshot();
+      // 逐条试解得到的问题（如凭据解不开）优先于启动期问题上报，页面据此提示重新保存密钥。
+      return { ...snapshot, error: snapshot.error || vaultStartupError || null };
+    }
     if (operation === "probe") return modelBroker.probe(modelVault(), input);
     const result = operation === "upsert" ? await modelVault().upsert(input, syncModelCredentials)
       : operation === "remove" ? await modelVault().remove(String(input.id || ""), syncModelCredentials)

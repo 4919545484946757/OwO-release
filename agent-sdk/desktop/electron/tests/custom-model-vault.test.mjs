@@ -93,3 +93,11 @@ test("image declarations survive encrypted model storage and cannot move to anot
  await f.vault.upsert({...f.model});
  assert.equal(f.vault.snapshot().models[0].inputCapabilities,undefined);
 });
+
+test("解不开的旧密文要上报，而不是继续显示已保存密钥",async t=>{
+ const f=fixture(t);await f.vault.upsert({...f.model,apiKey:f.secret});
+ const data=JSON.parse(fs.readFileSync(f.file));data.models[0].sealed=Buffer.from("foreign-ciphertext").toString("base64");fs.writeFileSync(f.file,JSON.stringify(data));
+ const snapshot=f.vault.snapshot();
+ assert.equal(snapshot.error,"credentials/unlock_failed");
+ assert.equal(snapshot.models[0].unlockFailed,true);
+});

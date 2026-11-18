@@ -142,7 +142,7 @@ button.deny { color: var(--red); background: var(--red-soft); border-color: tran
 button:disabled { opacity: 0.55; cursor: not-allowed; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 .inline { display: flex; align-items: center; gap: 8px; }
 .inline input { min-width: 0; flex: 1; }
@@ -494,7 +494,7 @@ body.inspector-open #right, body.inspector-open #rightResize { display: block; }
   display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .owo-session-title:focus-visible, .owo-session-more:focus-visible,
-.owo-session-menu button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.owo-session-menu button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .owo-session-more { flex: 0 0 26px; width: 26px; height: 26px; padding: 0; border-radius: 6px; }
 .owo-session-menu {
   position: absolute; z-index: 80; top: calc(100% - 2px); right: 6px; display: flex;
@@ -3312,7 +3312,7 @@ body.dark-theme .codex-avatar { color: var(--accent-ink); }
 #panelRoot details > summary { cursor: pointer; padding: 10px 0; }
 #panelRoot :is(.owo-card,.owo-pl-card,.owo-ws-card,.owo-ac-card) { border-radius: 10px; border-color: var(--border); box-shadow: none; }
 #panelRoot :is(.owo-toc-section,.owo-panel-section) { scroll-margin-top: 16px; }
-:where(button,a,input,select,textarea,summary,[tabindex]):focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+:where(button,a,input,select,textarea,summary,[tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 :where(button):disabled { cursor: not-allowed; opacity: .55; }
 .home-intro { padding: 8px 0 24px; }
 .home-intro h3 { font-size: 24px !important; margin-bottom: 8px !important; }

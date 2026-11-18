@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "failure_classes": ["wrong-output", "missing-artifact", "timeout"],
+  "expected_side_effects": ["read:sources/**", "write:out/**"],
+  "repetitions": 3,
+  "id": "research-data-quality-review-brief",
+  "category": "research",
+  "title": "数据质量检查的证据简报",
+  "instruction": "阅读 sources/schema.md 与 sources/quality-report.md，形成 out/brief.md。必须说明字段规模、空值、重复与日期问题，给出修复优先级，并引用字段总数、必填字段数、空值率、重复数量和无效日期数量。包含“## 决策”“## 证据”“## 风险”三节，不得使用 TBD。",
+  "inputs": [
+    {
+      "path": "sources/schema.md",
+      "content": "# 数据结构\n\n- 字段总数：12\n- 必填字段：3\n- id 要求唯一\n"
+    },
+    {
+      "path": "sources/quality-report.md",
+      "content": "# 质量报告\n\n- email 空值率：2.4%\n- 重复 id：17\n- 无效日期：0\n"
+    }
+  ],
+  "allow_read": ["sources/**"],
+  "allow_write": ["out/**"],
+  "allow_commands": [],
+  "expected_artifacts": ["out/brief.md"],
+  "checkers": [
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 决策" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 证据" },
+    { "type": "regex", "path": "out/brief.md", "pattern": "^## 风险" },
+    { "type": "contains", "path": "out/brief.md", "text": "12" },
+    { "type": "contains", "path": "out/brief.md", "text": "3" },
+    { "type": "contains", "path": "out/brief.md", "text": "2.4%" },
+    { "type": "contains", "path": "out/brief.md", "text": "17" },
+    { "type": "contains", "path": "out/brief.md", "text": "无效日期" },
+    { "type": "not_contains", "path": "out/brief.md", "text": "TBD" },
+    { "type": "line_count_min", "path": "out/brief.md", "min_lines": 10 }
+  ],
+  "timeout_secs": 900,
+  "max_model_calls": 64,
+  "reference_outputs": {
+    "out/brief.md": "# 数据质量评审简报\n\n## 决策\n\n先处理 17 个重复 id：id 是必填且要求唯一的字段，重复会破坏主键语义。email 空值率 2.4% 次之，最后复核日期字段。\n\n## 证据\n\n- 数据结构：字段总数 12，必填字段 3，id 要求唯一。\n- 质量报告：email 空值率 2.4%，重复 id 17，无效日期 0。\n- 无效日期为 0，说明当前日期格式检查未发现坏值。\n\n## 风险\n\n- 材料没有给出重复 id 的样本，不能判断是采集问题还是合并问题。\n- email 空值率只覆盖一个字段，不能代表全部 12 个字段。\n- 无效日期为 0 不代表日期语义正确，时区与范围未检查。\n"
+  }
+}

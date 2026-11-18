@@ -55,7 +55,24 @@ class CustomModelVault {
     const model = normalize(record);
     return { ...model, disabled: record.disabled === true, hasKey: Boolean(record.sealed) && !record.disabled, apiKeyEnv: record.sealed && !record.disabled ? PREFIX + record.ref : null, storage: "encrypted_desktop" };
   }
-  snapshot() { return { version: 1, encryptionAvailable: this.codec.isEncryptionAvailable() && this.codec.getSelectedStorageBackend?.() !== "basic_text", models: this.read().models.map(r => this.publicRecord(r)) }; }
+  snapshot() {
+    // 记录里有密文不等于能用：旧机器/旧凭据留下的密文在当前用户下解不开，
+    // 核心拿不到密钥，界面上却仍显示"已保存密钥"。这里逐条试解一次，
+    // 解不开就标记出来，并把问题随快照一起上报，避免静默失败。
+    let problem = null;
+    const models = this.read().models.map(record => {
+      const model = this.publicRecord(record);
+      if (!model.apiKeyEnv) return model;
+      try { this.secret(record); } catch { model.unlockFailed = true; problem = "credentials/unlock_failed"; }
+      return model;
+    });
+    return {
+      version: 1,
+      encryptionAvailable: this.codec.isEncryptionAvailable() && this.codec.getSelectedStorageBackend?.() !== "basic_text",
+      models,
+      error: problem,
+    };
+  }
   environment(records = this.read().models) {
     const out = {};
     for (const record of records) {
