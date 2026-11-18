@@ -532,6 +532,41 @@ a:focus-visible {
   display: inline-block;
 }
 
+/* 首页行：状态圆点 + 状态色文字 */
+#panelRoot .home-task-row { align-items: center; }
+#panelRoot .home-row-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  display: inline-block;
+}
+#panelRoot .home-row-dot.running {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  animation: owo-dot-pulse 1.8s ease-in-out infinite;
+}
+#panelRoot .home-row-dot.ok { background: var(--green); }
+#panelRoot .home-row-dot.failed { background: var(--red); }
+#panelRoot .home-row-dot.warn { background: var(--yellow); }
+#panelRoot .home-row-dot.muted { background: var(--border-strong); }
+#panelRoot .home-row-status { color: var(--text-3); }
+#panelRoot .home-row-status.running { color: var(--accent); }
+#panelRoot .home-row-status.ok { color: var(--green); }
+#panelRoot .home-row-status.failed { color: var(--red); }
+#panelRoot .home-row-status.warn { color: var(--yellow); }
+#panelRoot .home-summary-card strong.ok { color: var(--green); }
+#panelRoot .home-summary-card strong.warn { color: var(--yellow); }
+#panelRoot .home-summary-card strong.bad { color: var(--red); }
+@keyframes owo-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--accent-soft); }
+  50% { box-shadow: 0 0 0 6px var(--accent-soft); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #panelRoot .home-row-dot.running { animation: none; }
+}
+
 /* 记忆面板：时间线直方图 + 实体热度芯片 */
 #panelRoot .owo-mem-tl-row {
   display: flex;

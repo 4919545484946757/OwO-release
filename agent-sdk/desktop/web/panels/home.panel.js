@@ -16,12 +16,30 @@
     const snap = H.snapshot?.() || {}, settings = snap.settings || {}, runtime = settings.runtime || {};
     const pending = data.inbox ? data.inbox.filter(item => !["resolved", "cancelled"].includes(item.status)).length : null;
     const sessionRows = data.sessions.slice(0, 6).map(item => {
-      const f = item.facts, status = f ? (f.outcome === "running" ? "运行中" : root.OwoCompletionRecord.summarize(f.lastCompletionRecord)?.status || ({ cancelled: "已取消", failed: "失败", interrupted: "终态未确认", completed: "回答完成 · 未验证" })[f.outcome] || "尚无完成记录") : "正在读取宿主记录";
-      return '<button class="home-task-row" data-home-session="' + H.esc(item.id) + '"><strong>' + H.esc(item.title || "未命名会话") + '</strong><span>' + H.esc(status) + '</span><small>' + H.esc(f?.lastExecutionModel ? "实际模型 " + f.lastExecutionModel : "实际模型未知") + '</small></button>';
+      const f = item.facts;
+      let stateKey = "unknown";
+      let status;
+      if (f) {
+        if (f.outcome === "running") { stateKey = "running"; status = "运行中"; }
+        else {
+          const record = root.OwoCompletionRecord.summarize(f.lastCompletionRecord);
+          if (record?.status === "failed") { stateKey = "failed"; status = "失败"; }
+          else if (f.outcome === "cancelled") { stateKey = "muted"; status = "已取消"; }
+          else if (f.outcome === "interrupted") { stateKey = "warn"; status = "终态未确认"; }
+          else if (f.outcome === "completed") { stateKey = "ok"; status = record?.status || "回答完成 · 未验证"; }
+          else { status = "尚无完成记录"; }
+        }
+      } else status = "正在读取宿主记录";
+      return '<button class="home-task-row" data-home-session="' + H.esc(item.id) + '"><i class="home-row-dot ' + stateKey + '" aria-hidden="true"></i><strong>' + H.esc(item.title || "未命名会话") + '</strong><span class="home-row-status ' + stateKey + '">' + H.esc(status) + '</span><small>' + H.esc(f?.lastExecutionModel ? "实际模型 " + f.lastExecutionModel : "实际模型未知") + '</small></button>';
     }).join("");
-    const teamRows = data.teams.slice(0, 6).map(team => '<button class="home-task-row" data-home-team="' + H.esc(team.team_id) + '"><strong>' + H.esc(team.objective || team.team_id) + '</strong><span>' + H.esc(team.interrupted ? "已中断 · 等待恢复" : labels[team.status] || team.status || "未知") + '</span><small>团队运行 · 交付验收请查看证据页</small></button>').join("");
+    const teamRows = data.teams.slice(0, 6).map(team => {
+      const stateKey = team.interrupted ? "warn" : team.status === "running" ? "running" : team.status === "succeeded" ? "ok" : team.status === "failed" ? "failed" : "muted";
+      const status = team.interrupted ? "已中断 · 等待恢复" : labels[team.status] || team.status || "未知";
+      return '<button class="home-task-row" data-home-team="' + H.esc(team.team_id) + '"><i class="home-row-dot ' + stateKey + '" aria-hidden="true"></i><strong>' + H.esc(team.objective || team.team_id) + '</strong><span class="home-row-status ' + stateKey + '">' + H.esc(status) + '</span><small>团队运行 · 交付验收请查看证据页</small></button>';
+    }).join("");
+    const pendingTone = pending == null ? "unknown" : pending === 0 ? "ok" : pending > 3 ? "bad" : "warn";
     return '<section data-panel="home" data-layout="custom" class="project-home"><div class="home-intro"><h3>' + H.esc(root.OwoWorkspaceDisplay?.alias(snap.workspace) || "项目工作台") + '</h3><p>从目标到交付，查看每一步的状态和依据。</p></div><div class="home-summary-grid">' +
-      '<button class="home-summary-card" data-home-panel="action-center"><span>待我处理</span><strong>' + (pending == null ? "未知" : pending) + '</strong><small>人工结果、评审与失败恢复 →</small></button>' +
+      '<button class="home-summary-card" data-home-panel="action-center"><span>待我处理</span><strong class="' + pendingTone + '">' + (pending == null ? "未知" : pending) + '</strong><small>人工结果、评审与失败恢复 →</small></button>' +
       '<button class="home-summary-card" data-home-panel="project-history"><span>团队运行</span><strong>' + (data.teamsAvailable ? data.teams.length : "未知") + '</strong><small>本地全部项目的团队运行 →</small></button>' +
       '<button class="home-summary-card" data-home-panel="evidence"><span>产物与证据</span><strong>查看交付</strong><small>版本、变更与验证记录 →</small></button></div>' +
       '<div class="home-environment"><strong>环境状态</strong><span>核心：' + (root.OwoCoreActionAvailability?.isAvailable() ? "已授权连接" : "未连接") + '</span><span>模型：' + H.esc(runtime.model || settings.model || "未配置") + '</span><span>' + (runtime.ready === false ? "模型尚未就绪" : "配置状态不代表远端连通性已验证") + '</span></div>' +
