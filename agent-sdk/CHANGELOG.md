@@ -64,9 +64,9 @@
 
 ### 验证
 
-- Rust：**1 104** 条（contracts 58 / policy 72 / core 709 / plugins 43 / mcp 17 / cli 125 /
-  playbook-api 8 / route-contract 54 / plugin-market 19）。
-- 桌面：`node --test` **809** 条（71 个文件）。
+- Rust：**1 113** 条（contracts 59 / policy 72 / core 711 / plugins 43 / mcp 17 / cli 127 /
+  playbook-api 10 / plugin-list-signed 1 / route-contract 54 / plugin-market 19）。
+- 桌面：`node --test` **810** 条（71 个文件）。
 - 真实页面：插件页、任务剧本列表/记录/归档/历史对比/风险提示均有截图证据
   （`docs/qa/evidence/`）。
 
