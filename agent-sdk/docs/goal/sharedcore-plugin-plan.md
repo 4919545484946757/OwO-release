@@ -96,3 +96,19 @@ plugins/owo-sharedcore/
 - 桌面「SharedCore」面板：规则/架构、并行批次、阻塞、冲突、任务、契约、事件；
   真实 daemon 验证渲染（截图 `docs/qa/evidence/ui-sharedcore-panel-20261118.png`）。
 - 导航：工作台「自动化」分组新增入口（25 个面板），桌面全量 815 条通过。
+
+## 8. 验收记录（2026-11-18 14:35）
+
+| 项 | 结果 |
+|---|---|
+| `plugin check plugins/owo-sharedcore` | 通过（技能 1 / 服务器 1 / hooks 0 / 诊断无） |
+| `plugin catalog` | 列出，`[agent-plugins-1.0.0][clean]` |
+| `scripts/sharedcore-selfcheck.py` | 通过：12 工具、依赖分批、写范围冲突、契约 CAS、worktree 命令、gate 阻断与 allow_partial |
+| 宿主加载 | daemon 日志：`MCP 服务器 owo-sharedcore/sharedcore 已连接，工具 10 个`（安装验证时的版本；当前工具数 12） |
+| Rust 回归 | 定向全量 1114 通过（含 playbook/route/market/server）；`sharedcore_api_tests` 另 2 条通过 |
+| 桌面回归 | **815** 通过（含 SharedCore 面板 3 条与导航 25） |
+| UI 证据 | `docs/qa/evidence/ui-v2-*.png` 共 9 张（主界面/剧本/SharedCore/设置/插件市场/首页/能力/命令面板） |
+| 未验证 | **真实模型下的并行回合**：本机未配置模型提供商，`fanout_subagents` 的实际并行执行未跑；插件自检与宿主加载已覆盖协议层 |
+
+说明：`使用和普通对话一样` 依赖技能把流程写进主 Agent 的提示；实际对话回合需要模型凭据，
+本次以自检 + 宿主加载 + 协议单测作为证据，不把"未运行"说成"通过"。
