@@ -400,6 +400,46 @@ a:focus-visible {
 #panelRoot .owo-cap-card + .owo-cap-card { margin-top: 0; }
 #panelRoot .owo-cap-panel .hint { color: var(--text-3); font-size: 12.5px; }
 
+/* 弹窗 / 命令面板 */
+.modal-card {
+  width: min(640px, calc(100vw - 48px));
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: 0 28px 80px -36px rgba(24, 28, 22, 0.45);
+  overflow: hidden;
+}
+.modal-head { padding: 13px 18px; border-bottom: 1px solid var(--border); }
+.modal-head strong { font-size: 13.5px; font-weight: 600; }
+.modal-body { padding: 14px 18px; }
+.modal-foot { padding: 12px 18px; border-top: 1px solid var(--border); background: var(--surface-2); }
+#workbenchQuickSearch {
+  height: 36px;
+  border-radius: var(--r-md);
+  font-size: 13.5px;
+  padding: 0 11px;
+}
+#workbenchQuickSearch:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.modal-foot:empty { display: none; }
+.workbench-quick-results { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
+.workbench-quick-results button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  text-align: left;
+}
+.workbench-quick-results button:hover { background: var(--surface-2); }
+.workbench-quick-results button strong { font-size: 13px; font-weight: 550; color: var(--text); }
+.workbench-quick-results button span { font-size: 11.5px; color: var(--text-3); }
+
 /* ---------- 面板 / 设置 ---------- */
 #panelRoot { padding: 22px 28px 40px; }
 #panelRoot > * { max-width: 1120px; margin-left: auto; margin-right: auto; }
