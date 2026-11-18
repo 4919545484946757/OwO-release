@@ -20,6 +20,7 @@
       ["workflow", "工作流", "查看、校验与运行已有流程"],
       ["custom-workflows", "自定义工作流", "用角色/依赖/工具/交付契约描述任意工作流 · AI 生成与社区共享"],
       ["playbook", "任务剧本", "按剧本推进并记录每一步的进度"],
+      ["sharedcore", "SharedCore", "多 Agent 共享上下文：任务 DAG、并行批次与事件"],
     ] },
     { label: "工具与权限", items: [
       ["plugin-market", "插件市场", "管理能力扩展"],
@@ -44,7 +45,7 @@
     const primary = primaryIds.map(id => entries.find(entry => entry.id === id)).filter(entry => entry && allowed(entry));
     const secondary = [
       { label: "资料与记忆", ids: ["goal", "notes", "memory", "team"] },
-      { label: "自动化", ids: ["automations", "workflow", "custom-workflows", "playbook"] },
+      { label: "自动化", ids: ["automations", "workflow", "custom-workflows", "playbook", "sharedcore"] },
       { label: "工具与权限", ids: ["plugin-market", "permissions", "command"] },
       { label: "诊断与实验", ids: ["capabilities", "eval", "product-eval", "observability", "diagnostics-ledger", "fleet", "about"] },
     ].map(group => ({

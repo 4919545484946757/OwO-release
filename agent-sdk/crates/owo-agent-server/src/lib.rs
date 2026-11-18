@@ -72,6 +72,7 @@ pub mod product_eval_api;
 mod project_api;
 mod rate_limit;
 mod routes;
+mod sharedcore_api;
 pub use routes::build_router;
 /// R3（§8.1）：安全请求 ledger（六字段白名单，/diagnostics/requests 消费）。
 /// `pub` 仅为契约测试可用 `reset_for_test` 取得干净窗口（同 event_stream 先例）。

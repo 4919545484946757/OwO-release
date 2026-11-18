@@ -2675,6 +2675,7 @@ const PANEL_ORDER = [
   "workflow",
   "custom-workflows",
   "playbook",
+  "sharedcore",
   "goal",
   "team",
   "eval",

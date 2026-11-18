@@ -11331,6 +11331,16 @@
           }
         }
       }
+    },
+    "/sharedcore/state": {
+      "get": {
+        "operationId": "sharedcoreState",
+        "responses": {
+          "200": {
+            "description": "SharedCore project state and plan"
+          }
+        }
+      }
     }
   },
   "security": [

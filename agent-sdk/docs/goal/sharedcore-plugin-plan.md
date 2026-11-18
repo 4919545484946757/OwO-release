@@ -88,3 +88,11 @@ plugins/owo-sharedcore/
 2. Integration Gate（合并前检查范围/契约/测试命令）与 worktree 管理；
 3. 桌面 UI：任务看板（复用剧本面板样式）与并行批次可视化；
 4. UI 布局重构（对标 Codex / DSH）：会话页信息层级、设置页、工具页。
+
+### 已完成（第 2 阶段，同日）
+
+- 服务端只读数据面 `GET /sharedcore/state`：项目上下文 + 任务 + 契约 + 最近事件 +
+  依赖批次/写范围冲突计算（Rust `sharedcore_api`，2 条契约测试）。
+- 桌面「SharedCore」面板：规则/架构、并行批次、阻塞、冲突、任务、契约、事件；
+  真实 daemon 验证渲染（截图 `docs/qa/evidence/ui-sharedcore-panel-20261118.png`）。
+- 导航：工作台「自动化」分组新增入口（25 个面板），桌面全量 815 条通过。

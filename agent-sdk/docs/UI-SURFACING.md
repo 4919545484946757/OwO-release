@@ -19,6 +19,7 @@
 | 工作流运行（run/rerun/diff/验证） | 「工作流」面板 | ✅ |
 | 目标与计划（waves/步骤/尝试/输出） | 工作台 →「目标与计划」 | ✅ |
 | 任务剧本 | 工作台 →「自动化 → 任务剧本」面板 | ✅ 2026-11-18 |
+| SharedCore 共享上下文 | 工作台 →「自动化 → SharedCore」面板 | ✅ 截图 docs/qa/evidence/ui-sharedcore-panel-20261118.png |
 | ├ 新建 / 列表 / 进度 / 风险与失败类型 | 同上（`POST /playbooks/init`、`GET /playbooks`） | ✅ 截图 `docs/qa/evidence/ui-playbook-create-20261118.png` |
 | ├ 展开：命令/重试预算/逐步记录 | 同上（`GET /playbooks/status`、`POST /playbooks/record`） | ✅ 截图 `docs/qa/evidence/ui-playbook-panel-20261118.png` |
 | ├ 保存快照 / 历史与退化对比 | 同上（`POST /playbooks/archive`、`GET /playbooks/history`） | ✅ 截图 `ui-playbook-archive-20261118.png`、`ui-playbook-compare-20261118.png` |
