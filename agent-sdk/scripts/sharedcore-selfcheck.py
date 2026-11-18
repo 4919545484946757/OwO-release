@@ -51,7 +51,7 @@ def main() -> int:
     assert init["result"]["serverInfo"]["name"] == "owo-sharedcore"
 
     names = [item["name"] for item in call(2, "tools/list")["result"]["tools"]]
-    assert len(names) == 10, names
+    assert len(names) == 12, names
 
     data, error = tool(3, "sharedcore_init", {
         "workspace": workspace,
@@ -122,6 +122,21 @@ def main() -> int:
 
     status, error = tool(18, "sharedcore_status", {"workspace": workspace})
     assert not error and status["project"]["core_version"] == 2, status
+
+    worktree, error = tool(19, "sharedcore_worktree", {"workspace": workspace, "task_id": "T-002"})
+    assert not error and "worktree add" in worktree["command"], worktree
+
+    gate, error = tool(20, "sharedcore_gate", {"workspace": workspace})
+    assert not error and gate["ok"] is False, gate
+    assert len(gate["blockers"]) >= 1, gate
+
+    gate, error = tool(21, "sharedcore_gate", {
+        "workspace": workspace,
+        "changed_files": ["src/backend/main.rs"],
+        "allow_partial": True,
+    })
+    assert not error and gate["ok"] is True, gate
+    assert any("src/backend/main.rs" in warning for warning in gate["warnings"]), gate
 
     process.stdin.close()
     process.wait(timeout=10)

@@ -86,7 +86,7 @@ plugins/owo-sharedcore/
 
 1. 用真实 `fanout_subagents` 跑一次并行开发演示（需要模型凭据）；
 2. Integration Gate（合并前检查范围/契约/测试命令）与 worktree 管理；
-3. 桌面 UI：任务看板（复用剧本面板样式）与并行批次可视化；
+3. 桌面 UI：任务看板（已完成第一版）与集成门状态展示；
 4. UI 布局重构（对标 Codex / DSH）：会话页信息层级、设置页、工具页。
 
 ### 已完成（第 2 阶段，同日）

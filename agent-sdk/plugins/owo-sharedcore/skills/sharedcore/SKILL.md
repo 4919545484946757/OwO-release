@@ -30,14 +30,20 @@ description: 多 Agent 共享核心上下文的并行开发协调：初始化项
    同一批次内任务的写范围不应重叠；有冲突就拆范围或加依赖。
 4. **并行执行**
    对每个可运行任务：
-   a. `sharedcore_claim`（owner=子 Agent 名，branch/worktree 可空）；
-   b. `sharedcore_brief` 生成该任务的简报；
-   c. 用宿主的 **`fanout_subagents`**（一批）或 `subagent`（单个）启动子 Agent，
+   a. `sharedcore_worktree`（plan）拿到分支/worktree 建议与 `git worktree add` 命令，
+      用宿主命令工具执行后 `record` 写回；
+   b. `sharedcore_claim`（owner=子 Agent 名，branch/worktree 用上一步的值）；
+   c. `sharedcore_brief` 生成该任务的简报；
+   d. 用宿主的 **`fanout_subagents`**（一批）或 `subagent`（单个）启动子 Agent，
       提示词 = brief 原文 + "在独立 worktree 中完成，只改 write_scope 内文件"；
-   d. 子 Agent 返回后，`sharedcore_update` 记 done/failed，附证据与原因。
+   e. 子 Agent 返回后，`sharedcore_update` 记 done/failed，附证据与原因。
 5. **下一批**
    重新 `sharedcore_plan`，直到没有可运行任务。
-6. **收尾**
+6. **集成校验**
+   合并前用宿主命令取 `git diff --name-only`，调用 `sharedcore_gate`：
+   未完成任务、未接受契约、越出已完成任务写范围的改动都会报出来；
+   `ok=true` 才允许宿主执行合并与测试（测试仍由宿主命令完成）。
+7. **收尾**
    `sharedcore_status` 汇总：完成数、失败/阻塞、契约版本、最近事件；向用户报告。
 
 ## 工具边界
@@ -53,6 +59,8 @@ description: 多 Agent 共享核心上下文的并行开发协调：初始化项
 | `sharedcore_update` | 状态迁移 + 自动事件 |
 | `sharedcore_contract` | 契约提案/接受（expected_version CAS） |
 | `sharedcore_event` | 追加共享事件 |
+| `sharedcore_worktree` | 规划/记录分支与 worktree（只返回命令） |
+| `sharedcore_gate` | 集成门前置校验（未完成任务/契约/越范围改动） |
 | `sharedcore_brief` | 生成子 Agent 简报 |
 
 ## 约束

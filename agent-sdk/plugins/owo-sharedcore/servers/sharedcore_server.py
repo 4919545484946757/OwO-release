@@ -576,6 +576,122 @@ def tool_event(args):
     return {"ok": True, "event": event}
 
 
+def scope_contains(scope, file):
+    scope = str(scope or "").strip().replace("\\", "/").rstrip("/")
+    file = str(file or "").strip().replace("\\", "/")
+    if not scope or not file:
+        return False
+    if "*" in scope:
+        prefix = scope.split("*")[0]
+        return file.startswith(prefix)
+    return file == scope or file.startswith(scope + "/")
+
+
+def tool_worktree(args):
+    """规划任务分支/worktree；只返回命令，不执行 git（由宿主命令工具执行）。"""
+    workspace = require_workspace(args)
+    require_project(workspace)
+    task_id = str(args.get("task_id") or "")
+    tasks_payload = load_tasks(workspace)
+    tasks = tasks_payload.setdefault("tasks", {})
+    task = tasks.get(task_id)
+    if not task:
+        raise ToolError("任务不存在：%s" % task_id)
+    action = str(args.get("action") or "plan")
+    branch = str(args.get("branch") or task.get("branch") or "agent/" + task_id.lower())
+    parent = os.path.dirname(os.path.abspath(workspace).rstrip("\\/"))
+    worktree = str(
+        args.get("worktree")
+        or task.get("worktree")
+        or os.path.join(parent, "worktrees", task_id.lower())
+    )
+    command = 'git -C "%s" worktree add -b %s "%s" HEAD' % (workspace, branch, worktree)
+    if action == "record":
+        task["branch"] = branch
+        task["worktree"] = worktree
+        task["updated_at"] = now_iso()
+        save_tasks(workspace, tasks_payload)
+        bump_revision(workspace, require_project(workspace))
+        append_event(
+            workspace,
+            {
+                "type": "task.worktree",
+                "source": task.get("owner") or "sharedcore",
+                "resource": "tasks/" + task_id,
+                "affected_tasks": [task_id],
+                "payload": {"branch": branch, "worktree": worktree},
+            },
+        )
+        return {"ok": True, "task": task, "branch": branch, "worktree": worktree}
+    if action != "plan":
+        raise ToolError("action 只允许 plan / record")
+    return {"task_id": task_id, "branch": branch, "worktree": worktree, "command": command}
+
+
+def tool_gate(args):
+    """集成门：只做校验并记录事件，不合并、不执行测试。"""
+    workspace = require_workspace(args)
+    require_project(workspace)
+    tasks = load_tasks(workspace).get("tasks") or {}
+    contracts = load_contracts(workspace)["contracts"]
+    changed = [
+        str(item).strip().replace("\\", "/")
+        for item in args.get("changed_files") or []
+        if str(item).strip()
+    ]
+    allow_partial = bool(args.get("allow_partial"))
+    blockers = []
+    warnings = []
+    unfinished = [
+        task_id
+        for task_id, task in sorted(tasks.items())
+        if task.get("status") not in ("done", "skipped")
+    ]
+    if unfinished and not allow_partial:
+        blockers.append("任务未完成：%s" % "、".join(unfinished))
+    proposed = [
+        contract_id
+        for contract_id, contract in contracts.items()
+        if contract.get("status") != "accepted"
+    ]
+    if proposed:
+        blockers.append("契约未接受：%s" % "、".join(proposed))
+    done_tasks = [
+        task for task in tasks.values() if task.get("status") == "done"
+    ]
+    for file in changed:
+        owners = [
+            task["id"]
+            for task in done_tasks
+            if any(scope_contains(scope, file) for scope in task.get("write_scope") or [])
+        ]
+        if not owners:
+            warnings.append("不在任何已完成任务的写范围内：%s" % file)
+    ok = not blockers
+    event = append_event(
+        workspace,
+        {
+            "type": "integration.checked",
+            "source": "sharedcore",
+            "resource": "integration",
+            "payload": {
+                "ok": ok,
+                "blockers": blockers,
+                "warnings": warnings,
+                "changed_files": len(changed),
+            },
+        },
+    )
+    bump_revision(workspace, require_project(workspace))
+    return {
+        "ok": ok,
+        "blockers": blockers,
+        "warnings": warnings,
+        "changed_files": len(changed),
+        "event": event["event_id"],
+    }
+
+
 def tool_brief(args):
     workspace = require_workspace(args)
     project = require_project(workspace)
@@ -799,6 +915,34 @@ TOOLS = [
         },
     },
     {
+        "name": "sharedcore_worktree",
+        "description": "规划任务分支与 worktree（返回 git worktree add 命令，不执行）；action=record 时把实际分支/路径写回任务。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspace": {"type": "string"},
+                "task_id": {"type": "string"},
+                "action": {"type": "string", "enum": ["plan", "record"]},
+                "branch": {"type": "string"},
+                "worktree": {"type": "string"},
+            },
+            "required": ["workspace", "task_id"],
+        },
+    },
+    {
+        "name": "sharedcore_gate",
+        "description": "集成门校验：检查未完成任务、未接受契约、改动文件是否都在已完成任务的写范围内；只记录事件，不合并/不跑测试。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspace": {"type": "string"},
+                "changed_files": {"type": "array", "items": {"type": "string"}, "description": "git diff --name-only 的结果"},
+                "allow_partial": {"type": "boolean", "description": "允许未完成任务（仅做范围检查）"},
+            },
+            "required": ["workspace"],
+        },
+    },
+    {
         "name": "sharedcore_brief",
         "description": "为某个任务生成结构化简报（规则/契约/写范围/验收），直接作为子 Agent 的提示。",
         "inputSchema": {
@@ -823,6 +967,8 @@ HANDLERS = {
     "sharedcore_update": tool_update,
     "sharedcore_contract": tool_contract,
     "sharedcore_event": tool_event,
+    "sharedcore_worktree": tool_worktree,
+    "sharedcore_gate": tool_gate,
     "sharedcore_brief": tool_brief,
 }
 
