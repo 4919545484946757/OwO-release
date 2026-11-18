@@ -532,6 +532,74 @@ a:focus-visible {
   display: inline-block;
 }
 
+/* 新任务向导：连接式步骤指示器 */
+#panelRoot .owo-pl-wizard {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 6px 0 14px;
+}
+#panelRoot .owo-pl-wizard button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  padding: 2px 4px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  border-radius: var(--r-md);
+}
+#panelRoot .owo-pl-wizard button:hover { background: var(--surface-2); color: var(--text); }
+#panelRoot .owo-pl-wizard button i {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+  display: inline-block;
+  position: relative;
+  font-size: 0;
+}
+#panelRoot .owo-pl-wizard button[data-state="done"] i {
+  border-color: var(--green);
+  background: var(--green);
+}
+#panelRoot .owo-pl-wizard button[data-state="done"] i::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--surface);
+  border-width: 0 2px 2px 0;
+  transform: rotate(40deg);
+}
+#panelRoot .owo-pl-wizard button[data-state="done"] { color: var(--text-2); }
+#panelRoot .owo-pl-wizard button[data-state="current"] { color: var(--text); font-weight: 600; }
+#panelRoot .owo-pl-wizard button[data-state="current"] i {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+  animation: owo-wiz-pulse 1.8s ease-in-out infinite;
+}
+#panelRoot .owo-pl-wizard-track {
+  flex: 1 1 24px;
+  height: 2px;
+  min-width: 24px;
+  max-width: 110px;
+  background: var(--border);
+}
+#panelRoot .owo-pl-wizard-track[data-state="done"] { background: var(--green); }
+@keyframes owo-wiz-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--accent-soft); }
+  50% { box-shadow: 0 0 0 7px var(--accent-soft); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #panelRoot .owo-pl-wizard button[data-state="current"] i { animation: none; }
+}
+
 /* 首页行：状态圆点 + 状态色文字 */
 #panelRoot .home-task-row { align-items: center; }
 #panelRoot .home-row-dot {

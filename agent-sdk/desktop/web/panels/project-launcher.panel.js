@@ -810,7 +810,13 @@
         '<div class="owo-pl">' +
         '<h2>新建任务</h2>' +
         '<p class="hint">目标 → 范围与方式 → 预览并开始。默认只读，执行仍受权限与审批约束。</p>' +
-        '<nav class="owo-pl-wizard" aria-label="新任务步骤"><button type="button" data-pl-wizard="1">1 · 任务目标</button><button type="button" data-pl-wizard="2">2 · 范围与方式</button><button type="button" data-pl-wizard="3">3 · 预览并开始</button></nav><p id="pl-wizard-error" role="alert" hidden></p>' +
+        '<nav class="owo-pl-wizard" aria-label="新任务步骤">' +
+        '<button type="button" data-pl-wizard="1"><i aria-hidden="true"></i><span>1 · 任务目标</span></button>' +
+        '<em class="owo-pl-wizard-track" aria-hidden="true"></em>' +
+        '<button type="button" data-pl-wizard="2"><i aria-hidden="true"></i><span>2 · 范围与方式</span></button>' +
+        '<em class="owo-pl-wizard-track" aria-hidden="true"></em>' +
+        '<button type="button" data-pl-wizard="3"><i aria-hidden="true"></i><span>3 · 预览并开始</span></button>' +
+        "</nav><p id=\"pl-wizard-error\" role=\"alert\" hidden></p>" +
         '<div class="owo-pl-step"><label class="owo-pl-label">任务目标</label>' +
         '<textarea id="pl-objective" rows="3" placeholder="例如：修复登录超时问题并补充回归测试（结构化/文档/研究任务均可）">' + esc(state.objective) + "</textarea></div>" +
         '<div class="owo-pl-step"><label class="owo-pl-label">项目目录 <span class="hint">Agent 将以该目录为工作区</span></label>' +
@@ -867,8 +873,15 @@
       if (!rootEl) return;
       Array.from(rootEl.querySelectorAll(".owo-pl-step")).forEach((section, index) => { section.hidden = wizardStage(index) !== state.wizardStep; });
       rootEl.querySelectorAll("[data-pl-wizard]").forEach(button => {
-        if (Number(button.getAttribute("data-pl-wizard")) === state.wizardStep) button.setAttribute("aria-current", "step");
-        else button.removeAttribute("aria-current");
+        const step = Number(button.getAttribute("data-pl-wizard"));
+        if (step === state.wizardStep) { button.setAttribute("aria-current", "step"); button.dataset.state = "current"; }
+        else {
+          button.removeAttribute("aria-current");
+          button.dataset.state = step < state.wizardStep ? "done" : "todo";
+        }
+      });
+      rootEl.querySelectorAll(".owo-pl-wizard-track").forEach((track, index) => {
+        track.dataset.state = state.wizardStep > index + 1 ? "done" : "todo";
       });
       const back = el("#pl-prev"), next = el("#pl-next");
       if (back) back.hidden = state.wizardStep === 1;
