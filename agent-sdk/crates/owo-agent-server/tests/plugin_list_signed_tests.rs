@@ -74,11 +74,42 @@ fn write_spec_plugin(root: &std::path::Path, name: &str, signed: bool) {
     }
 }
 
+fn write_legacy_plugin(root: &std::path::Path, name: &str, signed: bool) {
+    let dir = root.join(name);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut manifest = serde_json::json!({
+        "id": name,
+        "name": name,
+        "version": "1.0.0"
+    });
+    if signed {
+        // 只验证"列表报有无"；签名本身的有效性由安装/更新/check 负责。
+        manifest["signature"] = serde_json::json!({
+            "algorithm": "ed25519",
+            "public_key_b64": base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD,
+                [0u8; 32],
+            ),
+            "signature_b64": base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD,
+                [0u8; 64],
+            )
+        });
+    }
+    std::fs::write(
+        dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest).unwrap(),
+    )
+    .unwrap();
+}
+
 #[tokio::test]
 async fn plugin_list_reports_signed_state() {
     let (state, _temp) = test_state();
     write_spec_plugin(&state.workspace.join("plugins"), "plain", false);
     write_spec_plugin(&state.workspace.join("plugins"), "signed", true);
+    write_legacy_plugin(&state.workspace.join("plugins"), "legacy-signed", true);
+    write_legacy_plugin(&state.workspace.join("plugins"), "legacy-plain", false);
 
     let request = Request::builder()
         .method("GET")
@@ -110,4 +141,14 @@ async fn plugin_list_reports_signed_state() {
         .expect("plain 应在列表");
     assert_eq!(signed["signed"], true, "{body}");
     assert_eq!(plain["signed"], false, "{body}");
+    let legacy_signed = plugins
+        .iter()
+        .find(|plugin| plugin["id"] == "legacy-signed")
+        .expect("legacy-signed 应在列表");
+    let legacy_plain = plugins
+        .iter()
+        .find(|plugin| plugin["id"] == "legacy-plain")
+        .expect("legacy-plain 应在列表");
+    assert_eq!(legacy_signed["signed"], true, "{body}");
+    assert_eq!(legacy_plain["signed"], false, "{body}");
 }
