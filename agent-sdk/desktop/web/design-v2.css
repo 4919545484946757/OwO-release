@@ -292,7 +292,7 @@ button.primary,
 button.primary:hover,
 .primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
-button:not(.primary), select, input, textarea { border-color: var(--border); }
+button:not(.primary), select, input, textarea { font: inherit; }
 button:focus-visible,
 select:focus-visible,
 input:focus-visible,
@@ -310,6 +310,40 @@ a:focus-visible {
 #panelRoot .owo-pb-tools { justify-content: flex-end; }
 #panelRoot .owo-pb-tools h3 { display: none; }
 #panelRoot .owo-sc-head > div:first-child { display: none; }
+
+/* 设置页：与主界面同一套密度和圆角 */
+.settings-section { padding: 22px 28px 48px; }
+.settings-layout {
+  grid-template-columns: 184px minmax(0, 760px);
+  gap: 36px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+.settings-nav-title {
+  padding: 2px 10px 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+.settings-nav-item {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  color: var(--text-2);
+}
+.settings-nav-item.active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.settings-page-title strong { font-size: 20px; }
+.settings-row { padding: 14px 0; }
+.settings-row-control { flex-wrap: nowrap; }
+.settings-row-control :is(input, select) { max-width: 220px; }
+.settings-card { background: var(--surface); border-radius: var(--r-md); }
 
 .owo-pb-card,
 .owo-sc-card,
