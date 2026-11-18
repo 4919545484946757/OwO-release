@@ -388,6 +388,18 @@ a:focus-visible {
   padding: 18px;
 }
 
+/* 能力目录：单列内容，卡片统一规格 */
+#panelRoot .owo-cap-panel { display: flex; flex-direction: column; gap: 12px; }
+#panelRoot .owo-cap-tools { justify-content: space-between; }
+#panelRoot .owo-cap-card {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: 14px 16px;
+}
+#panelRoot .owo-cap-card + .owo-cap-card { margin-top: 0; }
+#panelRoot .owo-cap-panel .hint { color: var(--text-3); font-size: 12.5px; }
+
 /* ---------- 面板 / 设置 ---------- */
 #panelRoot { padding: 22px 28px 40px; }
 #panelRoot > * { max-width: 1120px; margin-left: auto; margin-right: auto; }

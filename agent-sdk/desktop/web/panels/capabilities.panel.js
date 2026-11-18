@@ -87,7 +87,7 @@
 
     function nav() {
       return (
-        '<section data-panel="capabilities" class="owo-cap-panel">' +
+        '<section data-panel="capabilities" data-layout="custom" class="owo-cap-panel">' +
         '<div class="owo-cap-tools"><h3>我现在能做什么</h3>' +
         '<button type="button" class="owo-cap-refresh" aria-label="刷新能力目录">刷新</button></div>' +
         '<div class="hint">按任务展示产品能力与入口；标记「高级」的能力在开发者模式下显示。</div>' +
