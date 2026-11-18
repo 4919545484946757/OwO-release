@@ -204,6 +204,42 @@
       );
     }
 
+    /// 可视化步骤条：水平轨道 + 状态圆点 + 连接线（一眼看全剧本进度）。
+    function stepper(steps) {
+      if (!steps || !steps.length) return "";
+      var dot = function (step, index) {
+        var state = step.state || "pending";
+        var kind =
+          state === "passed" ? "ok" :
+          state === "failed" ? "bad" :
+          state === "skipped" ? "warn" : "";
+        var current = index === steps.length - 1 && state === "pending";
+        return (
+          '<div class="owo-pb-step-point' + (kind ? " owo-pb-" + kind : "") + (current ? " current" : "") + '"' +
+          ' title="' + esc(step.id) + " · " + esc(step.title || "") + " · " + esc(state) + '">' +
+          '<i aria-hidden="true"></i><small>' + esc(step.id) + "</small></div>"
+        );
+      };
+      return (
+        '<div class="owo-pb-stepper" role="img" aria-label="步骤进度">' +
+        steps
+          .map(function (step, index) {
+            var joined = index < steps.length - 1;
+            var next = steps[index + 1];
+            var done = step.state === "passed";
+            var nextDone = next && next.state === "passed";
+            return (
+              dot(step, index) +
+              (joined
+                ? '<div class="owo-pb-step-link' + (done && nextDone ? " done" : "") + '" aria-hidden="true"></div>'
+                : "")
+            );
+          })
+          .join("") +
+        "</div>"
+      );
+    }
+
     function paintDetail(cardEl, data) {
       var box = cardEl.querySelector(".owo-pb-detail");
       if (!box) return;
@@ -219,6 +255,7 @@
         '<div class="owo-pb-detail-head"><span class="sub">' +
         esc((data && data.progress && data.progress.summary) || "") +
         "</span></div>" +
+        stepper(steps) +
         (steps.length ? steps.map(stepRow).join("") : '<div class="hint">没有步骤</div>') +
         '<div class="owo-pb-history" hidden></div>';
     }
@@ -661,6 +698,7 @@
       stepRow: stepRow,
       mark: mark,
       bar: bar,
+      stepper: stepper,
       compareRows: compareRows,
       compareMaps: compareMaps,
     };

@@ -178,6 +178,23 @@ test("truncated lists are labelled", async () => {
   assert.match(view.querySelector(".owo-pb-meta").textContent, /已截断/);
 });
 
+test("stepper renders one dot per step with link tracks", () => {
+  const { panel } = harness();
+  const html = panel._test.stepper([
+    { id: "scope", title: "确认范围", state: "passed" },
+    { id: "build", title: "构建", state: "failed" },
+    { id: "tests", title: "测试", state: "pending" },
+  ]);
+  assert.match(html, /owo-pb-stepper/);
+  assert.equal((html.match(/owo-pb-step-point/g) || []).length, 3);
+  assert.equal((html.match(/owo-pb-step-link/g) || []).length, 2);
+  assert.match(html, /owo-pb-step-point owo-pb-ok/);
+  assert.match(html, /owo-pb-step-point owo-pb-bad/);
+  assert.doesNotMatch(html, /owo-pb-step-link done/);
+  // 空步骤不渲染。
+  assert.equal(panel._test.stepper([]), "");
+});
+
 test("mount fetches the list and renders cards", async () => {
   const { panel } = harness();
   const view = fakeRoot();

@@ -440,6 +440,72 @@ a:focus-visible {
 .workbench-quick-results button strong { font-size: 13px; font-weight: 550; color: var(--text); }
 .workbench-quick-results button span { font-size: 11.5px; color: var(--text-3); }
 
+/* 剧本步骤条：状态圆点 + 连接轨道 */
+.owo-pb-stepper {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  padding: 10px 6px 12px;
+  overflow-x: auto;
+}
+.owo-pb-step-point {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 44px;
+  flex-shrink: 0;
+}
+.owo-pb-step-point i {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+  display: inline-block;
+}
+.owo-pb-step-point.owo-pb-ok i { background: var(--green); border-color: var(--green); }
+.owo-pb-step-point.owo-pb-bad i { background: var(--red); border-color: var(--red); }
+.owo-pb-step-point.owo-pb-warn i { background: var(--yellow); border-color: var(--yellow); }
+.owo-pb-step-point.current i { box-shadow: 0 0 0 4px var(--accent-soft); }
+.owo-pb-step-point small { font-size: 10px; color: var(--text-3); }
+.owo-pb-step-link {
+  flex: 1 1 24px;
+  height: 2px;
+  min-width: 24px;
+  max-width: 96px;
+  background: var(--border);
+  margin-top: 6px;
+}
+.owo-pb-step-link.done { background: var(--green); }
+
+/* SharedCore 任务 DAG：白板式画布 + 状态节点 */
+.owo-sc-dag-wrap {
+  overflow-x: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px 12px 10px;
+}
+.owo-sc-dag { display: block; min-width: 320px; height: auto; }
+.owo-sc-dag text { font-family: inherit; }
+.owo-sc-dag-node rect { transition: transform 160ms ease; }
+.owo-sc-dag-node:hover rect { stroke-width: 2; }
+.owo-sc-dag-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 11.5px;
+}
+.owo-sc-dag-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.owo-sc-dag-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
 /* ---------- 面板 / 设置 ---------- */
 #panelRoot { padding: 22px 28px 40px; }
 #panelRoot > * { max-width: 1120px; margin-left: auto; margin-right: auto; }

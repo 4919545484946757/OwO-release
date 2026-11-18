@@ -69,6 +69,135 @@
       return STATUS_LABELS[status] || status || "未知";
     }
 
+    // —— 任务 DAG（SVG，零依赖）：按依赖深度分层，左→右为执行顺序 ——
+    var DAG_NODE_W = 148;
+    var DAG_NODE_H = 46;
+    var DAG_GAP_X = 56;
+    var DAG_GAP_Y = 14;
+    var STATUS_FILL = {
+      done: { fill: "var(--green-soft)", stroke: "var(--green)", ink: "var(--green)" },
+      failed: { fill: "var(--red-soft)", stroke: "var(--red)", ink: "var(--red)" },
+      running: { fill: "var(--accent-soft)", stroke: "var(--accent)", ink: "var(--accent)" },
+      blocked: { fill: "var(--yellow-soft)", stroke: "var(--yellow)", ink: "var(--yellow)" },
+      ready: { fill: "var(--surface)", stroke: "var(--border-strong)", ink: "var(--text-2)" },
+    };
+    function statusColor(status) {
+      return STATUS_FILL[status] || STATUS_FILL.ready;
+    }
+
+    function renderDag(tasks, plan) {
+      var keys = Object.keys(tasks || {});
+      if (!keys.length) return "";
+      // 深度分层：无依赖=0，否则 max(依赖深度)+1；依赖缺失按 -1 兜底。
+      var depth = {};
+      var resolve = function (id, guard) {
+        if (depth[id] != null) return depth[id];
+        if (guard > 32) return 0; // 环保护：按 0 层处理，避免死递归
+        var deps = ((tasks[id] || {}).depends_on || []).filter(function (dep) { return tasks[dep]; });
+        if (!deps.length) { depth[id] = 0; return 0; }
+        var deepest = -1;
+        for (var i = 0; i < guard.length; i++) if (guard[i] === id) return 0;
+        guard.push(id);
+        for (var j = 0; j < deps.length; j++) {
+          deepest = Math.max(deepest, resolve(deps[j], guard));
+        }
+        guard.pop();
+        depth[id] = deepest + 1;
+        return depth[id];
+      };
+      keys.forEach(function (id) { resolve(id, []); });
+      // 按层分列；同层按 id 排序保证布局稳定。
+      var layers = {};
+      var maxDepth = 0;
+      keys.forEach(function (id) {
+        var level = depth[id] || 0;
+        maxDepth = Math.max(maxDepth, level);
+        (layers[level] = layers[level] || []).push(id);
+      });
+      Object.keys(layers).forEach(function (level) {
+        layers[level].sort();
+      });
+      // 布局坐标。
+      var boxes = {};
+      var columnX = {};
+      for (var level = 0; level <= maxDepth; level++) {
+        columnX[level] = level * (DAG_NODE_W + DAG_GAP_X);
+      }
+      keys.forEach(function (id) {
+        var level = depth[id] || 0;
+        var index = layers[level].indexOf(id);
+        boxes[id] = {
+          x: columnX[level],
+          y: index * (DAG_NODE_H + DAG_GAP_Y),
+          level: level,
+        };
+      });
+      var width = (maxDepth + 1) * DAG_NODE_W + maxDepth * DAG_GAP_X;
+      var rowsMax = 1;
+      Object.keys(layers).forEach(function (level) {
+        rowsMax = Math.max(rowsMax, layers[level].length);
+      });
+      var height = rowsMax * DAG_NODE_H + (rowsMax - 1) * DAG_GAP_Y;
+      // 连线：依赖 → 任务（三次贝塞尔，从右缘到左缘）。
+      var edges = "";
+      keys.forEach(function (id) {
+        var deps = ((tasks[id] || {}).depends_on || []).filter(function (dep) { return boxes[dep]; });
+        deps.forEach(function (dep) {
+          var from = boxes[dep];
+          var to = boxes[id];
+          var x1 = from.x + DAG_NODE_W;
+          var y1 = from.y + DAG_NODE_H / 2;
+          var x2 = to.x;
+          var y2 = to.y + DAG_NODE_H / 2;
+          var mid = (x1 + x2) / 2;
+          edges +=
+            '<path d="M' + x1 + " " + y1 +
+            " C" + mid + " " + y1 + " " + mid + " " + y2 + " " + x2 + " " + y2 +
+            '" fill="none" stroke="var(--border-strong)" stroke-width="1.4" marker-end="url(#owo-sc-arrow)"/>';
+        });
+      });
+      // 节点。
+      var nodes = "";
+      keys.forEach(function (id) {
+        var task = tasks[id] || {};
+        var status = task.status || "ready";
+        var box = boxes[id];
+        var color = statusColor(status);
+        var title = String(task.title || id);
+        if (title.length > 12) title = title.slice(0, 12) + "…";
+        var badge = task.owner ? String(task.owner).slice(0, 8) : "";
+        nodes +=
+          '<g class="owo-sc-dag-node" transform="translate(' + box.x + "," + box.y + ')">' +
+          '<rect width="' + DAG_NODE_W + '" height="' + DAG_NODE_H + '" rx="10" fill="' + color.fill +
+          '" stroke="' + color.stroke + '"' + (status === "blocked" ? ' stroke-dasharray="4 3"' : "") + '/>' +
+          '<text x="12" y="19" font-size="11.5" font-weight="600" fill="var(--text)">' + esc(task.id || id) + "</text>" +
+          '<text x="12" y="34" font-size="11" fill="var(--text-3)">' + esc(title) + "</text>" +
+          '<text x="' + (DAG_NODE_W - 10) + '" y="19" font-size="10" text-anchor="end" fill="' + color.ink + '">' + esc(statusLabel(status)) + "</text>" +
+          (badge ? '<text x="' + (DAG_NODE_W - 10) + '" y="34" font-size="10" text-anchor="end" fill="var(--text-3)">' + esc(badge) + "</text>" : "") +
+          "</g>";
+      });
+      var svg =
+        '<svg class="owo-sc-dag" viewBox="0 0 ' + width + " " + height +
+        '" width="100%" role="img" aria-label="任务依赖图">' +
+        '<defs><marker id="owo-sc-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">' +
+        '<path d="M0 0 L10 5 L0 10 z" fill="var(--border-strong)"/></marker></defs>' +
+        edges + nodes + "</svg>";
+      var legend =
+        '<div class="owo-sc-dag-legend sub">' +
+        '<span><i style="background:var(--green)"></i>完成</span>' +
+        '<span><i style="background:var(--accent)"></i>进行中</span>' +
+        '<span><i style="background:var(--yellow)"></i>阻塞</span>' +
+        '<span><i style="background:var(--red)"></i>失败</span>' +
+        '<span><i style="background:var(--border-strong)"></i>就绪</span>' +
+        "</div>";
+      return (
+        '<section class="owo-sc-card">' +
+        '<div class="owo-sc-card-head"><strong>任务图</strong>' +
+        '<span class="sub">按依赖分层 · 左→右为执行顺序</span></div>' +
+        '<div class="owo-sc-dag-wrap">' + svg + "</div>" + legend + "</section>"
+      );
+    }
+
     function renderProject(project) {
       var rules = (project.rules || [])
         .map(function (rule) {
@@ -234,6 +363,7 @@
       }
       body.innerHTML =
         renderProject(project) +
+        renderDag(data.tasks || {}, data.plan || {}) +
         renderPlan(data.plan || {}) +
         renderTasks(data.tasks || {}) +
         renderContracts(data.contracts || {}) +
@@ -278,6 +408,6 @@
       generation += 1;
     }
 
-    return { ID: ID, mount: mount, unmount: unmount, _test: { paint: paint, renderPlan: renderPlan } };
+    return { ID: ID, mount: mount, unmount: unmount, _test: { paint: paint, renderPlan: renderPlan, renderDag: renderDag } };
   })();
 })();
