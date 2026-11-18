@@ -391,6 +391,12 @@ a:focus-visible {
 /* 能力目录：单列内容，卡片统一规格 */
 #panelRoot .owo-cap-panel { display: flex; flex-direction: column; gap: 12px; }
 #panelRoot .owo-cap-tools { justify-content: space-between; }
+#panelRoot .owo-cap-summary { display: flex; align-items: center; gap: 16px; padding: 4px 2px; }
+#panelRoot .owo-cap-donut { display: flex; align-items: center; gap: 14px; }
+#panelRoot .owo-cap-donut svg text { font-family: inherit; }
+#panelRoot .owo-cap-donut-meta { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--text-2); }
+#panelRoot .owo-cap-donut-meta span { display: inline-flex; align-items: center; gap: 6px; }
+#panelRoot .owo-cap-donut-meta i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
 #panelRoot .owo-cap-card {
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
@@ -398,6 +404,26 @@ a:focus-visible {
   padding: 14px 16px;
 }
 #panelRoot .owo-cap-card + .owo-cap-card { margin-top: 0; }
+#panelRoot .owo-cap-effects { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 2px; }
+#panelRoot .owo-cap-eff {
+  display: inline-flex; align-items: center; gap: 5px;
+  border-radius: 999px; padding: 2px 9px;
+  font-size: 11.5px; background: var(--surface-2); color: var(--text-2);
+}
+#panelRoot .owo-cap-eff i { width: 7px; height: 7px; border-radius: 999px; background: var(--text-3); }
+#panelRoot .owo-cap-eff-read i { background: var(--accent); }
+#panelRoot .owo-cap-eff-write i { background: var(--yellow); }
+#panelRoot .owo-cap-eff-exec i { background: var(--red); }
+#panelRoot .owo-cap-eff-net i { background: var(--green); }
+#panelRoot .owo-cap-kind {
+  display: inline-flex; align-items: center;
+  border-radius: 5px; padding: 1px 7px; margin-right: 2px;
+  font-size: 10.5px; font-weight: 600;
+  background: var(--surface-3); color: var(--text-2);
+}
+#panelRoot .owo-cap-kind-ui { background: var(--accent-soft); color: var(--accent); }
+#panelRoot .owo-cap-kind-cli { background: var(--green-soft); color: var(--green); }
+#panelRoot .owo-cap-kind-http { background: var(--yellow-soft); color: var(--yellow); }
 #panelRoot .owo-cap-panel .hint { color: var(--text-3); font-size: 12.5px; }
 
 /* 弹窗 / 命令面板 */

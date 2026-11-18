@@ -43,6 +43,31 @@ const catalog = name => ({
   capabilities: [{ user_name: name, maturity: "stable", summary: "ok" }],
 });
 
+test("maturityDonut draws proportional arcs and legend counts", () => {
+  const { panel } = harness();
+  const html = panel._test.maturityDonut({ stable: 0, beta: 10, experimental: 2 }, 12);
+  assert.match(html, /<svg viewBox="0 0 42 42"/);
+  // beta 10/12 ≈ 83.3% 弧长。
+  assert.match(html, /stroke="var\(--accent\)"/);
+  assert.match(html, /试用 10/);
+  assert.match(html, /实验 2/);
+  assert.doesNotMatch(html, /稳定 0/); // 计数为 0 的分段不进图例。
+  assert.match(html, /<text [^>]*>12<\/text>/); // 总数在环心。
+  // 空数据不渲染。
+  assert.equal(panel._test.maturityDonut({}, 0), "");
+});
+
+test("effectChip and kindMark render typed badges", () => {
+  const { panel } = harness();
+  assert.match(panel._test.effectChip("read"), /owo-cap-eff-read/);
+  assert.match(panel._test.effectChip("execute"), /执行命令/);
+  assert.match(panel._test.kindMark("ui"), /owo-cap-kind-ui/);
+  assert.match(panel._test.kindMark("http"), /HTTP/);
+  assert.match(panel._test.kindMark("cli"), /命令行/);
+  // 未知 kind 不崩，原样显示。
+  assert.match(panel._test.kindMark("other"), /other/);
+});
+
 test("unknown maturity labels are escaped before rendering into capability badges", () => {
   const { panel } = harness();
   const badge = panel._test.maturityBadge('<img src=x onerror=alert(1)>');
