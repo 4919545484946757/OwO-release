@@ -23,12 +23,13 @@ mod tests {
 
     #[test]
     fn actual_exit_status_overrides_success_words_and_preserves_output() {
-        let result = Ok(json!({"exit_code": 7, "stdout": "all tests passed", "stderr": "failure"}));
+        let value = json!({"exit_code": 7, "stdout": "all tests passed", "stderr": "failure"});
+        let result = Ok(value.clone());
         assert_eq!(
             execution_error("run_command", &result).as_deref(),
             Some("executor/process_exit: exit_code=7")
         );
-        assert_eq!(result.unwrap()["stderr"], "failure");
+        assert_eq!(value["stderr"], "failure");
         assert!(execution_error(
             "run_command",
             &Ok(json!({"exit_code": 0, "stdout": "error"}))

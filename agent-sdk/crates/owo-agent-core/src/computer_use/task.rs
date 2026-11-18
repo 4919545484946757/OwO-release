@@ -419,9 +419,8 @@ async fn execute_approved_task_on_with_receipts(
             // 其文本行不含控件身份，不能当作可写控件候选。
             (ocr, Some(uia_ref), Some(observation))
         } else {
-            let ocr = surface.ocr().await.map_err(|error| {
-                let _ = registry.pause(task_id, &error);
-                error
+            let ocr = surface.ocr().await.inspect_err(|error| {
+                let _ = registry.pause(task_id, error);
             })?;
             let reference = observation_ref(&ocr);
             (ocr, Some(reference), None)

@@ -692,7 +692,7 @@ fn normalize_review_verdict_aliases(value: &mut serde_json::Value) {
 /// 其后的内容不参与解析——"trailing characters" 不应让一份合法交付物整步失败。
 pub fn parse_first_json_value(text: &str) -> Result<serde_json::Value, String> {
     let trimmed = text.trim();
-    let Some(start) = trimmed.find(|ch| ch == '{' || ch == '[') else {
+    let Some(start) = trimmed.find(['{', '[']) else {
         return Err("未找到 JSON 起始符".to_string());
     };
     let mut stream =

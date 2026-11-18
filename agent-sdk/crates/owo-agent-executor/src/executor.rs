@@ -593,10 +593,14 @@ impl WindowsUiaSource {
                 let mut matches: Vec<IUIAutomationElement> = Vec::new();
                 for index in 0..descendants.Length()? {
                     let candidate = descendants.GetElement(index)?;
+                    // 名称与 AutomationId 只取一次：既避免为一次比较临时构造 String，
+                    // 也省掉同一元素上重复的跨进程 UIA 调用。
+                    let candidate_name = candidate.CurrentName()?.to_string();
+                    let candidate_automation_id = candidate.CurrentAutomationId()?.to_string();
                     if candidate.CurrentProcessId()? as u32 != identity.pid
                         || candidate.CurrentControlType()? != UIA_EditControlTypeId
-                        || candidate.CurrentName()?.to_string().trim() != identity.name.trim()
-                        || candidate.CurrentAutomationId()?.to_string() != identity.automation_id
+                        || candidate_name.trim() != identity.name.trim()
+                        || candidate_automation_id != identity.automation_id
                         || candidate.CurrentNativeWindowHandle()?.0 as i64
                             != identity.native_window_handle
                         || candidate.CurrentIsPassword()?.as_bool()
