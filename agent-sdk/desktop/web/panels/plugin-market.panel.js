@@ -16,7 +16,7 @@
 
     nav: function () {
       return (
-        '<section data-panel="plugin-market" class="owo-market-panel">' +
+        '<section data-panel="plugin-market" data-layout="custom" class="owo-market-panel">' +
         '<div class="owo-market-hero">' +
         "<div>" +
         "<h3>插件市场</h3>" +

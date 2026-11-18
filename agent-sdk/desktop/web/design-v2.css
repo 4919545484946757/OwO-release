@@ -302,6 +302,55 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* 插件市场：页头整行，已安装/市场目录两列，折叠区整行 */
+#panelRoot .owo-market-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px 18px;
+  align-items: start;
+}
+#panelRoot .owo-market-hero {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+#panelRoot .owo-market-hero h3 { display: none; }
+#panelRoot .owo-market-block {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: 12px 14px;
+}
+#panelRoot .owo-market-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 10px;
+}
+#panelRoot .owo-market-list li {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px;
+}
+#panelRoot .owo-market-list .sub {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-all;
+}
+#panelRoot .owo-market-block h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+}
+#panelRoot .owo-market-panel > details { grid-column: 1 / -1; }
+#panelRoot .owo-market-panel > details summary { font-size: 12.5px; color: var(--text-2); }
+
 /* ---------- 面板 / 设置 ---------- */
 #panelRoot { padding: 22px 28px 40px; }
 #panelRoot > * { max-width: 1120px; margin-left: auto; margin-right: auto; }
