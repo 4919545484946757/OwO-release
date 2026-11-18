@@ -1540,9 +1540,41 @@ async fn adaptive_research_template_rewrites_deps_and_keeps_one_summarizer() {
     assert!(team.members.iter().any(|m| m.role == "researcher_b"));
     assert!(team.members.iter().any(|m| m.role == "brief_writer"));
     assert!(!team.members.iter().any(|m| m.role == "evidence_verifier"));
-    let adaptive = team.strategy_decision.as_ref().unwrap()["adaptive"].clone();
+    let decision = team.strategy_decision.as_ref().unwrap();
+    let adaptive = decision["adaptive"].clone();
     assert_eq!(adaptive["skipped_roles"][0]["role"], "evidence_verifier");
-    assert_eq!(adaptive["saved_budget_calls"], 3);
+    // 节省额的口径是「被跳过角色在模板里声明的调用预算」，所以直接取描述符
+    // 做期望值：模板调整预算（如 3→6）时这条断言自动跟随，不再各说各话。
+    let verifier_budget =
+        builtin_team_templates::descriptor(builtin_team_templates::RESEARCH_BRIEF_V1)
+            .expect("内置研究模板应存在")
+            .budget_calls_per_role
+            .iter()
+            .find(|budget| budget.role == "evidence_verifier")
+            .map(|budget| budget.budget_calls)
+            .expect("研究模板应为 evidence_verifier 声明预算");
+    assert!(verifier_budget > 0, "被跳过角色的预算不应为 0");
+    assert_eq!(adaptive["saved_budget_calls"], verifier_budget);
+    // 跳过一个角色后，对外公布的总额必须等于「实际会跑的角色预算之和」，
+    // 不能把被裁掉的预算继续算在总额里。
+    let resolved = decision["resolved_roles"]
+        .as_array()
+        .expect("resolved_roles 应公布可运行拓扑");
+    assert!(
+        resolved
+            .iter()
+            .all(|role| role["role"] != "evidence_verifier"),
+        "被裁掉的角色不应出现在 resolved_roles 中"
+    );
+    let resolved_total: u64 = resolved
+        .iter()
+        .map(|role| role["budget_calls"].as_u64().expect("角色预算"))
+        .sum();
+    assert_eq!(
+        resolved_total,
+        decision["budget_calls_total"].as_u64().unwrap(),
+        "resolved_roles 预算之和应与公布总额一致"
+    );
     // 依赖重定向生效：brief_writer（原依赖 s-evidence_verifier）若未重写到
     // researcher_a/b，create_team_run 内 plan.validate() 会因依赖缺失直接报错；
     // 能走到这里即证明 DAG 合法，再驱动到成功收尾确认无死锁。
