@@ -225,6 +225,14 @@ static FILE_LOG: Mutex<Option<FileLog>> = Mutex::new(None);
 /// 未初始化时 emit 仅落 stderr。
 /// 已接线（§13 批次八）：cli serve 启动时落盘 `logs/server.jsonl`（8MB×5 轮转）。
 pub fn init_file_logging(path: &Path, max_bytes: u64, backups: u32) -> std::io::Result<()> {
+    // 首次启动时父目录（`<data_root>/logs`）还不存在：核心不在初始化前预建它，
+    // 直接 open 只会拿到 ERROR_PATH_NOT_FOUND（Windows os error 3），文件日志
+    // 于是静默降级成「仅落 stderr」——正是这条长期没被发现的失效路径。
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
     let file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
