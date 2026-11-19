@@ -43,9 +43,14 @@ PipeExchangeResult exchange_agent_pipe(const std::wstring_view pipe_name,
     };
     if (!WaitNamedPipeW(std::wstring(pipe_name).c_str(), remaining()))
         return {false, {}, "third-party Agent is not connected"};
+    // The Agent pipe peer is an untrusted process: cap its impersonation at
+    // identification so it can never act with this client's credentials. Same
+    // quality-of-service flags the plugin pipe already requires.
     const HANDLE pipe = CreateFileW(std::wstring(pipe_name).c_str(),
         GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
-        FILE_FLAG_OVERLAPPED, nullptr);
+        FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION |
+            SECURITY_EFFECTIVE_ONLY,
+        nullptr);
     if (pipe == INVALID_HANDLE_VALUE)
         return {false, {}, "third-party Agent pipe open failed"};
     const auto transfer = [&](void* buffer, const DWORD size, const bool writing) {
