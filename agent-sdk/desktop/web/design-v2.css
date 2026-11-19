@@ -14,7 +14,8 @@
   --border-strong: #d2d5cc;
   --text: #191b18;
   --text-2: #52564f;
-  --text-3: #757a72;
+  /* 次级文字加深到白/浅灰底均 ≥4.5:1（旧 #757a72 在 surface-2 上只有 3.9:1）。 */
+  --text-3: #676c64;
   --accent: #146c50;
   --accent-hover: #0f5a42;
   --accent-soft: #e7f0eb;

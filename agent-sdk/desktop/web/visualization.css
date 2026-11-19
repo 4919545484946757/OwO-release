@@ -1,0 +1,186 @@
+/* ==========================================================================
+   内容可视化层 · 对标 Codex / DSH 的内容显示方式
+   只做「内容呈现」的视觉升级，不改交互与信息架构：
+   1) 代码块 token 着色 + 行号栏（配合 core/markdown.js 的 highlightCode）
+   2) 行级着色 diff（配合 app-domain.js 的 buildDiffView）
+   3) 用量趋势与预算进度（配合 app.js 的 usageTrendHtml / usageBudgetHtml）
+   本文件必须最后加载：与 experience.css 的 .md-code code 同特异度规则以此为准。
+   ========================================================================== */
+
+/* ---------- 1) 代码块：token 色板（浅色） ---------- */
+
+:root {
+  --tk-c: #6e6a5c; /* 注释（对白底 ≥4.5:1） */
+  --tk-s: #12744e; /* 字符串（品牌绿系） */
+  --tk-k: #1e5fa8; /* 关键字 */
+  --tk-n: #9a5a10; /* 数字 */
+  --tk-f: #5a4fb0; /* 函数名 */
+  --tk-t: #12688f; /* 类型名 */
+  --tk-m: #7d56a8; /* 宏 / 属性 / 装饰器 / 预处理 */
+  --tk-p: #4f6a9e; /* 属性键（json/yaml/toml/html attr） */
+  --tk-b: #b25f30; /* 字面量 / bash 变量 */
+}
+
+body.dark-theme {
+  --tk-c: #94907f;
+  --tk-s: #7fcfa8;
+  --tk-k: #7bb8e8;
+  --tk-n: #e0a562;
+  --tk-f: #a295ec;
+  --tk-t: #6cc4e8;
+  --tk-m: #b98fd6;
+  --tk-p: #8fa8d6;
+  --tk-b: #d69a6a;
+}
+
+/* 代码块主体：行号栏 + 源码区并排；横向滚动时行号钉在左侧。 */
+.msg pre.md-code code {
+  display: flex;
+  gap: 0 14px;
+  align-items: flex-start;
+}
+/* 代码头（语言名/复制）：提到 12px 并加深到 text-2，原 11.5px/text-3 对比不足。 */
+.msg pre.md-code .md-code-head { font-size: 12px; color: var(--text-2); }
+.msg pre.md-code .md-copy { font-size: 12px; }
+.msg pre.md-code .md-lines {
+  flex: 0 0 auto;
+  min-width: 2.6ch;
+  text-align: right;
+  /* 行号是装饰元素但同样保证 ≥4.5:1（text-3 在白底只有 4.39:1）。 */
+  color: var(--text-2);
+  user-select: none;
+  position: sticky;
+  left: 0;
+  /* 与 .md-code 的底色一致（浅/深主题由 --surface 自动切换），行号滚动时盖住下层文字。 */
+  background: var(--surface);
+  padding-left: 2px;
+}
+.msg pre.md-code .md-src { flex: 1 1 auto; min-width: 0; }
+
+.msg pre.md-code .tk-c { color: var(--tk-c); font-style: italic; }
+.msg pre.md-code .tk-s { color: var(--tk-s); }
+.msg pre.md-code .tk-k { color: var(--tk-k); font-weight: 500; }
+.msg pre.md-code .tk-n { color: var(--tk-n); }
+.msg pre.md-code .tk-f { color: var(--tk-f); }
+.msg pre.md-code .tk-t { color: var(--tk-t); }
+.msg pre.md-code .tk-m { color: var(--tk-m); }
+.msg pre.md-code .tk-p { color: var(--tk-p); }
+.msg pre.md-code .tk-b { color: var(--tk-b); }
+
+/* 工具步骤里的入参/结果 pre 不参与高亮（纯文本预览），保持原样即可。 */
+
+/* ---------- 2) 行级着色 diff（任务详情 · 文件变化） ---------- */
+
+#right.task-details .diff-body {
+  padding: 2px 0 6px;
+  font: 11px/1.6 var(--font-mono);
+  max-height: 280px;
+  overflow: auto;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.diff-rows { min-width: 100%; }
+.dl {
+  display: flex;
+  align-items: flex-start;
+  padding-right: 8px;
+  border-radius: 2px;
+}
+.dl + .dl { margin-top: 0; }
+.dl-no {
+  flex: 0 0 auto;
+  min-width: 3.4ch;
+  text-align: right;
+  color: var(--text-3);
+  user-select: none;
+}
+.dl-mark {
+  flex: 0 0 auto;
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 700;
+}
+.dl-text {
+  flex: 1 1 auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.dl-add { background: rgba(21, 122, 88, 0.09); }
+.dl-add .dl-mark { color: var(--green); }
+.dl-add .dl-no { color: color-mix(in srgb, var(--text-3) 70%, var(--green)); }
+.dl-del { background: rgba(192, 62, 54, 0.08); }
+.dl-del .dl-mark { color: var(--red); }
+.dl-del .dl-no { color: color-mix(in srgb, var(--text-3) 70%, var(--red)); }
+.dl-ctx .dl-mark { color: var(--text-3); }
+body.dark-theme .dl-add { background: rgba(63, 185, 135, 0.10); }
+body.dark-theme .dl-del { background: rgba(226, 106, 96, 0.10); }
+
+/* 文件头上的 +n/−n 统计徽标。 */
+.diff-stat { display: inline-flex; gap: 6px; margin-left: 2px; font: 600 10.5px var(--font-mono); }
+.diff-stat .plus { color: var(--green); }
+.diff-stat .minus { color: var(--red); }
+
+/* ---------- 3) 用量：趋势柱状图 + 预算进度条 ---------- */
+
+/* 用量卡片小标签从 11px 提到 12px（沿用 .sub 类但保证可读）。 */
+.usage-card .sub { font-size: 12px; }
+
+.usage-trend {
+  grid-column: 1 / -1;
+  margin-top: 12px;
+  padding: 14px 16px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.usage-trend-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.usage-trend-head strong { font-size: 13px; }
+.usage-trend-head .sub { font-size: 12px; }
+.usage-trend-chart { display: flex; align-items: flex-end; gap: 6px; height: 84px; }
+.usage-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: stretch; height: 100%; cursor: default; }
+.usage-col-bars {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 1px;
+  border-radius: 3px 3px 0 0;
+  overflow: hidden;
+}
+.usage-bar-in { background: var(--accent); opacity: 0.85; }
+.usage-bar-out { background: var(--accent); opacity: 0.38; }
+.usage-col-label {
+  flex: 0 0 auto;
+  margin-top: 6px;
+  text-align: center;
+  font: 12px var(--font-mono);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.usage-budget {
+  grid-column: 1 / -1;
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.usage-budget-row { display: flex; align-items: center; gap: 12px; }
+.usage-budget-label { flex: 0 0 auto; min-width: 64px; font-size: 12px; color: var(--text-2); }
+.usage-meter {
+  flex: 1 1 auto;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.usage-meter > span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+.usage-meter.is-over > span { background: var(--red); }
+.usage-budget-pct { flex: 0 0 auto; font: 12px var(--font-mono); color: var(--text-2); }
+
+/* 紧凑模式收窄图区留白。 */
+body.compact-mode .usage-trend { padding: 10px 12px 8px; }
+body.compact-mode .usage-budget { padding: 10px 12px; }

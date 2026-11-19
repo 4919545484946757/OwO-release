@@ -1,0 +1,214 @@
+<!doctype html>
+<!-- OwO 内容显示可视化预览（开发用，不属于 desktop/web 产品面）。
+     加载真实的产品 CSS 与 core/markdown.js，并从 app.js / app-domain.js 提取
+     usageTrendHtml / usageBudgetHtml / buildDiffView 真实实现渲染样例数据。
+     入口：在 agent-sdk 目录用任意静态服务器打开本页（预览数据为 mock）。 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OwO 内容显示预览 · 代码高亮 / 着色 Diff / 用量图表</title>
+  <link rel="stylesheet" href="/desktop/web/style.css">
+  <link rel="stylesheet" href="/desktop/web/visual-polish.css">
+  <link rel="stylesheet" href="/desktop/web/experience.css">
+  <link rel="stylesheet" href="/desktop/web/product-shell.css">
+  <link rel="stylesheet" href="/desktop/web/design-v2.css">
+  <link rel="stylesheet" href="/desktop/web/team-delivery.css">
+  <link rel="stylesheet" href="/desktop/web/visualization.css">
+  <style>
+    /* 预览壳布局：脱离产品主网格，只复用内容级样式。 */
+    body { display: block; overflow: auto; }
+    .preview-shell { max-width: 960px; margin: 0 auto; padding: 28px 22px 60px; }
+    .preview-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .preview-head h1 { font-size: 20px; margin: 0; color: var(--text); }
+    .preview-note { color: var(--text-2); font-size: 12.5px; margin: 2px 0 22px; }
+    .preview-section { margin: 26px 0; }
+    .preview-section > h2 { font-size: 15px; margin: 0 0 4px; color: var(--text); }
+    .preview-section > .preview-desc { color: var(--text-2); font-size: 12.5px; margin: 0 0 12px; }
+    #right { display: block !important; grid-column: auto; grid-row: auto; position: static;
+             max-width: 460px; padding: 14px; border: 1px solid var(--border); border-radius: var(--r-lg);
+             background: var(--surface); box-shadow: var(--shadow-sm); }
+    .preview-toggle { height: 30px; padding: 0 12px; border-radius: var(--r-md); border: 1px solid var(--border);
+                      background: var(--surface); cursor: pointer; font-size: 12.5px; }
+    .msg.assistant { max-width: 100%; }
+    .usage-grid { grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); }
+  </style>
+</head>
+<body>
+  <div class="preview-shell">
+    <div class="preview-head">
+      <h1>OwO 内容显示可视化预览</h1>
+      <button type="button" class="preview-toggle" id="themeToggle">切换深色主题</button>
+    </div>
+    <p class="preview-note">本页加载真实产品 CSS 与渲染模块（core/markdown.js、app.js / app-domain.js 的实现），数据为样例。</p>
+
+    <section class="preview-section">
+      <h2>一、代码块：token 着色 + 行号栏</h2>
+      <p class="preview-desc">真实 renderMarkdown 输出；复制按钮携带完整原文；行号在横向滚动时钉在左侧。</p>
+      <div class="msg assistant"><div class="message-body" id="mdBody"></div></div>
+    </section>
+
+    <section class="preview-section">
+      <h2>二、文件变化：行级着色 diff</h2>
+      <p class="preview-desc">真实 buildDiffView 输出（任务详情侧栏同款）：删除红、新增绿、上下文灰，双侧行号。</p>
+      <aside id="right" class="task-details">
+        <ul id="diffList" class="list"></ul>
+      </aside>
+    </section>
+
+    <section class="preview-section">
+      <h2>三、用量与预算：趋势柱状图 + 进度条</h2>
+      <p class="preview-desc">真实 usageTrendHtml / usageBudgetHtml 输出；悬停柱体可见当日明细。</p>
+      <div id="usagePanel" class="usage-grid"></div>
+    </section>
+  </div>
+
+  <script src="/desktop/web/core/markdown.js"></script>
+  <script>
+    document.getElementById("themeToggle").addEventListener("click", () => {
+      document.body.classList.toggle("dark-theme");
+    });
+
+    // ---- 样例 1：Markdown + 多语言代码块（真实渲染器） ----
+    const fence = "```";
+    const markdown = [
+      "## 回合汇报",
+      "本轮重构完成了以下内容：",
+      "",
+      "- `core/markdown.js` 新增零依赖词法高亮",
+      "- 文件差异改为行级着色视图",
+      "",
+      "核心扫描器示意（rust）：",
+      "",
+      fence + "rust",
+      "#[derive(Debug, Clone)]",
+      "pub struct Token {",
+      '    pub kind: Kind,   // token 类别',
+      '    pub text: String, // 原文片段',
+      "}",
+      "",
+      "impl Token {",
+      "    pub fn is_keyword(&self) -> bool {",
+      "        matches!(self.kind, Kind::Keyword)",
+      "    }",
+      "}",
+      fence,
+      "",
+      "配置数据（json）与脚本（bash）：",
+      "",
+      fence + "json",
+      '{ "name": "owo-agent", "version": "0.9.0", "features": ["tools", "swarm"] }',
+      fence,
+      "",
+      fence + "bash",
+      "# 启动本地核心",
+      'OWO_AGENT_DATA="$HOME/.owo" ./owo serve --port 4096',
+      'echo "status: $?"',
+      fence,
+      "",
+      "| 能力 | 旧行为 | 新行为 |",
+      "| --- | --- | --- |",
+      "| 代码块 | 纯文本 | 语法着色 + 行号 |",
+      "| Diff | 纯文本 | 行级红绿 |",
+      "| 用量 | 数字卡片 | 趋势图 + 预算条 |",
+    ].join("\n");
+    document.getElementById("mdBody").innerHTML = window.OwoMarkdown.renderMarkdown(markdown);
+
+    // ---- 样例 2/3：从真实源码提取 buildDiffView / usage 助手并执行 ----
+    const extract = (source, pattern) => {
+      const match = pattern.exec(source);
+      if (!match) throw new Error("预览提取失败：" + pattern);
+      return match[0];
+    };
+    Promise.all([
+      fetch("/desktop/web/app-domain.js").then((r) => r.text()),
+      fetch("/desktop/web/app.js").then((r) => r.text()),
+    ]).then(([domainSource, appSource]) => {
+      const script = document.createElement("script");
+      // 全部为顶层 function 声明：注入后直接可调用（与产品运行时同一实现）。
+      script.textContent = [
+        extract(domainSource, /function buildDiffView\(diff\) \{[\s\S]*?\n\}/),
+        extract(appSource, /function esc\(text\) \{[\s\S]*?\n\}/),
+        extract(appSource, /function formatCount\(value\) \{[\s\S]*?\n\}/),
+        extract(appSource, /function usageTrendHtml\(report\) \{[\s\S]*?\n\}/),
+        extract(appSource, /function usageBudgetHtml\(data\) \{[\s\S]*?\n\}/),
+      ].join("\n");
+      document.head.appendChild(script);
+
+      // 样例 2：两个文件的 diff（一个修改、一个新增），复刻 refreshDiff 的 DOM 结构。
+      const list = document.getElementById("diffList");
+      const appendDiff = (diff) => {
+        const li = document.createElement("li");
+        li.className = "diff-item";
+        const changed = diff.before != null && diff.after != null ? "修改" : diff.after != null ? "新增" : "删除";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "diff-open";
+        const kind = document.createElement("span");
+        kind.className = "file-change-kind";
+        kind.textContent = changed;
+        const pathEl = document.createElement("strong");
+        pathEl.textContent = diff.path;
+        button.append(kind, pathEl);
+        const view = buildDiffView(diff);
+        if (view.stat) button.appendChild(view.stat);
+        const chev = document.createElement("span");
+        chev.setAttribute("aria-hidden", "true");
+        chev.textContent = "⌄";
+        button.appendChild(chev);
+        const body = document.createElement("div");
+        body.className = "diff-body";
+        body.appendChild(view.rows);
+        button.addEventListener("click", () => body.classList.toggle("hidden"));
+        li.append(button, body);
+        list.appendChild(li);
+      };
+      appendDiff({
+        path: "crates/owo-agent-core/src/gateway/config.rs",
+        before: "pub struct Config {\n    pub base_url: String,\n    pub model: String,\n}\n\nimpl Config {\n    pub fn from_env() -> Self {\n        unimplemented!()\n    }\n}",
+        after: "pub struct Config {\n    pub base_url: String,\n    pub model: String,\n    pub timeout_secs: u64,\n}\n\nimpl Config {\n    pub fn from_env() -> Self {\n        Self::read_env().unwrap_or_default()\n    }\n}",
+      });
+      appendDiff({
+        path: "docs/visualization.md",
+        before: null,
+        after: "# 内容可视化\n\n- 代码块 token 着色\n- 行级 diff\n- 用量趋势图\n",
+      });
+
+      // 样例 3：用量卡片 + 预算条 + 趋势图（真实助手函数）。
+      const usage = { total_tokens: 3_240_000, prompt_tokens: 2_580_000, completion_tokens: 660_000 };
+      const budget = { token_cap: 10_000_000, cost_cap_usd: 20, violation: false };
+      const cards = [
+        { label: "累计 Tokens", value: formatCount(usage.total_tokens) },
+        { label: "输入 Tokens", value: formatCount(usage.prompt_tokens) },
+        { label: "输出 Tokens", value: formatCount(usage.completion_tokens) },
+        { label: "累计估算成本", value: "$6.2040" },
+        { label: "Token 预算", value: formatCount(budget.token_cap) },
+        { label: "成本预算", value: "$" + budget.cost_cap_usd },
+      ];
+      const report = {
+        by_day: [
+          { date: "2026-11-12", prompt_tokens: 180_000, completion_tokens: 20_000, calls: 42, total_tokens: 200_000 },
+          { date: "2026-11-13", prompt_tokens: 320_000, completion_tokens: 80_000, calls: 88, total_tokens: 400_000 },
+          { date: "2026-11-14", prompt_tokens: 90_000, completion_tokens: 30_000, calls: 24, total_tokens: 120_000 },
+          { date: "2026-11-15", prompt_tokens: 540_000, completion_tokens: 120_000, calls: 130, total_tokens: 660_000 },
+          { date: "2026-11-16", prompt_tokens: 260_000, completion_tokens: 60_000, calls: 61, total_tokens: 320_000 },
+          { date: "2026-11-17", prompt_tokens: 190_000, completion_tokens: 45_000, calls: 37, total_tokens: 235_000 },
+          { date: "2026-11-18", prompt_tokens: 430_000, completion_tokens: 90_000, calls: 97, total_tokens: 520_000 },
+        ],
+      };
+      document.getElementById("usagePanel").innerHTML =
+        cards
+          .map((card) => '<div class="usage-card"><span class="sub">' + esc(card.label) + '</span><strong>' + esc(card.value) + "</strong></div>")
+          .join("") +
+        usageBudgetHtml({ usage, budget, cost_usd: 6.204 }) +
+        usageTrendHtml(report);
+    })
+    .catch((error) => {
+      const note = document.createElement("p");
+      note.className = "preview-note";
+      note.textContent = "预览加载失败（需以 agent-sdk 为站点根启动静态服务）：" + error.message;
+      document.querySelector(".preview-shell").prepend(note);
+    });
+  </script>
+</body>
+</html>
