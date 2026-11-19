@@ -361,6 +361,30 @@ function coreLogPath() {
   return path.join(logDir(), "core.log");
 }
 
+// 核心日志没有大小上限：长期使用后它会长到上百 MB（实测 118 MB）。这不只是占盘——
+// 每次启动都要重新打开并追加这么大的文件，被杀毒/索引/上一个句柄占用的窗口更大，
+// 正是上面那个 EPERM 的放大器。启动时按 32 MB 轮转一份（只留 core.log.1 一份备份，
+// 不丢历史：旧内容原样改名，不截断不删除）。
+const CORE_LOG_MAX_BYTES = 32 * 1024 * 1024;
+
+function rotateCoreLogIfOversized() {
+  try {
+    const current = coreLogPath();
+    const stat = fs.statSync(current);
+    if (stat.size <= CORE_LOG_MAX_BYTES) return;
+    const backup = `${current}.1`;
+    // Windows 的 rename 不覆盖已存在的目标：先摘掉上一份备份（它本身就是更老的日志）。
+    try {
+      fs.rmSync(backup, { force: true });
+    } catch (_) {
+      /* 备份被占用就放弃本轮轮转，不能让启动失败 */
+    }
+    fs.renameSync(current, backup);
+  } catch (_) {
+    /* 文件不存在/被占用/无权限：轮转是尽力而为，绝不能阻断启动 */
+  }
+}
+
 // 配对证明绝不能落进日志（旧壳 core_runtime.rs::redact 同一职责）：
 // 核心若把环境或请求回显出来，日志就成了凭据泄漏面。
 function redactSecrets(text) {
@@ -792,12 +816,17 @@ async function startCore({ reason = "auto", userInitiated = false } = {}) {
   // 只读文件系统等情况下 write 可能同步抛错，而调用点在核心 stdout 的 'data'
   // 回调里，抛出去就是主进程崩。
   let logStream = null;
-  const writeLogFile = supervision.safeLogWrite((text) => {
-    if (logStream) logStream.write(text);
-  });
+  // 这里必须用 safeStreamLogWrite 而不是 safeLogWrite：`createWriteStream` 的打开
+  // 失败（EPERM/EBUSY/ENOSPC）是**异步 error 事件**，try/catch 抓不到，safeLogWrite
+  // 也只管同步抛错。没有 'error' 监听时它就是主进程的未捕获异常——用户看到的
+  // "A JavaScript error occurred in the main process / EPERM open core.log"，
+  // 窗口直接消失，随后被误读成"核心启动失败"。日志永远不该掀翻壳。
+  let writeLogFile = () => false;
   try {
     fs.mkdirSync(logDir(), { recursive: true });
+    rotateCoreLogIfOversized();
     logStream = fs.createWriteStream(coreLogPath(), { flags: "a" });
+    writeLogFile = supervision.safeStreamLogWrite(logStream);
     writeLogFile(
       `\n===== [${new Date().toISOString()}] 拉起核心 generation=${myGeneration} instance=${instanceId} exe=${exe} =====\n`,
     );
@@ -824,9 +853,13 @@ async function startCore({ reason = "auto", userInitiated = false } = {}) {
     if (myGeneration !== generation) return; // 代际守卫
 
     // M3：core_ready 只是"端口出来了"，还要用实例身份 + API 版本确认是不是自己那一个。
+    writeLogFile(`[shell] 收到 core_ready（port=${ready.port}），开始实例握手\n`);
     const handshake = await waitForInstance(ready.port, instanceId);
     if (myGeneration !== generation) return;
     if (!handshake.ok) {
+      // 这条分支此前一行日志都不写：界面停在"核心启动失败 错误码：core/no_response"，
+      // 日志里却什么都没有，只能靠猜。握手失败必须留下原因。
+      writeLogFile(`[shell] 实例握手失败（reason=${handshake.reason}，port=${ready.port}）\n`);
       coreState = {
         state: "failed",
         errorCode: `core/${handshake.reason}`,
@@ -848,6 +881,13 @@ async function startCore({ reason = "auto", userInitiated = false } = {}) {
       authStatus = auth.status;
       if (auth.status === 200 && auth.body) {
         token = JSON.parse(auth.body).token || "";
+        if (!token) {
+          // 200 但没 token 是最隐蔽的一种：authenticationState 会判 failed，
+          // 而上面那个 else 分支不写日志，于是"核心启动失败"依旧无痕。
+          writeLogFile(
+            `[shell] /auth/token 返回 200 但没有 token：${String(auth.body || "").slice(0, 200)}\n`
+          );
+        }
       } else {
         writeLogFile(
           `[shell] /auth/token 返回 ${auth.status}：${String(auth.body || "").slice(0, 200)}\n`
@@ -859,6 +899,11 @@ async function startCore({ reason = "auto", userInitiated = false } = {}) {
     if (myGeneration !== generation) return;
 
     const authentication = supervision.authenticationState(authStatus, token);
+    writeLogFile(
+      authentication.state === "ready"
+        ? `[shell] 认证就绪，导航工作台（port=${ready.port}，api=${ready.api_version}）\n`
+        : `[shell] 认证失败（${authentication.errorCode}）：${authentication.message}\n`,
+    );
     core = { proc, imeTasksEnabled: imeTaskAccessModule.enabled(config), port: ready.port, token, pid: proc.pid, version: ready.api_version, buildId: ready.build_id, log: core && core.log };
     if (authentication.state === "ready") restartAttempts = 0; // 认证成功后清空失败预算
     coreState = {
