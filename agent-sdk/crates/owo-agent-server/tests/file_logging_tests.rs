@@ -24,7 +24,10 @@ fn init_creates_missing_parent_dir_and_writes() {
     let _guard = lock();
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().join("logs").join("server.jsonl");
-    assert!(!path.parent().expect("parent").exists(), "前置条件：父目录不存在");
+    assert!(
+        !path.parent().expect("parent").exists(),
+        "前置条件：父目录不存在"
+    );
 
     init_file_logging(&path, MAX_BYTES, BACKUPS).expect("父目录缺失时不应失败");
     logging::info("test", None, "落盘探针");
