@@ -317,23 +317,7 @@ kbd { color: var(--text-2) !important; background: var(--surface-2) !important; 
 body:not(.dark-theme) #toastRoot .toast { color: #fff !important; }
 
 /* ---------- workbench home ---------- */
-.project-home { display: flex; flex-direction: column; gap: 26px; }
-.home-intro h3 { font-size: 22px !important; font-weight: 650 !important; letter-spacing: -.02em !important; }
-.home-intro p { color: var(--text-3) !important; font-size: 13.5px !important; margin-top: 4px !important; }
-.home-summary-grid { gap: 10px !important; }
-.home-summary-card {
-  padding: 16px 18px !important;
-  background: var(--surface-2) !important;
-  border: 0 !important;
-  border-radius: 12px !important;
-  box-shadow: none !important;
-}
-.home-summary-card:hover { background: var(--surface-3) !important; }
-.home-summary-card span { color: var(--text-2) !important; font-size: 12.5px !important; }
-.home-summary-card strong { color: var(--text) !important; font-size: 24px !important; font-weight: 600 !important; letter-spacing: -.02em !important; }
-.home-summary-card small { color: var(--text-3) !important; font-size: 12px !important; }
-.home-environment { color: var(--text-3) !important; font-size: 12.5px !important; gap: 14px !important; }
-.home-environment strong { color: var(--text-2) !important; font-weight: 550 !important; }
+.project-home { display: flex; flex-direction: column; gap: 20px; }
 .home-section { background: transparent !important; border: 0 !important; box-shadow: none !important; }
 .section-toolbar h3 { font-size: 15px !important; font-weight: 600 !important; }
 .home-task-row {
@@ -347,17 +331,6 @@ body:not(.dark-theme) #toastRoot .toast { color: #fff !important; }
 .home-task-row:hover { background: var(--surface-2) !important; }
 .home-task-row strong { color: var(--text) !important; font-size: 13.5px !important; font-weight: 500 !important; }
 .home-task-row span, .home-task-row small { color: var(--text-3) !important; font-size: 12px !important; }
-.home-starters h3 { font-size: 15px !important; font-weight: 600 !important; }
-.home-starter-grid { gap: 10px !important; }
-.home-starter-grid button {
-  padding: 14px 16px !important;
-  background: var(--surface-2) !important;
-  border: 0 !important;
-  border-radius: 12px !important;
-  box-shadow: none !important;
-}
-.home-starter-grid button:hover { background: var(--surface-3) !important; }
-.home-starter-grid button small { color: var(--text-3) !important; }
 
 /* ---------- chat ---------- */
 main { background: var(--bg) !important; }
@@ -543,13 +516,13 @@ body.dark-theme #sidebar {
 }
 
 /* stop the generic button normaliser from turning list rows into cards */
-:is(#panelRoot, .settings-section, #right, #modal, #setupRoot, .tool-card) button:not(.primary):not(.danger):not(.ghost):not(.toggle):not([role=switch]):not([role=tab]):not([class*="-tab"]):not(.settings-nav-item):not(.welcome-tile):not(.owo-ac-mini):not(.codex-icon-btn):not(.home-task-row):not(.home-summary-card):not(.home-starter-grid > *):not(.panel-empty-state > *) {
+:is(#panelRoot, .settings-section, #right, #modal, #setupRoot, .tool-card) button:not(.primary):not(.danger):not(.ghost):not(.toggle):not([role=switch]):not([role=tab]):not([class*="-tab"]):not(.settings-nav-item):not(.welcome-tile):not(.owo-ac-mini):not(.codex-icon-btn):not(.home-task-row):not(.panel-empty-state > *) {
   min-height: 32px !important;
   padding: 0 12px !important;
   font-size: 13px !important;
 }
 
-/* ---- project home: flat rows, quiet stat tiles ---- */
+/* ---- project home: flat rows ---- */
 #panelRoot#panelRoot .home-task-row {
   min-height: 0 !important;
   height: auto !important;
@@ -566,37 +539,6 @@ body.dark-theme #sidebar {
 #panelRoot#panelRoot .home-task-row strong { font-size: 13.5px !important; font-weight: 500 !important; color: var(--text) !important; }
 #panelRoot#panelRoot .home-task-row :is(small, span, .sub) { font-size: 12px !important; color: var(--text-3) !important; }
 
-#panelRoot#panelRoot .home-summary-card {
-  min-height: 0 !important;
-  height: auto !important;
-  padding: 14px 16px !important;
-  background: var(--surface-2) !important;
-  border: 0 !important;
-  border-radius: 12px !important;
-  box-shadow: none !important;
-  text-align: left;
-}
-#panelRoot#panelRoot .home-summary-card:hover { background: var(--surface-3) !important; border: 0 !important; }
-#panelRoot#panelRoot .home-summary-card strong { font-size: 20px !important; line-height: 1.25 !important; font-weight: 600 !important; letter-spacing: -.015em !important; color: var(--text) !important; }
-#panelRoot#panelRoot .home-summary-card :is(small, span) { font-size: 12px !important; color: var(--text-3) !important; }
-
-#panelRoot#panelRoot .home-starter-grid { gap: 0 !important; }
-#panelRoot#panelRoot .home-starter-grid > button {
-  min-height: 0 !important;
-  padding: 13px 8px !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-top: 1px solid var(--border-subtle) !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-  color: var(--text) !important;
-  text-align: left;
-  line-height: 1.55 !important;
-}
-#panelRoot#panelRoot .home-starter-grid > button:hover { background: var(--surface-2) !important; }
-#panelRoot#panelRoot .home-starter-grid > button :is(small, span) { color: var(--text-3) !important; font-size: 12px !important; }
 
 #panelRoot#panelRoot .panel-empty-state > button {
   min-height: 0 !important;

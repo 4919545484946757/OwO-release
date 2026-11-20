@@ -694,6 +694,7 @@ function messagesAtBottom() {
 // 一次后所有输出都不再跟随（用户实测：得手动下拉）。另外 `#messages` 有
 // `scroll-behavior: smooth`，跟随滚动必须临时改瞬时，避免高频 delta 相互打断。
 function followScroll(force = false) {
+  if (historyWriteView) return;
   const box = $("messages");
   if (!box) return;
   const metrics = {
@@ -710,10 +711,7 @@ function followScroll(force = false) {
     return;
   }
   state.autoScroll = decision.autoScroll;
-  const previousBehavior = box.style.scrollBehavior;
-  if (!force) box.style.scrollBehavior = "auto";
-  box.scrollTop = box.scrollHeight;
-  if (!force) box.style.scrollBehavior = previousBehavior;
+  box.scrollTo({ top: metrics.scrollHeight, behavior: force ? "auto" : "instant" });
   updateScrollBottomBtn();
 }
 
@@ -727,6 +725,7 @@ function initChatScroll() {
   const box = $("messages");
   if (box) {
     box.addEventListener("scroll", () => {
+      if (state.restoringScroll) return;
       state.autoScroll = messagesAtBottom();
       updateScrollBottomBtn();
     });
@@ -765,6 +764,7 @@ function initChatScroll() {
 // 流写入目标是「发起回合的会话」（writeTargetSid）：切走会话任务继续跑且不串台；
 // 未结束回合的消息在服务端 commit 前只存在于本地视图，切回时原样恢复。
 let writeTargetSid = null;
+let historyWriteView = null;
 
 function sessionView(sessionId) {
   const sid = sessionId || state.sessionId;
@@ -780,7 +780,7 @@ function sessionView(sessionId) {
 }
 
 function writeBox() {
-  return sessionView(writeTargetSid || state.sessionId);
+  return historyWriteView || sessionView(writeTargetSid || state.sessionId);
 }
 
 function showSessionView(sessionId) {
@@ -795,18 +795,13 @@ function restoreSessionScroll(sessionId) {
   const box = $("messages");
   if (!box) return;
   const saved = state.sessionScroll.get(sessionId);
+  const selectionVersion = state.selectionVersion;
   state.restoringScroll = true;
-  if (saved == null) {
-    state.autoScroll = true;
-    box.scrollTop = box.scrollHeight;
-  } else {
-    const distance = box.scrollHeight - box.clientHeight - saved;
-    state.autoScroll = distance <= 48;
-    box.scrollTop = saved;
-  }
-  if (typeof updateScrollBottomBtn === "function") updateScrollBottomBtn();
+  state.autoScroll = saved == null || box.scrollHeight - box.clientHeight - saved <= 48;
+  box.scrollTo({ top: saved ?? box.scrollHeight, behavior: "instant" });
+  updateScrollBottomBtn();
   requestAnimationFrame(() => {
-    state.restoringScroll = false;
+    if (selectionVersion === state.selectionVersion) state.restoringScroll = false;
   });
 }
 
@@ -816,6 +811,7 @@ function syncSessionWelcome() {
   const view = state.sessionId ? $("messages").querySelector(`.session-view[data-sid="${state.sessionId}"]`) : null;
   const work = view?.querySelector(".msg.user,.msg.assistant,.msg.error,.event-chip,.tool-steps,.thinking-block,.turn-summary,.historical-completion");
   empty.classList.toggle("hidden", Boolean(currentTurn() || work));
+  syncEmptyLayout();
 }
 
 // 首页入口：左侧图标轨的「房子」只在未选中会话、且没有打开功能页时高亮。
@@ -846,6 +842,7 @@ function showHomeView(options = {}) {
   // 让仍在进行中的会话加载请求失效，避免它晚到后又把视图切回旧会话。
   state.selectionVersion = (state.selectionVersion || 0) + 1;
   state.sessionId = null;
+  state.restoringScroll = false;
   releaseAttachmentPreviews(state.attachments);
   state.attachments = [];
   renderAttachmentChips();
@@ -872,7 +869,7 @@ function newMessageBlock(node) {
   writeBox().appendChild(node);
   followScroll();
   const empty = $("emptyState");
-  if (empty) empty.classList.add("hidden");
+  if (!historyWriteView && empty) empty.classList.add("hidden");
   return node;
 }
 
@@ -1820,7 +1817,7 @@ function addMessage(kind, text, meta = "") {
   writeBox().appendChild(div);
   followScroll();
   // Administrative notices do not replace the workspace entrance.
-  syncSessionWelcome();
+  if (!historyWriteView) syncSessionWelcome();
   return div;
 }
 
@@ -1853,7 +1850,7 @@ function addEventChip(kind, text, detail = "") {
   writeBox().appendChild(chip);
   followScroll();
   const empty = $("emptyState");
-  if (empty) empty.classList.add("hidden");
+  if (!historyWriteView && empty) empty.classList.add("hidden");
   return chip;
 }
 
@@ -2800,15 +2797,22 @@ function currentTurn() {
 // 此前用全局 `state.reading`：A 会话在跑时切到 B，B 的发送钮也显示成停止，
 // 点下去会把 A 的回合掐掉（并行对话被打断的根因）。
 function updateComposerRunning() {
-  const running = !!currentTurn();
+  const turn = currentTurn();
+  const running = Boolean(turn);
+  const stopping = turn?.stopping === true;
   const button = $("sendBtn");
   if (!button) return;
-  button.disabled = currentTurn()?.stopping === true || (!running && !($("prompt")?.value || "").trim());
-  button.classList.toggle("is-stop", running);
-  button.innerHTML = running ? STOP_SVG : SEND_SVG;
-  button.title = running ? "中断当前回合" : "发送";
-  button.setAttribute("aria-label", button.title);
-  button.setAttribute("aria-busy", String(currentTurn()?.stopping === true));
+  const disabled = stopping || (!running && !($("prompt")?.value || "").trim());
+  if (button.disabled !== disabled) button.disabled = disabled;
+  const title = running ? "中断当前回合" : "发送";
+  if (button.title !== title) {
+    button.classList.toggle("is-stop", running);
+    button.innerHTML = running ? STOP_SVG : SEND_SVG;
+    button.title = title;
+    button.setAttribute("aria-label", title);
+  }
+  const busy = String(stopping);
+  if (button.getAttribute("aria-busy") !== busy) button.setAttribute("aria-busy", busy);
 }
 function setMicRecording(on) {
   const button = $("micBtn");
@@ -6953,6 +6957,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 // 菜单栏主题按钮与连接状态
+$("owobotReturn")?.addEventListener("click", () => exitOwobotMode());
 $("menubarTheme").addEventListener("click", () => {
   applyTheme(document.body.classList.contains("dark-theme") ? "light" : "dark");
 });
@@ -7659,15 +7664,17 @@ async function hydrateShell() {
 }
 
 document.querySelector(".composer-context")?.setAttribute("hidden", "");
+function syncEmptyLayout() {
+  const empty = $("emptyState");
+  if (!empty) return;
+  const hide = empty.classList.contains("hidden");
+  if (empty.hidden !== hide) empty.hidden = hide;
+  document.body.classList.toggle("empty-conversation", !hide);
+  syncSidebarHome();
+}
+
 const emptyLayoutRoot = $("emptyState");
 if (emptyLayoutRoot && typeof MutationObserver !== "undefined") {
-  // 欢迎页由 .hidden 类切换；同步到 [hidden] 与 body.empty-conversation，否则有消息时空态布局仍生效。
-  const syncEmptyLayout = () => {
-    const hide = emptyLayoutRoot.classList.contains("hidden");
-    if (emptyLayoutRoot.hidden !== hide) emptyLayoutRoot.hidden = hide;
-    document.body.classList.toggle("empty-conversation", !hide);
-    syncSidebarHome();
-  };
   syncEmptyLayout();
   new MutationObserver(syncEmptyLayout).observe(emptyLayoutRoot, { attributes: true, attributeFilter: ["class"] });
 }
@@ -7688,7 +7695,7 @@ async function boot() {
   updateComposerRunning();
   // Electron/IME 输入有时以原生 value 变化到达，未经过 WebView 的 input 事件；
   // 低频同步确保发送按钮不会因事件丢失而一直保持禁用。
-  setInterval(() => updateComposerRunning(), 250);
+  setInterval(() => { if (!uiHidden()) updateComposerRunning(); }, 250);
   // 先读回本机偏好再应用：否则刷新后已保存的紧凑模式/桌宠等开关会被内存默认值覆盖。
   loadLocalPrefs();
   const initialTheme = LOCAL_PREFS.theme === "system" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : (LOCAL_PREFS.theme === "dark" ? "dark" : "light");

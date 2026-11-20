@@ -422,7 +422,7 @@ body.panel-open #panelRoot, body.tools-open.panel-open #panelRoot { padding: 24p
 #panelRoot h3 { font-size: 14px; font-weight: 600; }
 #panelRoot h4 { color: var(--text-2); font-size: 12px; font-weight: 600; letter-spacing: .03em; }
 /* Cards: one surface level, hairline border, no stacked shadows. */
-#panelRoot :is(.owo-card, .owo-pl-card, .owo-ws-card, .owo-ac-card, .owo-pe-card, .owo-fleet-card, .ps-card, .home-summary-card, .owo-ws-sec, .owo-workflow-section, .owo-wf-section, .usage-card) {
+#panelRoot :is(.owo-card, .owo-pl-card, .owo-ws-card, .owo-ac-card, .owo-pe-card, .owo-fleet-card, .ps-card, .owo-ws-sec, .owo-workflow-section, .owo-wf-section, .usage-card) {
   background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: var(--r-lg) !important; box-shadow: none !important;
 }
 #panelRoot :is(.owo-card, .owo-pl-card, .owo-ws-card, .owo-ac-card, .owo-pe-card, .owo-fleet-card, .ps-card):hover { border-color: var(--border-strong) !important; }
@@ -442,15 +442,6 @@ body.panel-open #panelRoot, body.tools-open.panel-open #panelRoot { padding: 24p
 #panelRoot .panel-empty-state strong { color: var(--text) !important; font-size: 14px !important; }
 #panelRoot .owo-ac-empty { min-height: 0; border: 0 !important; padding: 12px 0 !important; color: var(--text-3) !important; }
 #panelRoot .owo-ac-empty::before { display: none !important; }
-
-/* Project home */
-#panelRoot .home-intro { padding: 0 !important; }
-#panelRoot .home-intro h2, #panelRoot .home-intro h3 { margin-bottom: 8px; }
-#panelRoot .project-home > * + * { margin-top: 24px; }
-#panelRoot .home-summary-grid { gap: 0 !important; }
-#panelRoot .home-summary-card { padding: 20px !important; }
-#panelRoot .home-summary-card strong { color: var(--text) !important; font: 600 20px/1.5 var(--font-display) !important; }
-#panelRoot .home-environment { padding: 12px 20px; background: transparent; border: 0; border-top: 1px solid var(--border-subtle); border-radius: 0 0 12px 12px; }
 
 /* ---------- tools view & settings ---------- */
 body.tools-open #sidebar, body.settings-open #sidebar { background: var(--canvas) !important; }
@@ -526,7 +517,6 @@ body.settings-open #sidebar { border: 0 !important; border-radius: 0 !important;
 #panelRoot .owo-ac-sec .owo-ac-empty, #panelRoot .owo-ac-sec > .hint { margin-top: 4px !important; padding: 10px 0 4px !important; justify-items: start !important; text-align: left !important; font-size: 13px !important; }
 #panelRoot .owo-ws-sec { padding: 18px 20px !important; gap: 10px !important; }
 #panelRoot .owo-ws-sec > h3 { margin: 0 !important; padding: 0 !important; min-height: 0 !important; align-items: center; gap: 10px; font-size: 15px !important; }
-#panelRoot .home-summary-card > strong:not(:empty) { font-size: 20px !important; }
 
 #panelRoot .evidence-session { border-left: 0 !important; padding-left: 0 !important; }
 #panelRoot .evidence-session > details { background: transparent !important; }
@@ -540,16 +530,6 @@ body.settings-open #sidebar { border: 0 !important; border-radius: 0 !important;
 #panelRoot .home-group-note { flex-basis: 100%; color: var(--text-3); font-size: 12px; line-height: 1.5; }
 #panelRoot .home-group-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 #panelRoot .home-group-actions :is(select, button) { height: 32px; min-height: 32px; }
-#panelRoot .home-summary-grid { gap: 0 !important; padding: 0 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; }
-#panelRoot .home-summary-card { gap: 4px !important; padding: 20px !important; background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; transition: background-color .14s cubic-bezier(0.2, 0, 0, 1); }
-#panelRoot .home-summary-card + .home-summary-card { border-left: 1px solid var(--border-subtle) !important; }
-#panelRoot .home-summary-card:last-child { border-radius: 0 0 12px 0 !important; }
-#panelRoot .home-summary-card:hover { background: var(--bg-hover) !important; }
-#panelRoot .home-summary-card > span { color: var(--text-3) !important; font-size: 12px !important; font-weight: 500 !important; }
-#panelRoot .home-summary-card > strong { color: var(--text) !important; font-size: 20px !important; font-weight: 600 !important; line-height: 1.5 !important; font-variant-numeric: tabular-nums; letter-spacing: 0 !important; }
-#panelRoot .home-summary-card > small { color: var(--text-3) !important; font-size: 12px !important; }
-#panelRoot .home-environment { gap: 16px !important; padding: 12px 20px !important; margin: 0 !important; min-height: 0 !important; color: var(--text-3) !important; font-size: 12px !important; background: transparent !important; border: 0 !important; border-top: 1px solid var(--border-subtle) !important; border-radius: 0 0 12px 12px !important; box-shadow: none !important; }
-#panelRoot .home-environment strong { color: var(--text-2) !important; font-size: 12px !important; font-weight: 500 !important; }
 #panelRoot .home-task-row { margin: 0 !important; padding: 12px 20px !important; row-gap: 4px !important; min-height: 0 !important; background: transparent !important; border: 0 !important; border-bottom: 1px solid var(--border-subtle) !important; border-radius: 0 !important; box-shadow: none !important; }
 #panelRoot .home-task-row:last-child { border-bottom: 0 !important; border-radius: 0 0 12px 12px !important; }
 #panelRoot .home-task-row:hover { background: var(--bg-hover) !important; }
@@ -557,14 +537,7 @@ body.settings-open #sidebar { border: 0 !important; border-radius: 0 !important;
 #panelRoot .home-task-row :is(small, .sub) { color: var(--text-3) !important; font-size: 12px !important; }
 #panelRoot .home-skeleton { display: grid; gap: 8px; padding: 16px 20px; }
 #panelRoot .home-skeleton-row { height: 44px; }
-#panelRoot .home-starter-grid { padding: 16px 20px; gap: 12px; }
-#panelRoot .home-starter-grid button { border: 1px solid var(--border); border-radius: 8px; padding: 16px; background: transparent; box-shadow: none; transition: border-color .14s cubic-bezier(0.2, 0, 0, 1); }
-#panelRoot .home-starter-grid button:hover { border-color: var(--border-strong); background: transparent; }
-#panelRoot .home-starter-grid small { display: block; margin-top: 4px; color: var(--text-3); font-size: 12px; }
-@media (max-width: 1180px) { #panelRoot .home-columns > .home-group + .home-group { margin-top: 24px; } }
 @media (max-width: 850px) {
-  #panelRoot .home-summary-card + .home-summary-card { border-left: 0 !important; border-top: 1px solid var(--border-subtle) !important; }
-  #panelRoot .home-summary-card:last-child { border-radius: 0 !important; }
   #panelRoot .home-group-head { flex-wrap: wrap; }
 }
 

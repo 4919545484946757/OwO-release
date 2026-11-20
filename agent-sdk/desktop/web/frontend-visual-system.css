@@ -915,14 +915,8 @@ body.tools-open.panel-open #sidebar#sidebar #panelNav button.active { font-weigh
 body.tools-open.panel-open #sidebar#sidebar #panelNav .workbench-nav-section > summary { font-size: 12px !important; }
 body.tools-open.panel-open #sidebar#sidebar #panelNav .workbench-nav-primary button { font-size: 13px !important; }
 body.tools-open.panel-open #sidebar#sidebar .workbench-panel-rail #panelSearch { font-size: 13px !important; }
-body.tools-open.panel-open #panelRoot#panelRoot .home-intro p { font-size: 13px !important; }
-body.tools-open.panel-open #panelRoot#panelRoot .home-summary-card > span { font-size: 12px !important; }
-body.tools-open.panel-open #panelRoot#panelRoot .home-summary-card > strong { font-size: 20px !important; font-weight: 600 !important; font-variant-numeric: tabular-nums !important; }
-body.tools-open.panel-open #panelRoot#panelRoot .home-environment { font-size: 12px !important; }
-body.tools-open.panel-open #panelRoot#panelRoot .home-environment strong { font-size: 12px !important; font-weight: 500 !important; }
 body.tools-open.panel-open #panelRoot#panelRoot .home-task-row strong { font-size: 14px !important; font-weight: 500 !important; }
 body.tools-open.panel-open #panelRoot#panelRoot .section-toolbar h3 { font-size: 16px !important; font-weight: 600 !important; }
-body.tools-open.panel-open #panelRoot#panelRoot .home-starters h3 { font-size: 16px !important; font-weight: 600 !important; }
 body.tools-open.panel-open #panelRoot#panelRoot .panel-empty-state strong { font-size: 14px !important; font-weight: 600 !important; }
 body.tools-open.panel-open #panelRoot#panelRoot .panel-empty-state span { font-size: 13px !important; }
 body.tools-open.panel-open #panelRoot#panelRoot .panel-empty-state > button { font-size: 13px !important; }
@@ -3966,13 +3960,11 @@ body.settings-open #sidebar#sidebar .settings-search-results > *:not(.settings-p
 
 /* =====================================================================
    Round 4 — 同页感：rail 在所有视图同一坐标；OwOBot 整窗保留常驻 rail
-   机制契约不变（body.owobot-mode / 44px 模式栏 / enter/exit / #owobot 深链），
-   仅布局层把模式栏收进内容列、rail 与 menubar 保留。
    ===================================================================== */
 @media (min-width: 861px) {
   /* 设置页 rail 与对话/面板同起点：补回 8px 顶距，band/返回随之同移；
      清掉下层留给旧块布局的 40px 底距，否则底部图标簇整组上跳 */
-  body.settings-open #sidebar#sidebar { margin-top: 8px !important; padding: 0 !important; }
+  body.settings-open #sidebar#sidebar { margin-top: var(--align-card-top) !important; padding: 0 !important; }
   /* 轨容器只过渡颜色：transition:all 会让宽/高/对齐在换页时插值，图标簇跟着滑动 */
   #sidebar#sidebar,
   #sidebar#sidebar .codex-sidebar,
@@ -3982,19 +3974,19 @@ body.settings-open #sidebar#sidebar .settings-search-results > *:not(.settings-p
   }
   body.settings-open #sidebar#sidebar .settings-layout { margin-top: 88px !important; }
   body.settings-open #sidebar#sidebar > .codex-view-back { top: 104px !important; }
-  /* OwOBot 整窗：menubar + rail 常驻，模式栏=内容列 44px band */
+  /* OwOBot 整窗：沿用菜单栏和侧轨 */
   body.owobot-mode {
     display: grid !important;
     grid-template-columns: var(--rail-w) minmax(0, 1fr) !important;
-    grid-template-rows: 48px 44px minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
     gap: 0 !important;
   }
-  body.owobot-mode > #menubar:not(#panelRoot):not(#owobotModeBar):not(#setupRoot):not(#modalRoot):not(#toastRoot) { display: flex !important; grid-column: 1 / -1; grid-row: 1; }
-  body.owobot-mode > #sidebar:not(#panelRoot):not(#owobotModeBar):not(#setupRoot):not(#modalRoot):not(#toastRoot) {
-    display: grid !important; grid-column: 1; grid-row: 2 / 4;
+  body.owobot-mode > #menubar { grid-column: 1 / -1; grid-row: 1; }
+  body.owobot-mode > #sidebar:not(#panelRoot):not(#menubar):not(#setupRoot):not(#modalRoot):not(#toastRoot) {
+    display: grid !important; grid-column: 1; grid-row: 2;
     grid-template-columns: var(--rail-w) minmax(0, 1fr) !important;
     grid-template-rows: minmax(0, 1fr) !important;
-    gap: 0 !important; margin-top: 0 !important; padding: 0 !important;
+    gap: 0 !important; padding: 0 !important;
     width: auto !important; min-width: 0 !important; overflow: visible !important;
   }
   body.owobot-mode > #sidebar .codex-sidebar {
@@ -4006,8 +3998,7 @@ body.settings-open #sidebar#sidebar .settings-search-results > *:not(.settings-p
   body.owobot-mode #sidebar#sidebar .codex-sidebar-footer { align-self: center !important; }
   body.owobot-mode > #sidebar :is(#sidebarWorkspaceBtn, #sidebarNewChat, .codex-sessions-heading, #sessionSearch, #sessionList, .codex-archived, .sidebar-section-label, .codex-nav, #sidebarCollapseBtn, #sidebarToolsBtn, .codex-sidebar-spacer, .codex-sidebar-top) { display: none !important; }
   body.owobot-mode > #sidebar > section.settings-section { display: none !important; }
-  body.owobot-mode > #owobotModeBar { position: static !important; inset: auto !important; grid-column: 2; grid-row: 2; height: 44px !important; }
-  body.owobot-mode > #panelRoot { position: static !important; inset: auto !important; grid-column: 2; grid-row: 3; }
+  body.owobot-mode > #panelRoot { position: static !important; inset: auto !important; grid-column: 2; grid-row: 2; }
   /* rail 当前态：OwOBot 图标点亮，进入整窗前残留的 panel 当前态还原 */
   body.owobot-mode #sidebar#sidebar .codex-sidebar > .workbench-shortcuts > button[data-workbench-panel="owobot"] {
     color: var(--text) !important; background: color-mix(in srgb, var(--text) 8%, transparent) !important; box-shadow: none !important;

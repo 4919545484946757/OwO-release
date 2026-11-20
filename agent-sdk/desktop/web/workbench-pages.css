@@ -270,12 +270,21 @@ body.settings-open .settings-content { overflow-y: auto; overscroll-behavior: co
 
 /* Home and task creation share the quiet list/form hierarchy of the workbench. */
 #panelRoot .project-home { min-width: 0; }
-#panelRoot .home-intro { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 0; }
-#panelRoot .home-intro h3 { font: 600 20px/1.5 var(--font-ui) !important; margin: 0 0 8px !important; }
-#panelRoot .home-summary-card { font-family: var(--font-ui); gap: 4px; min-height: 120px; }
-#panelRoot .home-summary-card strong { font: 600 20px/1.5 var(--font-ui); font-variant-numeric: tabular-nums; }
-#panelRoot .home-summary-card:hover strong { color: var(--text); }
-#panelRoot .home-environment { padding-block: 12px; margin-bottom: 0; }
+#panelRoot .home-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+#panelRoot .home-project-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-section-title);
+  font-weight: 600;
+}
+#panelRoot .home-inbox { display: inline-flex; align-items: center; gap: 8px; }
+#panelRoot .home-inbox .panel-num { color: var(--text-2); font-variant-numeric: tabular-nums; }
 #panelRoot .home-columns { gap: 24px; align-items: start; }
 #panelRoot .home-section { min-width: 0; }
 #panelRoot .home-section .section-toolbar { margin-bottom: 4px; padding: 0; min-height: 36px; }
@@ -287,8 +296,6 @@ body.settings-open .settings-content { overflow-y: auto; overscroll-behavior: co
 #panelRoot .home-task-status[data-status=failed] { color: var(--red); background: transparent; }
 #panelRoot .home-list-state { min-height: 140px; display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 13px; }
 #panelRoot .project-home .panel-empty-state { border: 0; border-radius: 0; min-height: 140px; padding: 24px 12px; }
-#panelRoot .home-starters { margin-top: 0; padding-top: 0; }
-#panelRoot .home-starter-grid button { border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: left; line-height: 1.5; white-space: normal; }
 #panelRoot .owo-pl { max-width: 900px; margin-inline: auto; gap: 0; }
 #panelRoot .owo-pl-intro { margin: 0 0 24px; }
 #panelRoot .owo-pl-wizard { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; padding: 0; margin-bottom: 20px; border: 0; }
@@ -323,7 +330,6 @@ body.settings-open .settings-content { overflow-y: auto; overscroll-behavior: co
   #panelRoot .home-columns { grid-template-columns: minmax(0,1fr); gap: 28px; }
 }
 @media (max-width: 620px) {
-  #panelRoot .home-summary-card { min-height: 0; padding: 16px 4px; }
   #panelRoot .home-task-row { grid-template-columns: minmax(0,1fr); gap: 8px; padding: 16px 2px; }
   #panelRoot .home-task-status { justify-self: start; max-width: 100%; }
   #panelRoot .home-task-row small { grid-column: 1; overflow-wrap: anywhere; }
@@ -336,8 +342,6 @@ body.settings-open .settings-content { overflow-y: auto; overscroll-behavior: co
 #panelRoot .project-home .home-task-row:not(.primary) { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; white-space: normal; }
 #panelRoot .project-home .home-task-row strong { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 #panelRoot .project-home .home-task-row small { white-space: normal; overflow-wrap: anywhere; }
-#panelRoot .project-home .home-summary-card:not(.primary) { border: 0; border-radius: 0; background: transparent; text-decoration: none; }
-#panelRoot .project-home .home-summary-card + .home-summary-card { border-left: 1px solid var(--border); }
 #panelRoot .owo-pl .owo-pl-wizard button:not(.primary) { border: 0; border-bottom: 2px solid var(--border); border-radius: 0; background: transparent; }
 #panelRoot .owo-pl .owo-pl-wizard button[aria-current=step]:not(.primary) { border-bottom-color: var(--text); color: var(--text); }
 #panelRoot .owo-pl .owo-ws-inline { display: flex; }
@@ -347,10 +351,6 @@ body.settings-open .settings-content { overflow-y: auto; overscroll-behavior: co
 #panelRoot .owo-pl .owo-pl-advanced summary { padding: 8px 0; }
 #panelRoot .owo-pl .owo-pl-catalog-disclosure { padding: 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; }
 #panelRoot .owo-pl .owo-pl-custom:not(.primary) { border: 0; background: transparent; }
-@media (max-width: 620px) {
-  #panelRoot .project-home .home-summary-card + .home-summary-card { border-left: 0; border-top: 1px solid var(--border); }
-}
-
 
 /* Scheduled tasks: 左侧任务栏 + 右侧详情/模板，参考桌面 Agent 产品的任务页。 */
 /* 该面板使用独立双栏骨架；选择器刻意带三层 id，避免被全局按钮/表单规范化规则压住。 */

@@ -35,7 +35,6 @@
     // ---------- helpers（优先 app.js 注入，缺失时自建回退，与 action-center 同款） ----------
     var H = {};
     var rootEl = null;
-    var owobotHistory = null;
     function defaultGet(path) {
       return window.OwoApi.get(path);
     }
@@ -374,7 +373,6 @@
         '<span id="ph-meta" class="hint" aria-live="polite"></span>' +
         "</div>" +
         '<div id="ph-errors" aria-live="polite"></div>' +
-        '<div id="ph-owobot"></div>' +
         '<div id="ph-filters-box"></div>' +
         '<div id="ph-list"><div class="ph-empty">正在加载历史运行…</div></div>' +
         '<p class="ph-reuse-note hint">复用目标后，在新建任务中确认角色、模型与工作区。</p>' +
@@ -703,8 +701,6 @@
     }
 
     function dispose() {
-      owobotHistory?.abort();
-      owobotHistory = null;
       lifecycleGeneration++;
       loadGeneration += 1;
       state.loading = false;
@@ -712,34 +708,6 @@
       state.filterEnrichTimer = null;
       invalidateEnrichment();
       rootEl = null;
-    }
-
-    async function loadOwobotHistory() {
-      var panel = win.OwoPanels.owobot;
-      var host = el("#ph-owobot");
-      var workspace = H.snapshot?.()?.workspace;
-      if (!host || !panel || !H.openOwobot || !workspace) return;
-      owobotHistory?.abort();
-      var controller = new AbortController();
-      owobotHistory = controller;
-      host.dataset.workspace = workspace;
-      host.innerHTML = '<h3>OwOBot</h3><p class="hint" role="status">正在读取当前项目的协作任务…</p>';
-      try {
-        var tasks = await panel.history(H, workspace, controller.signal);
-        if (controller.signal.aborted) return;
-        host.innerHTML = '<h3>OwOBot</h3>' + (tasks.length
-          ? '<ul class="ph-list">' + tasks.map(function (task) {
-            var label = task.title === "New task" ? "新建任务" : task.title;
-            var date = localWhen(new Date(task.createdAt).toISOString());
-            return '<li class="ph-row"><button type="button" class="owo-ac-mini" data-owobot-thread="' + esc(task.threadId) +
-              '">' + esc(label) + '</button><span class="hint">' + esc(date) +
-              (task.working ? ' · 执行中' : '') + '</span></li>';
-          }).join("") + '</ul>'
-          : '<p class="hint">当前项目还没有协作任务。</p>');
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        host.innerHTML = '<h3>OwOBot</h3><p class="hint" role="status">' + esc(friendly(error)) + '</p>';
-      }
     }
 
     function mount(root, helpers) {
@@ -763,14 +731,8 @@
         fbox.addEventListener("input", function (ev) { if (ev.target.id === "ph-f-q") onFilterChange(ev); });
       }
       var refresh = el("#ph-refresh");
-      var owobotList = el("#ph-owobot");
-      if (owobotList) owobotList.onclick = function (event) {
-        var button = event.target.closest("[data-owobot-thread]");
-        if (button) H.openOwobot({ thread: button.dataset.owobotThread, workspace: owobotList.dataset.workspace });
-      };
-      if (refresh) refresh.onclick = function () { load(); loadOwobotHistory(); };
+      if (refresh) refresh.onclick = load;
       load();
-      loadOwobotHistory();
     }
 
     // ---------- 测试挂钩 ----------
@@ -815,7 +777,7 @@
 
     return {
       id: ID,
-      title: "任务记录",
+      title: "团队任务记录",
       mount: mount,
       dispose: dispose,
       _test: TEST_API,

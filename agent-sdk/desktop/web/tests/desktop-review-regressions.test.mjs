@@ -8,11 +8,11 @@ const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8"
 const navigation = require("../core/workbench-navigation.js");
 const domain = require("../permissions/permissions.domain.js");
 
-test("all existing panels remain searchable, grouped and unique", () => {
+test("panel titles remain unique and the workbench search matches its groups", () => {
   const ids = navigation.entries.map(item => item.id);
   assert.equal(ids.length, 23);
   assert.equal(new Set(ids).size, 23);
-  assert.deepEqual(navigation.search("权限").map(item => item.id), ["plugin-market", "permissions", "command"]);
+  assert.deepEqual(navigation.search("权限").map(item => item.id), ["agent-tasks", "plugin-market", "permissions", "command"]);
   assert.equal(navigation.search("project", ["notes"]).length, 0);
   assert.equal(navigation.find("missing"), null);
 });

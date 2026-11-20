@@ -5,9 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
+import { runInNewContext } from "node:vm";
 const scope = {};
 new Function("window", readFileSync(new URL("../core/chat-scroll.js", import.meta.url), "utf8"))(scope);
 const S = scope.OwoChatScroll;
@@ -37,4 +35,31 @@ test("decideScroll：跟随中/强制/恢复/用户上滑四种情形", () => {
 test("afterUserScroll：滚动事件后的跟随状态", () => {
   assert.equal(S.afterUserScroll({ scrollHeight: 900, scrollTop: 520, clientHeight: 380 }), true);
   assert.equal(S.afterUserScroll({ scrollHeight: 900, scrollTop: 100, clientHeight: 380 }), false);
+});
+
+test("history restores the final viewport instantly and keeps an earlier reading position", () => {
+  const source = readFileSync(new URL("../app.js", import.meta.url), "utf8");
+  const restore = source.match(/function restoreSessionScroll\(sessionId\) \{[\s\S]*?\n\}/)[0];
+  const state = { sessionScroll: new Map([["read", 620], ["near-bottom", 1580]]), selectionVersion: 1 };
+  const calls = [], callbacks = [];
+  const box = { scrollHeight: 2000, clientHeight: 400, scrollTo: (options) => calls.push({ ...options }) };
+  const apply = runInNewContext(restore + "\nrestoreSessionScroll;", {
+    state, $: () => box, requestAnimationFrame: (cb) => callbacks.push(cb), updateScrollBottomBtn() {},
+  });
+
+  apply("new");
+  assert.deepEqual(calls.pop(), { top: 2000, behavior: "instant" });
+  assert.equal(state.autoScroll, true);
+
+  state.selectionVersion++;
+  apply("read");
+  callbacks.shift()();
+  assert.equal(state.restoringScroll, true, "an older selection must not clear the current restore");
+  assert.deepEqual(calls.pop(), { top: 620, behavior: "instant" });
+  assert.equal(state.autoScroll, false);
+  callbacks.shift()();
+  assert.equal(state.restoringScroll, false);
+
+  apply("near-bottom");
+  assert.equal(state.autoScroll, true);
 });

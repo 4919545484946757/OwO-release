@@ -830,7 +830,6 @@ body.panel-open #panelRoot, body.tools-open.panel-open #panelRoot { padding: 22p
 #panelRoot table { border-collapse: separate; border-spacing: 0; }
 #panelRoot th { font-size: 11.5px; letter-spacing: .02em; color: var(--text-3); }
 #panelRoot button:not(.primary):not(.owo-toc-item):not([role=tab]) { border-radius: 8px; }
-#panelRoot .home-summary-card strong { font-family: var(--font-display); }
 .panel-empty-state { text-align: center; align-items: center; }
 
 /* ---------- settings ---------- */

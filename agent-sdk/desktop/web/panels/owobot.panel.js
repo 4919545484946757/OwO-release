@@ -55,17 +55,17 @@
     return /模型连接不可用|模型与连接不匹配|模型名称无效|模型连接需使用桌面端凭据引用/.test(message);
   }
 
-  async function openProject(helpers, workspace, selectModel = true) {
-    const request = { workspace: workspace || undefined };
-    if (selectModel) {
-      request.model = helpers.selectedModel();
-      request.connection = desktopConnection(helpers);
-    }
+  async function openProject(helpers, workspace) {
+    const request = {
+      workspace: workspace || undefined,
+      model: helpers.selectedModel(),
+      connection: desktopConnection(helpers),
+    };
     let opened;
     try {
       opened = await helpers.post("/owobot/open", request);
     } catch (error) {
-      if (!selectModel || !modelConnectionRefused(error)) throw error;
+      if (!modelConnectionRefused(error)) throw error;
       opened = await helpers.post("/owobot/open", { workspace: request.workspace });
       if (opened && typeof opened === "object") opened = { ...opened, modelFallback: true };
     }
@@ -75,16 +75,14 @@
     return opened;
   }
 
-  async function projectRequest(group, path, body, signal) {
+  async function postToProject(group, path, body) {
     const url = new URL("/owobot/api" + path, location.origin);
     url.searchParams.set("owoProject", group);
-    const options = { signal };
-    if (body !== undefined) {
-      options.method = "POST";
-      options.headers = { "content-type": "application/json" };
-      options.body = JSON.stringify(body);
-    }
-    const response = await window.OwoApi.stream(url.pathname + url.search, options);
+    const response = await window.OwoApi.stream(url.pathname + url.search, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "无法完成 OwOBot 操作。");
     return result;
@@ -94,19 +92,10 @@
     const opened = await openProject(helpers, workspace);
     const group = opened.groupId;
     const path = "/groups/" + encodeURIComponent(group);
-    const { task } = await projectRequest(group, path + "/tasks", { title: objective, requestId });
+    const { task } = await postToProject(group, path + "/tasks", { title: objective, requestId });
     if (task?.threadId !== requestId) throw new Error("无法核对 OwOBot 任务编号。");
-    await projectRequest(group, path + "/messages", { text: objective, threadId: requestId, sendId: requestId });
+    await postToProject(group, path + "/messages", { text: objective, threadId: requestId, sendId: requestId });
     return { thread: requestId, workspace };
-  }
-
-  async function history(helpers, workspace, signal) {
-    const { groupId } = await openProject(helpers, workspace, false);
-    signal.throwIfAborted();
-    const { groups } = await projectRequest(groupId, "/bots?messages=0", undefined, signal);
-    const group = groups.find(candidate => candidate.id === groupId);
-    return (group?.tasks || []).filter(task => !task.archivedAt)
-      .sort((a, b) => (b.lastThreadOrderAt ?? b.createdAt) - (a.lastThreadOrderAt ?? a.createdAt));
   }
 
   // 回退提示：只说明"这次用的是核心默认模型、怎么恢复"，不遮挡工作台内容。
@@ -199,7 +188,6 @@
     title: "OwOBot",
     mount,
     createTask,
-    history,
     open(task) { requestedTask = task; },
   };
 })(window);

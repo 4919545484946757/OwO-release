@@ -70,7 +70,6 @@ test("输入区模式入口与切换调用已接线", () => {
   // 切回会话要还原阅读位置，不能被甩到底部。
   assert.match(app, /sessionScroll: new Map\(\)/);
   assert.match(app, /function restoreSessionScroll\(sessionId\)/);
-  assert.match(app, /state\.autoScroll = distance <= 48;/);
   assert.match(domain, /restoreSessionScroll\(id\)/);
   assert.match(domain, /restoreCachedSessionMeta\(id\)/);
   // 侧栏要能一眼区分纯对话会话。

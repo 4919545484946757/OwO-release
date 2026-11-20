@@ -95,7 +95,13 @@ test("new Work conversations prefer the chosen next project and otherwise retain
 test("the send control exposes Stop only for the current session and reports cancellation in flight", () => {
   let turn = null;
   const attributes = {};
-  const button = { classList: { toggle() {} }, setAttribute: (name, value) => { attributes[name] = value; } };
+  let iconWrites = 0;
+  const button = {
+    classList: { toggle() {} },
+    getAttribute: (name) => attributes[name],
+    setAttribute: (name, value) => { attributes[name] = value; },
+    set innerHTML(_icon) { iconWrites += 1; },
+  };
   const update = runInNewContext(app.match(/function updateComposerRunning\(\) \{[\s\S]*?\n\}/)[0] + "\nupdateComposerRunning;", {
     $: () => button, currentTurn: () => turn, STOP_SVG: "stop", SEND_SVG: "send",
   });
@@ -109,6 +115,8 @@ test("the send control exposes Stop only for the current session and reports can
   update();
   assert.equal(button.disabled, true);
   assert.equal(attributes["aria-busy"], "true");
+  update();
+  assert.equal(iconWrites, 2, "repeated updates and cancellation do not replace an unchanged icon");
   turn = null;
   update();
   assert.equal(attributes["aria-label"], "发送");

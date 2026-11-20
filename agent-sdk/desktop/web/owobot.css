@@ -104,84 +104,35 @@
 .owobot-panel-note-close:hover { background: var(--surface); color: var(--text); }
 .owobot-panel-note-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-/* OwOBot 整窗模式：入口把当前窗口整体切换为 OwOBot（不新开系统窗口）。
-   panelRoot 由 enterOwobotMode() 移到 body 直下；这里隐藏其余外壳，把它铺满
-   模式栏以下的整窗。层级：setup-root(10000) > modal/toast(80) > 模式栏(6) >
-   本容器(5)，引导与弹窗仍可覆盖。 */
+#menubar #owobotReturn { display: none; }
 body.owobot-mode { overflow: hidden; }
-body.owobot-mode > *:not(#panelRoot):not(#owobotModeBar):not(#setupRoot):not(#modalRoot):not(#toastRoot) { display: none !important; }
+body.owobot-mode > *:not(#menubar):not(#panelRoot):not(#setupRoot):not(#modalRoot):not(#toastRoot) { display: none !important; }
+body.owobot-mode > #menubar { display: flex !important; }
+body.owobot-mode #menubar #owobotReturn { display: inline-grid !important; }
+body.owobot-mode #menubar :is(#mobileSidebarToggle, #navBackBtn, #navForwardBtn, #sidebarCollapseBtn, .menubar-wordmark) { display: none !important; }
 body.owobot-mode > #panelRoot {
-  position: fixed;
-  inset: 44px 0 0 0;
+  min-width: 0;
+  min-height: 0;
   z-index: 5;
   display: flex;
   flex-direction: column;
-  margin: 0;
-  padding: 0 !important;
   overflow: hidden;
   background: var(--bg);
 }
 body.owobot-mode > #panelRoot .owobot-panel-frame { flex: 1 1 auto; width: 100%; min-height: 0; }
 
-/* 模式栏：常驻窄条，只标注当前去向；退出收在标题上，不遮挡 OwOBot 自己的顶栏按钮。 */
-#owobotModeBar { display: none; }
-body.owobot-mode > #owobotModeBar {
-  position: fixed;
-  inset: 0 0 auto 0;
-  height: 44px;
-  z-index: 6;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 12px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+@media (max-width: 860px) {
+  body.owobot-mode {
+    display: grid !important;
+    grid-template: auto minmax(0, 1fr) / minmax(0, 1fr) !important;
+    gap: 0 !important;
+  }
+  body.owobot-mode > #menubar { position: relative !important; grid-area: 1 / 1; }
+  body.owobot-mode > #panelRoot { position: relative !important; grid-area: 2 / 1; }
+  body.owobot-mode #menubar .menubar-right #menubarTheme {
+    display: inline-flex !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    justify-content: center;
+  }
 }
-.owobot-mode-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text);
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: .02em;
-  line-height: 1;
-  cursor: pointer;
-  transition: background .14s cubic-bezier(0.2, 0, 0, 1), color .14s cubic-bezier(0.2, 0, 0, 1);
-}
-.owobot-mode-title:hover { background: var(--surface-2); }
-.owobot-mode-title:active { transform: scale(0.98); }
-.owobot-mode-title:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.owobot-mode-title::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-/* 整窗后外壳主题按钮不可见，模式栏右侧补一个浅/深切换。 */
-.owobot-mode-theme {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 28px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-2);
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  transition: background .14s cubic-bezier(0.2, 0, 0, 1), color .14s cubic-bezier(0.2, 0, 0, 1);
-}
-.owobot-mode-theme:hover { background: var(--surface-2); color: var(--text); }
-.owobot-mode-theme:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

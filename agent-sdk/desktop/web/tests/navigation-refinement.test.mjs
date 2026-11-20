@@ -6,13 +6,22 @@ import { createRequire } from "node:module";
 const nav = createRequire(import.meta.url)("../core/workbench-navigation.js");
 const read = file => readFileSync(new URL("../" + file, import.meta.url), "utf8");
 
-test("primary and disclosed navigation preserve every registered route exactly once", () => {
+test("workbench navigation and search omit routes with a standalone entry", () => {
   const sections = nav.sections();
-  assert.deepEqual(sections[0].entries.map(item => item.id), ["home","project-launcher","project-history","owobot","evidence","action-center"]);
+  assert.deepEqual(sections[0].entries.map(item => item.id), ["home", "project-launcher", "action-center", "project-history", "evidence"]);
   const ids = sections.flatMap(group => group.entries.map(item => item.id));
-  assert.equal(new Set(ids).size, 23);
-  assert.deepEqual([...ids].sort(), nav.entries.map(item => item.id).sort());
-  assert.deepEqual(nav.sections(["notes","permissions"]).flatMap(group => group.entries.map(item => item.id)), ["notes","permissions"]);
+  const standalone = ["owobot", "automations", "custom-workflows", "about"];
+  assert.equal(new Set(ids).size, ids.length);
+  assert.deepEqual(nav.search("").map(item => item.id), ids);
+  assert.deepEqual(nav.entries.map(item => item.id), ids.concat(standalone));
+  for (const id of standalone) {
+    assert.equal(nav.find(id).id, id);
+    assert.equal(nav.isWorkbenchPanel(id), false);
+    assert.deepEqual(nav.search("", [id]), []);
+  }
+  assert.ok(nav.isWorkbenchPanel("project-launcher"));
+  assert.match(read("index.html"), /class="workbench-shortcuts"[^>]*>[\s\S]*?data-workbench-panel="owobot"/);
+  assert.deepEqual(nav.sections(["notes", "permissions"]).flatMap(group => group.entries.map(item => item.id)), ["notes", "permissions"]);
 });
 
 test("search reveals folded destinations and restores user disclosure after clearing", () => {
@@ -42,7 +51,7 @@ test("empty-session entrance survives administrative notices but yields to work,
   const empty = { classList: { toggle: (name,on) => on ? hidden.add(name) : hidden.delete(name) } };
   const messages = { querySelector: selector => views[selector.match(/data-sid="([^"]+)"/)[1]] };
   const source = read("app.js").match(/function syncSessionWelcome\(\) \{[\s\S]*?\n\}/)[0];
-  const sync = runInNewContext(source + "\nsyncSessionWelcome;", { state, $: id => id === "emptyState" ? empty : messages, currentTurn: () => running, Boolean });
+  const sync = runInNewContext(source + "\nsyncSessionWelcome;", { state, $: id => id === "emptyState" ? empty : messages, currentTurn: () => running, syncEmptyLayout() {}, Boolean });
   sync(); assert.equal(hidden.has("hidden"), false);
   state.sessionId = "worked"; sync(); assert.equal(hidden.has("hidden"), true);
   state.sessionId = "empty"; sync(); assert.equal(hidden.has("hidden"), false);

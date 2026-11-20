@@ -18,7 +18,7 @@ test("Home errors and malformed replies stay unavailable rather than reporting a
   assert.match(el.innerHTML,/团队状态不可用/);
   assert.match(el.innerHTML,/待办状态不可用/);
   assert.doesNotMatch(el.innerHTML,/还没有团队任务/);
-  assert.doesNotMatch(el.innerHTML,/<span>待我处理<\/span><strong>0/);
+  assert.doesNotMatch(el.innerHTML,/<span>待我处理<\/span><strong class="panel-num">0 项/);
   panel.dispose();
 });
 test("Home loading and verified empty states are distinct",async()=>{
@@ -30,7 +30,7 @@ test("Home loading and verified empty states are distinct",async()=>{
   await Promise.resolve(); await Promise.resolve();
   finish({teams:[]}); await pending;
   assert.match(el.innerHTML,/还没有团队任务/);
-  assert.match(el.innerHTML,/<span>待我处理<\/span><strong>0/);
+  assert.match(el.innerHTML,/<span>待我处理<\/span><strong class="panel-num">0 项/);
   panel.dispose();
 });
 test("Home detail failure is a read failure and does not fabricate an interrupted outcome",async()=>{
@@ -39,8 +39,12 @@ test("Home detail failure is a read failure and does not fabricate an interrupte
     if(path==="/teams")return {teams:[]};
     if(path==="/human/inbox")return {items:[]};
     throw Error("offline");
-  },{sessionsKnown:true,sessions:[{id:"s",title:"task",workspace:"C:/project"}],workspace:"C:/project"}));
+  },{sessionsKnown:true,sessions:[
+    {id:"s",title:"task",workspace:"C:/project"},
+    {id:"worker",title:"OwOBot member session",workspace:"C:/project"},
+  ],owobotWorkerIds:new Set(["worker"]),workspace:"C:/project"}));
   assert.match(el.innerHTML,/状态读取失败/);
+  assert.doesNotMatch(el.innerHTML,/OwOBot member session/);
   assert.doesNotMatch(el.innerHTML,/终态未确认|已中断/);
   panel.dispose();
 });

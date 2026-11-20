@@ -1,5 +1,5 @@
 // OwOBot 整窗模式契约：入口把当前窗口整体切换为 OwOBot（不嵌在工作台工作区，
-// 也不新开系统窗口）。进入时 panelRoot 移到 body 直下并铺满模式栏以下区域，
+// 也不新开系统窗口）。进入时 panelRoot 移到 body 直下并铺满菜单栏以下区域，
 // 退出时还原父节点/内联 pin/标题并回到会话视图；#owobot 深链刷新后仍留在整窗。
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -72,7 +72,7 @@ function modeWith() {
   return { api, calls, classes, body, root, layout, document };
 }
 
-test("进入整窗：剥外壳、全屏 pin、模式栏与 OwOBot 挂载一次到位", () => {
+test("进入整窗：剥外壳、全屏 pin 与 OwOBot 挂载一次到位", () => {
   const { api, calls, classes, body, root, document } = modeWith();
   assert.equal(api.enterOwobotMode(null), true);
   assert.equal(api.active, true);
@@ -83,12 +83,7 @@ test("进入整窗：剥外壳、全屏 pin、模式栏与 OwOBot 挂载一次�
   assert.deepEqual(root.style.props.margin, ["0", "important"]);
   assert.deepEqual(root.style.props.padding, ["0", "important"]);
   assert.deepEqual(calls.mount, ["owobot"]);
-  const bar = body.children.find(child => child.id === "owobotModeBar");
-  assert.ok(bar, "模式栏必须常驻可见，返回入口不得藏进弹窗");
-  assert.equal(bar.children.length, 2, "模式栏只留去向标题与浅/深切换");
-  assert.equal(bar.children[0].id, "owobotModeHome");
-  assert.equal(bar.children[0].textContent, "OwOBot");
-  assert.equal(bar.children[1].id, "owobotModeTheme");
+  assert.equal(body.children.length, 1, "进入协作只挂载工作区，不再插入独立标题栏");
 });
 
 test("任务深链进入整窗：任务先交给面板再挂载", () => {
@@ -123,15 +118,10 @@ test("退出整窗：还原父节点/pin/标题，回会话视图且工作区不
   assert.equal(calls.approvals, 1, "标题恢复后审批前缀要立即重算");
 });
 
-test("模式栏标题就是退出入口；未进入时退出是空操作", () => {
-  const { api, calls, body } = modeWith();
-  assert.equal(api.exitOwobotMode(), false);
-  assert.deepEqual(calls.tools, []);
-  api.enterOwobotMode(null);
-  const bar = body.children.find(child => child.id === "owobotModeBar");
-  bar.children[0].listeners.click[0]();
-  assert.equal(api.active, false);
-  assert.deepEqual(calls.tools, [[false, undefined]]);
+test("系统菜单栏有显式返回入口", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /id="owobotReturn"[^>]*aria-label="返回工作台"/);
+  assert.match(app, /\$\("owobotReturn"\)\?\.addEventListener\("click", \(\) => exitOwobotMode\(\)\)/);
 });
 
 test("所有入口统一走整窗：导航/快捷搜索/深链/任务深链不再内嵌或转壳", () => {
@@ -152,12 +142,7 @@ test("审批标题跟随整窗模式，不回落成工作台标题", () => {
   assert.match(domain, /const BASE_DOC_TITLE = typeof document !== "undefined" \? \(document\.title \|\| ""\) : "";/);
 });
 
-test("整窗样式：只留 OwOBot 与模式栏，引导/弹窗/提示仍可覆盖", () => {
-  assert.match(css, /body\.owobot-mode > \*:not\(#panelRoot\):not\(#owobotModeBar\):not\(#setupRoot\):not\(#modalRoot\):not\(#toastRoot\) \{ display: none !important; \}/);
-  assert.match(css, /body\.owobot-mode > #panelRoot \{[\s\S]*?position: fixed;[\s\S]*?inset: 44px 0 0 0;/);
-  assert.match(css, /#owobotModeBar \{ display: none; \}/);
-  assert.match(css, /body\.owobot-mode > #owobotModeBar \{[\s\S]*?position: fixed;[\s\S]*?height: 44px;/);
-  assert.match(css, /\.owobot-mode-title:hover/);
-  assert.doesNotMatch(css, /#owobotModeBack/);
-  assert.doesNotMatch(css, /owobot-surface|owobot-external/);
+test("整窗保留菜单栏和弹层，侧轨与聊天共用同一行", () => {
+  assert.match(css, /body\.owobot-mode > \*:not\(#menubar\):not\(#panelRoot\):not\(#setupRoot\):not\(#modalRoot\):not\(#toastRoot\)/);
+  assert.doesNotMatch(css + domain, /owobotModeBar|owobot-mode-title/);
 });

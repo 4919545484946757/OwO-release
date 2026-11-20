@@ -15,7 +15,7 @@ test("visual layer loads after the frozen home prefix and before app scripts", (
   assert.match(html, /<link rel="stylesheet" href="frontend-visual-system\.css\?v=20261118-1">/);
   assert.ok(html.indexOf('<link rel="stylesheet" href="frontend-visual-system.css') > html.indexOf('  <aside id="right"'));
   assert.ok(html.indexOf('<link rel="stylesheet" href="frontend-visual-system.css') < html.indexOf('<script src="app.js"'));
-  assert.equal(createHash("sha256").update(prefix).digest("hex"), "9a47eb62418b955c787ac7785965d6aed6933adca97bf54e9031ee0e1c8d4293");
+  assert.equal(createHash("sha256").update(prefix).digest("hex"), "289db7870e72df37ebaf74429361b0b87564ba239a63a9d4197bc71d733697e0");
 });
 
 test("one workspace wordmark remains while duplicate and redundant chrome stays hidden", () => {

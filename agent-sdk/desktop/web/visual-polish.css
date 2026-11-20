@@ -135,8 +135,6 @@ body.panel-open #panelRoot { padding: 0 16px 32px 0; }
 
 /* Home: grouped cards live in owo-brand.css / workbench-pages.css; keep only the page wrapper here. */
 .project-home { border: 0 !important; border-radius: 0 !important; padding: 2px 0 !important; }
-#panelRoot .home-intro h3 { font-size: 20px !important; font-weight: 600; margin: 0 0 8px !important; }
-#panelRoot .home-intro p { color: var(--text-2); font-size: 14px; }
 #panelRoot .home-columns { gap: 24px; }
 .panel-empty-state { background: transparent; border: 0; border-radius: 0; padding: 32px 16px; gap: 8px; min-height: 152px; color: var(--text-2); }
 #panelRoot .panel-empty-state strong { font-size: 14px; font-weight: 600; color: var(--text); }
@@ -263,10 +261,6 @@ body.panel-open #panelRoot { padding: 0 16px 32px 0; }
   body.panel-open #sidebar { padding: 16px 24px 20px; }
   .workbench-panel-layout { grid-template-columns: 172px minmax(0,1fr); gap: 24px; }
   #panelRoot .home-columns { grid-template-columns: minmax(0,1fr); gap: 28px; }
-  #panelRoot .home-summary-card { padding: 18px 14px; }
-  #panelRoot .home-summary-card strong { font-size: 23px; }
-  #panelRoot .home-starter-grid { grid-template-columns: minmax(0,1fr); gap: 2px; }
-  #panelRoot .home-starter-grid button { grid-template-columns: minmax(0,1fr); padding: 12px; }
 }
 @media (max-height:740px) {
   .codex-sidebar { padding-top: 10px; }
@@ -283,11 +277,6 @@ body.panel-open #panelRoot { padding: 0 16px 32px 0; }
   .workbench-panel-header { padding: 0 0 16px; }
   body.tools-open #sidebar .workbench-panel-header h2 { font-size: 24px; }
   body.panel-open #panelRoot { padding-right: 0; }
-  #panelRoot .home-summary-card { grid-template-columns: 1fr auto; min-height: 0; padding: 14px 4px; }
-  #panelRoot .home-summary-card + .home-summary-card { border-left: 0; border-top: 1px solid var(--border); }
-  #panelRoot .home-summary-card:first-child { padding-left: 4px; }
-  #panelRoot .home-summary-card small { grid-column: 1/-1; }
-  #panelRoot .home-environment { gap: 6px 14px; }
   #chatForm,body.dark-theme #chatForm { width: calc(100% - 32px); padding: 12px 14px; margin-bottom: 16px; }
   #messages { padding: 24px 16px; }
   .msg.user { padding: 12px 14px; }
@@ -298,7 +287,7 @@ body.panel-open #panelRoot { padding: 0 16px 32px 0; }
   *,*::before,*::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 @media (forced-colors:active) {
-  .brand-mark,.msg.user,.home-summary-grid,.historical-completion,.turn-summary { border: 1px solid CanvasText; }
+  .brand-mark,.msg.user,.historical-completion,.turn-summary { border: 1px solid CanvasText; }
   .run-spinner::before,.tool-step-dot { background: Highlight; }
 }
 
@@ -313,22 +302,15 @@ body.panel-open #panelRoot { padding: 0 16px 32px 0; }
 #messages { width: 100%; align-self: center; padding-left: 0; padding-right: 0; }
 @media (max-width:850px) { #messages { padding-left: 16px; padding-right: 16px; } }
 
-#panelRoot .home-summary-card { display: grid; justify-content: start; justify-items: start; text-align: left; }
 #panelRoot .panel-empty-state { background: transparent; border: 0; border-radius: 0; }
 
 /* Density refinement after native-window review: useful rows stay above the fold. */
 body.panel-open #sidebar { padding-top: 16px; }
 body.tools-open.panel-open #sidebar #workbenchPanelSection { padding-top: 0; }
 .workbench-panel-header { padding-bottom: 20px; }
-#panelRoot .home-intro { padding-bottom: 18px; }
-#panelRoot .home-intro h3 { font-size: 20px !important; }
-#panelRoot .home-summary-card { padding-top: 16px; padding-bottom: 16px; min-height: 0; gap: 8px; }
-#panelRoot .home-summary-card strong { font-size: 24px; line-height: 1.2; }
-#panelRoot .home-environment { padding: 12px 0; margin-bottom: 16px; }
 #panelRoot .panel-empty-state { padding: 24px 12px; min-height: 120px; }
 #panelRoot .home-task-row { padding: 14px 8px; }
 @media (max-width:850px) {
- #panelRoot .home-summary-card { padding-top: 12px; padding-bottom: 12px; }
  .workbench-panel-header { padding-bottom: 16px; }
 }
 
@@ -398,8 +380,6 @@ body.panel-open #panelRoot > section[data-panel] { border: 0; border-radius: 0; 
  .workbench-panel-search > span { flex: 0 0 auto; font-size: 12px; }
  .workbench-panel-search input { flex: 1; min-width: 0; height: 32px; }
  #panelNav button { height: 32px; font-size: 13px; padding: 0 12px; }
- #panelRoot .home-intro { padding-bottom: 16px; }
- #panelRoot .home-intro h3 { font-size: 20px !important; }
 }
 
 /* Task-led navigation: a primary action, five destinations, then recent conversations. */

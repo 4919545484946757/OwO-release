@@ -1461,7 +1461,7 @@ function renderHistoricalCompletion(sessionId, facts) {
   detail.append(detailSummary, detailBody);
   node.appendChild(detail);
   if (["failed","cancelled","interrupted"].includes(facts.outcome)) node.appendChild(turnRecoveryActions(sessionId, state.lastSessionPrompts.get(sessionId) || "", facts.outcome));
-  sessionView(sessionId).appendChild(node);
+  writeBox().appendChild(node);
 }
 function resumeHostTurn(sessionId, detail) {
   const turnId = detail.active_turn_id;
@@ -1754,11 +1754,13 @@ async function selectSession(id, forceHistory = false) {
   state.autoScroll = true;
   updateScrollBottomBtn();
   // 每会话独立视图：切回时保留该会话的本地输出（含仍在运行回合的实时内容）。
+  const reusedView = Boolean(
+    $("messages").querySelector(`.session-view[data-sid="${id}"]`)
+  );
+  state.restoringScroll = true;
   showSessionView(id);
   // 先回显缓存里的模式/提示词，网络回来后再以服务端为准覆盖。
   if (typeof restoreCachedSessionMeta === "function") restoreCachedSessionMeta(id);
-  // 还原该会话上次的阅读位置（首次进入跟随到底部）。
-  if (typeof restoreSessionScroll === "function") restoreSessionScroll(id);
   // 并行回合：状态条/发送钮跟随切回来的会话（该会话在跑 → 恢复运行中视图）。
   const runningTurn = currentTurn();
   if (runningTurn) {
@@ -1768,9 +1770,11 @@ async function selectSession(id, forceHistory = false) {
     stopRunStatus();
   }
   updateComposerRunning();
-  const reusedView = Boolean(
-    $("messages").querySelector(`.session-view[data-sid="${id}"]`)
-  );
+  // Cached transcripts can restore the viewport immediately. New ones restore after rendering.
+  if (reusedView) {
+    syncSessionWelcome();
+    restoreSessionScroll(id);
+  }
   try {
     const detail = await api(`/session/${id}`);
     if (selectionVersion !== state.selectionVersion) return;
@@ -1807,8 +1811,6 @@ async function selectSession(id, forceHistory = false) {
       await refreshSessionPanels(id, selectionVersion);
       return;
     }
-    sessionView(id).innerHTML = "";
-    let rendered = 0;
     // 历史回放：把 role=tool 的结果按 tool_call_id 配回 assistant 的 tool_calls，
     // 还原成与会话进行中一致的步骤 chip。旧实现把这些记录折叠成一句
     // 「已折叠未显示」，用户无从复核 agent 到底做过什么。
@@ -1818,106 +1820,117 @@ async function selectSession(id, forceHistory = false) {
       try { historyAssets = await api(`/session/${id}/attachments`); } catch (_) { /* Keep text readable; each missing preview explains why it is unavailable. */ }
       if (selectionVersion !== state.selectionVersion) return;
     }
-    const toolResults = new Map();
-    for (const message of history) {
-      if (message.role !== "tool") continue;
-      const content = String(message.content || "");
-      const failed = content.startsWith("工具错误：");
-      toolResults.set(String(message.tool_call_id || ""), {
-        ok: !failed,
-        preview: content,
-        error: failed ? content.replace(/^工具错误：/, "") : "",
-      });
+    const view = sessionView(id);
+    const fragment = document.createDocumentFragment();
+    // Build the transcript before measuring the visible conversation.
+    historyWriteView = fragment;
+    try {
+      renderSessionHistory(id, history, historyAssets, restoredFacts);
+    } finally {
+      historyWriteView = null;
     }
-    // 仍检测「最后一条是用户消息但没回复」的失败回合，显式告诉用户。
-    let lastRole = null;
-    // 只有正常的用户/回答气泡参与编辑与重新生成；工具结果和事件 chip 不算。
-    let lastUserTurn = null;
-    let lastAssistantBubble = null;
-    // 连续的工具回合共用同一段折叠（见 appendHistoryToolSteps 注释）。
-    let historyToolRun = null;
-    for (let messageIndex = 0; messageIndex < history.length; messageIndex += 1) {
-      const message = history[messageIndex];
-      if (message.role === "system") {
-        // 压缩摘要等系统记录：按系统提示显示，避免被当作助手回复。
-        // 历史摘要动辄上千字，直接铺成正文会把真正的对话挤出屏幕——收成可展开的
-        // 时间线事件（与回合内实时压缩用同一枚 chip）。
-        const content = String(message.content || "");
-        if (content.includes("历史摘要（已压缩）")) {
-          addEventChip("compact", "上下文已压缩", content);
-        } else {
-          addMessage("system", content);
-        }
-        lastRole = "system";
-        historyToolRun = null;
-        continue;
-      }
-      if (message.role === "tool") {
-        lastRole = "tool";
-        continue;
-      }
-      if (message.role === "assistant") {
-        const calls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
-        // 历史思考：刷新或切回会话后，思考过程来自 assistant 消息上持久化的
-        // reasoning_replay。旧实现完全忽略该字段，用户只能看到回答，看不到
-        // 这段回答是怎么想出来的；有工具调用时思考应排在工具轨迹之前。
-        const replayText =
-          message.reasoning_replay && typeof message.reasoning_replay.content === "string"
-            ? message.reasoning_replay.content.trim()
-            : "";
-        if (replayText && (message.content || calls.length)) addHistoricalThinking(replayText);
-        if (calls.length) {
-          historyToolRun = appendHistoryToolSteps(calls, toolResults, historyToolRun);
-          lastRole = "tool";
-          rendered += 1;
-        }
-        if (!message.content) continue;
-      } else if (!message.content && !(message.role === "user" && (message.input?.content_parts?.length || message.images?.length))) {
-        continue;
-      }
-      const storedContent = message.role === "user" && window.OwoHistoryInput ? window.OwoHistoryInput.displayText(message) : String(message.content || "");
-      if (message.role === "assistant" && storedContent.startsWith("回合未完成：") &&
-          typeof addHistoricalTurnFailure === "function") {
-        addHistoricalTurnFailure(storedContent);
-        // 失败占位不是可重发的回答：别把「重新生成」挂到更早的旧回答上。
-        lastAssistantBubble = null;
-      } else {
-        const bubble = addMessage(message.role === "user" ? "user" : "assistant", storedContent);
-        // 循环防护提醒虽然是 user 角色，但会被折叠成事件 chip：不要再挂编辑入口。
-        if (message.role === "user" && bubble && bubble.classList.contains("msg")) {
-          if (window.OwoHistoryInput) window.OwoHistoryInput.render(bubble, message, historyAssets);
-          attachUserMessageActions(bubble, { sessionId: id, messageIndex, content: storedContent, message });
-          lastUserTurn = { messageIndex, content: storedContent, message };
-        } else if (
-          message.role === "assistant" &&
-          !(Array.isArray(message.tool_calls) && message.tool_calls.length) &&
-          bubble &&
-          bubble.classList.contains("msg")
-        ) {
-          lastAssistantBubble = bubble;
-        }
-      }
-      lastRole = message.role === "user" ? "user" : "assistant";
-      historyToolRun = null;
-      rendered += 1;
-    }
-    // 回答之后又跑了工具/系统事件时，末尾不是可重发的回答，不挂「重新生成」。
-    if (lastRole === "assistant" && lastAssistantBubble && lastUserTurn && !currentTurn()) {
-      attachRegenerateAction(lastAssistantBubble, id, lastUserTurn);
-    }
-    renderHistoricalCompletion(id, restoredFacts);
-    if (lastRole === "user") {
-      addMessage("system", "上一条消息还没有回复（回合可能失败或被中断），可重新发送让助手继续");
-    }
-    // 历史重新渲染后内容高度才确定，再按记录还原一次位置。
-    if (typeof restoreSessionScroll === "function") restoreSessionScroll(id);
+    view.replaceChildren(fragment);
     syncSessionWelcome();
+    restoreSessionScroll(id);
   } catch (error) {
     if (selectionVersion !== state.selectionVersion) return;
-    sessionView(id).innerHTML = "";
+    sessionView(id).replaceChildren();
     addMessage("error", `会话加载失败：${friendlyError(error, { resource: true })}`);
+    restoreSessionScroll(id);
   }
   await refreshSessionPanels(id, selectionVersion);
+}
+
+function renderSessionHistory(id, history, historyAssets, restoredFacts) {
+  const toolResults = new Map();
+  for (const message of history) {
+    if (message.role !== "tool") continue;
+    const content = String(message.content || "");
+    const failed = content.startsWith("工具错误：");
+    toolResults.set(String(message.tool_call_id || ""), {
+      ok: !failed,
+      preview: content,
+      error: failed ? content.replace(/^工具错误：/, "") : "",
+    });
+  }
+  // 仍检测「最后一条是用户消息但没回复」的失败回合，显式告诉用户。
+  let lastRole = null;
+  // 只有正常的用户/回答气泡参与编辑与重新生成；工具结果和事件 chip 不算。
+  let lastUserTurn = null;
+  let lastAssistantBubble = null;
+  // 连续的工具回合共用同一段折叠（见 appendHistoryToolSteps 注释）。
+  let historyToolRun = null;
+  for (let messageIndex = 0; messageIndex < history.length; messageIndex += 1) {
+    const message = history[messageIndex];
+    if (message.role === "system") {
+      // 压缩摘要等系统记录：按系统提示显示，避免被当作助手回复。
+      // 历史摘要动辄上千字，直接铺成正文会把真正的对话挤出屏幕——收成可展开的
+      // 时间线事件（与回合内实时压缩用同一枚 chip）。
+      const content = String(message.content || "");
+      if (content.includes("历史摘要（已压缩）")) {
+        addEventChip("compact", "上下文已压缩", content);
+      } else {
+        addMessage("system", content);
+      }
+      lastRole = "system";
+      historyToolRun = null;
+      continue;
+    }
+    if (message.role === "tool") {
+      lastRole = "tool";
+      continue;
+    }
+    if (message.role === "assistant") {
+      const calls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
+      // 历史思考：刷新或切回会话后，思考过程来自 assistant 消息上持久化的
+      // reasoning_replay。旧实现完全忽略该字段，用户只能看到回答，看不到
+      // 这段回答是怎么想出来的；有工具调用时思考应排在工具轨迹之前。
+      const replayText =
+        message.reasoning_replay && typeof message.reasoning_replay.content === "string"
+          ? message.reasoning_replay.content.trim()
+          : "";
+      if (replayText && (message.content || calls.length)) addHistoricalThinking(replayText);
+      if (calls.length) {
+        historyToolRun = appendHistoryToolSteps(calls, toolResults, historyToolRun);
+        lastRole = "tool";
+      }
+      if (!message.content) continue;
+    } else if (!message.content && !(message.role === "user" && (message.input?.content_parts?.length || message.images?.length))) {
+      continue;
+    }
+    const storedContent = message.role === "user" && window.OwoHistoryInput ? window.OwoHistoryInput.displayText(message) : String(message.content || "");
+    if (message.role === "assistant" && storedContent.startsWith("回合未完成：") &&
+        typeof addHistoricalTurnFailure === "function") {
+      addHistoricalTurnFailure(storedContent);
+      // 失败占位不是可重发的回答：别把「重新生成」挂到更早的旧回答上。
+      lastAssistantBubble = null;
+    } else {
+      const bubble = addMessage(message.role === "user" ? "user" : "assistant", storedContent);
+      // 循环防护提醒虽然是 user 角色，但会被折叠成事件 chip：不要再挂编辑入口。
+      if (message.role === "user" && bubble && bubble.classList.contains("msg")) {
+        if (window.OwoHistoryInput) window.OwoHistoryInput.render(bubble, message, historyAssets);
+        attachUserMessageActions(bubble, { sessionId: id, messageIndex, content: storedContent, message });
+        lastUserTurn = { messageIndex, content: storedContent, message };
+      } else if (
+        message.role === "assistant" &&
+        !(Array.isArray(message.tool_calls) && message.tool_calls.length) &&
+        bubble &&
+        bubble.classList.contains("msg")
+      ) {
+        lastAssistantBubble = bubble;
+      }
+    }
+    lastRole = message.role === "user" ? "user" : "assistant";
+    historyToolRun = null;
+  }
+  // 回答之后又跑了工具/系统事件时，末尾不是可重发的回答，不挂「重新生成」。
+  if (lastRole === "assistant" && lastAssistantBubble && lastUserTurn && !currentTurn()) {
+    attachRegenerateAction(lastAssistantBubble, id, lastUserTurn);
+  }
+  renderHistoricalCompletion(id, restoredFacts);
+  if (lastRole === "user") {
+    addMessage("system", "上一条消息还没有回复（回合可能失败或被中断），可重新发送让助手继续");
+  }
 }
 
 /// 侧栏、diff、上下文仪表互不依赖：并行刷新，切会话少等两个网络往返。
@@ -2013,8 +2026,10 @@ async function newSession(workspaceOverride) {
 // 别的目录的会话仍可从侧栏打开，打开时 selectSession 会把芯片切到该会话的工作区。
 async function restoreLastSession() {
   if (state.sessionId) return;
+  const selectionVersion = state.selectionVersion;
   try {
-    const sessions = (await api("/sessions")) || [];
+    const sessions = (state.sessionsKnown ? state.sessionIndex : await api("/sessions")) || [];
+    if (selectionVersion !== state.selectionVersion) return;
     const workspaceInput = $("workspace");
     const currentWorkspace = String(workspaceInput?.value || "").trim();
     // 没有显式工作区时保持空状态，不从历史会话里“猜”一个工作区（尤其不能
@@ -3844,52 +3859,11 @@ async function createComputerTask() {
 // ---------- 扩展面板（第四轮：notes / plugin-market / workflow / goal；第五轮：team / eval / observability / memory / command） ----------
 
 // OwOBot 整窗模式：入口把当前窗口整体切换为 OwOBot——不嵌在工作台工作区里，
-// 也不新开系统窗口。panelRoot 移出侧栏成为 body 直下的全屏容器，顶部一条窄模式栏
-// 提供「返回工作台」；退出时还原父节点、标题与会话视图。浏览器与桌面壳行为一致。
+// 也不新开系统窗口。panelRoot 移出侧栏成为 body 直下的全屏容器，菜单栏提供返回入口；退出时还原父节点、标题与会话视图。浏览器与桌面壳行为一致。
 let owobotModeActive = false;
 let owobotModeHome = null;
 
 const PANEL_EMPTY_STATE_HTML = '<div class="panel-empty-state"><strong>选择工具面板</strong><span>需要查看项目状态或管理能力时，再从上方选择对应面板。</span></div>';
-
-function ensureOwobotModeBar() {
-  let bar = $("owobotModeBar");
-  if (bar) return bar;
-  bar = document.createElement("div");
-  bar.id = "owobotModeBar";
-  // 侧栏本身就能切换去向，模式栏不再放「返回工作台」按钮，
-  // 只留当前去向；点标题即可退回工作台，避免整窗模式没有出口。
-  const home = document.createElement("button");
-  home.type = "button";
-  home.id = "owobotModeHome";
-  home.className = "owobot-mode-title";
-  home.textContent = "OwOBot";
-  home.title = "返回工作台";
-  home.setAttribute("aria-label", "返回工作台");
-  home.addEventListener("click", () => exitOwobotMode());
-  // 整窗后外壳的侧栏和主题按钮都被隐藏，这里补一个浅/深切换，
-  // 面板会跟着换肤（见 panels/owobot.panel.js）。
-  const theme = document.createElement("button");
-  theme.type = "button";
-  theme.id = "owobotModeTheme";
-  theme.className = "owobot-mode-theme";
-  theme.addEventListener("click", () => {
-    $("themeToggle")?.click();
-    syncOwobotThemeButton();
-  });
-  bar.append(home, theme);
-  document.body.appendChild(bar);
-  syncOwobotThemeButton();
-  return bar;
-}
-
-function syncOwobotThemeButton() {
-  const button = $("owobotModeTheme");
-  if (!button) return;
-  const dark = document.body.classList.contains("dark-theme");
-  button.textContent = dark ? "☀" : "☾";
-  button.title = dark ? "切换到浅色" : "切换到深色";
-  button.setAttribute("aria-label", button.title);
-}
 
 function enterOwobotMode(task) {
   const root = $("panelRoot");
@@ -3904,7 +3878,6 @@ function enterOwobotMode(task) {
   owobotModeHome = { parent: root.parentNode, next: root.nextSibling, title: BASE_DOC_TITLE };
   document.body.classList.add("owobot-mode");
   document.title = "OwOBot";
-  ensureOwobotModeBar();
   document.body.appendChild(root);
   // 主题层用 !important 锁死 #panelRoot 的 1080px 居中盒模型（chatgpt-theme /
   // frontend-visual-system），样式表层级压不住；inline important 是唯一稳定覆盖点。
@@ -3968,35 +3941,19 @@ const PANEL_ORDER = [
   "about",
 ];
 
-// 左侧「工作台」入口覆盖的功能页：它们共用同一个一级入口，内部再用页面导航切换。
-// OwOBot 与自动化页面是一级入口，不在工作台内部重复挂载。
-const WORKBENCH_HUB_PANELS = new Set([
-  "home",
-  "project-launcher",
-  "project-history",
-  "evidence",
-  "action-center",
-  "goal",
-  "notes",
-  "memory",
-  "team",
-  "plugin-market",
-  "permissions",
-  "command",
-  "observability",
-  "diagnostics-ledger",
-  "fleet",
-  "capabilities",
-  "agent-tasks",
-  "eval",
-  "product-eval",
-]);
-
 function panelHelpers() {
   const selectedModelConnection = () => ModelRouting.buildCustomModelConnection(getComposerModel(), loadCustomModels(), customModelKeys());
   return {
     baseUrl: API_BASE,
-    snapshot: () => ({ sessionId: state.sessionId, workspace: state.sessionId && state.sessionWorkspace ? state.sessionWorkspace : $("workspace")?.value || "", settings: state.settings || {}, sessions: state.sessionIndex || [], sessionsKnown: state.sessionsKnown === true, taskFacts: taskNavigationFacts() }),
+    snapshot: () => ({
+      sessionId: state.sessionId,
+      workspace: state.sessionId && state.sessionWorkspace ? state.sessionWorkspace : $("workspace")?.value || "",
+      settings: state.settings || {},
+      sessions: state.sessionIndex || [],
+      sessionsKnown: state.sessionsKnown === true,
+      owobotWorkerIds: state.owobotWorkerIds,
+      taskFacts: taskNavigationFacts(),
+    }),
     openPanel: openPanelById,
     workspaceKey: workspacePathKey,
     // 面板里发起模型请求（如 AI 生成工作流）时要带上当前选择的模型连接：桌面端把
@@ -4074,7 +4031,7 @@ function markSidebarPanel(id) {
   for (const button of document.querySelectorAll("#sidebar .codex-rail [data-workbench-panel], #sidebar .codex-sidebar [data-workbench-panel]")) {
     const panelId = button.dataset.workbenchPanel;
     const current = Boolean(id) && (
-      panelId === id || (panelId === "home" && WORKBENCH_HUB_PANELS.has(id))
+      panelId === id || (panelId === "home" && window.OwoWorkbenchNavigation.isWorkbenchPanel(id))
     );
     button.classList.toggle("is-current", current);
     if (current) button.setAttribute("aria-current", "page");
@@ -4424,7 +4381,7 @@ function initPanels() {
     if (group.primary) {
       const heading = document.createElement("div");
       heading.className = "workbench-nav-heading";
-      heading.textContent = "工作台";
+      heading.textContent = group.label;
       section.appendChild(heading);
     } else {
       const summary = document.createElement("summary");
