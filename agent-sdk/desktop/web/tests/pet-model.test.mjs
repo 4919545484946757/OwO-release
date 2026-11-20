@@ -10,8 +10,8 @@ const index = JSON.parse(readFileSync(join(PET, "assets", "skins", "index.json")
 const squid = index.skins.find((skin) => skin.id === "owo-squid");
 const pink = index.skins.find((skin) => skin.id === "pink-squid");
 
-test("3D 墨鱼皮肤以默认形象登记并携带用户 GLB", () => {
-  assert.equal(index.default, "owo-squid");
+test("3D 手办为默认形象，两套墨鱼皮肤仍可选并携带用户 GLB", () => {
+  assert.equal(index.default, "owo-figurine");
   assert.deepEqual(index.skins.map((skin) => skin.id), ["owo-squid", "pink-squid", "owo-figurine"]);
   const figurine = index.skins[2];
   assert.equal(figurine.kind, "gltf");
@@ -46,7 +46,7 @@ test("桌宠页面加载 3D canvas 与 GLB 渲染器，同时保留精灵图入�
   assert.match(renderer, /TEXCOORD_0/);
   assert.match(renderer, /baseColorTexture/);
   assert.match(renderer, /texImage2D/);
-  assert.match(renderer, /rotate\(dx,dy\)/);
+  assert.match(renderer, /rotate\(dx,\s*dy\)/);
   assert.match(js, /modelRenderer\.rotate/);
   assert.match(js, /按住 Shift 拖动/);
   assert.match(js, /if \(skinIndex\.skins\.length\) \{/);
