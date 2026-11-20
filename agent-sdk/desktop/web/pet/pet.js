@@ -31,13 +31,24 @@ const petHitbox = $("pet-hitbox");
 const avatar = $("pet-avatar");
 const avatarImg = $("pet-avatar-img");
 const avatar3d = $("pet-avatar-3d");
-const modelRenderer = globalThis.OwoModelRenderer && avatar3d ? globalThis.OwoModelRenderer.create(avatar3d, { onOffset: moveFigurineHitbox }) : null;
+let modelRenderer = null;
 const bubble = $("bubble");
 const fxLayer = $("fx");
 
 // 桌宠与 Electron 壳之间的桥（preload 注入）。浏览器直接打开时为 null，
 // 此时桌宠仍可显示状态，只是不能移动/拉起工作台。
 const shellBridge = globalThis.petShell || null;
+let petWindowVisible = !shellBridge?.onVisibilityChanged && !document.hidden;
+
+function canRenderModel() {
+  return petWindowVisible && chatPanel?.hidden !== false;
+}
+
+function syncModelVisibility() {
+  const visible = canRenderModel();
+  modelRenderer?.setVisible(visible);
+  if (visible && config.model) render(status);
+}
 
 // 点击/拖动会激活桌宠窗口（Windows 必须这样才能收到 mousedown）。互动一结束就把
 // 键盘交还给用户原来的前台窗口；聊天打开时由主进程忽略，不打断输入。
@@ -214,7 +225,7 @@ function probeAsset(url) {
 function probeModelAsset(url) {
   const client = window.OwoApi;
   if (!client || typeof client.resource !== "function") return Promise.resolve(false);
-  return client.resource(url, { cache: "no-store" })
+  return client.resource(url, { method: "HEAD", cache: "no-store" })
     .then((response) => response.ok)
     .catch(() => false);
 }
@@ -356,6 +367,8 @@ function render(next) {
   for (const s of STATES) pet.classList.toggle(s, s === status);
   const anim = (config.anims && config.anims[status]) || null;
   if (config.model) {
+    if (!canRenderModel()) return;
+    modelRenderer ||= globalThis.OwoModelRenderer?.create(avatar3d, { onOffset: moveFigurineHitbox });
     if (!modelRenderer) {
       fallbackFromModel();
       return;
@@ -936,6 +949,7 @@ async function toggleChat(force) {
   chatPanel.hidden = !open;
   // 面板占满窗口时把 3D 形象收起来，否则面板会被小窗口裁掉上半截。
   document.body.classList.toggle("chatting", open);
+  syncModelVisibility();
   // 面板铺满窗口：整窗都要可交互（输入框、×、标题栏拖动把手），否则全落在穿透区里。
   // 收起后回到形象命中区，继续交给壳轮询判定。
   regionReported = "";
@@ -1050,6 +1064,24 @@ async function reportVisibility() {
 // ---- 启动 ----
 
 async function boot() {
+  if (shellBridge?.onVisibilityChanged) {
+    let receivedEvent = false;
+    shellBridge.onVisibilityChanged((visible) => {
+      receivedEvent = true;
+      petWindowVisible = visible === true;
+      syncModelVisibility();
+    });
+    void shellBridge.query().then((windowState) => {
+      if (receivedEvent) return;
+      petWindowVisible = windowState?.visible === true;
+      syncModelVisibility();
+    }).catch(() => {});
+  } else {
+    document.addEventListener("visibilitychange", () => {
+      petWindowVisible = !document.hidden;
+      syncModelVisibility();
+    });
+  }
   render("idle");
   // 先把命中区报给壳：穿透判定在主进程，缺了这一步窗口会一直停在"整窗穿透"，
   // 形象就变成一张点不动的图片。

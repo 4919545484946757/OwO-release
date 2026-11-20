@@ -968,8 +968,8 @@ function notifyState() {
   // ready → 导航到核心托管的工作台；端口变了（核心重启后重新分配）必须重新导航。
   if (coreState.state === "ready" && coreState.port && uiPort !== coreState.port) {
     uiPort = coreState.port;
-    mainWindow.loadURL(webUiUrl(coreState.port));
-    syncPetWindow(coreState.port);
+    const workbenchLoad = mainWindow.loadURL(webUiUrl(coreState.port));
+    schedulePetWindow(coreState.port, workbenchLoad);
     // 核心就绪后会重新导航页面；再次置前，避免这次导航把工作台留在其他窗口后面。
     raiseMainWindow();
     return;
@@ -1170,11 +1170,20 @@ function syncPetTopmost() {
   if (behind) mainWindow.moveTop();
 }
 
+function watchPetVisibility(win) {
+  const publish = () => {
+    if (!win.isDestroyed()) win.webContents.send("pet:actor:visibility", win.isVisible());
+  };
+  win.on("show", publish);
+  win.on("hide", publish);
+}
+
 function createPetWindow(port) {
   if (petWindow && !petWindow.isDestroyed()) return petWindow;
   petWindow = new BrowserWindow({
     ...PET_SIZE,
     ...petDefaultBounds(),
+    show: false,
     frame: false,
     transparent: true,
     backgroundColor: "#00000000",
@@ -1209,6 +1218,7 @@ function createPetWindow(port) {
       void setPetDesired(false);
     }
   });
+  watchPetVisibility(petWindow);
   petWindow.loadURL(petUrl(port));
   // 桌宠页与工作台同源，会继承工作台的界面缩放。缩小（默认 95%）无害，但放大到
   // 125%/150% 时 CSS 视口会缩到比形象还小，固定布局的模型被窗口裁掉，只露一角。
@@ -1391,6 +1401,7 @@ function ensureAgentPets(ref) {
     w.webContents.setWindowOpenHandler(()=>({action:'deny'}));
     w.on('close',event=>{if(!app.isQuitting){event.preventDefault();applyPetVisibility(false);void setPetDesired(false);}});
     w.on('closed',()=>agentPetWindows.delete(role));
+    watchPetVisibility(w);
     w.loadURL(petUrl(coreState.port)+'?member=1&role='+encodeURIComponent(role)+'&skin='+encodeURIComponent(skin));
     w.on('show',syncPetTopmost);
   }
@@ -1401,11 +1412,28 @@ function ensureAgentPets(ref) {
 }
 function applyPetVisibility(visible){petPresence.setVisible(visible);}
 
+let petWindowStart = null;
+let petWindowNavigation = 0;
+
+function schedulePetWindow(port, workbenchLoad) {
+  const navigation = ++petWindowNavigation;
+  clearTimeout(petWindowStart);
+  const afterLoad = () => {
+    if (navigation !== petWindowNavigation || shuttingDown) return;
+    // Give the workbench a head start before opening a second renderer.
+    petWindowStart = setTimeout(() => {
+      if (!shuttingDown && coreState.state === "ready" && coreState.port === port) syncPetWindow(port);
+    }, 500);
+  };
+  void workbenchLoad.then(afterLoad, afterLoad);
+}
+
 /// 核心 ready 时挂上桌宠；端口变（核心重启）则重新导航。
 function syncPetWindow(port) {
   if (!petWindow || petWindow.isDestroyed()) {
     createPetWindow(port);
     petUiPort = port;
+    petPresence.apply();
     return;
   }
   if (petUiPort !== port) {
@@ -2140,6 +2168,7 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   shuttingDown = true;
   clearInterval(petWatchdog);
+  clearTimeout(petWindowStart);
   globalShortcut.unregisterAll();
   killCore();
 });

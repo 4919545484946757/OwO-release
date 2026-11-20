@@ -61,6 +61,11 @@ contextBridge.exposeInMainWorld("petShell", {
   showWorkbench: () => ipcRenderer.invoke("pet:workbench"),
   // 真实可见性 + 归位：桌宠页用心跳对账（见 main.js pet:query 注释）。
   query: () => ipcRenderer.invoke("pet:actor:query"),
+  onVisibilityChanged: (handler) => {
+    const listener = (_event, visible) => handler(visible);
+    ipcRenderer.on("pet:actor:visibility", listener);
+    return () => ipcRenderer.removeListener("pet:actor:visibility", listener);
+  },
   resetPosition: () => ipcRenderer.invoke("pet:actor:reset"),
   // 偏好存壳侧文件，不存 localStorage（origin 绑随机端口，见 main.js petPrefPath）。
   getPref: () => ipcRenderer.invoke("pet:pref:get"),
