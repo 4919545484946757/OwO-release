@@ -18,6 +18,7 @@ const START_LIMIT: Duration = Duration::from_secs(40);
 const HTTP_LIMIT: Duration = Duration::from_secs(12);
 const GROUP_NAME: &str = "项目协作";
 const INSTANCE: &str = "owo-agent";
+const CUSTOM_BOT_SECTION: &str = "owobot-custom";
 
 pub(super) struct Running {
     pub(super) base_url: String,
@@ -80,6 +81,7 @@ struct Session {
 struct Bot {
     id: String,
     name: String,
+    section: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -329,8 +331,13 @@ async fn prepare_group(
     }
     let members: [String; 3] = members.try_into().expect("exactly three roles");
     if let Some(group) = group {
-        if group.members.len() != members.len()
-            || !members.iter().all(|id| group.members.contains(id))
+        if !members.iter().all(|id| group.members.contains(id))
+            || group.members.iter().any(|id| {
+                !members.contains(id)
+                    && !snapshot.bots.iter().any(|bot| {
+                        bot.id == *id && bot.section.as_deref() == Some(CUSTOM_BOT_SECTION)
+                    })
+            })
         {
             return Err(GatewayError::Unavailable("OwOBot 项目成员与角色不匹配"));
         }

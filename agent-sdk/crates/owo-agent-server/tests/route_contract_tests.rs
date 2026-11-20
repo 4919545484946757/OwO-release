@@ -6790,6 +6790,8 @@ async fn owobot_gateway_requires_its_own_browser_capability() {
         ("GET", "/owobot/api/delivery/test"),
         ("POST", "/owobot/api/delivery/test/decision"),
         ("POST", "/owobot/api/groups/test/messages"),
+        ("POST", "/owobot/api/groups/test/bots"),
+        ("POST", "/owobot/api/groups/test/bots/test-bot"),
     ] {
         let response = app
             .clone()

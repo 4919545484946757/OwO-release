@@ -148,6 +148,16 @@ struct CollaborationTurn {
     thread_id: String,
     depth: u32,
     assignment_id: Option<String>,
+    #[serde(default)]
+    custom_bot: bool,
+    #[serde(default)]
+    collaborators: Vec<Collaborator>,
+}
+
+#[derive(Deserialize)]
+struct Collaborator {
+    id: String,
+    name: String,
 }
 
 #[derive(Clone, Default, Deserialize)]
@@ -409,21 +419,38 @@ impl Collaboration {
         if scope.group_id != active.group || scope.depth > 3 || scope.thread_id.is_empty() {
             return Err(denied());
         }
-        let role = active.role_for(&scope.bot_id).ok_or_else(denied)?;
+        let role = active
+            .role_for(&scope.bot_id)
+            .or(scope.custom_bot.then_some(WorkerRole::Worker))
+            .ok_or_else(denied)?;
         request.model_connection = active.model.connection.clone();
-        let dispatcher = (role == WorkerRole::Lead
+        let dispatcher = ((role == WorkerRole::Lead || scope.custom_bot)
             && scope.depth < 3
             && request.read_only != Some(true))
         .then(|| {
+            let mut recipients = vec![
+                ("worker".into(), active.member(WorkerRole::Worker).into()),
+                (
+                    "reviewer".into(),
+                    active.member(WorkerRole::Reviewer).into(),
+                ),
+            ];
+            if scope.custom_bot {
+                recipients.push(("lead".into(), active.member(WorkerRole::Lead).into()));
+            }
+            recipients.extend(
+                scope
+                    .collaborators
+                    .iter()
+                    .filter(|member| member.id != scope.bot_id)
+                    .map(|member| (member.name.clone(), member.id.clone())),
+            );
             delegation::Delegate::new(
                 self.client.clone(),
                 active.base_url.clone(),
                 turn.to_owned(),
                 active.group.clone(),
-                [
-                    active.member(WorkerRole::Worker).to_owned(),
-                    active.member(WorkerRole::Reviewer).to_owned(),
-                ],
+                recipients,
             )
         });
         Ok(Some(WorkerTurn {
@@ -807,10 +834,10 @@ fn route_allowed(method: &Method, path: &str, group: &str) -> bool {
         (&Method::GET, ["bots" | "events" | "instances" | "search"]) => true,
         (&Method::GET, ["threads", _, "messages"]) => true,
         (&Method::GET, ["groups", id]) => *id == group,
-        (&Method::POST, ["groups", id, "messages" | "read" | "interrupt" | "tasks"]) => {
+        (&Method::POST, ["groups", id, "messages" | "read" | "interrupt" | "tasks" | "bots"]) => {
             *id == group
         }
-        (&Method::POST, ["groups", id, "tasks", _]) => *id == group,
+        (&Method::POST, ["groups", id, "tasks" | "bots", _]) => *id == group,
         _ => false,
     }
 }
@@ -1000,6 +1027,8 @@ mod tests {
                 thread_id: "thread-1".to_owned(),
                 depth,
                 assignment_id: None,
+                custom_bot: false,
+                collaborators: Vec::new(),
             },
             readonly: false,
         };

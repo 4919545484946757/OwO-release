@@ -4,6 +4,7 @@ use owo_agent_core::{EffectClass, ToolEffect};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::collections::HashSet;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -15,8 +16,8 @@ pub(crate) struct Delegate {
     endpoint: String,
     turn: String,
     group: String,
-    recipients: [String; 2],
-    submitted: Mutex<[bool; 2]>,
+    recipients: Vec<(String, String)>,
+    submitted: Mutex<HashSet<String>>,
 }
 
 impl Delegate {
@@ -25,7 +26,7 @@ impl Delegate {
         base_url: String,
         turn: String,
         group: String,
-        recipients: [String; 2],
+        recipients: Vec<(String, String)>,
     ) -> Self {
         Self {
             client,
@@ -33,36 +34,30 @@ impl Delegate {
             turn,
             group,
             recipients,
-            submitted: Mutex::new([false; 2]),
+            submitted: Mutex::new(HashSet::new()),
         }
     }
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum Recipient {
-    Worker,
-    Reviewer,
-}
-
-#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Assignment {
-    recipient: Recipient,
+    recipient: String,
     task: String,
 }
 
 #[async_trait::async_trait]
 impl Tool for Delegate {
     fn spec(&self) -> ToolSpec {
+        let recipients: Vec<_> = self.recipients.iter().map(|(name, _)| name).collect();
         ToolSpec::with_effect(
             TOOL,
-            "Assign a task to the worker or reviewer in this OwOBot project conversation. A result will resume the coordinator.".into(),
+            "Ask a named teammate in this OwOBot project conversation to perform a task or contribute an opinion. Use the recipient key exactly as listed. Their result returns to this conversation.".into(),
             json!({
                 "type":"object",
                 "additionalProperties":false,
                 "properties":{
-                    "recipient":{"type":"string","enum":["worker","reviewer"]},
+                    "recipient":{"type":"string","enum":recipients},
                     "task":{"type":"string","minLength":1,"maxLength":4000},
                 },
                 "required":["recipient","task"]
@@ -88,25 +83,31 @@ impl Tool for Delegate {
         if ctx.abort.is_some_and(|flag| flag.load(Ordering::Acquire)) {
             return Err("owobot/assignment_cancelled".into());
         }
-        let index = match assignment.recipient {
-            Recipient::Worker => 0,
-            Recipient::Reviewer => 1,
-        };
+        let target = self
+            .recipients
+            .iter()
+            .find(|(name, _)| *name == assignment.recipient)
+            .map(|(_, id)| id)
+            .ok_or("owobot/invalid_recipient")?;
         {
             let mut submitted = self
                 .submitted
                 .lock()
                 .map_err(|_| "owobot/assignment_unavailable")?;
-            if std::mem::replace(&mut submitted[index], true) {
+            if submitted.contains(target) {
                 return Err("owobot/recipient_already_assigned_this_turn".into());
             }
+            if submitted.len() >= 2 {
+                return Err("owobot/assignment_limit_reached".into());
+            }
+            submitted.insert(target.clone());
         }
         let response = self
             .client
             .post(&self.endpoint)
             .bearer_auth(&self.turn)
             .timeout(Duration::from_secs(8))
-            .json(&json!({"groupId":self.group,"targetBot":self.recipients[index],"message":task}))
+            .json(&json!({"groupId":self.group,"targetBot":target,"message":task}))
             .send()
             .await
             .map_err(|_| "owobot/assignment_receipt_unavailable")?;

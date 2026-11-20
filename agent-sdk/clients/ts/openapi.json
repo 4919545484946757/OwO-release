@@ -3844,7 +3844,8 @@
       },
       "post": {
         "operationId": "postOwobotCollaboration",
-        "summary": "Forward an allowed OwOBot conversation request",
+        "summary": "Forward an allowed OwOBot conversation or project bot profile request",
+        "description": "For groups/{group}/bots, send requestId, name, style and optional instructions. For groups/{group}/bots/{bot}, send style to update an existing member's appearance.",
         "security": [
           {
             "owobotCookie": []
