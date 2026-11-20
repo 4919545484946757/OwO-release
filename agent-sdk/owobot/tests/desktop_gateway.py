@@ -123,12 +123,19 @@ class SelectedModel:
     stop_assignment = "Wait on the cancellation-test provider."
     stopped_reply = "UNEXPECTED_LATE_WORKER_REPLY"
     summary = "报名交付已完成评审，请查看预览并批准应用。"
+    researcher = "资料搭档"
+    planner = "构思搭档"
+    bot_prompt = "请邀请构思搭档核对演示安排"
+    bot_assignment = "核对本机项目演示安排"
+    planner_reply = "我建议先用项目文件，再展示两个 Bot 的接力。"
+    researcher_reply = "我已采用构思搭档的建议，演示顺序已核对。"
 
     def __init__(self, port):
         self.calls = []
         self.issued_assignment = False
         self.issued_review = False
         self.issued_stop_assignment = False
+        self.issued_bot_assignment = False
         self.worker_waiting = Event()
         self.release_worker = Event()
         endpoint = f"http://127.0.0.1:{port}/v1"
@@ -177,6 +184,17 @@ class SelectedModel:
             assert "For actual OpenMausBot teamwork" not in text
             assert "request_credential to create a secure credential request" not in text
             assert "trigger_info action=events" not in text
+        if f"当前项目的{self.planner}。" in text and self.bot_assignment in text:
+            return self.text_response(self.planner_reply)
+        if f"当前项目的{self.researcher}。" in text and self.bot_prompt in text:
+            if self.planner_reply in text:
+                return self.text_response(self.researcher_reply)
+            if not self.issued_bot_assignment:
+                assert "owobot_delegate" in tools and "owobot_stage_delivery" in tools
+                self.issued_bot_assignment = True
+                return self.tool_response("consult-planner", "owobot_delegate", {
+                    "recipient": self.planner, "task": self.bot_assignment,
+                })
         if "owobot_delegate" in tools and self.stop_scenario in text and not self.issued_stop_assignment:
             self.issued_stop_assignment = True
             return self.tool_response("stop-worker", "owobot_delegate", {"recipient": "worker", "task": self.stop_assignment})
@@ -316,7 +334,7 @@ def run_browser(electron, root, origin, thread=None, launcher_workspace=None):
     result.check_returncode()
 
 
-def verify_reopened_delivery(agent, workspace, env, root, data, selection, group, delivery_route, approved, decision):
+def verify_reopened_delivery(agent, workspace, env, root, data, selection, group, delivery_route, approved, decision, custom_bots):
     with process([agent, "serve", "--port", "0", "--workspace", workspace],
                  cwd=workspace, env=env, log=root / "reopened-daemon.log") as daemon:
         port = daemon_port(daemon, data)
@@ -325,6 +343,12 @@ def verify_reopened_delivery(agent, workspace, env, root, data, selection, group
         auth = {"Authorization": "Bearer " + token}
         group_id, cookie = browser_session(origin, auth, selection)
         assert group_id == group
+        snapshot = expect(port, "/owobot/api/bots", 200, headers=cookie)
+        members = next(row["memberIds"] for row in snapshot["groups"] if row["id"] == group)
+        assert all(bot_id in members for bot_id in custom_bots)
+        styles = {bot["id"]: bot["color"] for bot in snapshot["bots"]}
+        assert all(styles[bot_id] == color for bot_id, color in custom_bots.items())
+        print("PASS reopened project restored custom Bot membership and appearance", flush=True)
         saved = expect(port, delivery_route, 200, headers=cookie)
         assert saved["taskId"] == approved["taskId"]
         assert saved["files"] == approved["files"] and saved["review"] == approved["review"]
@@ -335,6 +359,42 @@ def verify_reopened_delivery(agent, workspace, env, root, data, selection, group
         expect(port, "/server/shutdown", (200, 202), headers=auth, body={"confirm": True})
         assert daemon.wait(timeout=18) == 0
     print("PASS reopening OwO recovered the same task, previews, review and applied decision", flush=True)
+
+
+def verify_custom_bot_exchange(daemon, port, origin, cookie, group_id, provider):
+    route = f"/owobot/api/groups/{group_id}"
+    roster = route + "/bots"
+    headers = {**cookie, "Origin": origin}
+    research = {"requestId": str(uuid4()), "name": provider.researcher, "style": "grove",
+                "instructions": "整理本机项目资料，并向其他成员核对。"}
+    planning = {"requestId": str(uuid4()), "name": provider.planner, "style": "tide"}
+    expect(port, roster, 403, headers={**cookie, "Origin": "http://other.invalid"}, body=research)
+    expect(port, "/owobot/api/groups/other-project/bots", 403, headers=headers, body=research)
+    expect(port, roster, 400, headers=headers, body={**research, "modelSelection": {}})
+    researcher = expect(port, roster, 200, headers=headers, body=research)["bot"]
+    planner = expect(port, roster, 200, headers=headers, body=planning)["bot"]
+    assert researcher["color"] == "green" and planner["color"] == "teal"
+    assert expect(port, roster, 200, headers=headers, body=research)["bot"]["id"] == researcher["id"]
+    expect(port, roster, 409, headers=headers, body={**research, "requestId": str(uuid4())})
+    expect(port, roster + "/unknown-bot", 404, headers=headers, body={"style": "ember"})
+    changed = expect(port, f"{roster}/{researcher['id']}", 200, headers=headers, body={"style": "ember"})["bot"]
+    assert changed["color"] == "orange"
+
+    task = expect(port, route + "/tasks", 201, headers=headers, body={"title": "自定义 Bot 接力"})["task"]
+    thread = task["threadId"]
+    prompt = f"@{provider.researcher} {provider.bot_prompt}"
+    expect(port, route + "/messages", (200, 202), headers=headers,
+           body={"threadId": thread, "text": prompt, "sendId": str(uuid4())})
+
+    def relayed():
+        transcript = expect(port, f"/owobot/api/threads/{thread}/messages", 200, headers=cookie)["messages"]
+        replies = {((row.get("from") or {}).get("botId"), row.get("text")) for row in transcript}
+        return (planner["id"], provider.planner_reply) in replies and (researcher["id"], provider.researcher_reply) in replies
+
+    until(daemon, "The named custom Bots did not exchange and return a reply", relayed)
+    assert provider.issued_bot_assignment
+    print("PASS two custom Bots joined the project and exchanged an actual delegated reply", flush=True)
+    return {researcher["id"]: "orange", planner["id"]: "teal"}
 
 
 def verify_worker_cancellation(daemon, port, origin, auth, cookie, route, provider):
@@ -512,6 +572,7 @@ def run(agent, home, root, desktop, electron, provider, delivery_electron=None):
             print("PASS one delegated signup delivery passed review, human apply, 12-person and masking checks, and replay deduplication", flush=True)
             assert browser_session(origin, auth, selection)[0] == group_id
             verify_worker_cancellation(daemon, port, origin, auth, cookie, thread_route, provider)
+            custom_bots = verify_custom_bot_exchange(daemon, port, origin, cookie, group_id, provider)
 
         sidecars = [sidecar]
         if provider and delivery_electron:
@@ -527,7 +588,8 @@ def run(agent, home, root, desktop, electron, provider, delivery_electron=None):
                 assert sock.connect_ex(("127.0.0.1", listener)) != 0
         print("PASS OwO shutdown closed its managed collaboration listeners", flush=True)
     if provider:
-        verify_reopened_delivery(agent, workspace, env, root, data, selection, group_id, delivery_route, approved, decision)
+        verify_reopened_delivery(agent, workspace, env, root, data, selection, group_id, delivery_route,
+                                 approved, decision, custom_bots)
 
 
 def main():

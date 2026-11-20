@@ -1,3 +1,4 @@
+// Modified for OwO: leave the chat full width while there is no delivery to review.
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/state/api";
 
@@ -68,7 +69,7 @@ export function DeliveryPanel({ thread, working, message }: { thread: string; wo
     };
   }, [path, working, message, shownRevision]);
 
-  if (!delivery) return null;
+  if (!delivery || delivery.revision === 0) return null;
   const isLatest = !shownRevision && delivery.revision === (delivery.revisions.at(-1) ?? 0);
   const decide = async (action: Decision) => {
     if (!isLatest || deciding.current) return;

@@ -25,7 +25,17 @@ async function exercise(window) {
     fs.writeFileSync(path.join(directory, "launcher-thread.txt"), thread, "utf8");
     return;
   }
+  const railPosition = () => contents.executeJavaScript(`[...document.querySelectorAll(
+    "#sidebar .workbench-shortcuts > button, #codexSettingsEntry, #themeToggleSide, #codexUserCard"
+  )].map(element => {
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return [x, y, width, height];
+  })`);
+  const beforeOwobot = await railPosition();
   await contents.executeJavaScript('document.querySelector(\'[data-workbench-panel="owobot"]\').click()');
+  if (!deliveryThread) {
+    assert.deepEqual(await railPosition(), beforeOwobot, "Opening OwOBot moved the shared navigation");
+  }
   if (deliveryThread) {
     const deliveryAction = (approve) => contents.executeJavaScript(
       "(" + applyDelivery.toString() + ")(" + JSON.stringify(deliveryThread) + "," + approve + ")",
@@ -41,7 +51,42 @@ async function exercise(window) {
   const themed = (mode) => contents.executeJavaScript("(" + setAppearance.toString() + ")(" + JSON.stringify(mode) + ")");
   await contents.executeJavaScript("(" + typeDraft.toString() + ")()");
   assert.deepEqual(await themed("light"), ["light", "rgb(255, 255, 255)", "flex", true]);
+  const profileAction = (step) => contents.executeJavaScript(
+    "(" + exerciseProfile.toString() + ")(" + JSON.stringify(step) + ")",
+  );
+  await profileAction("choose");
+  contents.invalidate();
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  fs.writeFileSync(path.join(directory, "owobot-bot-editor.png"), (await contents.capturePage()).toPNG());
+  await profileAction("save");
+  console.log("PASS desktop profile creation, appearance change and mention preserved the draft");
+  await contents.executeJavaScript("(" + typeDraft.toString() + ")()");
   await captureAppearance(contents, "light");
+  async function checkShell(narrow) {
+    const layout = await contents.executeJavaScript(`(() => {
+      const back = document.querySelector("#owobotReturn");
+      const frame = document.querySelector(".owobot-panel-frame");
+      const menu = document.querySelector("#menubar").getBoundingClientRect();
+      const chat = frame.getBoundingClientRect();
+      const doc = frame.contentDocument;
+      return {
+        narrow: innerWidth <= 860,
+        back: !!back?.checkVisibility() && back.getBoundingClientRect().width > 0,
+        hasTitleBar: !!document.querySelector("#owobotModeBar"),
+        gap: Math.round(chat.top - menu.bottom),
+        fits: doc.documentElement.scrollWidth <= frame.clientWidth + 1,
+      };
+    })()`);
+    assert.deepEqual(layout, { narrow, back: true, hasTitleBar: false, gap: 0, fits: true });
+  }
+  await checkShell(false);
+  const fullSize = window.getContentSize();
+  window.setContentSize(580, 720);
+  await contents.executeJavaScript("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))");
+  await checkShell(true);
+  fs.writeFileSync(path.join(directory, "owobot-narrow.png"), (await contents.capturePage()).toPNG());
+  window.setContentSize(...fullSize);
+
   assert.deepEqual(await themed("dark"), ["dark", "rgb(23, 24, 25)", "flex", true]);
   await captureAppearance(contents, "dark");
   nativeTheme.themeSource = "light";
@@ -49,6 +94,89 @@ async function exercise(window) {
   nativeTheme.themeSource = "dark";
   assert.deepEqual(await themed(null), ["dark", "rgb(23, 24, 25)", "flex", true]);
   await contents.executeJavaScript("(" + sendDraft.toString() + ")()");
+  assert.ok(await contents.executeJavaScript(`(() => {
+    document.querySelector("#owobotReturn").click();
+    return !document.body.classList.contains("owobot-mode") && !document.querySelector(".owobot-panel-frame");
+  })()`), "The menu bar back button must restore the workbench");
+  assert.deepEqual(await railPosition(), beforeOwobot, "Returning from OwOBot moved the shared navigation");
+
+  for (const selector of ['[data-workbench-panel="home"]', "#codexSettingsEntry", "#sidebarHome"]) {
+    await contents.executeJavaScript(`document.querySelector(${JSON.stringify(selector)}).click()`);
+    assert.deepEqual(await railPosition(), beforeOwobot, `Navigation moved after opening ${selector}`);
+    await contents.executeJavaScript('document.querySelector(\'[data-workbench-panel="owobot"]\').click()');
+    assert.deepEqual(await railPosition(), beforeOwobot, `Navigation moved entering OwOBot from ${selector}`);
+  }
+  console.log("PASS shared navigation stayed in place across OwOBot, home, workbench, and settings");
+  await contents.executeJavaScript("(" + exerciseWorkbench.toString() + ")()");
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  fs.writeFileSync(path.join(directory, "workbench-overview.png"), (await contents.capturePage()).toPNG());
+  console.log("PASS the workbench uses a project overview and OwOBot opens from the outer navigation");
+}
+
+async function exerciseWorkbench() {
+  const open = (id) => document.querySelector('#panelNav [data-panel="' + id + '"]').click();
+  document.querySelector('.workbench-shortcuts [data-workbench-panel="home"]').click();
+  const nav = document.querySelector("#panelNav");
+  for (const id of ["owobot", "automations", "custom-workflows"]) {
+    if (nav.querySelector('[data-panel="' + id + '"]')) throw new Error("Duplicate workbench navigation: " + id);
+    if (!document.querySelector('.workbench-shortcuts [data-workbench-panel="' + id + '"]')?.checkVisibility()) {
+      throw new Error("Missing standalone navigation: " + id);
+    }
+  }
+  const search = document.querySelector("#panelSearch");
+  search.value = "OwOBot";
+  search.dispatchEvent(new Event("input", { bubbles: true }));
+  if ([...nav.querySelectorAll("button[data-panel]")].some(button => !button.hidden)) {
+    throw new Error("OwOBot appeared in the workbench search");
+  }
+  search.value = "";
+  search.dispatchEvent(new Event("input", { bubbles: true }));
+  open("project-history");
+  if (!document.querySelector("#ph-list") || document.querySelector("#ph-owobot")) {
+    throw new Error("Team history must open without a duplicate OwOBot task list");
+  }
+  open("home");
+  const overview = document.querySelector(".project-home");
+  if (!overview?.querySelector(".home-inbox") || !overview.querySelector(".home-columns")) {
+    throw new Error("Project overview did not show recent activity and pending items");
+  }
+}
+
+async function exerciseProfile(step) {
+  const { document: doc, frame, area, draft } = window.owobotSmoke;
+  const byLabel = (label) => doc.querySelector('button[aria-label="' + label + '"]');
+  const until = async (predicate, description) => {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      const result = predicate();
+      if (result) return result;
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    }
+    throw new Error(description);
+  };
+  const name = "资料整理助手";
+  const dialog = () => doc.querySelector(".owobot-profile-dialog[open]");
+  if (step === "choose") {
+    if (doc.querySelector(".owobot-delivery")) throw new Error("Empty chat reserved an unnecessary delivery column");
+    byLabel("新建 Bot").click();
+    const modal = await until(dialog, "Bot profile editor did not open");
+    const input = modal.querySelector("input:not([type=radio])");
+    Object.getOwnPropertyDescriptor(frame.contentWindow.HTMLInputElement.prototype, "value").set.call(input, name);
+    input.dispatchEvent(new frame.contentWindow.Event("input", { bubbles: true }));
+    modal.querySelector('input[value="grove"]').click();
+    await until(() => modal.querySelector(".owobot-profile-preview [data-style='grove']"), "Appearance preview did not follow the choice");
+    return;
+  }
+  dialog().querySelector('button[type="submit"]').click();
+  const member = await until(() => byLabel("提及 " + name), "The created Bot did not appear in the project");
+  if (!member.querySelector('[data-style="grove"]')) throw new Error("The saved Bot did not have its chosen appearance");
+  byLabel("更换 " + name + " 的外观").click();
+  const editor = await until(dialog, "Appearance editor did not open");
+  editor.querySelector('input[value="tide"]').click();
+  editor.querySelector('button[type="submit"]').click();
+  await until(() => byLabel("提及 " + name)?.querySelector('[data-style="tide"]'), "Appearance change did not reach the roster");
+  byLabel("提及 " + name).click();
+  await until(() => area.value.includes("@" + name) && area.value.includes(draft), "Mention did not preserve the conversation draft");
 }
 
 async function checkLauncher(workspace) {
@@ -74,16 +202,6 @@ async function checkLauncher(workspace) {
   input.dispatchEvent(new Event("change"));
   openPanel("project-launcher");
   if (document.querySelector("#pl-root")?.value !== workspace) throw new Error("Launcher used a different project");
-  const backend = () => document.querySelector("#pl-backend");
-  if (backend()?.value !== "owobot") throw new Error("OwOBot was not the project default");
-  backend().value = "workswarm";
-  backend().dispatchEvent(new Event("change"));
-  if (!document.querySelector(".owo-pl-wizard")) throw new Error("WorkSwarm workflow wizard was unavailable");
-  openPanel("project-history");
-  openPanel("project-launcher");
-  if (backend()?.value !== "workswarm") throw new Error("The project backend preference did not persist");
-  backend().value = "owobot";
-  backend().dispatchEvent(new Event("change"));
   const objective = "查看第二个项目的报名资料。";
   document.querySelector("#pl-objective").value = objective;
   const create = await until(() => {
@@ -97,17 +215,25 @@ async function checkLauncher(workspace) {
   await until(() => frame.contentDocument?.querySelector(".glass-scroller")?.textContent.includes(objective),
     "The original objective was not sent to the project");
   const group = new URL(frame.src).searchParams.get("group");
-  const changed = await fetch("/owobot/api/groups/" + group + "/tasks?owoProject=" + group, {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Other task" }),
-  });
-  if (!changed.ok) throw new Error("Failed to switch away from the created task");
+  const createdConversation = await until(() => frame.contentDocument?.querySelector('.owobot-conversation[aria-current="page"]'),
+    "The created task was not selected in OwOBot");
+  frame.contentDocument.querySelector(".owobot-new-task").click();
+  await until(() => {
+    const selected = frame.contentDocument?.querySelector('.owobot-conversation[aria-current="page"]');
+    return selected && selected !== createdConversation && !selected.textContent.includes(objective);
+  }, "OwOBot did not switch to a different task");
   openPanel("project-history");
-  const record = await until(() => document.querySelector('[data-owobot-thread="' + thread + '"]'),
-    "Project history did not show the new task");
-  record.click();
-  const reopened = await until(() => document.querySelector(".owobot-panel-frame"), "History did not open the task");
+  if (document.querySelector("#ph-owobot")) throw new Error("Team history included a duplicate OwOBot list");
+  openPanel("owobot");
+  const reopened = await until(() => {
+    const candidate = document.querySelector(".owobot-panel-frame");
+    return candidate && new URL(candidate.src).searchParams.get("group") === group ? candidate : null;
+  }, "The standalone OwOBot entry did not open the same project");
+  const conversation = await until(() => [...(reopened.contentDocument?.querySelectorAll(".owobot-conversation") || [])]
+    .find(button => button.textContent.includes(objective)), "OwOBot did not list the created task");
+  conversation.click();
   await until(() => reopened.contentDocument?.querySelector(".glass-scroller")?.textContent.includes(objective),
-    "Project history did not reopen the correct conversation");
+    "OwOBot did not reopen the correct conversation from its list");
   return thread;
 }
 
@@ -245,7 +371,7 @@ app.whenReady().then(async () => {
   try {
     await exercise(window);
     console.log(launcherWorkspace
-      ? "PASS project launcher default and saved fallback, first send, and history reopening in a second project"
+      ? "PASS project launcher first send and reopening from the standalone OwOBot conversation list in a second project"
       : deliveryThread ? "PASS desktop displayed both previews and the review, then applied with explicit user approval"
       : "PASS desktop light, dark and system appearance; composer draft and new task through the real OwOBot page");
     app.exit(0);

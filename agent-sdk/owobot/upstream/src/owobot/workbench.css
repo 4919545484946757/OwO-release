@@ -1,96 +1,347 @@
+/* Modified for OwO: project conversations, Bot identities and profile editing. */
 .owobot-workbench {
+  --owobot-sidebar-width: clamp(13rem, 21vw, 16.25rem);
   display: grid;
-  grid-template-columns: clamp(10rem, 22%, 15rem) minmax(0, 1fr);
+  grid-template-columns: var(--owobot-sidebar-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   height: 100dvh;
   color: var(--color-ink);
   background: var(--color-app);
 }
 
-.owobot-role-avatar {
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  border-radius: 32%;
-  background: var(--color-inset);
-  color: var(--color-ink);
-  border: 1px solid var(--color-hairline);
-  font-weight: 650;
-  line-height: 1;
+.owobot-workbench:has(.owobot-delivery) {
+  grid-template-columns: var(--owobot-sidebar-width) minmax(0, 1fr) clamp(13rem, 23vw, 18rem);
 }
 
 .owobot-task-list {
-  padding: 1rem .75rem;
+  min-width: 0;
   overflow: auto;
+  padding: 1.25rem .875rem;
   background: var(--color-panel);
   border-inline-end: 1px solid var(--color-hairline);
 }
 
-.owobot-task-list button {
+.owobot-sidebar-heading {
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  gap: .5rem;
-  width: 100%;
-  padding: .55rem .65rem;
-  border-radius: .55rem;
-  text-align: start;
-  font-size: .875rem;
+  gap: .25rem;
+  min-height: 2.25rem;
+  margin-bottom: .5rem;
+  padding-inline: .5rem .25rem;
+}
+
+.owobot-sidebar-heading h2 {
+  color: var(--color-ink-secondary);
+  font-size: .75rem;
+  font-weight: 600;
+}
+
+.owobot-add-bot,
+.owobot-icon-button,
+.owobot-secondary-button,
+.owobot-primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .25rem;
+  min-height: 2rem;
+  padding-inline: .5rem;
+  border-radius: .5rem;
+  color: var(--color-ink);
+  font-size: .8125rem;
+  font-weight: 500;
   cursor: pointer;
 }
 
-.owobot-task-list .owobot-new-task {
-  margin-bottom: .75rem;
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
-  font-weight: 550;
+.owobot-icon-button { width: 2rem; padding-inline: 0; }
+.owobot-icon-button:disabled,
+.owobot-primary-button:disabled,
+.owobot-secondary-button:disabled,
+.owobot-add-bot:disabled { opacity: .55; cursor: default; }
+
+.owobot-add-bot { width: 2rem; padding: 0; border-radius: 50%; }
+.owobot-add-bot,
+.owobot-secondary-button {
+  background: var(--color-raised);
+  border: 1px solid var(--color-hairline);
 }
 
-.owobot-task-list li button:hover,
-.owobot-task-list [aria-current="page"] {
-  background: var(--color-inset);
+.owobot-add-bot:hover:not(:disabled),
+.owobot-icon-button:hover:not(:disabled),
+.owobot-secondary-button:hover:not(:disabled) { background: var(--color-inset); }
+
+.owobot-roster-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .25rem;
+}
+.owobot-roster-row {
+  display: flex;
+  align-items: center;
+  gap: .125rem;
+  min-width: 0;
+  border-radius: .5rem;
+}
+.owobot-roster-row:hover,
+.owobot-roster-row:focus-within { background: var(--color-inset); }
+
+.owobot-mention-bot {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  min-height: 3.25rem;
+  gap: .75rem;
+  padding: .375rem .25rem .375rem .5rem;
+  border-radius: .5rem;
+  text-align: start;
+  cursor: pointer;
 }
 
-.owobot-task-list li span {
+.owobot-roster-copy small,
+.owobot-roster-name,
+.owobot-conversation > span,
+.owobot-room-name strong,
+.owobot-profile-preview strong {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.owobot-task-list small, .owobot-room-header span, .owobot-connection {
-  flex-shrink: 0;
+.owobot-roster-copy { display: grid; gap: 2px; min-width: 0; }
+.owobot-roster-name { font-size: .875rem; font-weight: 550; }
+.owobot-roster-copy small { color: var(--color-ink-secondary); font-size: .75rem; }
+.owobot-style-button { flex: none; color: var(--color-ink-secondary); }
+@media (hover: hover) and (pointer: fine) {
+  .owobot-roster-row:not(:hover):not(:focus-within) .owobot-style-button { opacity: 0; }
+}
+.owobot-bot-working {
+  flex: none;
+  width: .375rem;
+  height: .375rem;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+.owobot-conversations { margin-top: 1.75rem; }
+.owobot-conversations ul { display: grid; grid-template-columns: minmax(0, 1fr); gap: .25rem; }
+.owobot-conversations li { min-width: 0; }
+.owobot-conversation {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  width: 100%;
+  min-height: 2.25rem;
+  padding-inline: .75rem .5rem;
+  justify-content: flex-start;
+  border-radius: .5rem;
+  text-align: start;
   color: var(--color-ink-secondary);
-  font-size: .75rem;
+  font-size: .8125rem;
+  cursor: pointer;
+}
+.owobot-conversation:hover,
+.owobot-conversation[aria-current="page"] { background: var(--color-inset); color: var(--color-ink); }
+.owobot-conversation[aria-current="page"] { font-weight: 550; }
+.owobot-conversation > svg { flex: none; }
+.owobot-conversation small { margin-inline-start: auto; flex: none; font-size: .75rem; color: var(--color-ink-secondary); }
+
+.owobot-workbench button:focus-visible,
+.owobot-profile-dialog button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
-.owobot-transcript {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
+.owobot-role-avatar {
+  --owobot-mark-tone: var(--identity-silver, var(--color-ink-secondary));
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--owobot-mark-size);
+  height: var(--owobot-mark-size);
+  color: var(--owobot-mark-tone);
 }
-
-.owobot-transcript > main { min-height: 0; }
-.owobot-connection { padding: .6rem 1rem; }
-
-.owobot-room-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: .35rem 1rem;
-  padding: .85rem 1.25rem;
-  border-bottom: 1px solid var(--color-hairline);
+.owobot-role-avatar > span {
+  position: relative;
+  width: 92%;
+  height: 83%;
+  border-radius: var(--owobot-mark-shape, 48%);
+  transform: rotate(var(--owobot-mark-angle, 0deg));
+  background: currentColor;
+}
+.owobot-role-avatar > span::before, .owobot-role-avatar > span::after {
+  content: "";
+  position: absolute;
+  top: 37%;
+  left: 33%;
+  width: 10%;
+  height: 27%;
+  border-radius: 100px;
   background: var(--color-app);
 }
-
-@media (max-width: 560px) {
-  .owobot-workbench { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  .owobot-task-list { max-height: 7rem; border-inline-end: 0; border-bottom: 1px solid var(--color-hairline); }
+.owobot-role-avatar > span::after { left: 56%; }
+.owobot-role-avatar[data-style="sky"] {
+  --owobot-mark-tone: var(--identity-blue);
+  --owobot-mark-shape: 42% 52% 48% 22%;
+  --owobot-mark-angle: -8deg;
 }
-
-
-.owobot-workbench:has(.owobot-delivery) {
-  grid-template-columns: clamp(8.75rem, 18%, 14rem) minmax(0, 1fr) clamp(12rem, 28%, 21rem);
+.owobot-role-avatar[data-style="grove"] {
+  --owobot-mark-tone: var(--identity-green);
+  --owobot-mark-shape: 70% 20% 52% 32%;
+  --owobot-mark-angle: -6deg;
 }
+.owobot-role-avatar[data-style="ember"] {
+  --owobot-mark-tone: var(--identity-orange);
+  --owobot-mark-shape: 27% 65% 43% 56%;
+  --owobot-mark-angle: 6deg;
+}
+.owobot-role-avatar[data-style="tide"] {
+  --owobot-mark-tone: var(--identity-teal);
+  --owobot-mark-shape: 68% 57% 28% 28%;
+}
+.owobot-role-avatar[data-style="bloom"] {
+  --owobot-mark-tone: var(--identity-coral);
+  --owobot-mark-shape: 42% 65% 24% 62%;
+  --owobot-mark-angle: 10deg;
+}
+.owobot-role-avatar[data-style="grove"] > span::after {
+  width: 16%; height: 11%; top: 48%; transform: rotate(-12deg);
+}
+.owobot-role-avatar[data-style="tide"] > span::before,
+.owobot-role-avatar[data-style="tide"] > span::after { width: 14%; height: 15%; top: 45%; border-radius: 50%; }
+.owobot-role-avatar[data-style="bloom"] > span::before { height: 12%; top: 45%; transform: rotate(15deg); }
+.owobot-role-avatar[data-style="mist"] > span { height: 74%; border-radius: 45%; }
+.owobot-role-avatar[data-style="mist"] > span::after { height: 11%; top: 48%; }
+
+.owobot-transcript { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.owobot-transcript > main { min-height: 0; }
+.owobot-connection { padding: .75rem 1rem; color: var(--color-ink-secondary); font-size: .8125rem; }
+.owobot-room-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: .25rem;
+  min-height: 3.75rem;
+  padding: .625rem 1rem;
+}
+.owobot-room-name {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  max-width: min(100%, 30rem);
+  padding: .45rem .875rem;
+  border-radius: 100px;
+  background: var(--color-panel);
+}
+.owobot-room-name svg { flex: none; color: var(--color-ink-secondary); }
+.owobot-room-name strong { font-size: .8125rem; font-weight: 550; }
+.owobot-room-status { color: var(--color-ink-secondary); font-size: .75rem; }
+.owobot-transcript .chat-column { row-gap: 1rem; }
+.owobot-transcript [data-tour="composer"] { border-radius: 1.5rem; }
+.owobot-transcript [data-chat-bubble].bg-bubble-user {
+  background: var(--color-bubble-user);
+  color: var(--color-bubble-user-ink);
+}
+.owobot-message-sender {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  margin-block-end: .375rem;
+  color: var(--color-ink-secondary);
+  font-size: .75rem;
+  font-weight: 500;
+}
+.owobot-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: .5rem;
+  padding: clamp(3rem, 24vh, 14rem) 1rem 3rem;
+  text-align: center;
+}
+.owobot-empty-marks { display: flex; align-items: end; gap: .125rem; margin-bottom: .75rem; }
+.owobot-empty-marks > :first-child { transform: rotate(-13deg) scale(.86); transform-origin: right bottom; }
+.owobot-empty-marks > :nth-child(2) { align-self: start; margin-bottom: .5rem; }
+.owobot-empty-marks > :nth-child(3) { transform: rotate(12deg) scale(.88); transform-origin: left bottom; }
+.owobot-empty-state h2 { font-size: clamp(1.25rem, 2vw, 1.625rem); font-weight: 600; }
+.owobot-empty-state p { color: var(--color-ink-secondary); font-size: .8125rem; }
+
+.owobot-profile-dialog {
+  width: min(28rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  margin: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--color-hairline);
+  border-radius: .875rem;
+  background: var(--color-raised);
+  color: var(--color-ink);
+}
+.owobot-profile-dialog::backdrop {
+  background: color-mix(in srgb, light-dark(var(--color-ink), var(--color-app)) 42%, transparent);
+}
+.owobot-profile-dialog form { display: grid; gap: 1rem; }
+.owobot-profile-header { display: flex; align-items: center; justify-content: space-between; }
+.owobot-profile-header h2 { font-size: 1.25rem; font-weight: 600; }
+
+.owobot-profile-preview {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  min-width: 0;
+  padding: .75rem;
+  border-radius: .75rem;
+  background: var(--color-panel);
+}
+.owobot-profile-preview > div { display: grid; min-width: 0; gap: .125rem; }
+.owobot-profile-preview strong { font-size: 1.0625rem; font-weight: 600; }
+.owobot-profile-preview > div > span,
+.owobot-profile-fields label > span { color: var(--color-ink-secondary); font-size: .75rem; }
+
+.owobot-profile-fields { display: grid; gap: .75rem; }
+.owobot-profile-fields label,
+.owobot-style-picker legend { font-size: .8125rem; font-weight: 500; }
+.owobot-profile-fields :is(input, textarea) {
+  display: block;
+  width: 100%;
+  min-height: 2.25rem;
+  margin-top: .25rem;
+  padding: .375rem .5rem;
+  border: 1px solid var(--color-hairline);
+  border-radius: .5rem;
+  background: var(--color-app);
+  color: var(--color-ink);
+  font-weight: 400;
+}
+.owobot-profile-fields textarea { resize: vertical; }
+.owobot-profile-fields :is(input, textarea):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+
+.owobot-style-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; margin-top: .5rem; }
+.owobot-style-choice {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: .25rem;
+  min-height: 4.5rem;
+  padding: .375rem;
+  border: 1px solid var(--color-hairline);
+  border-radius: .5rem;
+  background: var(--color-app);
+  color: var(--color-ink-secondary);
+  font-size: .75rem;
+  cursor: pointer;
+}
+.owobot-style-choice:hover { background: var(--color-raised-hover); }
+.owobot-style-choice:has(input:checked) { border-color: var(--color-accent); color: var(--color-ink); }
+.owobot-style-choice:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.owobot-style-selected { position: absolute; inset-block-start: .25rem; inset-inline-end: .25rem; }
+.owobot-profile-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
+.owobot-profile-actions button { min-height: 2.25rem; padding-inline: .75rem; }
+.owobot-primary-button { background: var(--color-accent); color: var(--color-accent-ink); }
+.owobot-profile-error { color: var(--color-danger); font-size: .8125rem; }
 
 .owobot-delivery {
   min-width: 0;
@@ -162,15 +413,51 @@
 .owobot-delivery-actions button:disabled { cursor: wait; opacity: .65; }
 .owobot-delivery-error { color: var(--color-danger); }
 
-@media (max-width: 780px) {
+@media (max-width: 980px) {
   .owobot-workbench:has(.owobot-delivery) {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-columns: var(--owobot-sidebar-width) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
   }
-  .owobot-workbench:has(.owobot-delivery) .owobot-task-list {
-    max-height: 5rem;
+  .owobot-workbench:has(.owobot-delivery) .owobot-task-list { grid-row: 1 / -1; }
+  .owobot-delivery { grid-column: 2; max-height: 30dvh; border-inline-start: 0; border-top: 1px solid var(--color-hairline); }
+}
+
+@media (max-width: 640px) {
+  .owobot-workbench, .owobot-workbench:has(.owobot-delivery) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .owobot-workbench:has(.owobot-delivery) { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .owobot-workbench:has(.owobot-delivery) .owobot-task-list { grid-row: auto; }
+  .owobot-task-list {
+    display: grid;
+    gap: .25rem;
+    padding: .375rem .625rem;
+    overflow: visible;
     border-inline-end: 0;
     border-bottom: 1px solid var(--color-hairline);
   }
-  .owobot-delivery { max-height: 35dvh; border-inline-start: 0; border-top: 1px solid var(--color-hairline); }
+  .owobot-task-list :is(.owobot-roster, .owobot-conversations) {
+    display: grid;
+    align-items: center;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: .375rem;
+    margin: 0;
+  }
+  .owobot-sidebar-heading { flex-wrap: nowrap; padding: 0; margin: 0; }
+  .owobot-roster-list, .owobot-conversations ul {
+    display: flex;
+    gap: .375rem;
+    min-width: 0;
+    padding: .25rem;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .owobot-task-list li { flex: none; max-width: 100%; }
+  .owobot-mention-bot { min-height: 2.5rem; padding: 0; gap: .375rem; }
+  .owobot-roster-copy { max-width: 7rem; }
+  .owobot-roster-copy small { display: none; }
+  .owobot-conversation { min-height: 2rem; }
+  .owobot-empty-state { padding-top: clamp(1rem, 7vh, 3rem); }
+  .owobot-delivery { grid-column: 1; }
 }

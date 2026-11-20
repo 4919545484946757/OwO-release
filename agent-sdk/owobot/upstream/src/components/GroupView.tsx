@@ -1,3 +1,4 @@
+// Modified for OwO: project task, member marks and managed conversation states.
 // Modified by the OwO project for the OwOBot desktop integration.
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { formattedReplyWidth, isFormattedReply, splitReplyBlocks } from "@/lib/formatted-reply";
@@ -5,7 +6,7 @@ import { activeLocale, intlLocale, t } from "@/lib/i18n";
 import { useShowThreads } from "@/lib/thread-preferences";
 import { useReactor } from "@/lib/cloud-guest";
 import { otherSpeaker } from "@/lib/own-profile";
-import { Check, ChevronDown, FolderOpen, Loader2, Pin, Square, X } from "lucide-react";
+import { Check, ChevronDown, FolderOpen, Loader2, MessagesSquare, Pin, Square, X } from "lucide-react";
 import {
   api,
   useStore,
@@ -82,6 +83,7 @@ import { GlassBar, GlassScrollFrame } from "./GlassScrollFrame";
 import { awaitedMemberId, showWorkingDots } from "@/lib/turn-tail";
 import { turnNowPhrases } from "@/lib/live-activity"; import { useTurnLive } from "@/state/turn-status"; import { isLiveReply, StreamingReplyContext, streamedReply, useLiveTranscript } from "@/state/live-reply";
 import { isOwOPage } from "../owobot/surface";
+import { localizedTaskTitle } from "@/lib/task-title";
 import { splitTranscriptAttachments } from "@/lib/composer-attachments";
 import { useTranscriptViewport } from "@/hooks/use-transcript-viewport";
 import { useUnreadDivider } from "@/hooks/use-unread-divider";
@@ -205,7 +207,9 @@ function RoomTextMessage({
   );
   return (
     <div {...{ [MESSAGE_ROW]: "" }} className={cn("group flex w-full flex-col", user ? "items-end" : "items-start")}>
-      {speaker && <div className="mb-0.5 px-1 text-[12px] font-medium text-ink-secondary">{speaker}</div>}
+      {speaker && (isOwOPage() && speakerBot && !user
+        ? <div className="owobot-message-sender"><BotAvatar bot={speakerBot} size={22} animated={false} /><span>{speaker}</span></div>
+        : <div className="mb-0.5 px-1 text-[12px] font-medium text-ink-secondary">{speaker}</div>)}
       <div className={cn("flex w-full items-end gap-1.5", user ? "justify-end" : "justify-start")}>
         {user && (
           <MessageActions side="user" menu={[...userMessageMenu({ messageId: m.id, pin }), ...forkAction]}>
@@ -908,6 +912,7 @@ export function GroupView({ group, inForkPanel = false }: { group: Group; inFork
   );
   const speaker = members.find((b) => b.id === group.busyBotId);
   const threadWorking = roomThreadWorking(group, group.threadId);
+  const taskTitle = managed ? group.tasks?.find((task) => task.threadId === group.threadId)?.title : undefined;
   const threadSpeakerId = roomThreadSpeakerId(group, group.threadId);
   const threadSpeaker = threadSpeakerId ? members.find((b) => b.id === threadSpeakerId) : undefined;
   const setupPending = !remoteClient && roomNeedsSetup(group);
@@ -1006,8 +1011,11 @@ export function GroupView({ group, inForkPanel = false }: { group: Group; inFork
       {/* z-[25]: above the room set-up card (z-20), below the GroupCallOverlay (z-30). */}
       <GlassBar edge="top" fade={!advancedMode && !remoteClient} className="z-[25]">
       {managed ? <header className="owobot-room-header">
-        <strong>{group.name}</strong>
-        <span>{members.map((member) => member.name).join(" \u00b7 ")}</span>
+        <div className="owobot-room-name" title={group.name}>
+          <MessagesSquare size={15} strokeWidth={1.7} aria-hidden="true" />
+          <strong>{!taskTitle || taskTitle === "New task" ? "新会话" : localizedTaskTitle(taskTitle)}</strong>
+        </div>
+        {threadWorking && <span className="owobot-room-status" role="status">{threadSpeaker?.name ?? group.name} 正在处理</span>}
       </header> : <RoomHeader
         group={group}
         members={members}
@@ -1102,9 +1110,16 @@ export function GroupView({ group, inForkPanel = false }: { group: Group; inFork
           aria-live="off"
           aria-label={t("room.aria", { name: group.name })}
         >
-          {group.messages.length === 0 && (
+          {group.messages.length === 0 && (managed ? (
+            <div className="owobot-empty-state">
+              <div className="owobot-empty-marks">
+                {members.slice(0, 3).map((member) => <BotAvatar key={member.id} bot={member} size={56} animated={false} />)}
+              </div>
+              <h2>想和 Bot 一起做什么？</h2>
+              <p>{t("owo.room.emptyHint")}</p>
+            </div>
+          ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 py-24 text-center">
-              {managed ? <img src="/assets/owo-logo-64.png" alt="" width={44} height={44} /> :
               <div className="flex -space-x-2">
                 {members.slice(0, 3).map((b) => (
                   <BotAvatar
@@ -1117,13 +1132,13 @@ export function GroupView({ group, inForkPanel = false }: { group: Group; inFork
                     animated={false}
                   />
                 ))}
-              </div>}
-              {!managed && <div className="text-[17px] font-semibold text-ink">{group.name}</div>}
+              </div>
+              <div className="text-[17px] font-semibold text-ink">{group.name}</div>
               <div className="max-w-[380px] text-[14px] text-ink-secondary">
                 {groupResponseHint(group, members, { jevOn: jevRoomRoutingOn(state.config) })}
               </div>
             </div>
-          )}
+          ))}
           {olderPending ? (
             <div className="flex items-center justify-center gap-2 py-3 text-xs text-ink-secondary">
               <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
