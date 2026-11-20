@@ -1,4 +1,5 @@
 #include "owo/agent/agent_pipe.h"
+#include "owo/agent/agent_auth.h"
 #include "owo/agent/agent_protocol.h"
 #include "owo/plugin/plugin_pipe.h"
 #include "owo/plugin/plugin_protocol.h"
@@ -38,6 +39,8 @@ struct Settings {
     bool send_application_identity{true};
     bool send_session_context{true};
     bool sensitive_filter_enabled{true};
+    bool require_pairing{false};
+    std::filesystem::path pairing_credential_file;
 };
 
 std::string utf8(const std::wstring_view value) {
@@ -163,7 +166,20 @@ Settings load_settings(const std::filesystem::path& data) {
         result.send_session_context = *value;
     if (const auto value = json_bool(*json, "sensitive_filter_enabled"))
         result.sensitive_filter_enabled = *value;
+    if (const auto value = json_bool(*json, "require_pairing")) result.require_pairing = *value;
+    if (const auto value = json_string(*json, "pairing_credential_file"); value && !value->empty()) {
+        result.require_pairing = true;
+        result.pairing_credential_file = std::filesystem::path(wide(*value));
+    }
     return result;
+}
+
+owo::agent::PipeExchangeResult exchange_configured_agent(const Settings& settings,
+        const std::string_view payload, const std::chrono::milliseconds timeout) {
+    if (!settings.require_pairing) return owo::agent::exchange_agent_pipe(settings.pipe_name, payload, timeout);
+    const auto proven = owo::agent::authenticate_agent_request(payload, settings.pairing_credential_file);
+    if (!proven.ok) return {false, {}, "pairing unavailable"};
+    return owo::agent::exchange_agent_pipe(settings.pipe_name, proven.payload, timeout);
 }
 
 owo::agent::Response error_response(const owo::agent::Request& request,
@@ -344,9 +360,14 @@ owo::plugin::PluginMessage process_request(const owo::plugin::PluginMessage& inv
     if (payload.empty())
         return invoke_response(invocation, owo::plugin::PluginStatus::invalid_request, {},
                                "filtered Agent request is invalid");
-    const auto exchanged = owo::agent::exchange_agent_pipe(
-        settings.pipe_name, payload, settings.timeout);
+    const auto exchanged = exchange_configured_agent(settings, payload, settings.timeout);
     if (!exchanged.ok) {
+        if (exchanged.diagnostic == "pairing unavailable") {
+            const auto response = error_response(request, owo::agent::Status::error,
+                "pairing_unavailable", "Agent 配对不可用，请重新配对");
+            return invoke_response(invocation, owo::plugin::PluginStatus::success,
+                                   owo::agent::encode_response(response));
+        }
         const auto response = error_response(request,
             owo::agent::Status::disconnected, "agent_disconnected", "第三方 Agent 未连接");
         return invoke_response(invocation, owo::plugin::PluginStatus::success,
@@ -460,8 +481,7 @@ int run(const Arguments& arguments) {
                     ? owo::agent::encode_request_v2(cancel)
                     : owo::agent::encode_request(cancel);
                 if (!payload.empty())
-                    static_cast<void>(owo::agent::exchange_agent_pipe(
-                        settings.pipe_name, payload, std::chrono::milliseconds(500)));
+                    static_cast<void>(exchange_configured_agent(settings, payload, std::chrono::milliseconds(500)));
             }
             continue;
         }

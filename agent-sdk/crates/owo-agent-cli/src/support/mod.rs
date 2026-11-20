@@ -219,6 +219,9 @@ fn builtin_registry_for_workspace(workspace: &std::path::Path) -> ToolRegistry {
     if capabilities.browser {
         registry.register_browser_tools();
     }
+    if capabilities.playbooks {
+        registry.register_playbook_tools();
+    }
     registry
 }
 
@@ -271,12 +274,16 @@ mod tool_capability_tests {
         assert!(!default_names.contains(&"screen_ocr".to_string()));
         assert!(!default_names.contains(&"desktop_click".to_string()));
         assert!(!default_names.contains(&"browser_navigate".to_string()));
+        // 剧本工具是可选组：默认不出现（模型可见工具面不变）。
+        assert!(!default_names.contains(&"playbook_next".to_string()));
+        assert!(!default_names.contains(&"playbook_record".to_string()));
 
         Settings {
             tool_capabilities: AgentToolCapabilities {
                 desktop_observation: true,
                 desktop_control: false,
                 browser: true,
+                playbooks: true,
             },
             ..Settings::default()
         }
@@ -286,6 +293,8 @@ mod tool_capability_tests {
         let opted_names: Vec<String> = opted_in.specs().into_iter().map(|spec| spec.name).collect();
         assert!(opted_names.contains(&"screen_ocr".to_string()));
         assert!(opted_names.contains(&"browser_navigate".to_string()));
+        assert!(opted_names.contains(&"playbook_next".to_string()));
+        assert!(opted_names.contains(&"playbook_record".to_string()));
         assert!(!opted_names.contains(&"desktop_click".to_string()));
 
         let _ = std::fs::remove_dir_all(&workspace);
@@ -597,7 +606,8 @@ pub(crate) fn merge_plugin_mcp(
     configs: &mut Vec<McpServerConfig>,
 ) {
     for (manifest_path, manifest) in plugins {
-        if let Some(config) = owo_agent_core::plugin_mcp_config(manifest_path, manifest) {
+        // 历史格式单个 `mcp` + Agent Plugins 包的多服务器都走这里。
+        for config in owo_agent_core::plugin_mcp_configs(manifest_path, manifest) {
             if !configs.iter().any(|existing| existing.name == config.name) {
                 configs.push(config);
             }
@@ -1009,6 +1019,312 @@ mod repl_completion_tests {
     }
 
     #[test]
+    fn goal_advance_is_driven_by_progress_not_by_turn_count() {
+        use owo_agent_core::goal_progress::AdvanceOutcome;
+        use owo_agent_protocol::CompletionStatusV1;
+
+        let turn = |status, failed| super::GoalTurnResult {
+            final_text: None,
+            completion_status: status,
+            failed,
+        };
+
+        // 失败：重试预算内继续，超过预算交给人（默认 max_retries=2）。
+        let mut progress = Default::default();
+        assert!(matches!(
+            super::goal_advance(
+                &mut progress,
+                &turn(CompletionStatusV1::Blocked, true),
+                false
+            ),
+            AdvanceOutcome::Retry { .. }
+        ));
+        assert!(matches!(
+            super::goal_advance(
+                &mut progress,
+                &turn(CompletionStatusV1::Blocked, true),
+                false
+            ),
+            AdvanceOutcome::Retry { .. }
+        ));
+        assert!(matches!(
+            super::goal_advance(
+                &mut progress,
+                &turn(CompletionStatusV1::Blocked, true),
+                false
+            ),
+            AdvanceOutcome::Failed { .. }
+        ));
+
+        // 停滞：状态连续不变（默认窗口 3）→ Stall；状态变化则重置。
+        let mut progress = Default::default();
+        for _ in 0..2 {
+            assert_eq!(
+                super::goal_advance(
+                    &mut progress,
+                    &turn(CompletionStatusV1::Unverified, false),
+                    false
+                ),
+                AdvanceOutcome::Continue
+            );
+        }
+        let stalled = super::goal_advance(
+            &mut progress,
+            &turn(CompletionStatusV1::Unverified, false),
+            false,
+        );
+        assert!(
+            matches!(stalled, AdvanceOutcome::Stall { ref status, rounds } if status == "unverified" && rounds == 3),
+            "{stalled:?}"
+        );
+        assert!(super::goal_progress_line(&progress).contains("连续 3 轮宿主状态未变"));
+
+        // 接受 = 完成，且是终态。
+        let mut progress = Default::default();
+        let done = super::goal_advance(
+            &mut progress,
+            &turn(CompletionStatusV1::Accepted, false),
+            true,
+        );
+        assert_eq!(done, AdvanceOutcome::Done);
+        assert!(super::goal_claim_is_accepted(&super::GoalTurnResult {
+            final_text: Some("GOAL_DONE".to_string()),
+            completion_status: CompletionStatusV1::Accepted,
+            failed: false,
+        }));
+    }
+
+    /// 硬约束：工作流是**额外功能**——`/goal`（Legacy）的既有语义必须一字不变。
+    /// 失败立即停（不自动重试）、状态连续不变也不停（没有停滞检测）。
+    #[test]
+    fn goal_step_legacy_keeps_existing_semantics() {
+        use owo_agent_protocol::CompletionStatusV1;
+        let turn = |status, failed| super::GoalTurnResult {
+            final_text: None,
+            completion_status: status,
+            failed,
+        };
+
+        // 失败：第一次就停（不会进重试预算）。
+        let mut progress = Default::default();
+        let step = super::goal_step(
+            super::AdvanceMode::Legacy,
+            &mut progress,
+            &turn(CompletionStatusV1::Blocked, true),
+            false,
+        );
+        assert!(
+            matches!(step, super::GoalStep::Stop { failed: true, .. }),
+            "legacy 必须首次失败即停"
+        );
+
+        // 状态连续不变：legacy 不检测停滞，一直继续。
+        let mut progress = Default::default();
+        for _ in 0..5 {
+            let step = super::goal_step(
+                super::AdvanceMode::Legacy,
+                &mut progress,
+                &turn(CompletionStatusV1::Unverified, false),
+                false,
+            );
+            assert!(matches!(step, super::GoalStep::Continue { note: None }));
+        }
+
+        // 中止与完成。
+        let mut progress = Default::default();
+        assert!(matches!(
+            super::goal_step(
+                super::AdvanceMode::Legacy,
+                &mut progress,
+                &turn(CompletionStatusV1::Aborted, false),
+                false
+            ),
+            super::GoalStep::Stop { failed: false, .. }
+        ));
+        let mut progress = Default::default();
+        assert!(matches!(
+            super::goal_step(
+                super::AdvanceMode::Legacy,
+                &mut progress,
+                &turn(CompletionStatusV1::Accepted, false),
+                true
+            ),
+            super::GoalStep::Done
+        ));
+    }
+
+    /// `/advance`（Progress）才启用有界重试 + 停滞检测。
+    #[test]
+    fn goal_step_progress_is_opt_in() {
+        use owo_agent_protocol::CompletionStatusV1;
+        let turn = |status, failed| super::GoalTurnResult {
+            final_text: None,
+            completion_status: status,
+            failed,
+        };
+
+        let mut progress = Default::default();
+        let mut notes = 0;
+        let mut stops = 0;
+        for _ in 0..5 {
+            match super::goal_step(
+                super::AdvanceMode::Progress,
+                &mut progress,
+                &turn(CompletionStatusV1::Blocked, true),
+                false,
+            ) {
+                super::GoalStep::Continue { note: Some(_) } => notes += 1,
+                super::GoalStep::Stop { .. } => {
+                    stops += 1;
+                    break;
+                }
+                other => panic!("意外步骤：{:?}", std::mem::discriminant(&other)),
+            }
+        }
+        assert_eq!(notes, 2, "默认 max_retries=2 应重试两次");
+        assert_eq!(stops, 1, "第三次连续失败应停止");
+    }
+
+    /// 推进提示包含重试预算与上次失败分类。
+    #[test]
+    fn playbook_prompt_includes_retry_budget_and_failure_kind() {
+        use owo_agent_core::playbook::{Playbook, PlaybookRun, PlaybookStep, StepKind};
+        let step = PlaybookStep {
+            id: "w".to_string(),
+            title: "检查".to_string(),
+            detail: String::new(),
+            acceptance: "exit 0".to_string(),
+            command: "cargo check".to_string(),
+            depends_on: Vec::new(),
+            kind: StepKind::Check,
+            max_attempts: Some(2),
+        };
+        let playbook = Playbook {
+            id: "p".to_string(),
+            name: "p".to_string(),
+            description: String::new(),
+            steps: vec![step.clone()],
+        };
+        let mut run = PlaybookRun::new(&playbook);
+        run.record_fail_kind("w", "exit 1", Some("exit_nonzero"));
+        let prompt = super::playbook_prompt(&playbook, &run, &step);
+        assert!(prompt.contains("重试上限：2 次（已失败 1 次）"), "{prompt}");
+        assert!(prompt.contains("上次失败类型：exit_nonzero"), "{prompt}");
+    }
+
+    /// `/advance --playbook`：宿主判定的三个阶段（下一步 / 完成 / 阻塞）。
+    #[test]
+    fn playbook_directive_reports_next_complete_and_blocked() {
+        use owo_agent_core::playbook::{Playbook, PlaybookRun, PlaybookStep, StepKind};
+        let step = |id: &str, deps: &[&str]| PlaybookStep {
+            id: id.to_string(),
+            title: id.to_string(),
+            detail: String::new(),
+            acceptance: String::new(),
+            command: String::new(),
+            depends_on: deps.iter().map(|value| value.to_string()).collect(),
+            kind: StepKind::Model,
+            max_attempts: None,
+        };
+        let playbook = Playbook {
+            id: "p".to_string(),
+            name: "p".to_string(),
+            description: String::new(),
+            steps: vec![step("a", &[]), step("b", &["a"])],
+        };
+        let mut run = PlaybookRun::new(&playbook);
+        assert!(matches!(
+            super::playbook_directive(&playbook, &run),
+            super::PlaybookDirective::Next(step) if step.id == "a"
+        ));
+        run.record_pass("a", "ok");
+        assert!(matches!(
+            super::playbook_directive(&playbook, &run),
+            super::PlaybookDirective::Next(step) if step.id == "b"
+        ));
+        run.record_pass("b", "ok");
+        assert!(matches!(
+            super::playbook_directive(&playbook, &run),
+            super::PlaybookDirective::Complete
+        ));
+
+        // 前置被跳过（失败仍可重试）→ 下游阻塞 → Blocked（无重试耗尽）。
+        let mut blocked = PlaybookRun::new(&playbook);
+        blocked.record_skip("a", "不适用");
+        match super::playbook_directive(&playbook, &blocked) {
+            super::PlaybookDirective::Blocked(exhausted) => {
+                assert!(exhausted.is_empty(), "{exhausted:?}");
+            }
+            _ => panic!("应为 Blocked"),
+        }
+
+        // 重试上限耗尽 → Blocked 带上步骤 id，供提示词给恢复建议。
+        let mut limited = playbook.clone();
+        limited.steps[0].max_attempts = Some(1);
+        let mut exhausted_run = PlaybookRun::new(&limited);
+        exhausted_run.record_fail("a", "boom");
+        match super::playbook_directive(&limited, &exhausted_run) {
+            super::PlaybookDirective::Blocked(exhausted) => {
+                assert_eq!(exhausted, vec!["a".to_string()]);
+            }
+            _ => panic!("应为 Blocked"),
+        }
+    }
+
+    /// `/advance --playbook`：只读剧本状态 + 提示词内容。
+    #[test]
+    fn playbook_advance_reads_state_and_builds_step_prompt() {
+        let workspace =
+            std::env::temp_dir().join(format!("owo-playbook-advance-{}", uuid::Uuid::new_v4()));
+        let playbooks = workspace.join("playbooks");
+        std::fs::create_dir_all(&playbooks).unwrap();
+        std::fs::write(
+            playbooks.join("demo.json"),
+            r#"{"id":"demo","name":"演示剧本","steps":[
+                {"id":"a","title":"第一步","acceptance":"列出改动"},
+                {"id":"b","title":"第二步","kind":"check","acceptance":"exit 0","command":"echo ok","depends_on":["a"]}
+            ]}"#,
+        )
+        .unwrap();
+
+        let file = std::path::Path::new("playbooks/demo.json");
+        let (playbook, run) = super::load_playbook_run(&workspace, file).expect("应能读取剧本");
+        assert_eq!(playbook.id, "demo");
+        assert_eq!(run.summary(&playbook), "0/2（0%）");
+        let first = run.next_ready(&playbook).expect("a 可执行");
+        let prompt = super::playbook_prompt(&playbook, &run, first);
+        assert!(prompt.contains("演示剧本"), "{prompt}");
+        assert!(prompt.contains("a — 第一步"), "{prompt}");
+        assert!(prompt.contains("列出改动"), "{prompt}");
+
+        // 状态文件推进后：下一步是 check，提示里带命令与 playbook_check 指引。
+        std::fs::write(
+            super::playbook_state_path(&workspace.join(file)),
+            r#"{"playbook_id":"demo","states":{"a":{"state":"passed","evidence":"ok"}}}"#,
+        )
+        .unwrap();
+        let (playbook, run) = super::load_playbook_run(&workspace, file).unwrap();
+        let next = run.next_ready(&playbook).expect("b 可执行");
+        let prompt = super::playbook_prompt(&playbook, &run, next);
+        assert!(prompt.contains("echo ok"), "{prompt}");
+        assert!(prompt.contains("playbook_check"), "{prompt}");
+        assert!(prompt.contains("1/2（50%）"), "{prompt}");
+
+        // 越界路径与非法剧本被拒。
+        assert!(super::load_playbook_run(&workspace, std::path::Path::new("../x.json")).is_err());
+        std::fs::write(
+            playbooks.join("bad.json"),
+            r#"{"id":"bad","name":"坏","steps":[]}"#,
+        )
+        .unwrap();
+        let error =
+            super::load_playbook_run(&workspace, std::path::Path::new("playbooks/bad.json"))
+                .unwrap_err();
+        assert!(error.contains("不合法"), "{error}");
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    #[test]
     fn goal_continuation_explains_host_rejection() {
         let prompt = super::goal_continue_prompt_after_status(
             "重构登录模块",
@@ -1036,6 +1352,8 @@ mod repl_completion_tests {
             objective: "重构登录模块".to_string(),
             iterations: 0,
             done: false,
+            progress: Default::default(),
+            mode: super::AdvanceMode::Legacy,
         };
         let attached = super::goal_context_prompt(Some(&active), "先补单元测试");
         assert!(attached.contains("【当前目标】重构登录模块"), "{attached}");
@@ -1045,6 +1363,8 @@ mod repl_completion_tests {
             objective: "重构登录模块".to_string(),
             iterations: 2,
             done: true,
+            progress: Default::default(),
+            mode: super::AdvanceMode::Legacy,
         };
         assert_eq!(
             super::goal_context_prompt(Some(&done), "普通输入"),

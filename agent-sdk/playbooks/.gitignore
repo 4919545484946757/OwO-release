@@ -1,0 +1,5 @@
+# 运行状态文件（由 `owo-agent playbook next/record` 生成）
+*.state.json
+*.state.json.tmp
+# 归档目录（由 `owo-agent playbook archive` 生成）
+*.runs/

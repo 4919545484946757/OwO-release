@@ -10,8 +10,8 @@ const domain = require("../permissions/permissions.domain.js");
 
 test("panel titles remain unique and the workbench search matches its groups", () => {
   const ids = navigation.entries.map(item => item.id);
-  assert.equal(ids.length, 23);
-  assert.equal(new Set(ids).size, 23);
+  assert.equal(ids.length, 25);
+  assert.equal(new Set(ids).size, 25);
   assert.deepEqual(navigation.search("权限").map(item => item.id), ["agent-tasks", "plugin-market", "permissions", "command"]);
   assert.equal(navigation.search("project", ["notes"]).length, 0);
   assert.equal(navigation.find("missing"), null);

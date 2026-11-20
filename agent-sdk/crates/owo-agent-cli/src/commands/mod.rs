@@ -10,6 +10,7 @@ pub(crate) mod daemon;
 pub(crate) mod doctor;
 pub(crate) mod eval;
 pub(crate) mod mcp;
+pub(crate) mod playbook;
 pub(crate) mod plugins;
 pub(crate) mod repl;
 pub(crate) mod repl_daemon;

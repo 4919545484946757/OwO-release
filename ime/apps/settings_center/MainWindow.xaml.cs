@@ -21,14 +21,30 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
 
-        AppWindow.SetIcon("Assets/AppIcon.ico");
+        AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
 
         if (App.InstallPackageRoot is not null) {
             AppWindow.Resize(new SizeInt32(1040, 760));
             AppTitleBar.Title = App.InstallPreviewStage is null
                 ? "安装 OwO 输入法" : "安装 OwO 输入法 · 阶段预览";
             try {
-                RootFrame.Content = new SetupPage();
+                var setupPage = new SetupPage();
+                RootFrame.Content = setupPage;
+                if (Environment.GetCommandLineArgs().Contains("--verify-installer-navigation")) {
+                    setupPage.Loaded += async (_, _) => {
+                        try {
+                            await setupPage.VerifyNavigationAsync();
+                            App.LogStage("Navigation verification passed");
+                        } catch (Exception error) {
+                            Environment.ExitCode = 1;
+                            App.LogStage("Navigation verification failed: " + error);
+                        } finally { Close(); }
+                    };
+                }
+                AppWindow.Closing += (_, args) => {
+                    if (RootFrame.Content is SetupPage page && page.InstallationInProgress)
+                        args.Cancel = true;
+                };
             } catch (Exception error) {
                 RootFrame.Content = new Microsoft.UI.Xaml.Controls.TextBlock {
                     Text = $"安装界面无法启动：{error.Message}",
@@ -42,6 +58,7 @@ public sealed partial class MainWindow : Window
             AppWindow.Closing += async (_, args) => {
                 if (_closingAfterSave || RootFrame.Content is not MainPage page) return;
                 args.Cancel = true;
+                if (page.ConfigurationTransferInProgress) return;
                 if (_checkingSaveOnClose) return;
                 _checkingSaveOnClose = true;
                 page.IsEnabled = false;

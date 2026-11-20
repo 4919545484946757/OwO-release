@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- 同目录多个 SDK 工程必须隔离 apphost、还原资产与增量构建缓存。 -->
+    <BaseIntermediateOutputPath>obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin\$(MSBuildProjectName)\</BaseOutputPath>
+  </PropertyGroup>
+</Project>

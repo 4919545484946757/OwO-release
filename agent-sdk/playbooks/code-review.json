@@ -1,0 +1,57 @@
+{
+  "id": "code-review",
+  "name": "代码评审",
+  "description": "对一次改动做结构化评审：确认范围 → 编译/测试 → 逐条核对风险 → 出结论。Check 步骤由宿主执行命令，不需要模型回合。",
+  "steps": [
+    {
+      "id": "scope",
+      "title": "确认改动范围",
+      "kind": "model",
+      "detail": "读 git diff / 变更集，列出改动的文件、意图与受影响面。",
+      "acceptance": "列出全部改动文件与意图，无遗漏"
+    },
+    {
+      "id": "build",
+      "title": "编译与静态检查",
+      "kind": "check",
+      "detail": "运行项目自带的检查命令（cargo check / npm run lint 等）。",
+      "acceptance": "检查命令 exit 0",
+      "depends_on": [
+        "scope"
+      ],
+      "command": "cargo check"
+    },
+    {
+      "id": "tests",
+      "title": "运行受影响测试",
+      "kind": "check",
+      "detail": "只跑受影响范围的测试目标。",
+      "acceptance": "测试命令 exit 0",
+      "depends_on": [
+        "scope"
+      ],
+      "command": "cargo test --workspace --locked"
+    },
+    {
+      "id": "review",
+      "title": "逐条核对风险",
+      "kind": "model",
+      "detail": "按正确性/安全/兼容性/可维护性四类逐条检查，每条给结论。",
+      "acceptance": "每条风险都有「接受/需修改」的结论",
+      "depends_on": [
+        "build",
+        "tests"
+      ]
+    },
+    {
+      "id": "verdict",
+      "title": "给出评审结论",
+      "kind": "human",
+      "detail": "汇总风险结论，交给人工确认是否合入。",
+      "acceptance": "人工确认通过或列出必须修改项",
+      "depends_on": [
+        "review"
+      ]
+    }
+  ]
+}

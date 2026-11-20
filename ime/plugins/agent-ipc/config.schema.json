@@ -57,6 +57,18 @@
       "title": "敏感信息过滤",
       "description": "必须保持开启；关闭时插件会拒绝运行而不是绕过过滤。",
       "default": true
+    },
+    "require_pairing": {
+      "type": "boolean",
+      "title": "要求 Agent 配对认证",
+      "description": "开启后必须提供有效的当前用户加密配对凭据；配对失败时不会退回普通连接。",
+      "default": false
+    },
+    "pairing_credential_file": {
+      "type": "string",
+      "title": "配对凭据文件",
+      "description": "填写网关确认配对后给出的绝对文件路径。这里只保存路径，不填写模型密钥或配对密钥。设置路径会强制要求配对。",
+      "default": ""
     }
   }
 }

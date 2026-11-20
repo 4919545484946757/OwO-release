@@ -10,7 +10,7 @@
 - HTTP API（`owo-agent-server`）：session/turn/permission/diff/revert/abort，SSE 事件流。
 - CLI（`owo-agent-cli`）：交互式 `turn` 与 `serve`。
 
-当前设计入口：[主开发技术文档](../builGoal/主开发技术文档-Agent-SDK-v1.md)、[后续任务实施指南](../builGoal/Agent-SDK-后续任务实施指南-2026-09-18.md)、[CLI 与 Electron 施工文档](../builGoal/Agent-SDK-CLI优先-Codex式拆分-Electron前端-施工文档-2026-09-24.md)。最近桌面验证见 [六项优化记录](docs/review/desktop-six-items-implementation-20261011.md)。
+当前设计入口：[主开发技术文档](../builGoal/主开发技术文档-Agent-SDK-v1.md)、[后续任务实施指南](../builGoal/Agent-SDK-后续任务实施指南-2026-09-18.md)、[CLI 与 Electron 施工文档](../builGoal/Agent-SDK-CLI优先-Codex式拆分-Electron前端-施工文档-2026-09-24.md)、[工作流优先：按进度自主推进](docs/WORKFLOW-FIRST.md)、[开发进度索引 2026-11-18](docs/PROGRESS-2026-11-18.md)、[前沿方向备忘](docs/TRENDS-2026-11.md)、[剧本上手 walkthrough](docs/PLAYBOOKS-WALKTHROUGH.md)、[变更记录](CHANGELOG.md)。最近桌面验证见 [六项优化记录](docs/review/desktop-six-items-implementation-20261011.md)。
 
 2026-10-11 已剔除活动 Agent 工程内的旧输入法适配库、workspace 登记与锁文件条目。Agent 核心、CLI 和桌面保持独立；默认与全 workspace 构建均不包含该适配库。历史 C++ 输入法工程及本地归档也已移除，输入法由独立 OwO 主仓库维护；此工作树不保留输入法源码备份。
 
@@ -312,6 +312,7 @@ cargo run -p owo-agent-cli -- serve --port 4096
 - Traces：每回合结构化轨迹（模型调用/流式 token/工具/审批/压缩/最终文本 + 耗时）自动写入 `<data>/traces/`，`/traces` 与 `/trace <n>` 回放，服务端回合同样落盘。
 - CI 评估门禁：`scripts/run-eval-gate.ps1 [-Suite <json>] [-Threshold 0.8]` 运行 eval 并按通过率阈值退出 0/1。
 - 本地插件：`plugins/<id>/manifest.json`（id/name/version/permissions/mcp）自动发现并桥接 MCP 工具（工作区 `plugins/` 优先于 `<data>/plugins/`），`/plugins` 查看；工具名自动净化以兼容模型 API 约束。
+- **Agent Plugins 1.0.0 包**：`plugins/<name>/plugin.json` + `skills/` + `mcp.json` 同样被自动发现（规范清单/技能/MCP 三件套，多服务器，窄失败边界）；包内技能随插件启用状态进入技能目录，`owo-agent plugins validate <dir>` 可离线校验。见 [docs/AGENT-PLUGINS.md](docs/AGENT-PLUGINS.md)。
 - 交互式 CLI：build/plan 模式、会话、diff/undo、审批、审计、AGENTS.md 初始化。
 
 ## 尚未实现（M2+）

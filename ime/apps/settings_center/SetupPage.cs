@@ -12,11 +12,11 @@ using Windows.System;
 
 namespace OwO_Settings;
 
-public sealed class SetupPage : Page
+public sealed partial class SetupPage : Page
 {
     private enum SetupStep { Welcome, Options, Progress }
 
-    private const string Version = "0.2.3";
+    private const string Version = "0.2.5";
     private readonly string _packageRoot;
     private readonly string? _previewStage;
     private readonly Grid _pageHost = new();
@@ -35,6 +35,8 @@ public sealed class SetupPage : Page
     private readonly CheckBox _desktopShortcut = new() { Content = "在桌面添加 OwO 设置中心" };
     private readonly CheckBox _taskbarGuide = new() { Content = "安装完成后显示任务栏固定提示" };
     private readonly CheckBox _consent = new();
+    private readonly TextBlock _availability = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.75 };
+    private readonly Dictionary<SetupStep, UIElement> _pages = new();
 
     private readonly ProgressBar _progress = new() { IsIndeterminate = true };
     private readonly TextBlock _progressPercentage = new() {
@@ -59,6 +61,12 @@ public sealed class SetupPage : Page
     private SetupStep _step;
     private bool _languageReady;
     private bool _packageReady;
+    private bool _checking;
+    private bool _installing;
+    internal bool InstallationInProgress => _installing;
+    private static string WindowsPowerShell => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.System),
+        "WindowsPowerShell", "v1.0", "powershell.exe");
 
     public SetupPage()
     {
@@ -118,8 +126,11 @@ public sealed class SetupPage : Page
         Grid.SetColumn(_primary, 3);
         footer.Children.Add(_primary);
         _primary.Style = Application.Current.Resources["AccentButtonStyle"] as Style;
+        bool? footerNarrow = null;
         footer.SizeChanged += (_, args) => {
             var narrow = args.NewSize.Width < 560;
+            if (footerNarrow == narrow) return;
+            footerNarrow = narrow;
             footer.Padding = new Thickness(narrow ? 12 : 24, 10, narrow ? 12 : 24, 14);
             footer.RowDefinitions.Clear();
             if (narrow) {
@@ -186,6 +197,15 @@ public sealed class SetupPage : Page
             viewport.Padding = new Thickness(inset, 18, inset, 16);
         };
         _pageHost.Children.Add(scroll);
+        _pages[_step] = scroll;
+    }
+
+    private bool RestorePage()
+    {
+        if (!_pages.TryGetValue(_step, out var page)) return false;
+        _pageHost.Children.Clear();
+        _pageHost.Children.Add(page);
+        return true;
     }
 
     private void ShowWelcome()
@@ -233,6 +253,29 @@ public sealed class SetupPage : Page
     {
         _step = SetupStep.Options;
         ResizeInstallerWindow(760);
+        if (!RestorePage()) SetPage(BuildOptionsBody());
+
+        _back.Visibility = Visibility.Visible;
+        _back.Content = "上一步";
+        _back.IsEnabled = _previewStage is null;
+        _cancel.IsEnabled = true;
+        _cancel.Visibility = Visibility.Visible;
+        _cancel.Content = _previewStage is null ? "取消" : "关闭预览";
+        _openSettings.Visibility = Visibility.Collapsed;
+        _primary.Visibility = Visibility.Visible;
+        _primary.Content = "安装";
+        _browseDirectory.IsEnabled = _previewStage is null;
+        _installDirectory.IsReadOnly = _previewStage is not null;
+        _startMenuShortcut.IsEnabled = _previewStage is null;
+        _desktopShortcut.IsEnabled = _previewStage is null;
+        _taskbarGuide.IsEnabled = _previewStage is null;
+        _consent.IsEnabled = _previewStage is null;
+        _recheckLanguage.IsEnabled = _previewStage is null && !_checking;
+        UpdateInstallAvailability();
+    }
+
+    private UIElement BuildOptionsBody()
+    {
         var body = PageBody("安装选项", "选择安装位置、安装选项和快捷方式设置。");
 
         var installation = new StackPanel { Spacing = 10 };
@@ -245,7 +288,7 @@ public sealed class SetupPage : Page
         location.Children.Add(_browseDirectory);
         installation.Children.Add(location);
         installation.Children.Add(new TextBlock {
-            Text = "浏览时会在所选文件夹下创建 OwO 目录。也可直接填写完整路径；目标应为空文件夹或已有的 OwO 安装目录。",
+            Text = "浏览时会在所选文件夹下创建 OwO 目录，也可填写完整路径。已有安装或可验证的失败残留会改用新的同级目录，不覆盖原文件；其他非空目录不能使用。",
             TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7
         });
         body.Children.Add(Card(installation));
@@ -282,41 +325,39 @@ public sealed class SetupPage : Page
             TextWrapping = TextWrapping.Wrap
         };
         body.Children.Add(_consent);
-        SetPage(body);
-
-        _back.Visibility = Visibility.Visible;
-        _back.Content = "上一步";
-        _back.IsEnabled = _previewStage is null;
-        _cancel.IsEnabled = true;
-        _cancel.Visibility = Visibility.Visible;
-        _cancel.Content = _previewStage is null ? "取消" : "关闭预览";
-        _openSettings.Visibility = Visibility.Collapsed;
-        _primary.Visibility = Visibility.Visible;
-        _primary.Content = "安装";
-        _browseDirectory.IsEnabled = _previewStage is null;
-        _installDirectory.IsReadOnly = _previewStage is not null;
-        _startMenuShortcut.IsEnabled = _previewStage is null;
-        _desktopShortcut.IsEnabled = _previewStage is null;
-        _taskbarGuide.IsEnabled = _previewStage is null;
-        _consent.IsEnabled = _previewStage is null;
-        _recheckLanguage.IsEnabled = _previewStage is null;
-        UpdateInstallAvailability();
+        body.Children.Add(_availability);
+        return body;
     }
 
     private void ShowProgress(string message, bool indeterminate = true)
     {
         _step = SetupStep.Progress;
+        if (!RestorePage()) SetPage(BuildProgressBody());
+        _progress.IsIndeterminate = indeterminate;
+        _progress.Minimum = 0;
+        _progress.Maximum = 100;
+        _progress.Value = 0;
+        _progressPercentage.Text = indeterminate ? "—" : "0%";
+        _installLog.Text = "";
+        _installStatus.Severity = InfoBarSeverity.Informational;
+        _stageMessage.Text = message;
+        SetDetailsVisibility(false);
+
+        _back.Visibility = Visibility.Collapsed;
+        _cancel.Visibility = Visibility.Visible;
+        _cancel.Content = _previewStage is null ? "取消" : "关闭预览";
+        _cancel.IsEnabled = _previewStage is not null;
+        _openSettings.Visibility = Visibility.Collapsed;
+        _primary.Visibility = Visibility.Collapsed;
+    }
+
+    private UIElement BuildProgressBody()
+    {
         var body = new StackPanel {
             Spacing = 12, Margin = new Thickness(24, 18, 24, 16), MaxWidth = 940,
             HorizontalAlignment = HorizontalAlignment.Center
         };
         body.Children.Add(ProgressBanner());
-        _progress.IsIndeterminate = indeterminate;
-        if (!indeterminate) {
-            _progress.Minimum = 0;
-            _progress.Maximum = 100;
-            _progress.Value = 0;
-        }
         body.Children.Add(_progress);
         _progressPercentage.Text = "0%";
         var stageRow = new Grid {
@@ -335,7 +376,6 @@ public sealed class SetupPage : Page
         stageRow.Children.Add(_progressPercentage);
         _installStatus.Content = stageRow;
         _installStatus.Severity = InfoBarSeverity.Informational;
-        _stageMessage.Text = message;
         body.Children.Add(_installStatus);
         body.Children.Add(new TextBlock {
             Text = "正在安装 OwO 输入法", FontSize = 24,
@@ -349,18 +389,15 @@ public sealed class SetupPage : Page
         });
         body.Children.Add(_detailsToggle);
         body.Children.Add(_installLog);
-        SetPage(body);
-        SetDetailsVisibility(false);
-
-        _back.Visibility = Visibility.Collapsed;
-        _cancel.Visibility = Visibility.Visible;
-        _cancel.Content = _previewStage is null ? "取消" : "关闭预览";
-        _cancel.IsEnabled = _previewStage is not null;
-        _openSettings.Visibility = Visibility.Collapsed;
-        _primary.Visibility = Visibility.Collapsed;
+        return body;
     }
 
     private async void PrimaryButton_Click(object sender, RoutedEventArgs e)
+    {
+        await AdvanceAsync();
+    }
+
+    private async Task AdvanceAsync()
     {
         if (_previewStage is not null) return;
         if (_step == SetupStep.Welcome) {
@@ -379,30 +416,43 @@ public sealed class SetupPage : Page
 
     private async Task CheckEnvironmentAsync()
     {
+        // One in-flight check survives Back/Next navigation; it updates the
+        // cached options page, never a retired control tree.
+        if (_checking || _installing || _previewStage is not null) return;
+        _checking = true;
+        _languageReady = false;
+        _recheckLanguage.IsEnabled = false;
+        UpdateInstallAvailability();
         _languageStatus.Text = "正在检查…";
         _packageStatus.Severity = InfoBarSeverity.Informational;
         _packageStatus.Message = "正在验证安装包结构。";
-        var required = new[] { "bin", "data", "model", "settings", "scripts",
-                               "README.zh-CN.md", "THIRD-PARTY-NOTICES.md" };
+        var required = new[] { "bin", "data", "model", "settings", "scripts", "LICENSES",
+            "scripts/Install-OwO.ps1", "scripts/Install-Prerequisites.ps1", "README.zh-CN.md", "THIRD-PARTY-NOTICES.md",
+            "Open-OwO-Settings.cmd", "Uninstall-OwO.cmd" };
         var missing = required.Where(item => !Directory.Exists(Path.Combine(_packageRoot, item)) &&
                                              !File.Exists(Path.Combine(_packageRoot, item))).ToArray();
-        _packageReady = missing.Length == 0 &&
-            File.Exists(Path.Combine(_packageRoot, "scripts", "Install-OwO.ps1"));
+        _packageReady = App.BundledInstaller is not null || missing.Length == 0;
         _packageStatus.Severity = _packageReady ? InfoBarSeverity.Success : InfoBarSeverity.Error;
-        _packageStatus.Message = _packageReady ? "安装包结构完整。" :
+        _packageStatus.Message = App.BundledInstaller is not null
+            ? "安装文件已内置，点击安装后校验并解压。" : _packageReady ? "安装包结构完整。" :
             $"安装包不完整，缺少：{string.Join("、", missing)}";
         try {
-            var result = await RunProcessAsync("powershell.exe", [
+            var result = await RunProcessAsync(WindowsPowerShell, [
                 "-NoLogo", "-NoProfile", "-NonInteractive", "-Command",
-                "$ok = $false; foreach ($language in Get-WinUserLanguageList) { " +
-                "if ($language.LanguageTag -in @('zh-Hans-CN','zh-CN')) { $ok = $true } }; " +
-                "if (-not $ok) { exit 1 }"
-            ]);
-            _languageReady = result.ExitCode == 0;
-        } catch { _languageReady = false; }
-        _languageStatus.Text = _languageReady
-            ? "已安装，可以注册并激活 OwO 输入法。"
-            : "尚未检测到所需语言。请安装语言和基本输入组件后重新检查。";
+                SetupPrerequisites.LanguageProbe
+            ], TimeSpan.FromSeconds(20));
+            _languageReady = SetupPrerequisites.LanguageReady(result.ExitCode, result.Output);
+            _languageStatus.Text = _languageReady
+                ? "已检测到当前用户的简体中文输入支持。"
+                : result.ExitCode == 1 && result.Output.Trim() == "OWO_LANGUAGE_MISSING"
+                    ? "尚未检测到所需语言。请安装语言和基本输入组件后重新检查。"
+                    : "语言检测失败，请重新检查。诊断：" + result.Error.Trim();
+        } catch (Exception exception) {
+            _languageStatus.Text = $"语言检测失败（并非确认缺少语言包）：{exception.Message}。请重新检查。";
+        } finally {
+            _checking = false;
+            _recheckLanguage.IsEnabled = _previewStage is null;
+        }
         _openLanguageSettings.Visibility = _languageReady ? Visibility.Collapsed : Visibility.Visible;
         UpdateInstallAvailability();
     }
@@ -410,8 +460,15 @@ public sealed class SetupPage : Page
     private void UpdateInstallAvailability()
     {
         if (_step != SetupStep.Options) return;
-        _primary.IsEnabled = _previewStage is null && _languageReady && _packageReady &&
-            _consent.IsChecked == true && TryGetInstallDirectory(out _, out _);
+        var pathValid = TryGetInstallDirectory(out _, out var pathError);
+        var reason = SetupPrerequisites.BlockingReason(_previewStage is not null,
+            _checking, _languageReady, _packageReady, _consent.IsChecked == true,
+            pathValid, pathError);
+        var architectureError = SetupPrerequisites.ArchitectureError(
+            System.Runtime.InteropServices.RuntimeInformation.OSArchitecture);
+        if (_previewStage is null && architectureError.Length != 0) reason = architectureError;
+        _primary.IsEnabled = !_installing && reason.Length == 0;
+        _availability.Text = reason.Length == 0 ? "已准备就绪，可以安装。" : reason;
     }
 
     private async void BrowseDirectoryButton_Click(object sender, RoutedEventArgs e)
@@ -462,21 +519,49 @@ public sealed class SetupPage : Page
 
     private async Task InstallAsync()
     {
+        UpdateInstallAvailability();
+        if (!_primary.IsEnabled || _installing) return;
         if (!TryGetInstallDirectory(out var installDirectory, out var pathError)) {
             _packageStatus.Severity = InfoBarSeverity.Error;
             _packageStatus.Message = pathError;
             return;
         }
-        ShowProgress("正在复制文件、注册 TSF 并启动服务…");
+        _installing = true;
         try {
+            ShowProgress("正在复制文件、注册 TSF 并启动服务…");
+            if (App.BundledInstaller is { } payload) {
+                _progress.IsIndeterminate = false;
+                var preparing = true;
+                try {
+                    await payload.PrepareAsync(new Progress<InstallerPayloadProgress>(update => {
+                        if (!preparing) return;
+                        _stageMessage.Text = update.Message;
+                        _progress.Value = update.Percent;
+                        _progressPercentage.Text = $"{update.Percent}%";
+                    }));
+                } finally { preparing = false; }
+                _progress.IsIndeterminate = true;
+                _progressPercentage.Text = "—";
+                _stageMessage.Text = "正在安装文件、注册 TSF 并启动服务…";
+            }
             var arguments = new List<string> {
                 "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                 "-File", Path.Combine(_packageRoot, "scripts", "Install-OwO.ps1"),
-                "-InstallDirectory", installDirectory
+                "-InstallDirectory", installDirectory, "-ReportProgress"
             };
+            // Bundled-payload preparation has its own progress scale.
+            _progress.Value = 0;
             if (_startMenuShortcut.IsChecked != true) arguments.Add("-NoSettingsStartMenuShortcut");
             if (_desktopShortcut.IsChecked == true) arguments.Add("-CreateSettingsDesktopShortcut");
-            var result = await RunProcessAsync("powershell.exe", arguments);
+            var receiving = true;
+            var progress = new Progress<InstallerProcessLine>(line => {
+                if (!receiving) return;
+                ShowBackendLine(line);
+            });
+            InstallerProcessResult result;
+            try { result = await InstallerProcessRunner.RunAsync(WindowsPowerShell, arguments, lines: progress); }
+            finally { receiving = false; }
+            App.LogStage($"Installer backend exited: {result.ExitCode}");
             _installLog.Text = string.Join(Environment.NewLine,
                 new[] { result.Output, result.Error }.Where(value => !string.IsNullOrWhiteSpace(value)));
             if (result.ExitCode != 0)
@@ -494,8 +579,6 @@ public sealed class SetupPage : Page
             Environment.ExitCode = 0;
         } catch (Exception exception) {
             _progress.IsIndeterminate = false;
-            _progress.Value = 0;
-            _progressPercentage.Text = "0%";
             _installStatus.Severity = InfoBarSeverity.Error;
             _stageMessage.Text = $"安装失败：{exception.Message}";
             _installLog.Text = string.IsNullOrWhiteSpace(_installLog.Text)
@@ -507,6 +590,8 @@ public sealed class SetupPage : Page
             _back.IsEnabled = true;
             _back.Content = "返回选项";
             Environment.ExitCode = 1;
+        } finally {
+            _installing = false;
         }
     }
 
@@ -552,6 +637,21 @@ public sealed class SetupPage : Page
                 break;
             default:
                 throw new ArgumentException($"未知安装预览阶段：{stage}");
+        }
+    }
+
+    private void ShowBackendLine(InstallerProcessLine line)
+    {
+        App.LogStage("Installer backend: " + line.Text);
+        if (!line.IsError && InstallerProcessRunner.TryProgress(line.Text, out var percent, out var stage)) {
+            if (percent < _progress.Value) return;
+            _progress.IsIndeterminate = false;
+            _progress.Value = percent;
+            _progressPercentage.Text = $"{percent}%";
+            _stageMessage.Text = stage;
+        } else {
+            var text = _installLog.Text + line.Text + Environment.NewLine;
+            _installLog.Text = text.Length > 65536 ? text[^65536..] : text;
         }
     }
 
@@ -688,7 +788,7 @@ public sealed class SetupPage : Page
         Height = 238,
         CornerRadius = new CornerRadius(12),
         Child = new Image {
-            Source = new BitmapImage(new Uri("ms-appx:///Assets/SetupProgressBanner.png")),
+            Source = new BitmapImage(new Uri(Path.Combine(App.ResourceDirectory, "Assets", "SetupProgressBanner.png"))),
             Stretch = Stretch.UniformToFill,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Center
@@ -709,21 +809,7 @@ public sealed class SetupPage : Page
 
     private static void CloseWindow() => ((App)Application.Current).MainWindow.Close();
 
-    private sealed record ProcessResult(int ExitCode, string Output, string Error);
-
-    private static async Task<ProcessResult> RunProcessAsync(string executable,
-                                                              IEnumerable<string> arguments)
-    {
-        var start = new ProcessStartInfo(executable) {
-            UseShellExecute = false, CreateNoWindow = true,
-            RedirectStandardOutput = true, RedirectStandardError = true,
-        };
-        foreach (var argument in arguments) start.ArgumentList.Add(argument);
-        using var process = Process.Start(start) ??
-            throw new InvalidOperationException($"无法启动 {executable}。");
-        var output = process.StandardOutput.ReadToEndAsync();
-        var error = process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-        return new ProcessResult(process.ExitCode, await output, await error);
-    }
+    private static Task<InstallerProcessResult> RunProcessAsync(string executable,
+        IEnumerable<string> arguments, TimeSpan? timeout = null)
+        => InstallerProcessRunner.RunAsync(executable, arguments, timeout);
 }

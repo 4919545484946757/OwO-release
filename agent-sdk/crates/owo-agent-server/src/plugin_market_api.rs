@@ -44,10 +44,10 @@ fn manager_for(data_root: &Path) -> Arc<Mutex<PluginManager>> {
     let manager = map
         .entry(data_root.to_path_buf())
         .or_insert_with(|| {
-            Arc::new(Mutex::new(PluginManager::new(
-                data_root.to_path_buf(),
-                app_version(),
-            )))
+            let mut manager = PluginManager::new(data_root.to_path_buf(), app_version());
+            // 市场安装/更新同样执行吊销列表（默认 <data_root>/revocations.json）。
+            manager.load_revocations(None);
+            Arc::new(Mutex::new(manager))
         })
         .clone();
     if let Ok(mut mgr) = manager.lock() {
@@ -529,9 +529,25 @@ fn scan_dir_risks(dir: &Path) -> Result<Vec<String>, (StatusCode, Json<Value>)> 
     }
     let manifest_path = dir.join("manifest.json");
     if !manifest_path.exists() {
+        // 规范包（Agent Plugins 1.0.0）：plugin.json + skills/ + mcp.json。
+        if dir.join("plugin.json").exists() {
+            owo_agent_core::agent_plugins::load_agent_plugin(dir, None).map_err(|error| {
+                err(
+                    StatusCode::BAD_REQUEST,
+                    format!("规范包无效（{}）：{error}", dir.display()),
+                )
+            })?;
+            return Ok(owo_agent_core::agent_plugins::scan_agent_plugin_for_risks(
+                dir,
+                &[],
+            ));
+        }
         return Err(err(
             StatusCode::BAD_REQUEST,
-            format!("缺少 manifest.json：{}", dir.display()),
+            format!(
+                "缺少 manifest.json（历史格式）或 plugin.json（Agent Plugins 规范包）：{}",
+                dir.display()
+            ),
         ));
     }
     let manifest =

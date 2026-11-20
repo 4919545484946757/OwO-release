@@ -82,6 +82,8 @@ enum Commands {
     Trust(commands::trust::TrustArgs),
     /// 用户自定义多 Agent 工作流（团队模板的用户/社区通道：校验/CRUD/AI 草稿/社区包）
     Workflow(commands::workflow::WorkflowArgs),
+    /// 任务剧本：校验/预览按域定义的任务流程（新增功能，不影响既有命令）
+    Playbook(commands::playbook::PlaybookArgs),
     /// 逐 hunk 审阅工作区改动（G13：列出 hunk，按序号接受/拒绝）
     Review(commands::review::ReviewArgs),
     /// 列出会话（对标 Codex `codex resume` 选择器；标出 --continue 会选中的会话）
@@ -155,6 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Worker(args)) => run_async(commands::worker::run_worker_cmd(args))?,
         Some(Commands::Trust(args)) => commands::trust::run_trust_cmd(args, cli.output)?,
         Some(Commands::Workflow(args)) => commands::workflow::run_workflow_cmd(args)?,
+        Some(Commands::Playbook(args)) => commands::playbook::run_playbook_cmd(args)?,
         Some(Commands::Review(args)) => commands::review::run_review_cmd(args)?,
         Some(Commands::Sessions(args)) => commands::sessions::run_sessions_cmd(args)?,
         Some(Commands::Symbols(args)) => commands::symbols::run_symbols_cmd(args)?,
@@ -190,6 +193,7 @@ fn print_help() {
     println!("  /approvals [clear]  查看/清除本会话「总是允许」的工具（--local）");
     println!("  /compact            立即压缩会话历史（省 token）");
     println!("  /goal [目标|status|clear]  目标模式：未完成时持续自动推进，模型标记完成才停");
+    println!("  /advance [目标|status|clear|run]  按进度推进（额外功能）：有界重试 + 停滞检测，不影响 /goal；/advance --playbook <文件> 按剧本推进");
     println!("  /todo               查看会话任务清单（todo 工具维护）");
     println!("  /review [提示]      发起一次「审查工作区改动」的回合");
     println!("  /mention <路径>     展示文件引用信息（字节/行数）");

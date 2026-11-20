@@ -30,7 +30,11 @@ int main(int argc, char** argv) {
     bool assisted = false;
     bool parse_only = false;
     bool print_candidates = false;
+    bool model_alternatives = false;
+    std::size_t candidate_limit = 10;
     std::size_t partition_page_size = 0;
+    std::optional<std::size_t> requested_samples;
+    std::optional<std::size_t> requested_warmup;
     for (int index = 1; index < argc; ++index) {
         if (std::string_view(argv[index]) == "--assisted") {
             if (assisted) return 2;
@@ -38,6 +42,20 @@ int main(int argc, char** argv) {
         } else if (std::string_view(argv[index]) == "--query") {
             if (custom_query.has_value() || index + 1 >= argc) return 2;
             custom_query = argv[++index];
+        } else if (std::string_view(argv[index]) == "--limit") {
+            if (index + 1 >= argc) return 2;
+            try { candidate_limit = std::stoul(argv[++index]); } catch (...) { return 2; }
+            if (candidate_limit == 0 || candidate_limit > 256) return 2;
+        } else if (std::string_view(argv[index]) == "--samples" ||
+                   std::string_view(argv[index]) == "--warmup") {
+            const bool samples = std::string_view(argv[index]) == "--samples";
+            if (index + 1 >= argc) return 2;
+            std::size_t count;
+            try { count = std::stoul(argv[++index]); } catch (...) { return 2; }
+            if (count > 100000 || (samples && count == 0)) return 2;
+            (samples ? requested_samples : requested_warmup) = count;
+        } else if (std::string_view(argv[index]) == "--model-alternatives") {
+            model_alternatives = true;
         } else if (std::string_view(argv[index]) == "--parse-only") {
             parse_only = true;
         } else if (std::string_view(argv[index]) == "--print-candidates") {
@@ -116,26 +134,32 @@ int main(int argc, char** argv) {
         std::cout << "]}\n";
         return parsed.valid ? 0 : 3;
     }
-    const std::size_t warmup_count = custom_query ? 0 : 100;
-    const std::size_t sample_count = custom_query ? 1 : 1000;
+    const std::size_t warmup_count = requested_warmup.value_or(custom_query ? 0 : 100);
+    const std::size_t sample_count = requested_samples.value_or(custom_query ? 1 : 1000);
     for (std::size_t index = 0; index < warmup_count; ++index)
-        static_cast<void>(generator.generate(schema.parse(query_at(index)), 10));
+        static_cast<void>(generator.generate(schema.parse(query_at(index), 32, true),
+            candidate_limit, false, {}, nullptr, {}, model_alternatives, partition_page_size));
 
     std::vector<double> samples;
     samples.reserve(sample_count);
     std::size_t total_candidates = 0;
     std::uint64_t total_parse_us = 0;
     std::uint64_t total_correction_us = 0;
+    std::uint64_t total_assistance_us = 0;
     std::uint64_t total_lookup_us = 0;
     std::uint64_t total_sort_us = 0;
+    std::uint64_t total_transitions = 0;
+    std::uint64_t total_materialized = 0;
+    std::uint64_t total_cache_hits = 0, total_coherence_hits = 0, total_lookups = 0;
     for (std::size_t index = 0; index < sample_count; ++index) {
         const auto start = std::chrono::steady_clock::now();
         owo::engine::FullPinyinParseMetrics parse_metrics;
         const auto parsed = schema.parse(query_at(index), 32, true, &parse_metrics);
         owo::engine::CandidateGenerationMetrics generation_metrics;
         const auto candidates = generator.generate(
-            parsed, 10, false, {}, &generation_metrics, {}, false,
+            parsed, candidate_limit, false, {}, &generation_metrics, {}, model_alternatives,
             partition_page_size);
+        const auto elapsed = std::chrono::steady_clock::now() - start;
         if (print_candidates) {
             for (std::size_t candidate_index = 0;
                  candidate_index < candidates.size(); ++candidate_index) {
@@ -155,14 +179,19 @@ int main(int argc, char** argv) {
                 std::cout << '\n';
             }
         }
-        const auto elapsed = std::chrono::steady_clock::now() - start;
         samples.push_back(std::chrono::duration<double, std::micro>(elapsed).count());
         total_candidates += candidates.size();
         total_parse_us += parse_metrics.normalization_us + parse_metrics.segmentation_us +
-                          parse_metrics.correction_us;
+                          parse_metrics.correction_us + parse_metrics.assistance_us;
         total_correction_us += parse_metrics.correction_us;
+        total_assistance_us += parse_metrics.assistance_us;
         total_lookup_us += generation_metrics.lexicon_lookup_us;
         total_sort_us += generation_metrics.sort_us;
+        total_transitions += generation_metrics.beam_transitions;
+        total_materialized += generation_metrics.beam_materialized;
+        total_cache_hits += generation_metrics.exact_lookup_cache_hits;
+        total_coherence_hits += generation_metrics.coherence_cache_hits;
+        total_lookups += generation_metrics.lexicon_lookup_count;
     }
     std::sort(samples.begin(), samples.end());
     std::error_code ignored;
@@ -189,8 +218,14 @@ int main(int argc, char** argv) {
               << (custom_query ? "custom" : assisted ? "assisted" : "exact") << "\""
               << ",\"logical_processors\":" << processors
               << ",\"total_candidates\":" << total_candidates
+              << ",\"average_beam_transitions\":" << total_transitions / sample_count
+              << ",\"average_beam_materialized\":" << total_materialized / sample_count
+              << ",\"average_lexicon_lookups\":" << total_lookups / sample_count
+              << ",\"average_exact_cache_hits\":" << total_cache_hits / sample_count
+              << ",\"average_coherence_cache_hits\":" << total_coherence_hits / sample_count
               << ",\"average_phase_us\":{\"parse\":" << total_parse_us / sample_count
               << ",\"correction\":" << total_correction_us / sample_count
+              << ",\"assistance\":" << total_assistance_us / sample_count
               << ",\"lookup\":" << total_lookup_us / sample_count
               << ",\"sort\":" << total_sort_us / sample_count << "}"
               << ",\"latency_us\":{\"p50\":" << percentile(samples, 0.50)

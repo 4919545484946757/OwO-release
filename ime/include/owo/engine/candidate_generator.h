@@ -26,6 +26,11 @@ struct Candidate {
     std::vector<std::size_t> segment_lengths;
     bool model_only{};
     bool user_lexicon{};
+    bool provisional_user_word{};
+    bool joint_phrase_partition{};
+    [[nodiscard]] bool user_preferred() const noexcept {
+        return user_lexicon && !provisional_user_word;
+    }
 
     bool operator==(const Candidate&) const = default;
 };
@@ -34,6 +39,10 @@ struct CandidateGenerationMetrics {
     std::uint64_t lexicon_lookup_us{};
     std::uint64_t sort_us{};
     std::uint64_t lexicon_lookup_count{};
+    std::uint64_t beam_transitions{};
+    std::uint64_t beam_materialized{};
+    std::uint64_t exact_lookup_cache_hits{};
+    std::uint64_t coherence_cache_hits{};
 };
 
 class CandidateGenerator {

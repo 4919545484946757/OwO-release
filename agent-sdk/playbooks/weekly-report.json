@@ -1,0 +1,31 @@
+{
+  "id": "weekly-report",
+  "name": "周报整理",
+  "description": "收集本周提交 → 归纳成结构化周报 → 人工确认。collect 是确定性命令，其余需要模型与人工。",
+  "steps": [
+    {
+      "id": "collect",
+      "title": "收集本周变更",
+      "kind": "check",
+      "detail": "拿到最近的提交记录作为事实来源，不要凭记忆写周报。",
+      "acceptance": "输出最近 20 条提交标题与作者",
+      "command": "git log --oneline --decorate -20"
+    },
+    {
+      "id": "summarize",
+      "title": "归纳周报",
+      "kind": "model",
+      "detail": "按「完成 / 进行中 / 风险 / 下周计划」四段整理，只写提交能支撑的事实。",
+      "acceptance": "四段齐全，每条结论能对应到提交或任务",
+      "depends_on": ["collect"]
+    },
+    {
+      "id": "confirm",
+      "title": "人工确认",
+      "kind": "human",
+      "detail": "负责人确认措辞与范围后发出。",
+      "acceptance": "负责人确认可以发出",
+      "depends_on": ["summarize"]
+    }
+  ]
+}

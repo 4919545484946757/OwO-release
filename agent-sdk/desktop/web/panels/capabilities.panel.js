@@ -59,6 +59,76 @@
       return map[key] || String(cls || "");
     }
 
+    /// 成熟度环形图（SVG，零依赖）：一眼看清稳定/试用/实验的分布。
+    function maturityDonut(m, total) {
+      var stable = m.stable || 0;
+      var beta = m.beta || 0;
+      var experimental = m.experimental || 0;
+      if (!total) return "";
+      var segments = [
+        { count: stable, color: "var(--green)", label: "稳定" },
+        { count: beta, color: "var(--accent)", label: "试用" },
+        { count: experimental, color: "var(--yellow)", label: "实验" },
+      ].filter(function (s) { return s.count > 0; });
+      var radius = 15.9155; // 周长=100，方便百分比
+      var circumference = 100;
+      var offset = 25; // 从 12 点钟开始
+      var arcs = segments
+        .map(function (s) {
+          var portion = (s.count / total) * circumference;
+          var dash = portion + " " + (circumference - portion);
+          var arc =
+            '<circle r="' + radius + '" cx="21" cy="21" fill="none" stroke="' + s.color +
+            '" stroke-width="5" stroke-dasharray="' + dash +
+            '" stroke-dashoffset="' + offset + '"/>';
+          offset -= portion; // 顺时针续接
+          return arc;
+        })
+        .join("");
+      var legend = segments
+        .map(function (s) {
+          return (
+            '<span><i style="background:' + s.color + '"></i>' + s.label + " " + s.count + "</span>"
+          );
+        })
+        .join("");
+      return (
+        '<div class="owo-cap-donut">' +
+        '<svg viewBox="0 0 42 42" width="64" height="64" role="img" aria-label="成熟度分布">' +
+        '<circle r="' + radius + '" cx="21" cy="21" fill="none" stroke="var(--surface-3)" stroke-width="5"/>' +
+        arcs +
+        '<text x="21" y="24" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text)">' + total + "</text>" +
+        "</svg>" +
+        '<div class="owo-cap-donut-meta">' + legend + "</div></div>"
+      );
+    }
+
+    /// 影响范围徽章（色点 + 文案，替代纯文本行）。
+    function effectChip(cls) {
+      var map = {
+        read: ["读取文件", "owo-cap-eff-read"],
+        write: ["写入文件", "owo-cap-eff-write"],
+        execute: ["执行命令", "owo-cap-eff-exec"],
+        network: ["访问网络", "owo-cap-eff-net"],
+      };
+      var key = String(cls || "").toLowerCase();
+      var hit = map[key] || [String(cls || ""), ""];
+      return '<span class="owo-cap-eff ' + hit[1] + '"><i aria-hidden="true"></i>' + esc(hit[0]) + "</span>";
+    }
+
+    /// 入口类型标记：界面/命令行/HTTP/服务 各有底色。
+    function kindMark(kind) {
+      var map = {
+        ui: ["界面", "owo-cap-kind-ui"],
+        cli: ["命令行", "owo-cap-kind-cli"],
+        http: ["HTTP", "owo-cap-kind-http"],
+        service: ["服务", "owo-cap-kind-service"],
+      };
+      var key = String(kind || "").toLowerCase();
+      var hit = map[key] || [kind || "—", ""];
+      return '<span class="owo-cap-kind ' + hit[1] + '">' + esc(hit[0]) + "</span>";
+    }
+
     /// 能力卡片：名称 + 成熟度 + 说明 + 影响范围 + 用户入口。
     /// 技术入口 route 仅在开发者模式显示（§8.2：普通路由不泄漏 API path）。
     function card(c, dev) {
@@ -130,6 +200,12 @@
         meta.innerHTML = esc("共 " + caps.length + " 项能力：稳定 " + m.stable + " · 试用 " + m.beta + " · 实验 " + m.experimental) +
           (hiddenCount > 0 && !dev ? '<p class="sub">另有 ' + hiddenCount + ' 项高级能力在开发者模式下显示。</p>' : "") +
           (query || maturity ? '<p class="sub">筛选结果：' + shown.length + ' 项</p>' : "");
+      }
+      var summary = root.querySelector(".owo-cap-summary");
+      if (summary) {
+        var donut = maturityDonut(m, m.stable + m.beta + m.experimental);
+        summary.innerHTML = donut || "";
+        summary.hidden = !donut;
       }
       if (list) {
         list.innerHTML = shown.length
@@ -231,6 +307,9 @@
     var TEST_API = {
       maturityBadge: maturityBadge,
       effectLabel: effectLabel,
+      effectChip: effectChip,
+      kindMark: kindMark,
+      maturityDonut: maturityDonut,
       card: card,
       paint: paint,
     };

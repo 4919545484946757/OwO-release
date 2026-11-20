@@ -1,4 +1,5 @@
 #include "owo/engine/candidate_generator.h"
+#include "owo/engine/user_lexicon_alignment.h"
 #include "owo/engine/candidate_scoring.h"
 
 #include <algorithm>
@@ -8,6 +9,7 @@
 #include <deque>
 #include <iterator>
 #include <limits>
+#include <optional>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -49,6 +51,117 @@ constexpr std::int64_t kPreferredExactSegmentationBonus =
 constexpr std::int64_t kAlternativeSegmentationPromotionMargin = 16'000;
 constexpr std::int64_t kHighConfidenceAlternativeScore = 12'000;
 
+// A request-local snapshot: nothing survives a dictionary/config/user update.
+// Keep full lookup rows; beam-specific trimming must never poison a later
+// prefix/coherence lookup needing more entries from the same reading.
+class RequestLexiconCache {
+    using Reading = std::vector<std::string>;
+    struct ReadingHash {
+        using is_transparent = void;
+        template<class R> std::size_t operator()(const R& reading) const {
+            std::size_t hash = reading.size();
+            for (const auto& syllable : reading)
+                hash ^= std::hash<std::string_view>{}(syllable) +
+                    std::size_t{0x9e3779b9} + (hash << 6) + (hash >> 2);
+            return hash;
+        }
+    };
+    struct ReadingEqual {
+        using is_transparent = void;
+        template<class L, class R> bool operator()(const L& left, const R& right) const {
+            return left.size() == right.size() &&
+                std::equal(left.begin(), left.end(), right.begin());
+        }
+    };
+    struct PhraseKey { Reading reading; std::string text; };
+    struct PhraseView { std::span<const std::string_view> reading; std::string_view text; };
+    struct PhraseHash {
+        using is_transparent = void;
+        template<class P> std::size_t operator()(const P& phrase) const {
+            return ReadingHash{}(phrase.reading) ^ (std::hash<std::string_view>{}(phrase.text) << 1);
+        }
+    };
+    struct PhraseEqual {
+        using is_transparent = void;
+        template<class L, class R> bool operator()(const L& left, const R& right) const {
+            return left.text == right.text && ReadingEqual{}(left.reading, right.reading);
+        }
+    };
+public:
+    RequestLexiconCache(const Lexicon& lexicon, CandidateGenerationMetrics* metrics)
+        : lexicon_(lexicon), metrics_(metrics) {}
+
+    const std::vector<LexiconTextEntry>& lookup(std::span<const std::string_view> reading) {
+        auto found = rows_.find(reading);
+        if (found != rows_.end()) {
+            if (metrics_) ++metrics_->exact_lookup_cache_hits;
+            return found->second;
+        }
+        const auto started = std::chrono::steady_clock::now();
+        auto entries = lexicon_.lookup_texts(reading);
+        record_lookup(started);
+        if (rows_.size() < 1024 && cached_entries_ + entries.size() <= 32768) {
+            cached_entries_ += entries.size();
+            return rows_.emplace(own_reading(reading), std::move(entries)).first->second;
+        }
+        scratch_ = std::move(entries);
+        return scratch_;
+    }
+
+    std::uint32_t maximum(std::span<const std::string_view> reading) {
+        if (const auto found = maxima_.find(reading); found != maxima_.end()) {
+            if (metrics_) ++metrics_->exact_lookup_cache_hits;
+            return found->second;
+        }
+        const auto started = std::chrono::steady_clock::now();
+        const auto value = lexicon_.lookup_max_frequency(reading);
+        record_lookup(started);
+        if (maxima_.size() < 1024) maxima_.emplace(own_reading(reading), value);
+        return value;
+    }
+
+    std::optional<std::int64_t> phrase_score(std::span<const std::string_view> reading,
+                                           std::string_view text) {
+        const PhraseView key{reading, text};
+        if (const auto found = phrases_.find(key); found != phrases_.end()) {
+            if (metrics_) ++metrics_->coherence_cache_hits;
+            return found->second;
+        }
+        std::optional<std::int64_t> score;
+        for (const auto& entry : lookup(reading)) {
+            if (entry.text != text) continue;
+            const auto value = std::min(kMaximumBoundaryCoherenceBonus,
+                candidate_unigram_score(entry.frequency) * 3 / 2);
+            score = score ? std::max(*score, value) : value;
+        }
+        if (phrases_.size() < 4096)
+            phrases_.emplace(PhraseKey{own_reading(reading), std::string(text)}, score);
+        return score;
+    }
+
+private:
+    static Reading own_reading(std::span<const std::string_view> reading) {
+        Reading key;
+        key.reserve(reading.size());
+        for (const auto syllable : reading) key.emplace_back(syllable);
+        return key;
+    }
+    void record_lookup(std::chrono::steady_clock::time_point started) {
+        if (!metrics_) return;
+        ++metrics_->lexicon_lookup_count;
+        metrics_->lexicon_lookup_us += static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - started).count());
+    }
+    const Lexicon& lexicon_;
+    CandidateGenerationMetrics* metrics_;
+    std::size_t cached_entries_{};
+    std::unordered_map<Reading, std::vector<LexiconTextEntry>, ReadingHash, ReadingEqual> rows_;
+    std::unordered_map<Reading, std::uint32_t, ReadingHash, ReadingEqual> maxima_;
+    std::unordered_map<PhraseKey, std::optional<std::int64_t>, PhraseHash, PhraseEqual> phrases_;
+    std::vector<LexiconTextEntry> scratch_;
+};
+
 std::int64_t common_initial_seed_bonus(const char initial,
                                        const std::string_view text) {
     // Raw dictionary counts mix several corpora and otherwise put 大/多 ahead
@@ -85,12 +198,54 @@ std::int64_t source_initial_bonus(const ParseResult& parsed, const ParsePath& pa
     return bonus;
 }
 
+bool search_state_better(const SearchState& left, const SearchState& right) {
+    if (left.score != right.score) return left.score > right.score;
+    return left.text < right.text;
+}
+
 void prune(std::vector<SearchState>& states, const std::size_t width) {
-    std::sort(states.begin(), states.end(), [](const SearchState& left, const SearchState& right) {
-        if (left.score != right.score) return left.score > right.score;
-        return left.text < right.text;
-    });
+    if (states.size() > width)
+        std::partial_sort(states.begin(), states.begin() + width, states.end(),
+                          search_state_better);
+    else
+        std::sort(states.begin(), states.end(), search_state_better);
     if (states.size() > width) states.resize(width);
+}
+
+// Future chart cells stay as worst-first heaps, bounded by the existing beam
+// width. Reject losing transitions BEFORE copying strings and syllable vectors.
+// A cell is sorted only when consumed, preserving score/text iteration order.
+template <class Extend>
+void append_successor(std::vector<SearchState>& destination, const std::size_t width,
+                      const SearchState& source, const std::string_view text,
+                      const std::int64_t score, const std::size_t extra_syllables, Extend&& extend,
+                      CandidateGenerationMetrics* metrics) {
+    if (metrics != nullptr) ++metrics->beam_transitions;
+    if (destination.size() == width && score < destination.front().score) return;
+    std::string joined_text;
+    joined_text.reserve(source.text.size() + text.size());
+    joined_text = source.text;
+    joined_text += text;
+    if (destination.size() == width && score == destination.front().score &&
+        joined_text >= destination.front().text) return;
+    SearchState next;
+    next.text = std::move(joined_text);
+    next.score = score;
+    next.segment_count = source.segment_count;
+    next.segment_lengths.reserve(source.segment_lengths.size() + 1);
+    next.segment_lengths.insert(next.segment_lengths.end(),
+        source.segment_lengths.begin(), source.segment_lengths.end());
+    next.syllables.reserve(source.syllables.size() + extra_syllables);
+    next.syllables.insert(next.syllables.end(), source.syllables.begin(), source.syllables.end());
+    extend(next);
+    if (metrics != nullptr) ++metrics->beam_materialized;
+    if (destination.size() == width) {
+        std::pop_heap(destination.begin(), destination.end(), search_state_better);
+        destination.back() = std::move(next);
+    } else {
+        destination.push_back(std::move(next));
+    }
+    std::push_heap(destination.begin(), destination.end(), search_state_better);
 }
 
 void retain_frequent_entries(std::vector<LexiconEntry>& entries,
@@ -166,10 +321,15 @@ std::string candidate_structure_key(const Candidate& candidate) {
 bool candidate_better(const Candidate& candidate, const Candidate& existing) {
     if (candidate.consumed_input_bytes != existing.consumed_input_bytes)
         return candidate.consumed_input_bytes > existing.consumed_input_bytes;
-    if (candidate.user_lexicon != existing.user_lexicon)
-        return candidate.user_lexicon;
+    if (candidate.user_preferred() != existing.user_preferred())
+        return candidate.user_preferred();
+    // A remembered word remains a word after its one-off priority expires.
+    // A native whole-word match can replace its stale duplicate below, but
+    // an arbitrary composition must not erase the user-lexicon identity.
     if ((candidate.segment_count == 1) != (existing.segment_count == 1))
         return candidate.segment_count == 1;
+    if (candidate.provisional_user_word != existing.provisional_user_word)
+        return !candidate.provisional_user_word;
     if (candidate.score != existing.score) return candidate.score > existing.score;
     return candidate.match_kind < existing.match_kind;
 }
@@ -188,6 +348,8 @@ void replace_candidate_payload(Candidate& existing, Candidate replacement) {
     existing.segment_lengths = std::move(replacement.segment_lengths);
     existing.model_only = replacement.model_only;
     existing.user_lexicon = replacement.user_lexicon;
+    existing.provisional_user_word = replacement.provisional_user_word;
+    existing.joint_phrase_partition = replacement.joint_phrase_partition;
 }
 
 class CandidateAccumulator {
@@ -230,8 +392,8 @@ private:
 };
 
 bool score_less(const Candidate& left, const Candidate& right) {
-    if (left.user_lexicon != right.user_lexicon)
-        return left.user_lexicon;
+    if (left.user_preferred() != right.user_preferred())
+        return left.user_preferred();
     if (left.score != right.score) return left.score > right.score;
     if (left.match_kind != right.match_kind) return left.match_kind < right.match_kind;
     if (left.syllables.size() != right.syllables.size())
@@ -402,6 +564,13 @@ void promote_full_candidate_heads(const std::vector<Candidate>& sentences,
     std::vector<Candidate> promoted;
     promoted.reserve(single_characters.size());
     std::vector<bool> used(single_characters.size());
+    // Explicit source-bound learning outranks a sentence/dictionary head hint.
+    // Keep its score order; the structural hint only reorders the remainder.
+    for (std::size_t index = 0; index < single_characters.size(); ++index) {
+        if (!single_characters[index].user_preferred()) continue;
+        used[index] = true;
+        promoted.push_back(std::move(single_characters[index]));
+    }
     for (const auto& head : preferred) {
         const auto found = std::find_if(
             single_characters.begin(), single_characters.end(),
@@ -455,14 +624,32 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                     const std::size_t partition_page_size,
                                                     const bool user_completion_enabled,
                                                     const std::size_t user_completion_max_syllables) const {
-    if (!parsed.valid || limit == 0) return {};
+    if (!parsed.valid || limit == 0 || (cancelled && cancelled())) return {};
     // A normal first page needs only page_size + one look-ahead candidate.
     // Keeping a small quality margin avoids the former 32-result floor, which
     // expanded every beam to at least 128 states even when only five results
     // were visible.
     constexpr std::size_t kMinimumSearchLimit = 12;
     const auto search_limit = std::max(kMinimumSearchLimit, limit);
+    RequestLexiconCache lookup_cache(lexicon_, metrics);
+    const auto apply_learned_preference = [this, &parsed](Candidate& candidate) {
+        if (user_frequency_ == nullptr || candidate.consumed_input_bytes == 0 ||
+            candidate.consumed_input_bytes > parsed.normalized_input.size()) return;
+        const auto source = std::string_view(parsed.normalized_input).substr(
+            0, candidate.consumed_input_bytes);
+        if (user_frequency_->preferred(source, candidate.text)) {
+            candidate.user_lexicon = true;
+            candidate.provisional_user_word = false;
+        }
+    };
     const bool phonetic_assistance = parsed.phonetic_assistance;
+    // A correction-only parse is an isolated fallback source. Looking up
+    // abbreviations from the raw typo here can overwrite a full corrected
+    // character with a higher-scoring, one-letter prefix of the same text.
+    const bool correction_only = !parsed.paths.empty() &&
+        std::all_of(parsed.paths.begin(), parsed.paths.end(), [](const ParsePath& path) {
+            return path.match_kind == InputMatchKind::corrected;
+        });
 
     // A lone consonant is a request for common characters across every valid
     // final, not for the first parser completion bucket (da, dai, dan, ...).
@@ -474,7 +661,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     const bool trailing_separator = parsed.normalized_input.ends_with('\'');
     const auto initial_sequence_input = std::string_view(parsed.normalized_input).substr(
         0, parsed.normalized_input.size() - (trailing_separator ? 1 : 0));
-    const bool pure_initial_sequence = phonetic_assistance &&
+    const bool pure_initial_sequence = phonetic_assistance && !correction_only &&
         initial_sequence_input.size() >= 2 &&
         initial_sequence_input.size() <= 256 &&
         std::all_of(initial_sequence_input.begin(), initial_sequence_input.end(),
@@ -482,7 +669,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             return value >= 'a' && value <= 'z' &&
                    vowels.find(value) == std::string_view::npos;
         });
-    const bool single_initial = phonetic_assistance &&
+    const bool single_initial = phonetic_assistance && !correction_only &&
         initial_sequence_input.size() == 1 &&
         initial_sequence_input.front() >= 'a' &&
         initial_sequence_input.front() <= 'z' &&
@@ -518,6 +705,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 InputMatchKind::incomplete_completion,
                                 {std::string(initial_sequence_input)},
                                 parsed.normalized_input.size()};
+            apply_learned_preference(candidate);
             initial_candidates.store(std::move(candidate));
         }
         auto candidates = initial_candidates.take();
@@ -577,11 +765,12 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         language_context, parsed.normalized_input,
                         match.text);
             }
-            dictionary_unique.store(
-                Candidate{std::string(match.text), own_syllables(match.syllables), score,
-                          InputMatchKind::abbreviated_completion,
-                          std::move(match.source_segments),
-                          parsed.normalized_input.size()});
+            Candidate candidate{std::string(match.text), own_syllables(match.syllables), score,
+                                InputMatchKind::abbreviated_completion,
+                                std::move(match.source_segments),
+                                parsed.normalized_input.size()};
+            apply_learned_preference(candidate);
+            dictionary_unique.store(std::move(candidate));
         }
 
         for (const auto& entry : prefix_entries) {
@@ -601,10 +790,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         std::string_view(parsed.normalized_input).substr(0, 1),
                         entry.text);
             }
-            prefix_unique.store(
-                Candidate{std::string(entry.text), {std::string(entry.syllable)}, score,
-                          InputMatchKind::abbreviated_completion,
-                          {std::string(initial_sequence_input.substr(0, 1))}, 1});
+            Candidate candidate{std::string(entry.text), {std::string(entry.syllable)}, score,
+                                InputMatchKind::abbreviated_completion,
+                                {std::string(initial_sequence_input.substr(0, 1))}, 1};
+            apply_learned_preference(candidate);
+            prefix_unique.store(std::move(candidate));
         }
 
         auto dictionary = dictionary_unique.take();
@@ -634,10 +824,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     }
 
     CandidateAccumulator unique(std::max<std::size_t>(64, search_limit * 2));
-    const auto store_candidate = [&unique](Candidate candidate) {
+    const auto store_candidate = [&unique, &apply_learned_preference](Candidate candidate) {
+        apply_learned_preference(candidate);
         unique.store(std::move(candidate));
     };
-    if (user_frequency_ != nullptr) {
+    if (user_frequency_ != nullptr && !correction_only) {
         std::string lookup_input;
         lookup_input.reserve(parsed.normalized_input.size());
         std::copy_if(parsed.normalized_input.begin(), parsed.normalized_input.end(),
@@ -650,13 +841,23 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         if (exact_path != parsed.paths.end()) {
             const auto learned_entries = user_frequency_->lookup(
                 lookup_input, search_limit);
-            const auto learned_segments = source_segments(parsed, *exact_path);
-            std::vector<std::string> learned_syllables;
-            learned_syllables.reserve(exact_path->syllables.size());
-            for (const auto& syllable : exact_path->syllables)
-                learned_syllables.push_back(syllable.text);
             for (const auto& entry : learned_entries) {
-                auto score = 12'000 + candidate_unigram_score(entry.count) +
+                // Old prefix-completion selections may have left a long word
+                // bound to a short exact spelling. Ignore that alias without
+                // deleting user data. Check every exact segmentation so a
+                // legitimate ambiguous spelling such as xian -> xi'an survives.
+                const auto learned_path = std::find_if(
+                    parsed.paths.begin(), parsed.paths.end(), [&](const ParsePath& path) {
+                        return path.match_kind == InputMatchKind::exact &&
+                               user_word_matches_source_path(parsed, path, entry.text);
+                    });
+                if (learned_path == parsed.paths.end()) continue;
+                const auto learned_segments = source_segments(parsed, *learned_path);
+                std::vector<std::string> learned_syllables;
+                learned_syllables.reserve(learned_path->syllables.size());
+                for (const auto& syllable : learned_path->syllables)
+                    learned_syllables.push_back(syllable.text);
+                auto score = (entry.preferred ? 12'000 : 0) + candidate_unigram_score(entry.count) +
                              user_frequency_->score(entry.text) +
                              user_frequency_->contextual_score(lookup_input,
                                                                 entry.text);
@@ -668,6 +869,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                     parsed.normalized_input.size(), 1};
                 candidate.segment_lengths = {learned_syllables.size()};
                 candidate.user_lexicon = true;
+                candidate.provisional_user_word = !entry.preferred;
                 store_candidate(std::move(candidate));
             }
         }
@@ -695,7 +897,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     continue;
                 const auto completion_characters =
                     entry.input.size() - lookup_input.size();
-                auto score = 12'000 + candidate_unigram_score(entry.count) +
+                auto score = (entry.preferred ? 12'000 : 0) + candidate_unigram_score(entry.count) +
                              user_frequency_->score(entry.text) - 1'500 -
                              static_cast<std::int64_t>(completion_characters) *
                                  kIncompleteCharacterPenalty;
@@ -705,6 +907,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     parsed.normalized_input.size(), 1};
                 candidate.segment_lengths = {learned_syllables.size()};
                 candidate.user_lexicon = true;
+                candidate.provisional_user_word = !entry.preferred;
                 store_candidate(std::move(candidate));
             }
         }
@@ -713,7 +916,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                : std::max<std::size_t>(64, search_limit * 8);
     bool direct_mixed_candidate_found = false;
     const auto has_consonant_tail = [&] {
-        if (!phonetic_assistance) return false;
+        if (!phonetic_assistance || correction_only) return false;
         if (parsed.normalized_input.size() < 4 ||
             parsed.normalized_input.size() > 12 ||
             parsed.normalized_input.find('\'') != std::string::npos)
@@ -796,6 +999,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                             InputMatchKind::corrected,
                             InputMatchKind::abbreviated_completion}) {
         for (const auto& path : parsed.paths) {
+            if (cancelled && cancelled()) return {};
             if (path.match_kind != kind) continue;
             // The first exact path is also the segmentation shown by the
             // pinyin preview. Evaluating other equally valid segmentations
@@ -816,14 +1020,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 reading.reserve(path.syllables.size());
                 for (const auto& syllable : path.syllables)
                     reading.push_back(syllable.text);
-                const auto lookup_started = std::chrono::steady_clock::now();
-                full_span_frequency = lexicon_.lookup_max_frequency(reading);
-                if (metrics != nullptr) {
-                    metrics->lexicon_lookup_us += static_cast<std::uint64_t>(
-                        std::chrono::duration_cast<std::chrono::microseconds>(
-                            std::chrono::steady_clock::now() - lookup_started).count());
-                    ++metrics->lexicon_lookup_count;
-                }
+                full_span_frequency = lookup_cache.maximum(reading);
             }
             ordered_paths.push_back({&path, full_span_frequency, 0, 0});
         }
@@ -839,6 +1036,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // preview segmentation and never consumes this evidence.
     if (!assisted_full_span_found) {
         for (auto& ordered : ordered_paths) {
+            if (cancelled && cancelled()) return {};
             const auto& path = *ordered.path;
             if (path.match_kind == InputMatchKind::exact) continue;
             std::vector<std::size_t> covered(path.syllables.size() + 1);
@@ -846,6 +1044,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             const auto maximum_phrase_length = std::min<std::size_t>(
                 4, lexicon_.maximum_reading_length());
             for (std::size_t begin = 0; begin < path.syllables.size(); ++begin) {
+                if (cancelled && cancelled()) return {};
                 if (begin != 0 && covered[begin] == 0) continue;
                 if (covered[begin + 1] < covered[begin]) {
                     covered[begin + 1] = covered[begin];
@@ -859,7 +1058,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     reading.push_back(path.syllables[end - 1].text);
                     if (end - begin < 2) continue;
                     const auto best_frequency =
-                        lexicon_.lookup_max_frequency(reading);
+                        lookup_cache.maximum(reading);
                     if (best_frequency == 0) continue;
                     const auto next_covered = covered[begin] + end - begin;
                     const auto next_evidence = phrase_evidence[begin] + best_frequency;
@@ -952,35 +1151,38 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 reading.reserve(end - begin);
                 for (std::size_t index = begin; index < end; ++index)
                     reading.push_back(path.syllables[index].text);
-                const auto lookup_started = std::chrono::steady_clock::now();
-                auto entries = lexicon_.lookup_texts(reading);
-                if (metrics != nullptr) {
-                    metrics->lexicon_lookup_us += static_cast<std::uint64_t>(
-                        std::chrono::duration_cast<std::chrono::microseconds>(
-                            std::chrono::steady_clock::now() - lookup_started).count());
-                    ++metrics->lexicon_lookup_count;
-                }
+                auto entries = lookup_cache.lookup(reading);
                 retain_frequent_entries(entries, beam_width);
+                std::vector<std::int64_t> entry_scores;
+                entry_scores.reserve(entries.size());
+                for (const auto& entry : entries)
+                    entry_scores.push_back(candidate_unigram_score(entry.frequency));
                 for (const auto& state : chart[begin]) {
-                    for (const auto& entry : entries) {
-                        SearchState next = state;
-                        next.text += entry.text;
-                        next.score += candidate_unigram_score(entry.frequency);
-                        if (!state.previous.empty()) next.score -= kAdditionalSegmentPenalty;
+                    if (cancelled && cancelled()) return {};
+                    for (std::size_t entry_index = 0; entry_index < entries.size(); ++entry_index) {
+                        const auto& entry = entries[entry_index];
+                        auto score = state.score + entry_scores[entry_index];
+                        if (!state.previous.empty()) score -= kAdditionalSegmentPenalty;
                         if (bigram_ != nullptr && !state.previous.empty())
-                            next.score += bigram_->score(state.previous, entry.text);
-                        next.previous.assign(entry.text);
-                        ++next.segment_count;
-                        next.segment_lengths.push_back(reading.size());
-                        for (const auto syllable : reading)
-                            next.syllables.emplace_back(syllable);
-                        chart[end].push_back(std::move(next));
+                            score += bigram_->score(state.previous, entry.text);
+                        append_successor(chart[end], beam_width, state, entry.text, score, 0,
+                            [&](SearchState& next) {
+                                next.previous.assign(entry.text);
+                                ++next.segment_count;
+                                next.segment_lengths.push_back(reading.size());
+                            }, metrics);
                     }
                 }
-                prune(chart[end], beam_width);
             }
         }
 
+        prune(chart.back(), beam_width);
+        // Every exact/assisted path has one fixed reading, independent of
+        // which word transitions won. Materialize it only for final results,
+        // not in every intermediate beam state.
+        std::vector<std::string> full_reading;
+        full_reading.reserve(path.syllables.size());
+        for (const auto& syllable : path.syllables) full_reading.push_back(syllable.text);
         for (auto& state : chart.back()) {
             if (user_frequency_ != nullptr) {
                 state.score += user_frequency_->score(state.text);
@@ -991,7 +1193,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     state.score += user_frequency_->language_context_score(
                         language_context, parsed.normalized_input, state.text);
             }
-            Candidate candidate{std::move(state.text), std::move(state.syllables), state.score,
+            Candidate candidate{std::move(state.text), full_reading, state.score,
                                 path.match_kind, raw_segments,
                                 path.syllables.back().end, state.segment_count};
             candidate.segment_lengths = std::move(state.segment_lengths);
@@ -1009,14 +1211,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             reading.reserve(end);
             for (std::size_t index = 0; index < end; ++index)
                 reading.push_back(path.syllables[index].text);
-            const auto lookup_started = std::chrono::steady_clock::now();
-            auto prefix_entries = lexicon_.lookup_texts(reading);
-            if (metrics != nullptr) {
-                metrics->lexicon_lookup_us += static_cast<std::uint64_t>(
-                    std::chrono::duration_cast<std::chrono::microseconds>(
-                        std::chrono::steady_clock::now() - lookup_started).count());
-                ++metrics->lexicon_lookup_count;
-            }
+            auto prefix_entries = lookup_cache.lookup(reading);
             retain_frequent_entries(prefix_entries, search_limit);
             for (const auto& entry : prefix_entries) {
                 auto score = candidate_unigram_score(entry.frequency) -
@@ -1068,6 +1263,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         chart.front().push_back(std::move(initial));
         for (std::size_t offset = 0; offset < initial_sequence_input.size(); ++offset) {
             if (cancelled && cancelled()) return {};
+            prune(chart[offset], beam_width);
             const auto lookup_started = std::chrono::steady_clock::now();
             auto entries = lexicon_.lookup_initial_texts(
                 initial_sequence_input[offset], beam_width);
@@ -1077,24 +1273,31 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         std::chrono::steady_clock::now() - lookup_started).count());
                 ++metrics->lexicon_lookup_count;
             }
+            std::vector<std::int64_t> entry_scores;
+            entry_scores.reserve(entries.size());
+            for (const auto& entry : entries) {
+                auto score = candidate_unigram_score(entry.frequency) -
+                    static_cast<std::int64_t>(entry.syllable.size() - 1) *
+                        kIncompleteCharacterPenalty;
+                if (preferred_initial_syllable(initial_sequence_input[offset]) == entry.syllable)
+                    score += kPreferredInitialBonus;
+                entry_scores.push_back(score);
+            }
             for (const auto& state : chart[offset]) {
-                for (const auto& entry : entries) {
-                    SearchState next = state;
-                    next.text += entry.text;
-                    next.score += candidate_unigram_score(entry.frequency);
-                    next.score -= static_cast<std::int64_t>(
-                        entry.syllable.size() - 1) * kIncompleteCharacterPenalty;
-                    if (preferred_initial_syllable(initial_sequence_input[offset]) ==
-                        entry.syllable)
-                        next.score += kPreferredInitialBonus;
-                    if (!state.previous.empty()) next.score -= kAdditionalSegmentPenalty;
+                if (cancelled && cancelled()) return {};
+                for (std::size_t entry_index = 0; entry_index < entries.size(); ++entry_index) {
+                    const auto& entry = entries[entry_index];
+                    auto score = state.score + entry_scores[entry_index];
+                    if (!state.previous.empty()) score -= kAdditionalSegmentPenalty;
                     if (bigram_ != nullptr && !state.previous.empty())
-                        next.score += bigram_->score(state.previous, entry.text);
-                    next.previous.assign(entry.text);
-                    ++next.segment_count;
-                    next.segment_lengths.push_back(1);
-                    next.syllables.emplace_back(entry.syllable);
-                    chart[offset + 1].push_back(std::move(next));
+                        score += bigram_->score(state.previous, entry.text);
+                    append_successor(chart[offset + 1], beam_width, state, entry.text, score, 1,
+                        [&](SearchState& next) {
+                            next.previous.assign(entry.text);
+                            ++next.segment_count;
+                            next.segment_lengths.push_back(1);
+                            next.syllables.emplace_back(entry.syllable);
+                        }, metrics);
                 }
             }
             // Also consume two or more initials as one real dictionary word.
@@ -1114,6 +1317,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     ++metrics->lexicon_lookup_count;
                 }
                 for (const auto& phrase : phrases) {
+                    if (cancelled && cancelled()) return {};
                     if (phrase.syllables.size() != source.size() ||
                         phrase.source_segments.size() != source.size() ||
                         !std::all_of(phrase.source_segments.begin(),
@@ -1122,32 +1326,30 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                          return segment.size() == 1;
                                      }))
                         continue;
+                    const auto phrase_score = candidate_unigram_score(phrase.frequency) +
+                        kMixedAbbreviationPhraseBonus - kAbbreviationBasePenalty -
+                        static_cast<std::int64_t>(mixed_completion_characters(
+                            phrase.syllables, phrase.source_segments)) * kIncompleteCharacterPenalty;
                     for (const auto& state : chart[offset]) {
-                        SearchState next = state;
-                        next.text += phrase.text;
-                        next.score += candidate_unigram_score(phrase.frequency) +
-                                      kMixedAbbreviationPhraseBonus -
-                                      kAbbreviationBasePenalty -
-                                      static_cast<std::int64_t>(
-                                          mixed_completion_characters(
-                                              phrase.syllables,
-                                              phrase.source_segments)) *
-                                          kIncompleteCharacterPenalty;
+                        auto score = state.score + phrase_score;
                         if (!state.previous.empty())
-                            next.score -= kAdditionalSegmentPenalty;
+                            score -= kAdditionalSegmentPenalty;
                         if (bigram_ != nullptr && !state.previous.empty())
-                            next.score += bigram_->score(state.previous, phrase.text);
-                        next.previous.assign(phrase.text);
-                        ++next.segment_count;
-                        next.segment_lengths.push_back(phrase.syllables.size());
-                        for (const auto syllable : phrase.syllables)
-                            next.syllables.emplace_back(syllable);
-                        chart[end].push_back(std::move(next));
+                            score += bigram_->score(state.previous, phrase.text);
+                        append_successor(chart[end], beam_width, state, phrase.text, score,
+                            phrase.syllables.size(),
+                            [&](SearchState& next) {
+                                next.previous.assign(phrase.text);
+                                ++next.segment_count;
+                                next.segment_lengths.push_back(phrase.syllables.size());
+                                for (const auto syllable : phrase.syllables)
+                                    next.syllables.emplace_back(syllable);
+                            }, metrics);
                     }
                 }
             }
-            prune(chart[offset + 1], beam_width);
         }
+        prune(chart.back(), beam_width);
         for (std::size_t consumed = 1; consumed < chart.size(); ++consumed) {
             for (auto state : chart[consumed]) {
                 if (user_frequency_ != nullptr) {
@@ -1182,12 +1384,12 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     if (cancelled && cancelled()) return {};
     const bool mixed_fallback = unique.size() == 0 || pure_initial_sequence;
     const auto mixed_lookup_started = std::chrono::steady_clock::now();
-    const auto mixed_matches = !phonetic_assistance ||
+    const auto mixed_matches = !phonetic_assistance || correction_only ||
                                direct_mixed_candidate_found || exact_candidate_found
                                    ? std::vector<AbbreviatedLexiconTextMatch>{}
                                    : lexicon_.lookup_mixed_abbreviation_texts(
                                          parsed.normalized_input, mixed_limit);
-    if (metrics != nullptr && phonetic_assistance &&
+    if (metrics != nullptr && phonetic_assistance && !correction_only &&
         !direct_mixed_candidate_found && !exact_candidate_found) {
         metrics->lexicon_lookup_us += static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::microseconds>(
@@ -1303,7 +1505,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // from filling pages for inputs such as chan+wu or ni+jian.
     if (partition_page_size == 0)
         limit_two_syllable_full_candidates(full);
-    const auto apply_cross_boundary_coherence = [this, metrics](Candidate& candidate) {
+    const bool preserve_learned_alternative = partition_page_size != 0 &&
+        std::any_of(full.begin(), full.end(), [](const auto& candidate) { return candidate.user_preferred(); });
+    std::optional<Candidate> coherent_sentence_alternative;
+    const auto apply_cross_boundary_coherence = [this, &lookup_cache, preserve_learned_alternative,
+                                                &coherent_sentence_alternative](Candidate& candidate) {
         constexpr std::size_t kMaximumPhraseCharacters = 4;
         const auto character_count = candidate.syllables.size();
         if (character_count < 3 ||
@@ -1320,6 +1526,21 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         boundaries.push_back(candidate.text.size());
         if (boundaries.size() != character_count + 1) return;
 
+        std::vector<std::size_t> dictionary_boundaries;
+        if (candidate.match_kind == InputMatchKind::exact && candidate.segment_count > 1) {
+            std::size_t offset = 0;
+            for (std::size_t index = 0; index + 1 < candidate.segment_lengths.size(); ++index) {
+                offset += candidate.segment_lengths[index];
+                // Require an existing multi-character fragment on at least
+                // one side, not arbitrary all-character permutations.
+                if (candidate.segment_lengths[index] >= 2 ||
+                    candidate.segment_lengths[index + 1] >= 2)
+                    dictionary_boundaries.push_back(offset);
+            }
+        }
+        bool dictionary_bridge = false;
+        std::vector<bool> dictionary_covered(character_count, false);
+
         // Weighted interval scheduling over dictionary phrases gives a phrase
         // chain such as “以我” + “的想法” a continuity advantage without
         // repeatedly counting overlapping fragments such as every adjacent
@@ -1327,6 +1548,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         constexpr auto unreachable = (std::numeric_limits<std::int64_t>::min)() / 4;
         std::vector<std::int64_t> best(character_count + 1, unreachable);
         best[0] = 0;
+        std::vector<bool> dictionary_chain(character_count + 1, false);
+        dictionary_chain[0] = true;
         const auto maximum_phrase = std::min(
             {kMaximumPhraseCharacters, character_count,
              lexicon_.maximum_reading_length()});
@@ -1342,36 +1565,52 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 reading.push_back(candidate.syllables[end - 1]);
                 if (end - begin < 2 || (begin == 0 && end == character_count))
                     continue;
-                const auto lookup_started = std::chrono::steady_clock::now();
-                const auto entries = lexicon_.lookup_texts(reading);
-                if (metrics != nullptr) {
-                    metrics->lexicon_lookup_us += static_cast<std::uint64_t>(
-                        std::chrono::duration_cast<std::chrono::microseconds>(
-                            std::chrono::steady_clock::now() - lookup_started).count());
-                    ++metrics->lexicon_lookup_count;
-                }
                 const auto expected = std::string_view(candidate.text).substr(
                     boundaries[begin], boundaries[end] - boundaries[begin]);
-                std::int64_t phrase_score = 0;
-                for (const auto& entry : entries) {
-                    if (entry.text != expected) continue;
-                    phrase_score = std::max(
-                        phrase_score,
-                        std::min(kMaximumBoundaryCoherenceBonus,
-                                 candidate_unigram_score(entry.frequency) * 3 / 2));
-                }
-                best[end] = std::max(best[end], best[begin] + phrase_score);
+                const auto phrase_score = lookup_cache.phrase_score(reading, expected);
+                // A missing word is not a zero-cost phrase edge: it must
+                // retain the uncovered-character penalty instead of letting
+                // unrelated fragments jump across unsupported text.
+                if (!phrase_score) continue;
+                if (dictionary_chain[begin]) dictionary_chain[end] = true;
+                std::fill(dictionary_covered.begin() + begin, dictionary_covered.begin() + end, true);
+                if (end - begin >= 3 &&
+                    std::any_of(dictionary_boundaries.begin(), dictionary_boundaries.end(),
+                        [begin, end](const auto boundary) { return begin < boundary && boundary < end; }))
+                    dictionary_bridge = true;
+                best[end] = std::max(best[end], best[begin] + *phrase_score);
             }
         }
         candidate.coherence_score = std::max<std::int64_t>(0, best.back());
+        // A real overlapping phrase that crosses a selected word boundary
+        // provides evidence the two fragments belong together only when the
+        // matched multi-character words cover the entire text. A local match
+        // must not reward unsupported leading/trailing character permutations.
+        // A complete chain of non-overlapping multi-character words already
+        // received its phrase scores. Overlapping dictionary substrings must
+        // not count as another independent signal and overwhelm a stronger
+        // homophone chain. Reserve bridge rescue for text that actually needs
+        // overlapping words to cover its isolated characters.
+        if (dictionary_bridge && !dictionary_chain.back() &&
+            std::all_of(dictionary_covered.begin(), dictionary_covered.end(),
+                        [](const bool covered) { return covered; }))
+            candidate.coherence_score += kMaximumBoundaryCoherenceBonus * 2;
         candidate.score += candidate.coherence_score;
+        if (preserve_learned_alternative && candidate.match_kind == InputMatchKind::exact &&
+            candidate.segment_count > 1 && candidate.coherence_score > 0 &&
+            (!coherent_sentence_alternative || score_less(candidate, *coherent_sentence_alternative)))
+            coherent_sentence_alternative = candidate;
     };
     // Only the candidates already close enough to reach the visible/model
     // comparison set need the more detailed phrase-chain pass.
     const auto coherence_limit = std::min(
         full.size(), std::max<std::size_t>(16, limit * 2));
-    for (std::size_t index = 0; index < coherence_limit; ++index)
+    std::vector<bool> coherence_scored(full.size(), false);
+    for (std::size_t index = 0; index < coherence_limit; ++index) {
+        if (cancelled && cancelled()) return {};
         apply_cross_boundary_coherence(full[index]);
+        coherence_scored[index] = true;
+    }
     if (expose_long_alternatives) {
         std::vector<std::string> scored_segmentations;
         for (std::size_t index = 0; index < coherence_limit; ++index) {
@@ -1379,20 +1618,56 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 scored_segmentations.push_back(candidate_structure_key(full[index]));
         }
         for (std::size_t index = coherence_limit; index < full.size(); ++index) {
+            if (cancelled && cancelled()) return {};
             if (full[index].match_kind != InputMatchKind::exact) continue;
             auto key = candidate_structure_key(full[index]);
             if (std::find(scored_segmentations.begin(), scored_segmentations.end(), key) !=
                 scored_segmentations.end()) continue;
             scored_segmentations.push_back(std::move(key));
             apply_cross_boundary_coherence(full[index]);
+            coherence_scored[index] = true;
             if (scored_segmentations.size() >= exact_path_limit) break;
         }
     }
+    if (exact_paths_added > 1) {
+        // A high-frequency reading can fill the raw top-N pool with character
+        // permutations. Reserve a bounded comparison slice for every exact
+        // source reading, including short inputs. Otherwise increasing the
+        // page/search budget can hide an entire dictionary-backed phrase chain.
+        constexpr std::size_t representatives_per_reading = 2;
+        std::vector<std::pair<std::vector<std::string>, std::size_t>> readings;
+        const auto count_for = [&readings](const Candidate& candidate) -> std::size_t& {
+            const auto found = std::find_if(readings.begin(), readings.end(), [&](const auto& item) {
+                return item.first == candidate.source_segments;
+            });
+            if (found != readings.end()) return found->second;
+            readings.emplace_back(candidate.source_segments, 0);
+            return readings.back().second;
+        };
+        for (std::size_t index = 0; index < full.size(); ++index) {
+            if (coherence_scored[index] && full[index].match_kind == InputMatchKind::exact)
+                ++count_for(full[index]);
+        }
+        for (std::size_t index = coherence_limit; index < full.size(); ++index) {
+            if (cancelled && cancelled()) return {};
+            auto& candidate = full[index];
+            if (coherence_scored[index] || candidate.match_kind != InputMatchKind::exact) continue;
+            auto& count = count_for(candidate);
+            if (count >= representatives_per_reading) continue;
+            apply_cross_boundary_coherence(candidate);
+            ++count;
+            if (readings.size() >= exact_paths_added &&
+                std::all_of(readings.begin(), readings.end(), [](const auto& item) {
+                    return item.second >= representatives_per_reading;
+                })) break;
+        }
+    }
     const auto sentence_less = [](const Candidate& left, const Candidate& right) {
-        if (left.user_lexicon != right.user_lexicon)
-            return left.user_lexicon;
+        if (left.user_preferred() != right.user_preferred())
+            return left.user_preferred();
         const auto full_dictionary_word = [](const Candidate& candidate) {
             return candidate.match_kind == InputMatchKind::exact &&
+                   !candidate.provisional_user_word &&
                    candidate.segment_count == 1 &&
                    utf8_character_count(candidate.text) ==
                        candidate.syllables.size();
@@ -1408,14 +1683,58 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         return score_less(left, right);
     };
     std::sort(full.begin(), full.end(), sentence_less);
+    // Expiring a one-off preference removes its boost, not the user's word.
+    // Keep one independently recalled full word available when the sentence
+    // budget below discards weaker homophone compositions of the same input.
+    const auto recalled_user_word = std::find_if(full.begin(), full.end(), [](const Candidate& value) {
+        return value.user_lexicon && value.segment_count == 1 &&
+               utf8_character_count(value.text) == value.syllables.size();
+    });
+    std::optional<Candidate> retained_user_word;
+    if (recalled_user_word != full.end()) retained_user_word = *recalled_user_word;
+    // Prefer a whole-dictionary correction over generated
+    // character/phrase permutations of that same repaired reading. Such
+    // permutations otherwise enter the sentence partition ahead of the
+    // complete word, undoing the minimal-edit repair during layout. Corpus
+    // frequencies of multiple fragments are not comparable to one whole word.
+    std::vector<Candidate> corrected_words;
+    for (const auto& candidate : full) {
+        if (candidate.match_kind == InputMatchKind::corrected &&
+            candidate.segment_count == 1 && candidate.syllables.size() >= 3 &&
+            utf8_character_count(candidate.text) == candidate.syllables.size())
+            corrected_words.push_back(candidate);
+    }
+    if (!corrected_words.empty()) {
+        std::erase_if(full, [&corrected_words](const Candidate& candidate) {
+            return candidate.match_kind == InputMatchKind::corrected &&
+                candidate.segment_count > 1 && !candidate.user_lexicon &&
+                std::any_of(corrected_words.begin(), corrected_words.end(), [&](const auto& word) {
+                    return word.syllables == candidate.syllables &&
+                           word.source_segments == candidate.source_segments;
+                });
+        });
+    }
     std::vector<Candidate> model_seeds;
     if (include_model_alternatives && !full.empty() &&
         full.front().syllables.size() >= 3) {
         constexpr std::size_t kMaximumModelStructures = 24;
+        const auto& reference = full.front();
         std::unordered_set<std::string_view> texts;
         texts.reserve(kMaximumModelStructures);
         for (const auto& candidate : full) {
             if (candidate.consumed_input_bytes != full_input_bytes) continue;
+            // A model rank is not evidence that an arbitrarily fragmented
+            // homophone sequence is a valid alternative. Keep genuine source
+            // readings and learned words, but do not let a much weaker split
+            // of the same exact reading bypass the visible sentence budget.
+            if (!candidate.user_preferred() && reference.match_kind == InputMatchKind::exact &&
+                reference.coherence_score > candidate.coherence_score &&
+                reference.score - candidate.score >= kAlternativeSegmentationPromotionMargin &&
+                (candidate.match_kind != InputMatchKind::exact ||
+                 (candidate.source_segments == reference.source_segments &&
+                  candidate.syllables == reference.syllables &&
+                  candidate.segment_count > reference.segment_count)))
+                continue;
             if (!texts.insert(candidate.text).second) continue;
             model_seeds.push_back(candidate);
             if (model_seeds.size() == kMaximumModelStructures) break;
@@ -1475,7 +1794,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         return candidate.match_kind == InputMatchKind::exact;
     });
     if (exact != full.end() && exact != full.begin() &&
-        (full.empty() || !full.front().user_lexicon))
+        (full.empty() || !full.front().user_preferred()))
         std::rotate(full.begin(), exact, exact + 1);
 
     std::vector<Candidate> ordered;
@@ -1493,6 +1812,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             const auto& second = full[1];
             const auto exact_full_dictionary_word = [](const Candidate& candidate) {
                 return candidate.match_kind == InputMatchKind::exact &&
+                       !candidate.provisional_user_word &&
                        candidate.segment_count == 1 &&
                        utf8_character_count(candidate.text) ==
                            candidate.syllables.size();
@@ -1519,6 +1839,14 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
         for (std::size_t index = 0; index < sentence_count; ++index)
             ordered.push_back(std::move(full[index]));
+
+        if (retained_user_word && std::none_of(ordered.begin(), ordered.end(),
+                [&](const Candidate& value) { return value.text == retained_user_word->text; })) {
+            // Do not restore a permanent first-place preference or enlarge the
+            // two-item long-candidate budget. The current leading result stays.
+            if (ordered.size() == 2) ordered.back() = std::move(*retained_user_word);
+            else ordered.push_back(std::move(*retained_user_word));
+        }
 
         const auto leading_text = utf8_first_character(ordered.front().text);
         std::vector<Candidate> initial_characters;
@@ -1592,6 +1920,17 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     if (!pure_initial_sequence && !multiword_input)
         promote_alternative_exact_segmentation(ordered, full_input_bytes);
     if (partition_page_size != 0) {
+        // A learned whole-input phrase belongs to the dictionary source. It
+        // must not consume the only sentence slot and hide every independently
+        // dictionary-backed coherent alternative to a selected composition.
+        // Keep one such alternative without deleting or demoting learned data.
+        if (!ordered.empty() && ordered.front().user_preferred() &&
+            coherent_sentence_alternative &&
+            std::none_of(ordered.begin(), ordered.end(), [&](const auto& candidate) {
+                return candidate.text == coherent_sentence_alternative->text &&
+                    candidate.consumed_input_bytes == coherent_sentence_alternative->consumed_input_bytes;
+            }))
+            ordered.push_back(std::move(*coherent_sentence_alternative));
         std::vector<Candidate> sentences;
         std::vector<Candidate> dictionary_words;
         std::vector<Candidate> compositions;
@@ -1632,6 +1971,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             [full_input_bytes](const Candidate& left, const Candidate& right) {
                 const auto complete_word = [full_input_bytes](const Candidate& candidate) {
                     return candidate.match_kind == InputMatchKind::exact &&
+                           !candidate.provisional_user_word &&
                            candidate.segment_count == 1 &&
                            candidate.consumed_input_bytes == full_input_bytes &&
                            utf8_character_count(candidate.text) ==
@@ -1696,6 +2036,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         // page, but allow the external language model to choose a coherent
         // homophone sequence that raw single-character frequency would prune.
         for (auto seed : model_seeds) {
+            if (cancelled && cancelled()) return {};
             if (ordered.size() >= limit + kMaximumModelAlternatives) break;
             if (known_texts.contains(seed.text)) continue;
             seed.model_only = true;
@@ -1704,6 +2045,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
 
         for (const auto& seed : model_seeds) {
+            if (cancelled && cancelled()) return {};
             if (ordered.size() >= limit + kMaximumModelAlternatives) break;
             if (seed.syllables.size() < 5 ||
                 utf8_character_count(seed.text) != seed.syllables.size())
@@ -1722,7 +2064,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     syllable_offset + 1 < seed.syllables.size()) {
                     const std::array<std::string_view, 1> reading{
                         seed.syllables[syllable_offset]};
-                    auto entries = lexicon_.lookup_texts(reading);
+                    auto entries = lookup_cache.lookup(reading);
                     retain_frequent_entries(entries, kAlternativesPerReading);
                     for (const auto& entry : entries) {
                         if (utf8_character_count(entry.text) != 1) continue;

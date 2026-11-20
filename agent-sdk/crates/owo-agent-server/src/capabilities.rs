@@ -68,6 +68,81 @@ pub struct CapabilityDescriptor {
     pub dependencies: &'static [CapabilityId],
 }
 
+const E_PLUGIN_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent plugin catalog|validate|check|sign|install|update|uninstall",
+        label: "Agent Plugins 规范包：校验、签名、安装与更新",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "GET /plugins/market, POST /plugins/market/install|update|verify|scan",
+        label: "插件市场：本地索引、规范包安装/更新（吊销列表生效）",
+    },
+    Entrypoint {
+        kind: "ui",
+        target: "工作台 →「插件与技能」面板",
+        label: "查看包格式、MCP 服务器与 hooks 注入",
+    },
+    Entrypoint {
+        kind: "service",
+        target: "plugin.json / mcp.json / skills/ / plugin.sig.json",
+        label: "清单 + 技能 + MCP + 可选 ed25519 包签名（可移植包格式）",
+    },
+];
+
+const E_SHAREDCORE_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent plugin install plugins/owo-sharedcore",
+        label: "安装/启用 SharedCore 插件（禁用即移除工具面）",
+    },
+    Entrypoint {
+        kind: "service",
+        target: "sharedcore_init|status|context|task_add|plan|claim|update|contract|event|brief",
+        label: "10 个协调工具（MCP，经宿主权限/审计）",
+    },
+    Entrypoint {
+        kind: "cli",
+        target: "python agent-sdk/scripts/sharedcore-selfcheck.py",
+        label: "端到端自检（批次/冲突/契约 CAS/简报）",
+    },
+    Entrypoint {
+        kind: "ui",
+        target: "工作台 →「SharedCore」面板",
+        label: "看任务 DAG、并行批次与共享事件（后续接入）",
+    },
+];
+
+const E_PLAYBOOK_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent playbook validate|plan|init|next|record|status|list",
+        label: "剧本定义、校验与逐步骤运行",
+    },
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent playbook archive|history|diff",
+        label: "运行归档、历史与退化对比",
+    },
+    Entrypoint {
+        kind: "http",
+        target:
+            "GET /playbooks, GET /playbooks/status, GET /playbooks/history, POST /playbooks/record",
+        label: "桌面面板数据面（只读写，不执行命令）",
+    },
+    Entrypoint {
+        kind: "ui",
+        target: "工作台 →「任务剧本」面板",
+        label: "看进度、历史与逐步记录结果",
+    },
+    Entrypoint {
+        kind: "service",
+        target: "playbook_next / playbook_record / playbook_check / playbook_run",
+        label: "模型侧工具组（需开启 tool_capabilities.playbooks；执行经审批）",
+    },
+];
+
 const E_SESSION_ENTRYPOINTS: &[Entrypoint] = &[
     Entrypoint {
         kind: "http",
@@ -361,6 +436,51 @@ const E_BRIDGE_ENTRYPOINTS: &[Entrypoint] = &[
 
 /// 功能目录注册表（§8.3 单一来源）。新增能力：在此追加条目 + 同步路由契约测试。
 pub static CAPABILITIES: &[CapabilityDescriptor] = &[
+    CapabilityDescriptor {
+        id: CapabilityId("plugins.agent-plugins"),
+        user_name: "Agent Plugins 规范包（技能 + MCP + 签名）",
+        summary: "可移植的插件包：plugin.json + skills/ + mcp.json，可选 ed25519 包签名；经市场安装/更新并受吊销列表约束，安装前做静态风险扫描",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_PLUGIN_ENTRYPOINTS,
+        required_effects: &[
+            ToolEffectClass::Read,
+            ToolEffectClass::Write,
+            ToolEffectClass::Execute,
+        ],
+        advanced: false,
+        dependencies: &[],
+    },
+    CapabilityDescriptor {
+        id: CapabilityId("workflow.playbooks"),
+        user_name: "任务剧本（按进度推进的工作流）",
+        summary: "把一类任务写成可校验的步骤剧本：定义/校验/计划/逐步骤执行与记录、归档与退化对比；可由 /advance --playbook 自主推进，桌面面板可看进度",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_PLAYBOOK_ENTRYPOINTS,
+        required_effects: &[
+            ToolEffectClass::Read,
+            ToolEffectClass::Write,
+            ToolEffectClass::Execute,
+        ],
+        advanced: false,
+        dependencies: &[],
+    },
+    CapabilityDescriptor {
+        id: CapabilityId("agents.sharedcore"),
+        user_name: "多 Agent 共享上下文并行开发",
+        summary: "SharedCore 插件：项目级结构化上下文（规则/契约/任务 DAG/事件）由多个子 Agent 共享；按写范围拆分并行批次，契约变更走版本 CAS，状态落在工作区 .sharedcore/",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_SHAREDCORE_ENTRYPOINTS,
+        required_effects: &[
+            ToolEffectClass::Read,
+            ToolEffectClass::Write,
+            ToolEffectClass::Execute,
+        ],
+        advanced: false,
+        dependencies: &[
+            CapabilityId("plugins.agent-plugins"),
+            CapabilityId("sessions.turns"),
+        ],
+    },
     CapabilityDescriptor {
         id: CapabilityId("workflows.custom"),
         user_name: "用户自定义多 Agent 工作流",

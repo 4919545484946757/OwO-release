@@ -2033,7 +2033,29 @@ async function refreshPlugins() {
     const data = await apiWithTimeout("/plugins");
     const plugins = data.plugins || [];
     const count = $("pluginCount");
-    if (count) count.textContent = plugins.length ? `${plugins.length} 个` : "暂无";
+    if (count) {
+      if (!plugins.length) {
+        count.textContent = "暂无";
+      } else {
+        const servers = plugins.reduce((total, plugin) => {
+          const list =
+            Array.isArray(plugin.mcp_servers) && plugin.mcp_servers.length
+              ? plugin.mcp_servers
+              : plugin.mcp
+                ? [plugin.mcp]
+                : [];
+          return total + list.length;
+        }, 0);
+        const hooks = plugins.reduce(
+          (total, plugin) => total + (Array.isArray(plugin.hooks) ? plugin.hooks.length : 0),
+          0,
+        );
+        const parts = [`${plugins.length} 个`];
+        if (servers) parts.push(`${servers} 个 MCP 服务器`);
+        if (hooks) parts.push(`${hooks} 条 hooks`);
+        count.textContent = parts.join(" · ");
+      }
+    }
     grid.innerHTML = "";
     for (const plugin of plugins) grid.appendChild(pluginCard(plugin));
     if (!plugins.length) grid.innerHTML = '<div class="sub">尚未安装插件</div>';
@@ -2044,14 +2066,50 @@ async function refreshPlugins() {
   }
 }
 
+/// 插件卡：包格式 / MCP 服务器（含多服务器）/ hooks 注入都要露出来。
+/// 只显示可展示字段——env、headers、命令路径可能含凭据或本机路径，后端不下发。
 function pluginCard(plugin) {
   const enabled = plugin.enabled !== false;
   const card = document.createElement("div");
   card.className = "ps-card";
   const initial = esc((plugin.name || plugin.id || "?").trim().slice(0, 1).toUpperCase());
-  const mcp = plugin.mcp
-    ? `${esc(plugin.mcp.transport)}｜${esc(plugin.mcp.command)}`
+  const isPortable = plugin.format === "agent-plugins-1.0.0";
+  const formatLabel = isPortable ? "Agent Plugins 1.0.0" : "OwO manifest";
+  // 新格式走 mcp_servers（可多个）；历史格式只有单个 mcp，兼容两种。
+  // 注意：历史插件的 mcp_servers 是空数组（不是缺失），所以先看非空。
+  const servers =
+    Array.isArray(plugin.mcp_servers) && plugin.mcp_servers.length
+      ? plugin.mcp_servers
+      : plugin.mcp
+        ? [plugin.mcp]
+        : [];
+  const hooks = Array.isArray(plugin.hooks) ? plugin.hooks : [];
+  const serverSummary = servers.length
+    ? servers
+        .map((server) => `${esc(server.name || "?")}（${esc(server.transport)}）`)
+        .join("、")
     : "未配置 MCP 服务器";
+  const hooksHtml = hooks.length
+    ? '<details class="ps-hooks"><summary class="sub">hooks 注入 ' +
+      hooks.length +
+      " 条（点开查看触发点）</summary>" +
+      hooks
+        .map(
+          (hook) =>
+            '<div class="sub">· ' +
+            esc(hook.event || "?") +
+            " ← " +
+            esc(hook.matcher || "全部工具") +
+            (hook.fail_mode === "closed" ? "（失败即阻断）" : "") +
+            "</div>",
+        )
+        .join("") +
+      "</details>"
+    : "";
+  const hidden = plugin.tools_hidden ? '<span class="ps-chip">工具已隐藏</span>' : "";
+  const signed = plugin.signed
+    ? '<span class="ps-chip" title="签名在安装/更新时校验">已签名</span>'
+    : "";
   card.innerHTML =
     '<div class="ps-card-top">' +
     `<span class="ps-tile" aria-hidden="true">${initial}</span>` +
@@ -2064,10 +2122,14 @@ function pluginCard(plugin) {
     `<p class="ps-card-desc">${esc(plugin.description || "暂无描述")}</p>` +
     '<div class="ps-chips">' +
     `<span class="ps-chip">${enabled ? "已启用" : "已禁用"}</span>` +
+    `<span class="ps-chip" title="插件包格式">${formatLabel}</span>` +
+    signed +
     `<span class="ps-chip">${esc((plugin.permissions || []).join("、") || "无权限声明")}</span>` +
+    hidden +
     "</div>" +
+    hooksHtml +
     '<div class="ps-card-foot">' +
-    `<span class="sub" title="${mcp}">${mcp}</span>` +
+    `<span class="sub" title="${serverSummary}">${serverSummary}</span>` +
     `<button type="button" class="ps-card-btn">${enabled ? "禁用" : "启用"}</button>` +
     "</div>";
   card.querySelector("button").addEventListener("click", async () => {
@@ -2476,6 +2538,8 @@ function setSettingsTab(name) {
   for (const tab of document.querySelectorAll(".settings-tab")) {
     tab.hidden = tab.dataset.settingsTab !== name;
   }
+  // 打开用量页就拉一次：此前该面板只靠失效事件刷新，首次打开会一直停在「加载中…」。
+  if (name === "usage") refreshUsage();
 }
 for (const item of document.querySelectorAll(".settings-nav-item")) {
   item.addEventListener("click", () => setSettingsTab(item.dataset.settingsTab));
@@ -5931,10 +5995,17 @@ function formatUsageCost(data) {
 }
 
 async function refreshUsage() {
+  const panel = $("usagePanel");
+  if (!panel) return;
   try {
     const data = await api("/usage");
     const usage = data.usage || {};
     const budget = data.budget || {};
+    // 趋势报表并行补拉：失败只影响图区，卡片照常显示（未连接核心时整块走 catch）。
+    let report = null;
+    try {
+      report = await api("/usage/report?days=14");
+    } catch (_) {}
     const cards = [
       { label: "累计 Tokens", value: formatCount(usage.total_tokens) },
       { label: "输入 Tokens", value: formatCount(usage.prompt_tokens) },
@@ -5946,16 +6017,78 @@ async function refreshUsage() {
     const violation = budget.violation
       ? '<div class="usage-alert">已超出预算上限，新的云端请求会被拒绝</div>'
       : "";
-    $("usagePanel").innerHTML =
+    panel.innerHTML =
       cards
         .map(
           (card) =>
             `<div class="usage-card"><span class="sub">${esc(card.label)}</span><strong>${esc(card.value)}</strong></div>`
         )
-        .join("") + violation;
+        .join("") + violation + usageBudgetHtml(data) + usageTrendHtml(report);
   } catch (error) {
-    $("usagePanel").innerHTML = `<div class="sub">${esc(friendlyError(error))}</div>`;
+    panel.innerHTML = `<div class="sub">${esc(friendlyError(error))}</div>`;
   }
+}
+
+/// 预算进度条：用量相对上限的可视化。未配置上限的维度不画，避免「0% 进度」假象。
+function usageBudgetHtml(data) {
+  const usage = data && data.usage ? data.usage : {};
+  const budget = (data && data.budget) || {};
+  const rows = [];
+  const meter = (label, usedText, capText, pct) => {
+    const over = pct >= 100;
+    const width = Math.min(100, pct).toFixed(1);
+    return (
+      `<div class="usage-budget-row">` +
+      `<span class="usage-budget-label">${esc(label)}</span>` +
+      `<div class="usage-meter${over ? " is-over" : ""}" title="${esc(usedText + " / " + capText)}">` +
+      `<span style="width:${width}%"></span></div>` +
+      `<code class="usage-budget-pct">${pct >= 1000 ? "999+" : Math.round(pct) + "%"}</code>` +
+      `</div>`
+    );
+  };
+  const tokenCap = Number(budget.token_cap);
+  const tokenUsed = Number(usage.total_tokens);
+  if (tokenCap > 0 && Number.isFinite(tokenUsed)) {
+    rows.push(meter("Token 预算", formatCount(tokenUsed), formatCount(tokenCap), (tokenUsed / tokenCap) * 100));
+  }
+  const costCap = Number(budget.cost_cap_usd);
+  const costUsed = Number(data.cost_usd);
+  if (costCap > 0 && Number.isFinite(costUsed) && data.cost_usd != null) {
+    rows.push(meter("成本预算", `$${Number(costUsed).toFixed(4)}`, `$${costCap}`, (costUsed / costCap) * 100));
+  }
+  if (!rows.length) return "";
+  return `<div class="usage-budget">${rows.join("")}</div>`;
+}
+
+/// 用量趋势（纯 CSS 堆叠柱，零依赖）：输入 token 在下、输出 token 在上，
+/// 悬停显示当日明细。数据不足两天时不出图，避免「一根柱子冒充趋势」。
+function usageTrendHtml(report) {
+  const days = Array.isArray(report && report.by_day) ? report.by_day : [];
+  if (days.length < 2) return "";
+  const total = (day) => Math.max(0, Number(day && day.total_tokens) || 0);
+  const max = Math.max(1, ...days.map(total));
+  const columns = days
+    .map((day) => {
+      const inTok = Math.max(0, Number(day.prompt_tokens) || 0);
+      const outTok = Math.max(0, Number(day.completion_tokens) || 0);
+      const inPct = ((inTok / max) * 100).toFixed(2);
+      const outPct = ((outTok / max) * 100).toFixed(2);
+      const label = String(day.date || "").slice(5).replace("-", "/");
+      const detail = `${day.date || ""} · 输入 ${inTok.toLocaleString("zh-CN")} · 输出 ${outTok.toLocaleString("zh-CN")} · 调用 ${Math.max(0, Number(day.calls) || 0)} 次`;
+      return (
+        `<div class="usage-col" title="${esc(detail)}">` +
+        `<div class="usage-col-bars"><span class="usage-bar-out" style="height:${outPct}%"></span><span class="usage-bar-in" style="height:${inPct}%"></span></div>` +
+        `<span class="usage-col-label">${esc(label)}</span>` +
+        `</div>`
+      );
+    })
+    .join("");
+  return (
+    `<div class="usage-trend" role="img" aria-label="近 14 天 Token 用量趋势">` +
+    `<div class="usage-trend-head"><strong>用量趋势</strong><span class="sub">输入/输出 Token 按天堆叠</span></div>` +
+    `<div class="usage-trend-chart">${columns}</div>` +
+    `</div>`
+  );
 }
 
 const savedWorkspace = localStorage.getItem("owo.workspace");

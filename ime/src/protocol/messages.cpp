@@ -16,6 +16,8 @@ std::string type_name(const MessageType type) {
         case MessageType::candidate_update_request: return "candidate_update_request";
         case MessageType::candidate_update_response: return "candidate_update_response";
         case MessageType::candidate_committed: return "candidate_committed";
+        case MessageType::user_lexicon_request: return "user_lexicon_request";
+        case MessageType::user_lexicon_response: return "user_lexicon_response";
         case MessageType::agent_context_recorded: return "agent_context_recorded";
         case MessageType::agent_request: return "agent_request";
         case MessageType::agent_response: return "agent_response";
@@ -32,6 +34,8 @@ std::optional<MessageType> parse_type(const std::string_view value) {
     if (value == "candidate_update_request") return MessageType::candidate_update_request;
     if (value == "candidate_update_response") return MessageType::candidate_update_response;
     if (value == "candidate_committed") return MessageType::candidate_committed;
+    if (value == "user_lexicon_request") return MessageType::user_lexicon_request;
+    if (value == "user_lexicon_response") return MessageType::user_lexicon_response;
     if (value == "agent_context_recorded") return MessageType::agent_context_recorded;
     if (value == "agent_request") return MessageType::agent_request;
     if (value == "agent_response") return MessageType::agent_response;
@@ -140,7 +144,7 @@ std::optional<bool> parse_bool(std::string_view input, std::size_t& offset) {
 bool valid_syllables(const std::vector<std::string>& syllables) {
     if (syllables.size() > 256) return false;
     for (const auto& syllable : syllables) {
-        if (syllable.empty() || syllable.size() > 16) return false;
+        if (syllable.empty() || syllable.size() > kMaximumSyllableBytes) return false;
         for (const unsigned char value : syllable) {
             if (value < 'a' || value > 'z') return false;
         }

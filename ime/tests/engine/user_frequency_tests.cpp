@@ -1,5 +1,8 @@
 #include "owo/engine/user_frequency.h"
+#include "owo/engine/candidate_generator.h"
+#include "owo/engine/full_pinyin_schema.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -25,12 +28,12 @@ std::uint64_t checksum(const std::span<const unsigned char> bytes) {
     return value;
 }
 
-void write_v1(const std::filesystem::path& path) {
+void write_v1(const std::filesystem::path& path, std::uint32_t count = 4) {
     constexpr std::string_view text = "legacy";
     std::vector<unsigned char> payload;
     append_u32(payload, static_cast<std::uint32_t>(text.size()));
     payload.insert(payload.end(), text.begin(), text.end());
-    append_u32(payload, 4);
+    append_u32(payload, count);
     std::vector<unsigned char> bytes{'O', 'W', 'U', 'F'};
     append_u32(bytes, 1);
     append_u32(bytes, 1);
@@ -58,6 +61,27 @@ void write_v2(const std::filesystem::path& path) {
     std::ofstream output(path, std::ios::binary | std::ios::trunc);
     output.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
+}
+
+void write_v3_singletons(const std::filesystem::path& path) {
+    std::vector<unsigned char> payload;
+    for (const auto context : {std::string_view{}, std::string_view{"旧上下文"}}) {
+        constexpr std::string_view input = "nihao", text = "旧单次词";
+        append_u32(payload, static_cast<std::uint32_t>(context.size()));
+        append_u32(payload, static_cast<std::uint32_t>(input.size()));
+        append_u32(payload, static_cast<std::uint32_t>(text.size()));
+        payload.insert(payload.end(), context.begin(), context.end());
+        payload.insert(payload.end(), input.begin(), input.end());
+        payload.insert(payload.end(), text.begin(), text.end());
+        append_u32(payload, 1);
+    }
+    std::vector<unsigned char> bytes{'O', 'W', 'U', 'F'};
+    append_u32(bytes, 3);
+    append_u32(bytes, 2);
+    append_u64(bytes, checksum(payload));
+    bytes.insert(bytes.end(), payload.begin(), payload.end());
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    output.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
 }
 
 }  // namespace
@@ -187,6 +211,90 @@ int main() {
         version_two.language_context_score("context", "nihao", "legacy-context") != 0)
         return 6;
     std::filesystem::remove(version_two_path, ignored);
+    std::uint64_t now = 1'000'000;
+    const auto timed_path = path.wstring() + L".timed";
+    std::filesystem::remove(timed_path, ignored);
+    owo::engine::UserFrequencyStore timed([&] { return now; });
+    if (!timed.load(timed_path).success) return 18;
+    timed.record("上下文", "ceshi", "单次词");
+    const auto initial_global = timed.score("单次词");
+    const auto initial_input = timed.contextual_score("ceshi", "单次词");
+    const auto initial_language = timed.language_context_score("上下文", "ceshi", "单次词");
+    const auto epoch = timed.ranking_epoch();
+    if (initial_global <= 0 || initial_input <= 0 || initial_language <= 0 ||
+        !timed.lookup("ceshi", 1).front().preferred ||
+        !timed.preferred("ce'shi", "单次词") || timed.preferred("ce", "单次词")) return 19;
+    now += 10;
+    if (timed.lookup("ceshi", 1).front().preferred || timed.preferred("ceshi", "单次词") ||
+        timed.ranking_epoch() == epoch) return 20;
+    now += 20;
+    if (timed.score("单次词") != initial_global / 4 ||
+        timed.contextual_score("ceshi", "单次词") != initial_input / 4 ||
+        timed.language_context_score("上下文", "ceshi", "单次词") > initial_language / 4)
+        return 21;
+    if (!timed.flush().success) return 22;
+    owo::engine::UserFrequencyStore restarted([&] { return now; });
+    if (!restarted.load(timed_path).success || restarted.score("单次词") != initial_global / 4)
+        return 23;
+    now += 30;
+    if (restarted.score("单次词") != 0 || restarted.contextual_score("ceshi", "单次词") != 0 ||
+        restarted.language_context_score("上下文", "ceshi", "单次词") != 0 ||
+        restarted.count("单次词") != 1 || restarted.lookup("ceshi", 1).size() != 1 ||
+        restarted.lookup_prefix("cesh", 1).front().preferred) return 24;
+    restarted.record("上下文", "ceshi", "单次词");
+    const auto repeated_score = restarted.score("单次词");
+    now += 86400;
+    if (restarted.score("单次词") != repeated_score || repeated_score <= 0 ||
+        !restarted.lookup("ceshi", 1).front().preferred) return 25;
+    if (!restarted.flush().success) return 32;
+    owo::engine::UserFrequencyStore confirmed([&] { return now; });
+    if (!confirmed.load(timed_path).success || confirmed.score("单次词") != repeated_score ||
+        !confirmed.lookup("ceshi", 1).front().preferred ||
+        !confirmed.preferred("ce'shi", "单次词")) return 33;
+    restarted.record("xi'an", "别名词");
+    restarted.record("xian", "别名词");
+    now += 60;
+    if (!restarted.lookup("xian", 1).front().preferred ||
+        restarted.lookup("xian", 1).front().count != 2) return 26;
+
+    const owo::engine::MemoryLexicon lexicon({
+        {{"ni", "hao"}, "你好", 50000}, {{"ni", "hao"}, "你号", 1},
+        {{"ni"}, "你", 10000}, {{"hao"}, "好", 10000}});
+    restarted.record("nihao", "你号");
+    restarted.record("nihao", "你豪");
+    const owo::engine::CandidateGenerator generator(lexicon, nullptr, &restarted);
+    const auto parsed = owo::engine::FullPinyinSchema{}.parse("nihao", 32, false);
+    const auto fresh = generator.generate(parsed, 32, true, {}, nullptr, {}, true, 7);
+    if (fresh.empty() || !fresh.front().user_preferred()) return 27;
+    now += 60;
+    const auto expired = generator.generate(parsed, 32, true, {}, nullptr, {}, true, 7);
+    if (expired.empty() || expired.front().text != "你好") return 28;
+    const auto custom = std::find_if(expired.begin(), expired.end(), [](const auto& candidate) {
+        return candidate.text == "你豪";
+    });
+    if (custom == expired.end() || custom->user_preferred()) return 29;
+    restarted.record("hui", "回");
+    --now;
+    if (restarted.score("回") != 0) return 30;
+
+    write_v1(legacy_path, 1);
+    owo::engine::UserFrequencyStore old_singleton([&] { return now; });
+    if (!old_singleton.load(legacy_path).success || old_singleton.count("legacy") != 1 ||
+        old_singleton.score("legacy") != 0) return 31;
+    const auto v3_path = path.wstring() + L".v3";
+    write_v3_singletons(v3_path);
+    owo::engine::UserFrequencyStore v3([&] { return now; });
+    if (!v3.load(v3_path).success || v3.contextual_count("nihao", "旧单次词") != 1 ||
+        v3.lookup("nihao", 1).front().preferred ||
+        v3.contextual_score("nihao", "旧单次词") != 0 ||
+        v3.language_context_score("旧上下文", "nihao", "旧单次词") != 0 || !v3.flush().success) return 34;
+    owo::engine::UserFrequencyStore migrated([&] { return now; });
+    if (!migrated.load(v3_path).success || migrated.lookup("nihao", 1).front().preferred) return 35;
+    std::filesystem::remove(v3_path, ignored);
+    std::filesystem::remove(v3_path + L".bak", ignored);
+    std::filesystem::remove(legacy_path, ignored);
+    std::filesystem::remove(timed_path, ignored);
+    std::filesystem::remove(timed_path + L".bak", ignored);
     std::filesystem::remove(path, ignored);
     std::filesystem::remove(path.wstring() + L".bak", ignored);
     return 0;

@@ -75,6 +75,13 @@ DWORD remaining_milliseconds(const Deadline deadline) {
         remaining.count(), static_cast<long long>(INFINITE - 1)));
 }
 
+// Waits are quantized by the Windows timer tick, so a read can expire slightly before the
+// nominal deadline. The pipe layer therefore reports the deadline itself instead of letting
+// callers infer it from the wall clock.
+bool deadline_error(const DWORD error) {
+    return error == ERROR_TIMEOUT || error == ERROR_SEM_TIMEOUT;
+}
+
 bool valid_appcontainer_sid(PSID sid) {
     if (sid == nullptr || !IsValidSid(sid)) return false;
     const auto* authority = GetSidIdentifierAuthority(sid);
@@ -158,7 +165,13 @@ bool transfer(const HANDLE pipe, void* buffer, const DWORD size, const bool writ
         }
     }
     CloseHandle(operation.hEvent);
-    return transferred != 0;
+    if (transferred == 0) {
+        // A zero-length transfer is the peer closing: never report it through a stale
+        // last-error, which used to surface as an unrelated timeout code.
+        SetLastError(ERROR_BROKEN_PIPE);
+        return false;
+    }
+    return true;
 }
 
 bool write_all(const HANDLE pipe, const std::string_view bytes, const Deadline deadline) {
@@ -246,14 +259,15 @@ bool expected_pipe_client(const PluginPipe& pipe, std::string& diagnostic) {
 }
 #endif
 
-PluginPipeReceiveResult receive_failure(PluginPipe& pipe, std::string diagnostic) {
+PluginPipeReceiveResult receive_failure(PluginPipe& pipe, std::string diagnostic,
+                                        const bool timed_out = false) {
 #ifdef _WIN32
     if (pipe.valid() && !PluginPipeAccess::expected_sid(pipe).empty())
         DisconnectNamedPipe(native_handle(pipe));
 #else
     static_cast<void>(pipe);
 #endif
-    return {{}, operation_failure(std::move(diagnostic))};
+    return {{}, {false, std::move(diagnostic), timed_out}};
 }
 
 }  // namespace
@@ -476,8 +490,10 @@ PluginPipeOperationResult send_plugin_pipe_message(
         framed.push_back(static_cast<char>(size >> shift));
     framed.append(encoded);
     const auto deadline = std::chrono::steady_clock::now() + timeout;
-    if (!write_all(native_handle(pipe), framed, deadline))
-        return operation_failure(win32_error("WriteFile"));
+    if (!write_all(native_handle(pipe), framed, deadline)) {
+        const DWORD error = GetLastError();
+        return {false, win32_error("WriteFile", error), deadline_error(error)};
+    }
     return {true, {}};
 #else
     static_cast<void>(pipe);
@@ -495,8 +511,10 @@ PluginPipeReceiveResult receive_plugin_pipe_message(
         return receive_failure(pipe, "invalid plugin pipe receive arguments");
     const auto deadline = std::chrono::steady_clock::now() + timeout;
     std::array<unsigned char, 4> prefix{};
-    if (!read_exact(native_handle(pipe), reinterpret_cast<char*>(prefix.data()), 4, deadline))
-        return receive_failure(pipe, win32_error("ReadFile"));
+    if (!read_exact(native_handle(pipe), reinterpret_cast<char*>(prefix.data()), 4, deadline)) {
+        const DWORD error = GetLastError();
+        return receive_failure(pipe, win32_error("ReadFile", error), deadline_error(error));
+    }
     const std::uint32_t size = static_cast<std::uint32_t>(prefix[0]) |
         (static_cast<std::uint32_t>(prefix[1]) << 8U) |
         (static_cast<std::uint32_t>(prefix[2]) << 16U) |
@@ -504,8 +522,10 @@ PluginPipeReceiveResult receive_plugin_pipe_message(
     if (size == 0 || size > kMaximumPluginWireBytes)
         return receive_failure(pipe, "invalid plugin pipe frame size");
     std::string payload(size, '\0');
-    if (!read_exact(native_handle(pipe), payload.data(), size, deadline))
-        return receive_failure(pipe, win32_error("ReadFile"));
+    if (!read_exact(native_handle(pipe), payload.data(), size, deadline)) {
+        const DWORD error = GetLastError();
+        return receive_failure(pipe, win32_error("ReadFile", error), deadline_error(error));
+    }
     std::string peer_diagnostic;
     if (!expected_pipe_client(pipe, peer_diagnostic))
         return receive_failure(pipe, std::move(peer_diagnostic));

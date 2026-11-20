@@ -36,6 +36,50 @@ function deferred() {
   return { promise, resolve };
 }
 
+function noNetworkHelpers() {
+  const esc = (s) => String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return {
+    get: async () => ({}),
+    post: async () => ({}),
+    esc,
+    friendlyError: (e) => String(e),
+    renderMarkdown: esc,
+  };
+}
+
+test("timelineBars scales bar widths to the max bucket and keeps counts visible", () => {
+  const { panel } = harness(noNetworkHelpers());
+  const html = panel._test.timelineBars([
+    { day: "2026-11-18", count: 8 },
+    { day: "2026-11-17", count: 4 },
+    { day: "2026-11-16", count: 0 },
+  ]);
+  assert.equal((html.match(/owo-mem-tl-row/g) || []).length, 3);
+  assert.match(html, /width:100%/);   // 最大桶满宽
+  assert.match(html, /width:50%/);    // 一半
+  assert.match(html, /width:1%/);    // 0 计数给最小可见宽
+  assert.match(html, /<span class="owo-mem-tl-count">8<\/span>/);
+  // 空数据给占位提示。
+  assert.match(panel._test.timelineBars([]), /暂无观察记录/);
+});
+
+test("entityChips scales heat by frequency and shows counts inside chips", () => {
+  const { panel } = harness(noNetworkHelpers());
+  const html = panel._test.entityChips([
+    { entity: "playbook", count: 10 },
+    { entity: "plugin", count: 5 },
+    { entity: "once", count: 1 },
+  ]);
+  assert.equal((html.match(/owo-mem-ent/g) || []).length, 3);
+  assert.match(html, /playbook<i>10<\/i>/);
+  // 最高频芯片的不透明度高于最低频。
+  const alphas = [...html.matchAll(/color-mix\(in oklab, var\(--accent\) (\d+)%/g)].map((m) => Number(m[1]));
+  assert.equal(alphas.length, 3);
+  assert.ok(alphas[0] > alphas[2], "高频芯片应该更不透明：" + alphas.join(","));
+  assert.match(panel._test.entityChips([]), /暂无实体/);
+});
+
 test("memory panel initializes its default API helpers when none are injected", async () => {
   const requested = [];
   const h = harness(undefined, {

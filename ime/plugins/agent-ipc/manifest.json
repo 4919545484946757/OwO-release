@@ -1,11 +1,15 @@
 {
   "id": "org.owo.agent-ipc",
   "name": "OwO Agent IPC 连接器",
-  "version": "1.3.0",
+  "version": "1.3.2",
   "api_version": 1,
   "runtime": "process",
   "entry": "bin/owo-agent-ipc-plugin.exe",
-  "permissions": ["agent.ipc", "input.context", "system.full_trust"],
+  "permissions": [
+    "agent.ipc",
+    "input.context",
+    "system.full_trust"
+  ],
   "network": false,
   "config_schema": "config.schema.json"
 }

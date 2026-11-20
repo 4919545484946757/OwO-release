@@ -48,8 +48,28 @@ export interface paths {
         /** Forward an allowed OwOBot conversation request */
         get: operations["getOwobotCollaboration"];
         put?: never;
-        /** Forward an allowed OwOBot conversation request */
+        /**
+         * Forward an allowed OwOBot conversation or project bot profile request
+         * @description For groups/{group}/bots, send requestId, name, style and optional instructions. For groups/{group}/bots/{bot}, send style to update an existing member's appearance.
+         */
         post: operations["postOwobotCollaboration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/owobot/worker-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** OwOBot worker session ownership index for sidebar task aggregation */
+        get: operations["owobotWorkerSessions"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5184,6 +5204,540 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/prompt/enhance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * AI prompt enhancement: one stateless model call, task-type aware rewrite, structured result
+         * @description Stateless, tool-free prompt enhancement. No session, history, MCP or workspace file access; context is limited to caller-declared facts (workspace path, project name, session mode). Model access reuses the core gateway: preset models via the model field, desktop-saved custom models via model_connection (credentials by env reference only, never persisted). The model must answer with strict JSON; one bounded repair retry on parse/validation failure, then an honest 502. Never falls back to appending fixed templates.
+         */
+        post: operations["promptEnhance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["agentTasksList"];
+        put?: never;
+        post: operations["agentTasksCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-tasks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["agentTasksGet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-tasks/{id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agentTasksStart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-tasks/{id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agentTasksPause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-tasks/{id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agentTasksResume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-tasks/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agentTasksCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-tasks/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["agentTasksEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-tasks/{id}/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["agentTasksArtifacts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-tasks/{id}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["agentTasksApprovals"];
+        put?: never;
+        post: operations["agentTasksRequestApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-tasks/{id}/approvals/{approval_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agentTasksDecideApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-tasks/{id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agentTasksVerify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-tasks/{id}/events/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 任务事件 SSE（event: task-event，id 为事件序号；终态后 event: done） */
+        get: operations["agentTasksEventStream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 列出执行工作区租约 */
+        get: operations["workspacesList"];
+        put?: never;
+        /** 创建隔离执行工作区（git_worktree 推荐） */
+        post: operations["workspacesCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 工作区租约详情 */
+        get: operations["workspacesGet"];
+        put?: never;
+        post?: never;
+        /** 释放工作区（删除 worktree，不修改用户原工作区） */
+        delete: operations["workspacesRelease"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 把 Diff 应用到用户原工作区 */
+        post: operations["workspacesApply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{id}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 工作区 Diff（unified patch + 文件清单） */
+        get: operations["workspacesDiff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 丢弃改动（已应用时先回滚） */
+        post: operations["workspacesReject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 反向应用已应用的 Diff */
+        post: operations["workspacesRollback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-bridge/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 输入法/桌宠协调消息（v1，message_id 幂等） */
+        post: operations["agentBridgeMessages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-bridge/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取桌宠通知开关 */
+        get: operations["agentBridgePreferences"];
+        put?: never;
+        /** 开启/关闭桌宠通知（关闭后状态接口不再返回消息） */
+        post: operations["agentBridgeSetPreferences"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-bridge/tasks/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 任务状态与待审批通知（task.status.changed / task.approval.required） */
+        get: operations["agentBridgeTaskStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-bridge/ime/intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify signed IME intent and queue a unified task; never start execution
+         * @description OWO_IME_TASKS_ENABLED is off by default. Issuer key comes only from the trusted host environment. Workspace and policy are host-selected. Stable issuer/binding key is durable across fresh signed nonces; changed content conflicts. Shared bridge-off switch removes this route. Main UI must explicitly start and approve tasks.
+         */
+        post: operations["submitImeTaskIntent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-bridge/ime/tasks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read sanitized unified task state and cursor */
+        get: operations["getImeTaskStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playbooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["playbookList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playbooks/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["playbookStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playbooks/record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["playbookRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playbooks/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["playbookHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playbooks/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["playbookArchive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playbooks/init": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["playbookInit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/playbooks/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["playbookReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sharedcore/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sharedcoreState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6038,6 +6592,77 @@ export interface components {
             action: "apply" | "reject";
             idempotencyKey: string;
         };
+        /** @description Signed IME task admission provenance. Not tool authorization; task remains queued for the trusted main UI. */
+        ImeTaskOriginCapsule: {
+            payload: {
+                /** @enum {string} */
+                audience: "owo-daemon-ime-task";
+                binding: {
+                    request_id: string;
+                    session_id: string;
+                    task_revision: number;
+                };
+                capsule_id: string;
+                freshness: {
+                    issued_at_ms: number;
+                    ttl_ms: number;
+                };
+                /** @enum {integer} */
+                ic_version: 1;
+                /** @enum {string} */
+                issuer: "owo-intent-gateway";
+                nonce: string;
+                origin: {
+                    /** @enum {string} */
+                    application_metadata: "connector_claim";
+                    connector_pid: number;
+                    context_id: string;
+                    executable_sha256: string;
+                    process_created_at_hex: string;
+                    selection_sha256: string | null;
+                    /** @enum {string} */
+                    source: "ime";
+                };
+                origin_request_sha256: string;
+                prompt_sha256: string;
+                scope: {
+                    /** @enum {string} */
+                    mode: "agent_task";
+                };
+            };
+            signature: {
+                /** @enum {string} */
+                alg: "HMAC-SHA256";
+                /** @enum {string} */
+                key_id: "gateway-ime-task-v1";
+                value: string;
+            };
+        };
+        ImeTaskRequest: {
+            prompt: string;
+            origin_capsule: components["schemas"]["ImeTaskOriginCapsule"];
+        };
+        ImeTaskReceipt: {
+            /** Format: uuid */
+            task_id: string;
+            state: string;
+            open_route: string;
+            /** @enum {boolean} */
+            requires_main_ui: true;
+            /** @enum {boolean} */
+            origin_verified: true;
+            duplicate: boolean;
+        };
+        ImeTaskStatus: {
+            /** Format: uuid */
+            task_id: string;
+            state: string;
+            open_route: string;
+            /** @enum {boolean} */
+            requires_main_ui: true;
+            pending_approvals: number;
+            last_sequence: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -6275,6 +6900,53 @@ export interface operations {
             };
             /** @description OwOBot runtime is unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    owobotWorkerSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Worker session links and per-thread task aggregation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sessions: {
+                            [key: string]: {
+                                groupId: string;
+                                threadId: string;
+                                role: string;
+                                workspace: string;
+                                title: string;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                        tasks: {
+                            threadId: string;
+                            groupId: string;
+                            workspace: string;
+                            title: string;
+                            updatedAt: string;
+                            sessionIds: string[];
+                        }[];
+                    };
+                };
+            };
+            /** @description OwO bearer authorization required */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12747,12 +13419,7 @@ export interface operations {
     agentTurn: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Local managed ACP worker capability. Must accompany the active room turn capability; the Daemon assigns tools according to the project role. */
-                "x-owo-owobot-worker"?: string;
-                /** @description Per-turn room capability from the same locally managed collaboration service. */
-                "x-owo-owobot-turn"?: string;
-            };
+            header?: never;
             path: {
                 id: string;
             };
@@ -14643,6 +15310,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description WORKFLOW_REAL_ROLLBACK_UNSUPPORTED: real workflows with rollback points are rejected before execution */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     workflowRuns: {
@@ -16044,6 +16718,1158 @@ export interface operations {
             };
             /** @description Malformed or unknown request fields */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    promptEnhance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The user's original draft prompt. */
+                    text: string;
+                    /** @description Preset model id override for the configured provider. Ignored when model_connection is present. */
+                    model?: string;
+                    /** @description Explicit custom model connection (desktop-saved models; credentials by env reference only). Takes precedence over model. */
+                    model_connection?: components["schemas"]["CustomModelConnection"] | null;
+                    /** @description Caller-known facts only. Anything absent stays unknown; the enhancer must not invent it. */
+                    context?: {
+                        workspace?: string;
+                        project?: string;
+                        /** @enum {string} */
+                        session_mode?: "agent" | "chat";
+                    };
+                    /** @description Answers to a previous needs_clarification round; resent together with the original text to continue. */
+                    clarifications?: {
+                        question: string;
+                        answer: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Structured enhancement result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "ready" | "needs_clarification";
+                        /** @description Present only when status is ready. */
+                        enhanced_prompt?: string | null;
+                        /** @description Present only when status is needs_clarification; at most 3, each materially necessary. */
+                        clarifying_questions?: string[];
+                        change_summary?: string | null;
+                        /** @description Recognized task type label, e.g. coding, frontend, bugfix, docs, data_analysis, research, creative, agent_task, translation, general_qa. */
+                        task_type?: string | null;
+                    };
+                };
+            };
+            /** @description Invalid input, or invalid model_connection (prompt_enhance/invalid_input, prompt_enhance/model_connection/*) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bearer authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown fields or wrong types */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit or shutdown gate busy */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider failed or invalid output after one repair retry */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Model call timeout */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksList: {
+        parameters: {
+            query?: {
+                /** @description 按任务状态过滤（draft/queued/running/succeeded 等） */
+                state?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 任务列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description 非空用户目标 */
+                    user_goal: string;
+                    title?: string;
+                    /** @enum {string} */
+                    execution_strategy?: "single_agent" | "work_swarm" | "computer_use" | "workflow" | "cloud_remote";
+                    policy_profile?: string;
+                    workspace_ref?: string;
+                    session_refs?: string[];
+                    /** @description max_attempts / max_repairs / max_tool_calls */
+                    budget?: Record<string, never>;
+                    /** @description 重复提交返回同一任务 */
+                    idempotency_key?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 幂等重放，返回既有任务 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 任务已创建（queued） */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 任务详情（含最新检查点、产物、审批） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksStart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description dispatched=true 表示已交给后端；false 表示未注册后端，任务不会伪装成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksPause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已暂停 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksResume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Resume an unchanged plan with an empty body. To approve a revised linear workflow, include the exact definition returned by GET /workflow/{name}. Previously completed steps, permissions and workflow settings must stay unchanged. */
+        requestBody?: {
+            content: {
+                "application/json": {
+                    approved_workflow_revision?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description 已恢复 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已取消 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksEvents: {
+        parameters: {
+            query?: {
+                after?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 事件日志（sequence 单调递增） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksArtifacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 任务产物列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksApprovals: {
+        parameters: {
+            query?: {
+                pending_only?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 审批列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksRequestApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    action: string;
+                    scope?: Record<string, never>;
+                    expires_at?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 审批请求已创建 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksDecideApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                approval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "approved" | "rejected";
+                    decided_by?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 审批已落库，返回更新后的任务 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksVerify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    goal?: Record<string, never>;
+                    structural?: Record<string, never>;
+                    execution?: Record<string, never>;
+                    side_effect?: Record<string, never>;
+                    review?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description 验证报告；只有全部必需检查通过才进入 succeeded，否则进入 repairing 或 needs_user_input */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentTasksEventStream: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description text/event-stream；可用 Last-Event-ID 或 after 从指定序号之后续传 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 任务不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workspacesList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 工作区租约列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workspacesCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind?: "current_workspace" | "git_worktree" | "local_sandbox" | "remote_workspace";
+                    task_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 工作区租约（path 可作为任务的 workspace_ref） */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未知工作区类型或工作区不是 Git 仓库 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 该工作区类型尚未达到契约 */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workspacesGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 租约详情 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 工作区不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workspacesRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 租约状态 updated 为 released */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 工作区不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workspacesApply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已应用 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 工作区不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 状态不满足或原工作区冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workspacesDiff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description diff 与 empty 标记 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 工作区不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workspacesReject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已拒绝并删除 worktree */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 工作区不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 状态不满足或原工作区冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workspacesRollback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已回滚 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 工作区不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 状态不满足或原工作区冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentBridgeMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {integer} */
+                    protocol_version: 1;
+                    message_id: string;
+                    /** Format: date-time */
+                    timestamp: string;
+                    /** @enum {string} */
+                    source: "ime" | "pet" | "desktop";
+                    correlation_id: string;
+                    /** @enum {string} */
+                    kind: "intent.submit" | "task.pause" | "task.resume" | "task.cancel" | "task.open";
+                    payload?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description 同一 message_id 的幂等重放（duplicate=true） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description intent.submit 已创建统一任务 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 协议版本/来源/时间戳或载荷不合法 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 来源无此权限，或试图在悬浮窗口提交审批决定 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentBridgePreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description pet_notifications */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentBridgeSetPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    pet_notifications: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description 更新后的 pet_notifications */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    agentBridgeTaskStatus: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 版本化消息列表（通知关闭时 messages 为空） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 任务不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    submitImeTaskIntent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImeTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Sanitized unified task identity/state; no execution or approval granted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImeTaskReceipt"];
+                };
+            };
+            /** @description Sanitized unified task identity/state; no execution or approval granted */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImeTaskReceipt"];
+                };
+            };
+            /** @description Empty or oversized goal */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bearer required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Disabled, unregistered, wrong source, invalid signature/scope/prompt, expired or clock rollback */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Stable intent identity reused with different content */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing fields, invalid structure or caller-supplied overrides */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Persistent task store unavailable */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getImeTaskStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sanitized unified task identity/state; no execution or approval granted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImeTaskStatus"];
+                };
+            };
+            /** @description Bearer required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description IME task entry disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Task not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    playbookList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description workspace playbooks with progress */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    playbookStatus: {
+        parameters: {
+            query: {
+                file: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description single playbook progress */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid path or playbook */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    playbookRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    file: string;
+                    step: string;
+                    /** @enum {string} */
+                    outcome: "pass" | "fail" | "skip";
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description recorded progress */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    playbookHistory: {
+        parameters: {
+            query: {
+                file: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description archived runs with per-step states */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid path or playbook */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    playbookArchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    file: string;
+                    marker?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description archived snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description missing state or invalid marker */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    playbookInit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description created skeleton */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid or duplicate id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    playbookReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description snapshot taken and progress reset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description no state to reset */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sharedcoreState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SharedCore project state and plan */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

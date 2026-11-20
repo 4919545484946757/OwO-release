@@ -1,4 +1,5 @@
 #include "text_service.h"
+#include "owo/tsf/registration_cache.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -260,6 +261,11 @@ extern "C" HRESULT __stdcall DllRegisterServer() {
     if (FAILED(initialization) && initialization != RPC_E_CHANGED_MODE) return initialization;
     result = register_profile();
     if (SUCCEEDED(result)) result = register_categories();
+    if (SUCCEEDED(result) && FAILED(owo::tsf::invalidate_registration_cache())) {
+        // A refresh failure must not unregister a previously working profile.
+        // The developer checker exposes a strict refresh/diagnostic command.
+        OutputDebugStringW(L"OwO: TSF cache refresh failed; sign out to reload registration.\n");
+    }
     if (SUCCEEDED(initialization)) CoUninitialize();
     if (FAILED(result)) {
         unregister_categories();

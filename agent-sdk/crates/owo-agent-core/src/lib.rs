@@ -132,7 +132,9 @@ pub mod workswarm;
 // `crate::plan::*`（workswarm / goal）与 `owo_agent_core::Plan / SkillRegistry / ...`
 // （server / cli / 多个集成测试）等既有路径全部继续有效。
 // ---------------------------------------------------------------------------
-pub use owo_agent_contracts::{computer_task, context, plan, skill, skill_health};
+pub use owo_agent_contracts::{
+    computer_task, context, goal_progress, plan, playbook, skill, skill_health,
+};
 
 // ---------------------------------------------------------------------------
 // 编排内核（M9）兼容层：project_space_store / team_benefit / workswarm_output
@@ -281,7 +283,7 @@ pub use owo_agent_perception::{
     window_template,
 };
 
-pub use owo_agent_plugins::{plugin, McpServerConfig};
+pub use owo_agent_plugins::{agent_plugins, plugin, McpServerConfig};
 
 pub use owo_agent_env::{desktop_env, experience_store, transition, world_model};
 
@@ -452,10 +454,10 @@ pub use plan::{
 };
 pub use platform::{capture_screen, clipboard_sequence, poll_foreground_app};
 pub use plugin::{
-    discover_plugins, plugin_mcp_config, scan_plugin_for_risks, verify_plugin_signature,
-    MarketPluginEntry, MarketUpdateManifest, PluginInstallReport, PluginInstallState,
-    PluginManager, PluginManifest, PluginReviewState, PluginSignature, PluginStateStore,
-    PluginSubmission, VersionsJson,
+    agent_plugin_to_manifest, discover_plugins, discover_plugins_with_report, plugin_mcp_config,
+    plugin_mcp_configs, scan_plugin_for_risks, verify_plugin_signature, MarketPluginEntry,
+    MarketUpdateManifest, PluginInstallReport, PluginInstallState, PluginManager, PluginManifest,
+    PluginReviewState, PluginSignature, PluginStateStore, PluginSubmission, VersionsJson,
 };
 pub use project_space_store::{
     ProjectSpaceStoreBackend, ProjectSpaceStoreError, SqliteProjectSpaceStore,

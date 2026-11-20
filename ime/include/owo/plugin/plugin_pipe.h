@@ -64,6 +64,8 @@ struct PluginPipeOpenResult {
 struct PluginPipeOperationResult {
     bool ok{};
     std::string diagnostic;
+    /// Set when the operation stopped at its deadline instead of failing on the protocol.
+    bool timed_out{};
 };
 
 struct PluginPipeReceiveResult {

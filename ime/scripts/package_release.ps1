@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-    [string]$Version = '0.2.3',
+    [string]$Version = '0.2.5',
     [string]$BuildDirectory,
     [string]$X86BuildDirectory,
     [string]$SettingsDirectory,
@@ -106,7 +106,7 @@ foreach ($name in @('Install-OwO.cmd', 'Uninstall-OwO.cmd', 'Start-OwO.cmd',
                     'README.zh-CN.md', 'THIRD-PARTY-NOTICES.md')) {
     Copy-Item -LiteralPath (Join-Path $packaging $name) -Destination $stage -Force
 }
-foreach ($name in @('Install-OwO.ps1', 'Uninstall-OwO.ps1', 'Finish-Uninstall-OwO.ps1',
+foreach ($name in @('Install-OwO.ps1', 'Install-Prerequisites.ps1', 'Uninstall-OwO.ps1', 'Finish-Uninstall-OwO.ps1',
                     'Start-OwO.ps1')) {
     Copy-Item -LiteralPath (Join-Path $packaging $name) -Destination (Join-Path $stage 'scripts') -Force
 }

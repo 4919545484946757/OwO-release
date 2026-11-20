@@ -575,6 +575,27 @@ function sessionListFailureMessage(error) {
   return "会话暂时无法读取。请重试；如果问题持续，请查看服务状态与诊断信息。";
 }
 
+/// 相对时间（会话列表用）：比 11-18 21:0 这类原始截串好扫视，完整时间仍在 title 提示里。
+/// 解析失败或未来时间回落短日期；天数过大回落「N 天前」不再累计。
+function formatRelativeTime(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return "";
+  const time = Date.parse(text);
+  if (!Number.isFinite(time)) {
+    return text.slice(5, 16).replace("T", " ");
+  }
+  const diffMs = Date.now() - time;
+  if (diffMs < 0) return text.slice(5, 16).replace("T", " ");
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "刚刚";
+  if (minutes < 60) return `${minutes} 分钟前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 小时前`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} 天前`;
+  return text.slice(5, 16).replace("T", " ");
+}
+
 function renderSessionListFailure(error, selectId) {
   const list = $("sessionList");
   if (!list) return;
@@ -2181,9 +2202,15 @@ async function sendPrompt() {
     addMessage("system", `附带 ${attachments.length + content_parts.length} 个附件`);
   }
   // 助手气泡按需创建：让思考块/工具分组先于回答出现，保持时间顺序。
+  // streamingBody 单独记引用：流式更新只重写 .message-body（与历史回放同一结构），
+  // 整体 innerHTML 会把包装器抹掉，导致实时消息丢失正文字号/行距样式（回放却正常）。
   let streaming = null;
+  let streamingBody = null;
   const ensureStreaming = () => {
-    if (!streaming) streaming = addMessage("assistant", "");
+    if (!streaming) {
+      streaming = addMessage("assistant", "");
+      streamingBody = streaming.querySelector(".message-body");
+    }
     return streaming;
   };
   let assistantText = "";
@@ -2192,6 +2219,26 @@ async function sendPrompt() {
   const answerRenderer = window.OwoStreamRender
     ? window.OwoStreamRender.createStreamRenderer(renderMarkdown, { onPaint: bindCopyButtons })
     : null;
+  // （合并自 master 的兜底节流实现：answerRenderer 不可用 / catch-finally 收尾路径仍引用这些符号。）
+  let streamFlushTimer = null;
+  const flushStreamingNow = () => {
+    if (streamFlushTimer) {
+      clearTimeout(streamFlushTimer);
+      streamFlushTimer = null;
+    }
+    if (!streaming) return;
+    const target = streamingBody || streaming;
+    target.innerHTML = renderMarkdown(assistantText);
+    bindCopyButtons(target);
+    followScroll();
+  };
+  const scheduleStreamingFlush = () => {
+    if (streamFlushTimer) return;
+    streamFlushTimer = setTimeout(() => {
+      streamFlushTimer = null;
+      flushStreamingNow();
+    }, 120);
+  };
   const turn = { tools: 0, failed: 0, modelCalls: 0, startedAt: Date.now(), server: null, card: null, files: new Set() };
   state.turn = turn;
 
@@ -2235,8 +2282,7 @@ async function sendPrompt() {
           if (answerRenderer) {
             answerRenderer.update(bubble, assistantText);
           } else {
-            bubble.innerHTML = renderMarkdown(assistantText);
-            bindCopyButtons(bubble);
+            scheduleStreamingFlush();
           }
           followScroll();
           break;
@@ -2291,6 +2337,8 @@ async function sendPrompt() {
           assistantText = payload.text || assistantText;
           // 终态文本是权威版本：丢掉未落盘的增量帧，避免旧文本覆盖 final。
           if (answerRenderer) answerRenderer.reset();
+          // 冲掉仍挂着的节流帧（无渲染器路径），随后的权威文本立即覆盖。
+          flushStreamingNow();
           const bubble = ensureStreaming();
           bubble.innerHTML = renderMessage(assistantText);
           bindCopyButtons(bubble);
@@ -2354,6 +2402,8 @@ async function sendPrompt() {
     await refreshSessionContext(state.sessionId);
   } catch (error) {
     writeTargetSid = turnSessionId;
+    // 失败/中断前先把已生成的部分内容冲刷出来（有内容时保留在气泡里），再撤销节流。
+    flushStreamingNow();
     if (!assistantText && streaming) streaming.remove();
     if (error.name !== "AbortError" && error.completionStatus !== "aborted") {
       window.OwoNotificationSound?.play(loadLocalPrefs().sound);
@@ -2381,6 +2431,14 @@ async function sendPrompt() {
     // 视图级收尾只在本回合仍属于「当前视图会话」时执行：并行回合下，
     // 后台会话结束不能把前台会话的流式句柄/状态条/审批卡一起清掉。
     const isVisible = state.sessionId === turnSessionId;
+    // 收尾兜底：仍挂着的节流渲染立即落地（终态大多已冲刷；中断/异常路径在此补齐）。
+    if (streamFlushTimer && streaming) {
+      clearTimeout(streamFlushTimer);
+      streamFlushTimer = null;
+      const target = streamingBody || streaming;
+      target.innerHTML = renderMarkdown(assistantText);
+      bindCopyButtons(target);
+    }
     if (isVisible) {
       hideApproval();
       finishThinking();
@@ -2958,13 +3016,25 @@ async function refreshDiff(sessionId) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "diff-open";
-      button.innerHTML = '<span class="file-change-kind">' + changed + '</span><strong>' + esc(diff.path) + '</strong><span aria-hidden="true">⌄</span>';
+      // 头部全部用 DOM 节点 + textContent 组装：路径里任何字符都不会破坏结构。
+      const kind = document.createElement("span");
+      kind.className = "file-change-kind";
+      kind.textContent = changed;
+      const pathEl = document.createElement("strong");
+      pathEl.textContent = diff.path;
+      button.append(kind, pathEl);
+      const view = buildDiffView(diff);
+      if (view.stat) button.appendChild(view.stat);
+      const chev = document.createElement("span");
+      chev.setAttribute("aria-hidden", "true");
+      chev.textContent = "⌄";
+      button.appendChild(chev);
       button.title = "查看修改前后的内容：" + diff.path;
       button.setAttribute("aria-expanded", "false");
-      const body = document.createElement("pre");
+      const body = document.createElement("div");
       body.className = "diff-body hidden";
       body.id = "diff-preview-" + generation + "-" + index++;
-      body.textContent = diffText(diff);
+      body.appendChild(view.rows);
       button.setAttribute("aria-controls", body.id);
       button.addEventListener("click", () => {
         const hidden = body.classList.toggle("hidden");
@@ -2982,6 +3052,81 @@ async function refreshDiff(sessionId) {
     if (generation !== sessionDiffRefreshGeneration || sessionId !== state.sessionId) return;
     list.innerHTML = '<li class="sub">暂时无法读取文件变化，请稍后重新打开会话。</li>';
   }
+}
+
+/// 行级可视 diff（对标 GitHub/DSH 的着色 diff）：逐行分色 + 双侧行号。
+/// 按行位置配对前后内容；文本一律 textContent 落 DOM，不拼 HTML。
+/// 头部返回 +n/−n 统计徽标，让不展开也能一眼看出改动量。
+function buildDiffView(diff) {
+  const beforeLines = diff.before != null ? String(diff.before).split("\n") : [];
+  const afterLines = diff.after != null ? String(diff.after).split("\n") : [];
+  const rows = document.createElement("div");
+  rows.className = "diff-rows";
+  let added = 0;
+  let removed = 0;
+  let beforeNo = 0;
+  let afterNo = 0;
+  const pushRow = (cls, mark, text, left, right) => {
+    const row = document.createElement("div");
+    row.className = "dl " + cls;
+    const leftNo = document.createElement("span");
+    leftNo.className = "dl-no";
+    leftNo.textContent = left;
+    const rightNo = document.createElement("span");
+    rightNo.className = "dl-no";
+    rightNo.textContent = right;
+    const markEl = document.createElement("span");
+    markEl.className = "dl-mark";
+    markEl.textContent = mark;
+    const textEl = document.createElement("span");
+    textEl.className = "dl-text";
+    textEl.textContent = text == null ? "" : text;
+    row.append(leftNo, rightNo, markEl, textEl);
+    rows.appendChild(row);
+  };
+  const maxLen = Math.max(beforeLines.length, afterLines.length);
+  for (let index = 0; index < maxLen; index++) {
+    const before = index < beforeLines.length ? beforeLines[index] : null;
+    const after = index < afterLines.length ? afterLines[index] : null;
+    if (before === null) {
+      afterNo += 1;
+      added += 1;
+      pushRow("dl-add", "+", after, "", String(afterNo));
+    } else if (after === null) {
+      beforeNo += 1;
+      removed += 1;
+      pushRow("dl-del", "-", before, String(beforeNo), "");
+    } else {
+      beforeNo += 1;
+      afterNo += 1;
+      if (before !== after) {
+        removed += 1;
+        added += 1;
+        pushRow("dl-del", "-", before, String(beforeNo), "");
+        pushRow("dl-add", "+", after, "", String(afterNo));
+      } else {
+        pushRow("dl-ctx", " ", before, String(beforeNo), String(afterNo));
+      }
+    }
+  }
+  let stat = null;
+  if (added || removed) {
+    stat = document.createElement("span");
+    stat.className = "diff-stat";
+    if (added) {
+      const plus = document.createElement("span");
+      plus.className = "plus";
+      plus.textContent = "+" + added;
+      stat.appendChild(plus);
+    }
+    if (removed) {
+      const minus = document.createElement("span");
+      minus.className = "minus";
+      minus.textContent = "-" + removed;
+      stat.appendChild(minus);
+    }
+  }
+  return { rows, stat, added, removed };
 }
 
 // 逐 hunk 审阅行：把 `/session/{id}/hunks` 视图渲染成"接受全部 / 拒绝全部"操作。
@@ -3075,26 +3220,7 @@ async function searchSymbols(query, options) {
 }
 window.owoSymbolSearch = searchSymbols;
 
-// 生成行级 diff 文本（统一格式，参照 git diff 风格）。
-function diffText(diff) {
-  const beforeLines = diff.before != null ? diff.before.split("\n") : [];
-  const afterLines = diff.after != null ? diff.after.split("\n") : [];
-  const lines = [];
-  const maxLen = Math.max(beforeLines.length, afterLines.length);
-  for (let index = 0; index < maxLen; index++) {
-    const before = index < beforeLines.length ? beforeLines[index] : null;
-    const after = index < afterLines.length ? afterLines[index] : null;
-    if (before === null) lines.push(`+ ${after}`);
-    else if (after === null) lines.push(`- ${before}`);
-    else if (before !== after) {
-      lines.push(`- ${before}`);
-      lines.push(`+ ${after}`);
-    } else {
-      lines.push(`  ${before}`);
-    }
-  }
-  return lines.join("\n");
-}
+// 生成行级 diff 的行配对口径（原 diffText 的逐行位置配对语义，保留在 buildDiffView 中）。
 
 async function revertAll() {
   if (!state.sessionId) return;
@@ -3922,6 +4048,8 @@ const PANEL_ORDER = [
   "plugin-market",
   "workflow",
   "custom-workflows",
+  "playbook",
+  "sharedcore",
   "goal",
   "team",
   "eval",

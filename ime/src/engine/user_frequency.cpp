@@ -6,8 +6,10 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <span>
 #include <vector>
 
@@ -15,7 +17,27 @@ namespace owo::engine {
 namespace {
 
 constexpr std::array<unsigned char, 4> kMagic{'O', 'W', 'U', 'F'};
-constexpr std::uint32_t kVersion = 3;
+constexpr std::uint32_t kVersion = 4;
+using ObservationTimes = std::unordered_map<std::string, std::uint64_t>;
+constexpr auto kConfirmedObservation = (std::numeric_limits<std::uint64_t>::max)();
+
+std::uint64_t observation_age(const std::uint64_t now, const std::uint64_t observed) {
+    // A wall-clock rollback must not revive an old one-off preference.
+    return now >= observed ? now - observed : 60;
+}
+void observe_singleton(ObservationTimes& times, const std::string& key,
+                       const std::uint32_t previous, const std::uint32_t amount,
+                       const std::uint64_t now) {
+    if (previous == 0 && amount == 1) times[key] = now;
+    else times.erase(key);
+}
+void prune_singletons(ObservationTimes& times,
+                      const std::unordered_map<std::string, std::uint32_t>& counts) {
+    std::erase_if(times, [&counts](const auto& entry) {
+        const auto found = counts.find(entry.first);
+        return found == counts.end() || found->second != 1;
+    });
+}
 constexpr std::size_t kHeaderSize = 20;
 constexpr std::size_t kMaximumFileBytes = 16U * 1024U * 1024U;
 constexpr std::uint32_t kGlobalCountCeiling = 256;
@@ -179,7 +201,9 @@ std::vector<ContextSuffix> context_suffixes_for_record(
 bool decode(const std::filesystem::path& path,
             std::unordered_map<std::string, std::uint32_t>& counts,
             std::unordered_map<std::string, std::uint32_t>& contextual_counts,
-            std::unordered_map<std::string, std::uint32_t>& language_context_counts) {
+            std::unordered_map<std::string, std::uint32_t>& language_context_counts,
+            ObservationTimes& singles, ObservationTimes& contextual_singles,
+            ObservationTimes& language_singles) {
     std::ifstream input(path, std::ios::binary);
     if (!input) return false;
     std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(input)), {});
@@ -194,6 +218,7 @@ bool decode(const std::filesystem::path& path,
     std::unordered_map<std::string, std::uint32_t> parsed;
     std::unordered_map<std::string, std::uint32_t> parsed_contextual;
     std::unordered_map<std::string, std::uint32_t> parsed_language_context;
+    ObservationTimes parsed_singles, parsed_contextual_singles, parsed_language_singles;
     for (std::uint32_t index = 0; index < entry_count; ++index) {
         std::uint32_t context_size{}, input_size{}, size{}, count{};
         if (version >= 3 && !read_u32(bytes, offset, context_size)) return false;
@@ -214,18 +239,23 @@ bool decode(const std::filesystem::path& path,
         std::string text(reinterpret_cast<const char*>(bytes.data() + offset), size);
         offset += size;
         if (!read_u32(bytes, offset, count) || count == 0) return false;
+        std::uint64_t observed = count == 1 ? 0 : kConfirmedObservation;
+        if (version >= 4 && !read_u64(bytes, offset, observed)) return false;
         if (!context_text.empty() && !input_text.empty()) {
             context_text.push_back('\0');
             context_text += input_text;
             context_text.push_back('\0');
             context_text += text;
+            if (count == 1 && observed != kConfirmedObservation) parsed_language_singles.emplace(context_text, observed);
             if (!parsed_language_context.emplace(std::move(context_text), count).second)
                 return false;
         } else if (input_text.empty()) {
+            if (count == 1 && observed != kConfirmedObservation) parsed_singles.emplace(text, observed);
             if (!parsed.emplace(std::move(text), count).second) return false;
         } else {
             input_text.push_back('\0');
             input_text += text;
+            if (count == 1 && observed != kConfirmedObservation) parsed_contextual_singles.emplace(input_text, observed);
             if (!parsed_contextual.emplace(std::move(input_text), count).second) return false;
         }
     }
@@ -233,21 +263,30 @@ bool decode(const std::filesystem::path& path,
     counts = std::move(parsed);
     contextual_counts = std::move(parsed_contextual);
     language_context_counts = std::move(parsed_language_context);
+    singles = std::move(parsed_singles);
+    contextual_singles = std::move(parsed_contextual_singles);
+    language_singles = std::move(parsed_language_singles);
     return true;
 }
 
 std::vector<unsigned char> encode(
     const std::unordered_map<std::string, std::uint32_t>& counts,
     const std::unordered_map<std::string, std::uint32_t>& contextual_counts,
-    const std::unordered_map<std::string, std::uint32_t>& language_context_counts) {
-    struct Entry { std::string context; std::string input; std::string text; std::uint32_t count{}; };
+    const std::unordered_map<std::string, std::uint32_t>& language_context_counts,
+    const ObservationTimes& singles, const ObservationTimes& contextual_singles,
+    const ObservationTimes& language_singles) {
+    struct Entry { std::string context; std::string input; std::string text; std::uint32_t count{}; std::uint64_t observed{kConfirmedObservation}; };
     std::vector<Entry> ordered;
     ordered.reserve(counts.size() + contextual_counts.size() + language_context_counts.size());
-    for (const auto& [text, count] : counts) ordered.push_back({{}, {}, text, count});
+    const auto observed_at = [](const ObservationTimes& times, const std::string& key, std::uint32_t count) {
+        const auto found = times.find(key);
+        return count == 1 && found != times.end() ? found->second : kConfirmedObservation;
+    };
+    for (const auto& [text, count] : counts) ordered.push_back({{}, {}, text, count, observed_at(singles, text, count)});
     for (const auto& [key, count] : contextual_counts) {
         const auto separator = key.find('\0');
         if (separator == std::string::npos || separator == 0 || separator + 1 >= key.size()) continue;
-        ordered.push_back({{}, key.substr(0, separator), key.substr(separator + 1), count});
+        ordered.push_back({{}, key.substr(0, separator), key.substr(separator + 1), count, observed_at(contextual_singles, key, count)});
     }
     for (const auto& [key, count] : language_context_counts) {
         const auto first = key.find('\0');
@@ -256,7 +295,7 @@ std::vector<unsigned char> encode(
         if (first == std::string::npos || second == std::string::npos || first == 0 ||
             second == first + 1 || second + 1 >= key.size()) continue;
         ordered.push_back({key.substr(0, first), key.substr(first + 1, second - first - 1),
-                           key.substr(second + 1), count});
+                           key.substr(second + 1), count, observed_at(language_singles, key, count)});
     }
     std::sort(ordered.begin(), ordered.end(), [](const Entry& left, const Entry& right) {
         if (left.context != right.context) return left.context < right.context;
@@ -272,6 +311,7 @@ std::vector<unsigned char> encode(
         payload.insert(payload.end(), entry.input.begin(), entry.input.end());
         payload.insert(payload.end(), entry.text.begin(), entry.text.end());
         append_u32(payload, entry.count);
+        append_u64(payload, entry.observed);
     }
     std::vector<unsigned char> output(kMagic.begin(), kMagic.end());
     append_u32(output, kVersion);
@@ -283,19 +323,50 @@ std::vector<unsigned char> encode(
 
 }  // namespace
 
+UserFrequencyStore::UserFrequencyStore(Clock clock) : clock_(std::move(clock)) {
+    if (!clock_)
+        clock_ = [] {
+            return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
+        };
+}
+std::int64_t UserFrequencyStore::decay_singleton(const std::int64_t score, const std::string_view key,
+                                                const ObservationTimes& times) const {
+    const auto found = times.find(std::string(key));
+    if (found == times.end()) return score;
+    const auto age = observation_age(clock_(), found->second);
+    if (age >= 60) return 0;
+    // Linear decay to 25% at 30 s, then to zero at 60 s.
+    const auto percent = age <= 30 ? 100 - age * 75 / 30 : (60 - age) * 25 / 30;
+    return score * static_cast<std::int64_t>(percent) / 100;
+}
+bool UserFrequencyStore::preferred_observation(const std::string_view key, const ObservationTimes& times) const {
+    const auto found = times.find(std::string(key));
+    return found == times.end() || observation_age(clock_(), found->second) < 10;
+}
+std::uint64_t UserFrequencyStore::ranking_epoch() const {
+    const auto now = clock_();
+    if (now >= singleton_expires_at_ || (singleton_times_.empty() &&
+        contextual_singleton_times_.empty() && language_singleton_times_.empty())) return 0;
+    return now / 5;
+}
+
 UserFrequencyIoResult UserFrequencyStore::load(const std::filesystem::path& path) {
     path_ = path;
     counts_.clear();
     contextual_counts_.clear();
     language_context_counts_.clear();
     user_lexicon_.clear();
+    user_lexicon_times_.clear();
+    singleton_times_.clear(); contextual_singleton_times_.clear(); language_singleton_times_.clear();
+    singleton_expires_at_ = 0;
     if (!std::filesystem::exists(path)) return {true, false, {}};
-    if (decode(path, counts_, contextual_counts_, language_context_counts_)) {
+    if (decode(path, counts_, contextual_counts_, language_context_counts_, singleton_times_, contextual_singleton_times_, language_singleton_times_)) {
         rebuild_user_lexicon();
         return {true, false, {}};
     }
     auto backup = path; backup += L".bak";
-    if (decode(backup, counts_, contextual_counts_, language_context_counts_)) {
+    if (decode(backup, counts_, contextual_counts_, language_context_counts_, singleton_times_, contextual_singleton_times_, language_singleton_times_)) {
         rebuild_user_lexicon();
         return {true, true, {}};
     }
@@ -304,14 +375,26 @@ UserFrequencyIoResult UserFrequencyStore::load(const std::filesystem::path& path
 
 void UserFrequencyStore::rebuild_user_lexicon() {
     user_lexicon_.clear();
+    user_lexicon_times_.clear();
+    singleton_expires_at_ = 0;
+    for (const auto* times : {&singleton_times_, &contextual_singleton_times_, &language_singleton_times_})
+        for (const auto& [key, observed] : *times)
+            if (observed <= (std::numeric_limits<std::uint64_t>::max)() - 60)
+                singleton_expires_at_ = (std::max)(singleton_expires_at_, observed + 60);
     for (const auto& [key, count] : contextual_counts_) {
         const auto separator = key.find('\0');
         if (separator == std::string::npos || separator == 0 ||
             separator + 1 >= key.size())
             continue;
-        user_lexicon_[compact_input_key(
-                          std::string_view(key).substr(0, separator))]
-                     [key.substr(separator + 1)] = count;
+        const auto input = compact_input_key(std::string_view(key).substr(0, separator));
+        const auto text = key.substr(separator + 1);
+        auto& total = user_lexicon_[input][text];
+        total = static_cast<std::uint32_t>(std::min<std::uint64_t>(kInputCountCeiling,
+            static_cast<std::uint64_t>(total) + count));
+        const auto observed = contextual_singleton_times_.find(key);
+        if (total == 1 && observed != contextual_singleton_times_.end())
+            user_lexicon_times_[input][text] = observed->second;
+        else user_lexicon_times_[input].erase(text);
     }
 }
 
@@ -322,6 +405,10 @@ void UserFrequencyStore::record(const std::string_view input, const std::string_
     std::string key(input);
     key.push_back('\0');
     key += text;
+    const auto previous = contextual_count(input, text);
+    observe_singleton(contextual_singleton_times_, key, previous, amount, clock_());
+    if (previous == 0 && amount == 1)
+        singleton_expires_at_ = (std::max)(singleton_expires_at_, clock_() + 60);
     std::string group(input);
     group.push_back('\0');
     const auto decayed = record_bounded(
@@ -329,11 +416,18 @@ void UserFrequencyStore::record(const std::string_view input, const std::string_
         [&group](const std::string_view candidate) {
             return candidate.starts_with(group);
         });
-    if (decayed)
+    if (decayed) {
+        prune_singletons(contextual_singleton_times_, contextual_counts_);
         rebuild_user_lexicon();
-    else
-        user_lexicon_[compact_input_key(input)][std::string(text)] =
-            contextual_counts_[key];
+    } else {
+        const auto compact = compact_input_key(input);
+        const std::string word(text);
+        auto& total = user_lexicon_[compact][word];
+        total = static_cast<std::uint32_t>(std::min<std::uint64_t>(kInputCountCeiling,
+            static_cast<std::uint64_t>(total) + amount));
+        if (total == 1) user_lexicon_times_[compact][word] = contextual_singleton_times_.at(key);
+        else user_lexicon_times_[compact].erase(word);
+    }
 }
 
 void UserFrequencyStore::record(const std::string_view context, const std::string_view input,
@@ -347,12 +441,18 @@ void UserFrequencyStore::record(const std::string_view context, const std::strin
         group.push_back('\0');
         auto key = group;
         key += text;
-        record_bounded(
+        const auto found = language_context_counts_.find(key);
+        if (found == language_context_counts_.end() && amount == 1)
+            singleton_expires_at_ = (std::max)(singleton_expires_at_, clock_() + 60);
+        observe_singleton(language_singleton_times_, key,
+            found == language_context_counts_.end() ? 0 : found->second, amount, clock_());
+        const auto decayed = record_bounded(
             language_context_counts_, key, amount,
             kLanguageContextCountCeiling,
             [&group](const std::string_view candidate) {
                 return candidate.starts_with(group);
             });
+        if (decayed) prune_singletons(language_singleton_times_, language_context_counts_);
     }
 }
 
@@ -363,8 +463,12 @@ void UserFrequencyStore::set_sensitivity(const std::uint32_t sensitivity) noexce
 void UserFrequencyStore::record(const std::string_view text, const std::uint32_t amount) {
     if (text.empty() || amount == 0) return;
     const std::string key(text);
-    record_bounded(counts_, key, amount, kGlobalCountCeiling,
-                   [](const std::string_view) { return true; });
+    if (count(text) == 0 && amount == 1)
+        singleton_expires_at_ = (std::max)(singleton_expires_at_, clock_() + 60);
+    observe_singleton(singleton_times_, key, count(text), amount, clock_());
+    if (record_bounded(counts_, key, amount, kGlobalCountCeiling,
+                       [](const std::string_view) { return true; }))
+        prune_singletons(singleton_times_, counts_);
 }
 
 std::uint32_t UserFrequencyStore::count(const std::string_view text) const {
@@ -383,13 +487,23 @@ std::uint32_t UserFrequencyStore::contextual_count(const std::string_view input,
 
 std::int64_t UserFrequencyStore::score(const std::string_view text) const {
     const auto gain = 250LL + static_cast<std::int64_t>(sensitivity_ - 1U) * 250LL;
-    return bounded_learning_score(count(text), gain, 32);
+    return decay_singleton(bounded_learning_score(count(text), gain, 32), text, singleton_times_);
+}
+
+bool UserFrequencyStore::preferred(const std::string_view input,
+                                   const std::string_view text) const {
+    const auto reading = user_lexicon_.find(compact_input_key(input));
+    if (reading == user_lexicon_.end() || !reading->second.contains(std::string(text)))
+        return false;
+    const auto times = user_lexicon_times_.find(reading->first);
+    return times == user_lexicon_times_.end() || preferred_observation(text, times->second);
 }
 
 std::int64_t UserFrequencyStore::contextual_score(const std::string_view input,
                                                   const std::string_view text) const {
     const auto gain = 500LL + static_cast<std::int64_t>(sensitivity_ - 1U) * 500LL;
-    return bounded_learning_score(contextual_count(input, text), gain, 16);
+    auto key = std::string(input); key.push_back('\0'); key += text;
+    return decay_singleton(bounded_learning_score(contextual_count(input, text), gain, 16), key, contextual_singleton_times_);
 }
 
 std::int64_t UserFrequencyStore::language_context_score(
@@ -405,7 +519,7 @@ std::int64_t UserFrequencyStore::language_context_score(
         key += text;
         const auto found = language_context_counts_.find(key);
         if (found == language_context_counts_.end()) continue;
-        const auto score = bounded_learning_score(found->second, gain, 8);
+        const auto score = decay_singleton(bounded_learning_score(found->second, gain, 8), key, language_singleton_times_);
         const auto weight = (std::min<std::size_t>)(
             100, 25 + suffix.character_count * 15);
         best = (std::max)(best, score * static_cast<std::int64_t>(weight) / 100);
@@ -420,10 +534,14 @@ std::vector<UserLexiconEntry> UserFrequencyStore::lookup(
     if (found == user_lexicon_.end()) return {};
     std::vector<UserLexiconEntry> entries;
     entries.reserve((std::min)(limit, found->second.size()));
-    for (const auto& [text, count] : found->second)
-        entries.push_back({text, count, found->first});
+    for (const auto& [text, count] : found->second) {
+        const auto times = user_lexicon_times_.find(found->first);
+        const bool preferred = times == user_lexicon_times_.end() || preferred_observation(text, times->second);
+        entries.push_back({text, count, found->first, preferred});
+    }
     const auto better = [](const UserLexiconEntry& left,
                            const UserLexiconEntry& right) {
+        if (left.preferred != right.preferred) return left.preferred;
         if (left.count != right.count) return left.count > right.count;
         return left.text < right.text;
     };
@@ -445,13 +563,17 @@ std::vector<UserLexiconEntry> UserFrequencyStore::lookup_prefix(
         if (learned_input.size() <= compact.size() ||
             !std::string_view(learned_input).starts_with(compact))
             continue;
-        for (const auto& [text, count] : words)
-            entries.push_back({text, count, learned_input});
+        for (const auto& [text, count] : words) {
+            const auto times = user_lexicon_times_.find(learned_input);
+            const bool preferred = times == user_lexicon_times_.end() || preferred_observation(text, times->second);
+            entries.push_back({text, count, learned_input, preferred});
+        }
     }
     const auto better = [](const UserLexiconEntry& left,
                            const UserLexiconEntry& right) {
         if (left.input.size() != right.input.size())
             return left.input.size() < right.input.size();
+        if (left.preferred != right.preferred) return left.preferred;
         if (left.count != right.count) return left.count > right.count;
         if (left.input != right.input) return left.input < right.input;
         return left.text < right.text;
@@ -467,7 +589,7 @@ std::vector<UserLexiconEntry> UserFrequencyStore::lookup_prefix(
 
 UserFrequencyIoResult UserFrequencyStore::flush() const {
     if (path_.empty()) return {false, false, "user frequency path is not set"};
-    const auto bytes = encode(counts_, contextual_counts_, language_context_counts_);
+    const auto bytes = encode(counts_, contextual_counts_, language_context_counts_, singleton_times_, contextual_singleton_times_, language_singleton_times_);
     if (bytes.size() > kMaximumFileBytes) return {false, false, "user frequency exceeds size limit"};
     auto temporary = path_; temporary += L".tmp";
     auto backup = path_; backup += L".bak";

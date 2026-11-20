@@ -1,5 +1,6 @@
 #include <Windows.h>
 #include <msctf.h>
+#include "owo/tsf/registration_cache.h"
 
 #include <iostream>
 #include <string_view>
@@ -15,6 +16,15 @@ constexpr LANGID kSimplifiedChinese = 0x0804;
 int main(int argc, char** argv) {
     HRESULT result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     if (FAILED(result)) return 2;
+
+    if (argc == 2 && std::string_view(argv[1]) == "--refresh-cache") {
+        result = owo::tsf::invalidate_registration_cache();
+        if (SUCCEEDED(result)) std::cout << "TSF assembly description cache refreshed\n";
+        else std::cerr << "TSF cache refresh failed: " << std::hex
+                       << static_cast<unsigned long>(result) << '\n';
+        CoUninitialize();
+        return SUCCEEDED(result) ? 0 : 8;
+    }
 
     ITfInputProcessorProfiles* profiles = nullptr;
     result = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr,

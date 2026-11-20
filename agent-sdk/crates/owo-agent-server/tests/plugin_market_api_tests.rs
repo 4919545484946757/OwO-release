@@ -160,6 +160,118 @@ fn write_signed_plugin(root: &std::path::Path) -> std::path::PathBuf {
     dir
 }
 
+/// 规范包（Agent Plugins 1.0.0）：plugin.json + skills/ + mcp.json。
+fn write_agent_plugin(root: &std::path::Path, dir_name: &str) -> std::path::PathBuf {
+    let dir = root.join(dir_name);
+    std::fs::create_dir_all(dir.join("skills/demo")).unwrap();
+    std::fs::write(
+        dir.join("plugin.json"),
+        serde_json::to_string_pretty(&json!({
+            "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+            "name": "pkg-demo",
+            "version": "1.0.0",
+            "description": "规范包示例"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("skills/demo/SKILL.md"),
+        "---\nname: demo\ndescription: 演示技能\n---\n\n# Demo\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("mcp.json"),
+        r#"{"servers": {"demo": {"command": "python", "args": ["server.py"]}}}"#,
+    )
+    .unwrap();
+    std::fs::write(dir.join("server.py"), "print('demo')\n").unwrap();
+    dir
+}
+
+#[tokio::test]
+async fn install_accepts_agent_plugin_normative_package() {
+    let (state, temp) = test_state();
+    let package = write_agent_plugin(&temp.path().join("ws"), "agent-pkg");
+    assert!(package.join("plugin.json").exists());
+    let (status, body) = call(
+        &router(state),
+        request(
+            "POST",
+            "/plugins/market/install",
+            Some(r#"{"dir":"agent-pkg"}"#),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["report"]["id"], "pkg-demo", "{body}");
+}
+
+#[tokio::test]
+async fn update_accepts_agent_plugin_normative_package() {
+    let (state, temp) = test_state();
+    let package = write_agent_plugin(&temp.path().join("ws"), "agent-pkg");
+    let (status, body) = call(
+        &router(state.clone()),
+        request(
+            "POST",
+            "/plugins/market/install",
+            Some(r#"{"dir":"agent-pkg"}"#),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // 同目录升到 1.1.0 后走 update：应备份旧版并替换。
+    let manifest = serde_json::to_string_pretty(&json!({
+        "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+        "name": "pkg-demo",
+        "version": "1.1.0",
+        "description": "规范包示例（更新）"
+    }))
+    .unwrap();
+    std::fs::write(package.join("plugin.json"), manifest).unwrap();
+    let (status, body) = call(
+        &router(state),
+        request(
+            "POST",
+            "/plugins/market/update",
+            Some(r#"{"id":"pkg-demo","dir":"agent-pkg"}"#),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["report"]["version"], "1.1.0", "{body}");
+    let backups = temp.path().join("plugins").join("backups");
+    assert!(backups.is_dir(), "旧版应备份到 backups/");
+}
+
+#[tokio::test]
+async fn revoked_agent_plugin_is_rejected_by_market_install() {
+    let (state, temp) = test_state();
+    write_agent_plugin(&temp.path().join("ws"), "agent-pkg");
+    // 吊销 pkg-demo 1.0.0（data_root/revocations.json）。
+    std::fs::write(
+        temp.path().join("revocations.json"),
+        r#"[{"id":"pkg-demo","version":"1.0.0","reason":"安全事件","ts":"2026-11-18"}]"#,
+    )
+    .unwrap();
+    let (status, body) = call(
+        &router(state),
+        request(
+            "POST",
+            "/plugins/market/install",
+            Some(r#"{"dir":"agent-pkg"}"#),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(
+        body["error"].as_str().unwrap_or("").contains("吊销"),
+        "{body}"
+    );
+}
+
 // ---------- 目录 / seed / versions ----------
 
 #[tokio::test]

@@ -52,6 +52,27 @@ int fail(const std::string_view message) {
 int main() {
     const owo::engine::FullPinyinSchema schema;
 
+    for (const auto& [input, expected] : {
+             std::pair{"chnag", "chang"}, {"shnag", "shang"},
+             {"zhogn", "zhong"}, {"chneg", "cheng"}, {"jnig", "jing"}}) {
+        if (!schema.is_single_syllable_transposition(input))
+            return fail("single-syllable transposition preflight missed a typo");
+        for (const auto budget : {8u, 16u, 32u}) {
+            if (!contains_path(schema.parse(input, budget, true), {expected},
+                               owo::engine::InputMatchKind::corrected))
+                return fail("single-syllable transposition correction was pruned");
+            const auto strict = schema.parse(input, budget, false);
+            if (std::any_of(strict.paths.begin(), strict.paths.end(), [](const auto& path) {
+                    return path.match_kind == owo::engine::InputMatchKind::corrected;
+                })) return fail("disabled correction produced a transposition repair");
+        }
+    }
+    for (const auto input : {"chang", "xian", "wsm", "bugd", "shqiyishi",
+                              "ch'nag", "chnag'", "CHNAG", "", "abcdefgh"}) {
+        if (schema.is_single_syllable_transposition(input))
+            return fail("transposition preflight widened beyond normalized single syllables");
+    }
+
     const auto nihao = schema.parse("NiHao");
     if (!nihao.valid || nihao.normalized_input != "nihao" ||
         !contains_path(nihao, {"ni", "hao"})) return fail("nihao parse failed");
@@ -193,6 +214,19 @@ int main() {
     if (!contains_path(schema.parse("gongnneg", 16), {"gong", "neng"},
                        owo::engine::InputMatchKind::corrected))
         return fail("second-syllable transposition correction failed");
+    for (const auto input : {"gongnnegkaiguan", "gongnegnkaiguan", "gongnnegkaiguna"}) {
+        for (const auto budget : {8U, 16U, 32U}) {
+            if (!contains_path(schema.parse(input, budget), {"gong", "neng", "kai", "guan"},
+                               owo::engine::InputMatchKind::corrected)) {
+                std::cerr << input << " budget=" << budget << '\n';
+                return fail("local sentence repair was crowded out by extra-edit variants");
+            }
+            const auto strict = schema.parse(input, budget, false);
+            if (std::any_of(strict.paths.begin(), strict.paths.end(), [](const auto& path) {
+                return path.match_kind == owo::engine::InputMatchKind::corrected;
+            })) return fail("disabled sentence correction produced repaired paths");
+        }
+    }
     if (contains_path(schema.parse("niaho", 32, false), {"ni", "hao"},
                       owo::engine::InputMatchKind::corrected))
         return fail("disabled correction still produced a corrected path");

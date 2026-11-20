@@ -30,6 +30,14 @@ pub struct PluginManifest {
     /// 插件提供的 MCP 服务器（工具桥接）。
     #[serde(default)]
     pub mcp: Option<McpServerConfig>,
+    /// Agent Plugins 1.0.0 包的 `mcp.json`（可声明多个服务器）。
+    /// 与历史单服务器字段 `mcp` 并存，统一由 [`PluginManifest::all_mcp_servers`] 遍历。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mcp_servers: Vec<McpServerConfig>,
+    /// Agent Plugins 包贡献的 hooks（扩展命名空间 `com.owo.agent`）。
+    /// 历史 `manifest.json` 没有这个概念（`serde(skip)`）：解析历史格式时恒为空。
+    #[serde(skip)]
+    pub hooks: Vec<crate::agent_plugins::AgentPluginHook>,
     /// 要求的最低 App 版本（如 "0.5.8"；None 表示不限制）。
     #[serde(default)]
     pub min_app_version: Option<String>,
@@ -54,11 +62,34 @@ impl PluginManifest {
         }
         Ok(manifest)
     }
+
+    /// 该插件声明的全部 MCP 服务器：历史单服务器字段 + Agent Plugins 包的多服务器。
+    pub fn all_mcp_servers(&self) -> impl Iterator<Item = &McpServerConfig> {
+        self.mcp.iter().chain(self.mcp_servers.iter())
+    }
 }
 
 /// 从全局 `<data>/plugins` 与工作区 `plugins/` 发现插件（按 id 去重，工作区优先）。
+///
+/// 同一目录里两种包格式都支持：
+/// * `plugin.json` —— Agent Plugins 1.0.0 规范包（技能 + 多 MCP 服务器）；
+/// * `manifest.json` —— OwO 历史格式（单 MCP 服务器 + 签名/市场字段）。
+///
+/// 规范包优先；加载诊断可用 [`discover_plugins_with_report`] 取回。
 pub fn discover_plugins(workspace: &Path, data_root: &Path) -> Vec<(PathBuf, PluginManifest)> {
+    discover_plugins_with_report(workspace, data_root).0
+}
+
+/// 发现插件并返回加载诊断（未知字段、被跳过的技能/服务器、被拒绝的包）。
+pub fn discover_plugins_with_report(
+    workspace: &Path,
+    data_root: &Path,
+) -> (
+    Vec<(PathBuf, PluginManifest)>,
+    Vec<crate::agent_plugins::PluginDiagnostic>,
+) {
     let mut plugins = Vec::new();
+    let mut diagnostics = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for root in [workspace.join("plugins"), data_root.join("plugins")] {
         let Ok(entries) = std::fs::read_dir(&root) else {
@@ -67,6 +98,30 @@ pub fn discover_plugins(workspace: &Path, data_root: &Path) -> Vec<(PathBuf, Plu
         for entry in entries.flatten() {
             let is_dir = entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false);
             if !is_dir {
+                continue;
+            }
+            // Agent Plugins 1.0.0 规范包优先。
+            if crate::agent_plugins::is_agent_plugin_dir(&entry.path()) {
+                match crate::agent_plugins::load_agent_plugin(&entry.path(), None) {
+                    Ok(loaded) => {
+                        diagnostics.extend(loaded.diagnostics.iter().cloned());
+                        let manifest = agent_plugin_to_manifest(&loaded);
+                        if seen.insert(manifest.id.clone()) {
+                            plugins.push((
+                                entry
+                                    .path()
+                                    .join(crate::agent_plugins::AGENT_PLUGINS_MANIFEST_FILE),
+                                manifest,
+                            ));
+                        }
+                    }
+                    Err(error) => diagnostics.push(crate::agent_plugins::PluginDiagnostic {
+                        level: crate::agent_plugins::DiagnosticLevel::Error,
+                        code: error.code,
+                        path: Some(entry.path()),
+                        message: error.message,
+                    }),
+                }
                 continue;
             }
             let manifest_path = entry.path().join("manifest.json");
@@ -80,7 +135,49 @@ pub fn discover_plugins(workspace: &Path, data_root: &Path) -> Vec<(PathBuf, Plu
             }
         }
     }
-    plugins
+    (plugins, diagnostics)
+}
+
+/// 把 Agent Plugins 1.0.0 包映射为宿主内部 manifest。
+///
+/// 规范包没有签名/权限/最低版本字段：签名与市场治理仍走 `PluginManager` 的
+/// 历史格式（规范包按「未签名」处理，是否放行由调用方策略决定）。
+pub fn agent_plugin_to_manifest(
+    loaded: &crate::agent_plugins::LoadedAgentPlugin,
+) -> PluginManifest {
+    let name = loaded.manifest.name.clone();
+    PluginManifest {
+        id: name.clone(),
+        name,
+        version: loaded
+            .manifest
+            .version
+            .clone()
+            .unwrap_or_else(|| "0.0.0".to_string()),
+        description: loaded.manifest.description.clone().unwrap_or_default(),
+        // MCP 服务器需要工具通道；纯技能包不额外声明能力。
+        permissions: if loaded.mcp_servers.is_empty() {
+            Vec::new()
+        } else {
+            vec!["agent:tools".to_string()]
+        },
+        mcp: None,
+        mcp_servers: loaded
+            .mcp_servers
+            .iter()
+            .map(|server| {
+                let mut config = server.config.clone();
+                // 服务器名带上插件名：跨插件的同名 server 不会互相顶替工具。
+                config.name = format!("{}/{}", loaded.manifest.name, server.key);
+                config
+            })
+            .collect(),
+        hooks: loaded.hooks.clone(),
+        min_app_version: None,
+        entry: None,
+        network_allowlist: Vec::new(),
+        signature: None,
+    }
 }
 
 /// 插件启用状态存储（v0.5 生产加固）：只记录被禁用的 id，
@@ -583,6 +680,11 @@ impl PluginManager {
     /// 校验项：manifest 可解析、min_app_version 兼容、静态扫描零风险、
     /// 签名存在且有效（require_signature 时）。返回校验报告。
     pub fn verify_plugin_dir(&self, plugin_dir: &Path) -> Result<PluginInstallReport, String> {
+        // Agent Plugins 1.0.0 可移植包：走规范校验 + 可执行内容扫描（没有签名字段，
+        // 也不接受历史 `manifest.json` 的签名/最低版本语义）。
+        if crate::agent_plugins::is_agent_plugin_dir(plugin_dir) {
+            return self.verify_agent_plugin_dir(plugin_dir);
+        }
         let mut audit = Vec::new();
         let manifest_path = plugin_dir.join("manifest.json");
         let manifest = PluginManifest::load(&manifest_path)?;
@@ -657,11 +759,111 @@ impl PluginManager {
         }
 
         // 4. 沙箱门卫（X01）：插件宿主（MCP 服务器/入口）统一经 SandboxManager 授权。
-        if let Some(mcp) = &manifest.mcp {
+        let mut gated = 0usize;
+        for mcp in manifest.all_mcp_servers() {
             sandbox_gate_for_mcp(&manifest, mcp, self.egress_enabled)?;
-            audit.push("插件宿主沙箱策略通过".to_string());
+            gated += 1;
+        }
+        if gated > 0 {
+            audit.push(format!("插件宿主沙箱策略通过（{gated} 个 MCP 服务器）"));
         }
 
+        Ok(PluginInstallReport {
+            id: manifest.id.clone(),
+            version: manifest.version.clone(),
+            state: PluginInstallState::Verified,
+            audit,
+        })
+    }
+
+    /// 校验 Agent Plugins 1.0.0 可移植包目录。
+    ///
+    /// 与历史格式的差异：
+    /// * 清单用规范校验（`load_agent_plugin`），组件级问题按规范降级并写进审计；
+    /// * 没有 `signature` / `min_app_version` 字段：不参与签名策略（审计留痕），
+    ///   也不做最低版本判断——这是规范包的固有形态，不是校验失败；
+    /// * 静态扫描只扫可执行内容（技能 `scripts/`、`servers/`、脚本后缀）。
+    fn verify_agent_plugin_dir(&self, plugin_dir: &Path) -> Result<PluginInstallReport, String> {
+        use crate::agent_plugins::{
+            load_agent_plugin, load_agent_plugin_signature, scan_agent_plugin_for_risks,
+            verify_agent_plugin_signature, DiagnosticLevel, AGENT_PLUGINS_SPEC_VERSION,
+        };
+
+        let mut audit = Vec::new();
+        let loaded = load_agent_plugin(plugin_dir, None)
+            .map_err(|error| format!("Agent Plugins 包校验失败：{error}"))?;
+        for diagnostic in &loaded.diagnostics {
+            if diagnostic.level >= DiagnosticLevel::Warning {
+                audit.push(format!("{diagnostic}"));
+            }
+        }
+        let manifest = agent_plugin_to_manifest(&loaded);
+        // 吊销对规范包同样生效（id = 包名）：不因为格式不同而绕过安全治理。
+        if self.is_revoked(&manifest.id, &manifest.version) {
+            return Err(format!(
+                "插件 {} {} 已被吊销，拒绝加载",
+                manifest.id, manifest.version
+            ));
+        }
+        // 可选签名层（plugin.sig.json）：存在即必须通过，缺失按未签名包处理（审计留痕）。
+        match load_agent_plugin_signature(plugin_dir) {
+            Ok(Some(signature)) => {
+                verify_agent_plugin_signature(plugin_dir, &signature)
+                    .map_err(|error| format!("规范包签名无效：{error}"))?;
+                audit.push("规范包签名校验通过（ed25519，覆盖包内容）".to_string());
+            }
+            Ok(None) => audit.push("规范包未签名（可选层，按未签名包处理）".to_string()),
+            Err(error) => return Err(format!("规范包签名文件无效：{error}")),
+        }
+        audit.push(format!(
+            "Agent Plugins {AGENT_PLUGINS_SPEC_VERSION} 包：{} v{}（skills={} mcp_servers={} hooks={}）",
+            manifest.id,
+            manifest.version,
+            loaded.skills.len(),
+            loaded.mcp_servers.len(),
+            loaded.hooks.len()
+        ));
+
+        // 0. 吊销检查与历史格式同口径。
+        if self.is_revoked(&manifest.id, &manifest.version) {
+            record_plugin_rejection(&manifest, "命中吊销列表".to_string());
+            return Err(format!(
+                "插件 {} {} 已被吊销，拒绝加载",
+                manifest.id, manifest.version
+            ));
+        }
+
+        // 0.5 路径校验（拷贝前拦截 zip-slip 变体与符号链接）。
+        validate_plugin_paths(&manifest, plugin_dir)?;
+        audit.push("路径校验通过（无 zip-slip / 符号链接）".to_string());
+
+        // 1. 签名：可移植包没有签名字段，签名策略不适用于它（如实留痕，不谎报已验签）。
+        if self.require_signature {
+            audit.push("签名：可移植包无签名字段，按未签名包处理（审计留痕）".to_string());
+        }
+
+        // 2. 静态扫描：只扫可执行内容，清单元数据里的 URL 不算网络请求。
+        let risks = scan_agent_plugin_for_risks(plugin_dir, &manifest.network_allowlist);
+        if !risks.is_empty() {
+            record_plugin_rejection(&manifest, format!("静态扫描未通过：{}", risks.join("；")));
+            return Err(format!(
+                "插件 {} 静态扫描未通过：{}",
+                manifest.id,
+                risks.join("；")
+            ));
+        }
+        audit.push("静态扫描通过（仅可执行内容）".to_string());
+
+        // 3. 沙箱门卫：每个 MCP 服务器都要过（与历史格式同一出口）。
+        for mcp in manifest.all_mcp_servers() {
+            sandbox_gate_for_mcp(&manifest, mcp, self.egress_enabled)?;
+        }
+        if !manifest.hooks.is_empty() {
+            audit.push(format!(
+                "插件贡献 hooks {} 条（与 settings hooks 合并执行）",
+                manifest.hooks.len()
+            ));
+        }
         Ok(PluginInstallReport {
             id: manifest.id.clone(),
             version: manifest.version.clone(),
@@ -703,8 +905,9 @@ impl PluginManager {
             return Err(format!("插件 {} 未安装，无法更新", report.id));
         }
         let mut audit = report.audit;
-        // 1. 备份旧版。
-        let backup = backup_root.join(format!("{}-{}", report.id, report.version));
+        // 1. 备份旧版（目录名用**已安装版本**，不是待更新版本）。
+        let installed_version = Self::installed_plugin_version(&target)?;
+        let backup = backup_root.join(format!("{}-{}", report.id, installed_version));
         if backup.exists() {
             let _ = std::fs::remove_dir_all(&backup);
         }
@@ -732,6 +935,85 @@ impl PluginManager {
             version: report.version,
             state: PluginInstallState::Activated,
             audit,
+        })
+    }
+
+    /// 读取已安装插件目录的版本（历史 manifest.json 或规范包 plugin.json）。
+    fn installed_plugin_version(dir: &Path) -> Result<String, String> {
+        if dir.join("manifest.json").exists() {
+            return Ok(PluginManifest::load(&dir.join("manifest.json"))?.version);
+        }
+        crate::agent_plugins::load_agent_plugin(dir, None)
+            .map_err(|error| format!("读取已安装插件失败：{error}"))?
+            .manifest
+            .version
+            .clone()
+            .ok_or_else(|| "已安装插件缺少版本".to_string())
+    }
+
+    /// 回滚：用备份恢复旧版（默认选最新备份；备份由 `update` 自动产生）。
+    ///
+    /// 先复制到暂存目录再替换，避免中途失败把插件目录留在半成品状态。
+    pub fn rollback(&self, id: &str, backup: Option<&Path>) -> Result<PluginInstallReport, String> {
+        let backup_root = self.data_root.join("plugins").join("backups");
+        let source = match backup {
+            Some(path) => path.to_path_buf(),
+            None => {
+                let entries = std::fs::read_dir(&backup_root).map_err(|error| {
+                    format!("没有可用的备份目录（{}）：{error}", backup_root.display())
+                })?;
+                let prefix = format!("{id}-");
+                let mut candidates: Vec<(std::time::SystemTime, PathBuf)> = entries
+                    .flatten()
+                    .filter(|entry| entry.file_name().to_string_lossy().starts_with(&prefix))
+                    .filter_map(|entry| {
+                        let path = entry.path();
+                        if !path.is_dir() {
+                            return None;
+                        }
+                        let modified = entry
+                            .metadata()
+                            .ok()
+                            .and_then(|meta| meta.modified().ok())?;
+                        Some((modified, path))
+                    })
+                    .collect();
+                candidates.sort_by_key(|(modified, _)| std::cmp::Reverse(*modified));
+                candidates
+                    .into_iter()
+                    .next()
+                    .map(|(_, path)| path)
+                    .ok_or_else(|| format!("插件 {id} 没有可回滚的备份（先 update 一次）"))?
+            }
+        };
+        if !source.is_dir() {
+            return Err(format!("备份目录不存在：{}", source.display()));
+        }
+        let version = if source.join("manifest.json").exists() {
+            PluginManifest::load(&source.join("manifest.json"))?.version
+        } else {
+            crate::agent_plugins::load_agent_plugin(&source, None)
+                .map_err(|error| format!("备份包无效：{error}"))?
+                .manifest
+                .version
+                .clone()
+                .unwrap_or_else(|| "0.0.0".to_string())
+        };
+        let target = self.data_root.join("plugins").join(id);
+        let staging = self
+            .data_root
+            .join("plugins")
+            .join(format!(".{id}-rollback"));
+        let _ = std::fs::remove_dir_all(&staging);
+        copy_dir(&source, &staging)?;
+        let _ = std::fs::remove_dir_all(&target);
+        copy_dir(&staging, &target).map_err(|error| format!("回滚写入失败：{error}"))?;
+        let _ = std::fs::remove_dir_all(&staging);
+        Ok(PluginInstallReport {
+            id: id.to_string(),
+            version,
+            state: PluginInstallState::Activated,
+            audit: vec![format!("已从备份回滚：{}", source.display())],
         })
     }
 
@@ -1035,6 +1317,18 @@ pub fn plugin_mcp_config(
     Some(config)
 }
 
+/// 插件的全部 MCP 服务器配置（历史单服务器 + Agent Plugins 多服务器）。
+///
+/// 规范包的服务器在加载时已经解析成绝对路径与展开后的参数，这里原样透传；
+/// 历史格式仍按 manifest 所在目录解析相对入口。
+pub fn plugin_mcp_configs(manifest_path: &Path, manifest: &PluginManifest) -> Vec<McpServerConfig> {
+    let mut configs: Vec<McpServerConfig> = manifest.mcp_servers.clone();
+    if let Some(config) = plugin_mcp_config(manifest_path, manifest) {
+        configs.push(config);
+    }
+    configs
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1122,6 +1416,8 @@ mod tests {
             entry: None,
             network_allowlist: Vec::new(),
             signature: None,
+            mcp_servers: Vec::new(),
+            hooks: Vec::new(),
             mcp: Some(McpServerConfig {
                 name: "ignored".to_string(),
                 transport: "stdio".to_string(),
@@ -1131,6 +1427,9 @@ mod tests {
                 timeout_ms: None,
                 network_allowlist: Vec::new(),
                 trusted_readonly: Vec::new(),
+                env: std::collections::BTreeMap::new(),
+                cwd: None,
+                headers: std::collections::BTreeMap::new(),
             }),
         };
         // 相对命令按 manifest 目录解析；服务器名 = 插件 id。
@@ -1150,9 +1449,58 @@ mod tests {
             entry: None,
             network_allowlist: Vec::new(),
             signature: None,
+            mcp_servers: Vec::new(),
+            hooks: Vec::new(),
             mcp: None,
         };
         assert!(plugin_mcp_config(&manifest_path, &bare).is_none());
+        assert!(plugin_mcp_configs(&manifest_path, &bare).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 回滚：update 产生的备份可恢复旧版本，且目标目录落回旧清单。
+    #[test]
+    fn rollback_restores_previous_version_from_backup() {
+        let root = std::env::temp_dir().join(format!("owo-rollback-{}", uuid::Uuid::new_v4()));
+        let data = root.join("data");
+        std::fs::create_dir_all(&data).unwrap();
+        let write_pkg = |dir: &Path, version: &str| {
+            std::fs::create_dir_all(dir).unwrap();
+            let manifest = serde_json::json!({
+                "id": "demo",
+                "name": "Demo",
+                "version": version,
+            });
+            std::fs::write(
+                dir.join("manifest.json"),
+                serde_json::to_string_pretty(&manifest).unwrap(),
+            )
+            .unwrap();
+        };
+        let pkg1 = root.join("pkg1");
+        let pkg2 = root.join("pkg2");
+        write_pkg(&pkg1, "1.0.0");
+        write_pkg(&pkg2, "2.0.0");
+        let mut manager = PluginManager::new(data.clone(), "0.5.0".to_string());
+        manager.set_require_signature(false);
+        manager.install(&pkg1).unwrap();
+        manager
+            .update(&pkg2, &data.join("plugins/backups"))
+            .unwrap();
+        let installed = data.join("plugins/demo/manifest.json");
+        assert_eq!(PluginManifest::load(&installed).unwrap().version, "2.0.0");
+        // 备份目录名应记录被替换的版本（1.0.0），而不是新版本。
+        assert!(
+            data.join("plugins/backups/demo-1.0.0").is_dir(),
+            "备份应命名为 demo-1.0.0"
+        );
+
+        let report = manager.rollback("demo", None).expect("回滚应成功");
+        assert_eq!(report.version, "1.0.0");
+        assert_eq!(PluginManifest::load(&installed).unwrap().version, "1.0.0");
+
+        // 没有备份的插件回滚应给出可读错误。
+        assert!(manager.rollback("missing", None).is_err());
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

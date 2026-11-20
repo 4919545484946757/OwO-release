@@ -10,6 +10,7 @@
 namespace owo::protocol {
 
 inline constexpr std::size_t kMaximumCandidateCount = 256;
+inline constexpr std::size_t kMaximumSyllableBytes = 16;
 
 enum class CandidateGroup : std::uint64_t {
     sentence = 0,
@@ -28,6 +29,8 @@ enum class MessageType {
     candidate_update_request,
     candidate_update_response,
     candidate_committed,
+    user_lexicon_request,
+    user_lexicon_response,
     agent_context_recorded,
     agent_request,
     agent_response,

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="SettingsModulesTests.cs"/>
+    <Compile Include="../../apps/settings_center/ConfigShellClient.cs" Link="ConfigShellClient.cs"/>
+    <Compile Include="../../apps/settings_center/SettingsModules.cs" Link="SettingsModules.cs"/>
+    <Compile Include="../../apps/settings_center/SettingsModuleDefinitions.cs" Link="SettingsModuleDefinitions.cs"/>
+    <Compile Include="../../apps/settings_center/InputSchemeSettingsPolicy.cs" Link="InputSchemeSettingsPolicy.cs"/>
+    <Compile Include="../../apps/settings_center/ShortcutSettingsValidation.cs" Link="ShortcutSettingsValidation.cs"/>
+  </ItemGroup>
+</Project>

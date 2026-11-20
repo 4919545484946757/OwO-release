@@ -1236,7 +1236,9 @@
           "messages": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ChatMessage"
+              "$ref": "#/components/schemas/ChatMessage",
+              "additionalProperties": true,
+              "type": "object"
             }
           },
           "turn_history": {
@@ -16104,6 +16106,215 @@
             "bearerAuth": []
           }
         ]
+      }
+    },
+    "/playbooks": {
+      "get": {
+        "operationId": "playbookList",
+        "responses": {
+          "200": {
+            "description": "workspace playbooks with progress"
+          }
+        }
+      }
+    },
+    "/playbooks/status": {
+      "get": {
+        "operationId": "playbookStatus",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "single playbook progress"
+          },
+          "400": {
+            "description": "invalid path or playbook"
+          }
+        }
+      }
+    },
+    "/playbooks/record": {
+      "post": {
+        "operationId": "playbookRecord",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "step",
+                  "outcome"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  },
+                  "step": {
+                    "type": "string"
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "pass",
+                      "fail",
+                      "skip"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "recorded progress"
+          },
+          "400": {
+            "description": "invalid request"
+          }
+        }
+      }
+    },
+    "/playbooks/history": {
+      "get": {
+        "operationId": "playbookHistory",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "archived runs with per-step states"
+          },
+          "400": {
+            "description": "invalid path or playbook"
+          }
+        }
+      }
+    },
+    "/playbooks/archive": {
+      "post": {
+        "operationId": "playbookArchive",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  },
+                  "marker": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "archived snapshot"
+          },
+          "400": {
+            "description": "missing state or invalid marker"
+          }
+        }
+      }
+    },
+    "/playbooks/init": {
+      "post": {
+        "operationId": "playbookInit",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "created skeleton"
+          },
+          "400": {
+            "description": "invalid or duplicate id"
+          }
+        }
+      }
+    },
+    "/playbooks/reset": {
+      "post": {
+        "operationId": "playbookReset",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "snapshot taken and progress reset"
+          },
+          "400": {
+            "description": "no state to reset"
+          }
+        }
+      }
+    },
+    "/sharedcore/state": {
+      "get": {
+        "operationId": "sharedcoreState",
+        "responses": {
+          "200": {
+            "description": "SharedCore project state and plan"
+          }
+        }
       }
     }
   },

@@ -58,6 +58,8 @@ pub(crate) struct Repl {
     skills: SkillRegistry,
     settings: Settings,
     plugins: Vec<PluginManifest>,
+    /// 已启用插件的包根（插件包内 `skills/` 的技能来源；禁用插件不在其中）。
+    plugin_roots: Vec<PathBuf>,
     audit_flushed: usize,
     perception: SituationStore,
     learn: LearnRecorder,
@@ -111,6 +113,11 @@ impl Repl {
             owo_agent_core::plugin::discover_enabled_plugins(&workspace, &root, &plugin_state)
         };
         merge_plugin_mcp(&enabled_plugins, &mut mcp_configs);
+        // 插件包内 `skills/`（Agent Plugins 1.0.0）随插件启用状态加载。
+        let plugin_roots: Vec<PathBuf> = enabled_plugins
+            .iter()
+            .filter_map(|(manifest_path, _)| manifest_path.parent().map(|dir| dir.to_path_buf()))
+            .collect();
         let plugins: Vec<PluginManifest> = discovered_plugins
             .into_iter()
             .map(|(_, manifest)| manifest)
@@ -124,7 +131,8 @@ impl Repl {
             }
             Err(error) => eprintln!("内置技能安装失败：{error}"),
         }
-        let mut skills = SkillRegistry::discover(&workspace, &root);
+        let mut skills =
+            SkillRegistry::discover_with_plugin_skills(&workspace, &root, &plugin_roots);
         apply_disabled_skills(&mut skills, &settings);
         let mut whitelist = Whitelist::default();
         if !trust_gated {
@@ -142,10 +150,17 @@ impl Repl {
             &settings.deny_commands,
         )?);
         // A2-1：本地 REPL 装载 settings.json 的 hooks（与 server 同一出口）；
-        // 未信任工作区跳过（审查 N1）。
+        // 未信任工作区跳过（审查 N1）。插件贡献的 hooks 合并在同一次装载里。
         if !trust_gated {
+            let mut hook_configs = settings.hooks.clone();
+            for (_, manifest) in &enabled_plugins {
+                hook_configs.extend(owo_agent_core::hooks::plugin_hook_configs(
+                    &manifest.id,
+                    &manifest.hooks,
+                ));
+            }
             agent.set_hooks(owo_agent_core::hooks::HookManager::from_configs(
-                &settings.hooks,
+                &hook_configs,
             ));
         }
         // §11：--no-approval 弃用告警（兼容期显式映射 + 高风险提示）。
@@ -172,6 +187,7 @@ impl Repl {
             skills,
             settings,
             plugins,
+            plugin_roots,
             audit_flushed: 0,
             perception: SituationStore::new(),
             learn: LearnRecorder::new(),
@@ -358,7 +374,14 @@ impl Repl {
                 "approvals" => self.handle_approvals(parts.next()),
                 "goal" => {
                     let rest = command.strip_prefix("goal").unwrap_or("").trim();
-                    self.handle_goal(rest).await?;
+                    self.handle_goal(rest, crate::support::AdvanceMode::Legacy)
+                        .await?;
+                }
+                // 工作流增强：按进度推进（额外功能，不影响 /goal 的既有语义）。
+                "advance" => {
+                    let rest = command.strip_prefix("advance").unwrap_or("").trim();
+                    self.handle_goal(rest, crate::support::AdvanceMode::Progress)
+                        .await?;
                 }
                 "todo" => self.show_todos(),
                 "audit" => self.show_audit(),
@@ -449,17 +472,27 @@ impl Repl {
     }
 
     /// `/goal [目标|status|clear]`：目标模式——模型标记完成且宿主裁决允许交付时才停止。
-    async fn handle_goal(&mut self, arg: &str) -> Result<(), Box<dyn std::error::Error>> {
+    async fn handle_goal(
+        &mut self,
+        arg: &str,
+        mode: crate::support::AdvanceMode,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::support::AdvanceMode;
         match arg {
             "" | "status" => {
                 match &self.goal {
-                    Some(goal) => println!(
-                        "目标：{}\n  轮次：{}/{}  状态：{}",
-                        goal.objective,
-                        goal.iterations,
-                        crate::support::goal_iteration_label(goal_max_iterations()),
-                        if goal.done { "已完成" } else { "推进中" }
-                    ),
+                    Some(goal) => {
+                        println!(
+                            "目标：{}\n  轮次：{}/{}  状态：{}",
+                            goal.objective,
+                            goal.iterations,
+                            crate::support::goal_iteration_label(goal_max_iterations()),
+                            if goal.done { "已完成" } else { "推进中" }
+                        );
+                        if goal.mode == AdvanceMode::Progress {
+                            println!("  {}", crate::support::goal_progress_line(&goal.progress));
+                        }
+                    }
                     None => println!("（未设定目标；用法：/goal <目标描述>）"),
                 }
                 Ok(())
@@ -475,6 +508,8 @@ impl Repl {
                     objective: objective.to_string(),
                     iterations: 0,
                     done: false,
+                    progress: Default::default(),
+                    mode,
                 });
                 println!(
                     "{}（轮次上限：{}；/goal clear 停止）",
@@ -514,26 +549,38 @@ impl Repl {
                     let limit = crate::support::goal_iteration_label(max);
                     println!("{}", format!("── 目标推进 {iteration}/{limit} ──").bold());
                     let turn = self.run_turn_capture(&prompt).await?;
-                    if let Some(goal) = self.goal.as_mut() {
-                        goal.iterations = iteration;
-                    }
-                    if turn.failed {
-                        println!(
-                            "{} 回合失败，目标未完成（/goal status 查看；修复问题后可重新提交）",
-                            "!".red()
-                        );
-                        break;
-                    }
-                    if turn.completion_status == owo_agent_protocol::CompletionStatusV1::Aborted {
-                        println!("{} 目标推进已中止", "!".yellow());
-                        break;
-                    }
-                    if crate::support::goal_claim_is_accepted(&turn) {
+                    let accepted = crate::support::goal_claim_is_accepted(&turn);
+                    let step = match self.goal.as_mut() {
+                        Some(goal) => {
+                            goal.iterations = iteration;
+                            goal.progress.iterations = iteration as u32;
+                            crate::support::goal_step(mode, &mut goal.progress, &turn, accepted)
+                        }
+                        None => break,
+                    };
+                    if accepted {
                         if let Some(goal) = self.goal.as_mut() {
                             goal.done = true;
                         }
-                        println!("{} 目标完成（第 {iteration} 轮）", "✓".green());
-                        break;
+                    }
+                    match step {
+                        crate::support::GoalStep::Done => {
+                            println!("{} 目标完成（第 {iteration} 轮）", "✓".green());
+                            break;
+                        }
+                        crate::support::GoalStep::Stop { message, failed } => {
+                            if failed {
+                                println!("{} {}", "!".red(), message);
+                            } else {
+                                println!("{} {}", "!".yellow(), message);
+                            }
+                            break;
+                        }
+                        crate::support::GoalStep::Continue { note } => {
+                            if let Some(note) = note {
+                                println!("{}", note.yellow());
+                            }
+                        }
                     }
                     if turn
                         .final_text

@@ -139,3 +139,10 @@ foreach ($tip in $existingTips) {
     }
 }
 Write-Output 'Verified OwO in the current user input list; existing input methods preserved.'
+$check = Join-Path $projectRoot "build/$preset/$Configuration/owo_tsf_profile_check.exe"
+if (Test-Path -LiteralPath $check -PathType Leaf) {
+    & $check --refresh-cache
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning 'TSF registration cache refresh failed; signing out may be required. Existing applications may still use the previous DLL.'
+    }
+}

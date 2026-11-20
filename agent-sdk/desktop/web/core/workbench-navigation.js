@@ -13,6 +13,10 @@
       ["notes", "项目笔记", "整理 Markdown 文档与项目资料"],
       ["team", "共享技能", "评审、导入与导出技能包"],
     ] },
+    { label: "任务编排", items: [
+      ["playbook", "任务剧本", "按剧本推进并记录每一步的进度"],
+      ["sharedcore", "SharedCore", "多 Agent 共享上下文：任务 DAG、并行批次与事件"],
+    ] },
     { label: "工具与权限", items: [
       ["agent-tasks", "运行详情", "查看任务状态、检查点与验证记录"],
       ["plugin-market", "插件市场", "管理能力扩展"],

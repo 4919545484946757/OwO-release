@@ -206,6 +206,8 @@ fn signed_manifest(
         network_allowlist: Vec::new(),
         signature: None,
         mcp: None,
+        mcp_servers: Vec::new(),
+        hooks: Vec::new(),
     };
     let digest = owo_agent_core::plugin::plugin_digest(&manifest, entry_content);
     let signature = key.sign(&digest);
@@ -439,4 +441,137 @@ fn market_update_manifest_detects_available_updates() {
     // 未知插件无更新。
     assert!(!manifest.has_update("owo.plugin.unknown", "1.0.0", "0.5.8"));
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ---------- Agent Plugins 1.0.0：安装生命周期 ----------
+
+/// 造一个最小可移植包：清单 + 技能 + stdio 服务器 + 一条 hook。
+fn write_portable_package(root: &Path, name: &str, version: &str) {
+    let dir = root.join(name);
+    std::fs::create_dir_all(dir.join("skills/demo")).unwrap();
+    std::fs::create_dir_all(dir.join("servers")).unwrap();
+    std::fs::create_dir_all(dir.join("hooks")).unwrap();
+    std::fs::write(
+        dir.join("plugin.json"),
+        format!(
+            r#"{{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"{name}","version":"{version}","description":"可移植包测试"}}"#
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("mcp.json"),
+        r#"{"$schema":"https://agent-plugins.org/schemas/1.0.0/mcp.schema.json","mcpServers":{"demo":{"type":"stdio","command":"python","args":["./servers/server.py"]}}}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("servers/server.py"),
+        "import json\nprint(json.dumps({'ok': True}))\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("skills/demo/SKILL.md"),
+        "---\nname: demo\ndescription: 演示技能\n---\n\n正文。\n",
+    )
+    .unwrap();
+    std::fs::write(dir.join("hooks/guard.cmd"), "@exit /b 0\r\n").unwrap();
+}
+
+#[test]
+fn portable_package_installs_with_components_audited() {
+    let workspace = std::env::temp_dir().join(format!("owo-portable-ws-{}", uuid::Uuid::new_v4()));
+    let data = std::env::temp_dir().join(format!("owo-portable-data-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&workspace).unwrap();
+    write_portable_package(&workspace, "portable-demo", "1.0.0");
+
+    let manager = PluginManager::new(data.clone(), "0.1.0".to_string());
+    let report = manager
+        .install(&workspace.join("portable-demo"))
+        .expect("可移植包应可安装");
+    assert_eq!(report.id, "portable-demo");
+    assert_eq!(report.version, "1.0.0");
+    assert_eq!(report.state, PluginInstallState::Activated);
+    let joined = report.audit.join("\n");
+    assert!(joined.contains("Agent Plugins 1.0.0 包"), "{joined}");
+    assert!(joined.contains("skills=1"), "{joined}");
+    assert!(joined.contains("静态扫描通过"), "{joined}");
+    assert!(joined.contains("无签名字段"), "{joined}");
+    // 已激活到数据目录，且仍是可被发现的规范包。
+    let installed = data.join("plugins").join("portable-demo");
+    assert!(installed.join("plugin.json").is_file());
+    assert!(installed.join("skills/demo/SKILL.md").is_file());
+
+    let _ = std::fs::remove_dir_all(&workspace);
+    let _ = std::fs::remove_dir_all(&data);
+}
+
+#[test]
+fn portable_package_with_risky_script_is_rejected() {
+    let workspace =
+        std::env::temp_dir().join(format!("owo-portable-risk-{}", uuid::Uuid::new_v4()));
+    let data =
+        std::env::temp_dir().join(format!("owo-portable-risk-data-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&workspace).unwrap();
+    write_portable_package(&workspace, "risky-demo", "1.0.0");
+    std::fs::write(
+        workspace.join("risky-demo/servers/evil.py"),
+        "import subprocess\nsubprocess.run(['cmd'])\n",
+    )
+    .unwrap();
+
+    let manager = PluginManager::new(data.clone(), "0.1.0".to_string());
+    let error = manager
+        .install(&workspace.join("risky-demo"))
+        .expect_err("含危险调用的包必须被拒绝");
+    assert!(error.contains("静态扫描未通过"), "{error}");
+    assert!(!data.join("plugins").join("risky-demo").exists());
+
+    let _ = std::fs::remove_dir_all(&workspace);
+    let _ = std::fs::remove_dir_all(&data);
+}
+
+#[test]
+fn portable_package_update_replaces_version() {
+    let workspace = std::env::temp_dir().join(format!("owo-portable-upd-{}", uuid::Uuid::new_v4()));
+    let data = std::env::temp_dir().join(format!("owo-portable-upd-data-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&workspace).unwrap();
+    write_portable_package(&workspace, "upd-demo", "1.0.0");
+    let manager = PluginManager::new(data.clone(), "0.1.0".to_string());
+    manager
+        .install(&workspace.join("upd-demo"))
+        .expect("首次安装");
+
+    // 直接改版本重写清单（update 会重新校验）。
+    std::fs::write(
+        workspace.join("upd-demo/plugin.json"),
+        r#"{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"upd-demo","version":"1.1.0"}"#,
+    )
+    .unwrap();
+    let backup = data.join("backups");
+    let report = manager
+        .update(&workspace.join("upd-demo"), &backup)
+        .expect("更新应成功");
+    assert_eq!(report.version, "1.1.0");
+    let installed = std::fs::read_to_string(data.join("plugins/upd-demo/plugin.json")).unwrap();
+    assert!(installed.contains("1.1.0"), "{installed}");
+
+    let _ = std::fs::remove_dir_all(&workspace);
+    let _ = std::fs::remove_dir_all(&data);
+}
+
+#[test]
+fn revoked_portable_package_is_refused() {
+    let workspace = std::env::temp_dir().join(format!("owo-portable-rev-{}", uuid::Uuid::new_v4()));
+    let data = std::env::temp_dir().join(format!("owo-portable-rev-data-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&workspace).unwrap();
+    write_portable_package(&workspace, "rev-demo", "1.0.0");
+
+    let mut manager = PluginManager::new(data.clone(), "0.1.0".to_string());
+    manager.add_revocation("rev-demo", "*", "安全事件");
+    let error = manager
+        .install(&workspace.join("rev-demo"))
+        .expect_err("吊销包必须被拒绝");
+    assert!(error.contains("已被吊销"), "{error}");
+
+    let _ = std::fs::remove_dir_all(&workspace);
+    let _ = std::fs::remove_dir_all(&data);
 }

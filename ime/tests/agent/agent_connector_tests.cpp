@@ -26,5 +26,11 @@ int main() {
     settings.sensitive_filter_enabled = false;
     const auto disabled = owo::agent::decode_response(process_request(invocation, settings).payload);
     if (!disabled.ok || disabled.value.error_code != "filter_disabled") return 2;
+    settings.sensitive_filter_enabled = true;
+    settings.require_pairing = true;
+    const auto unpaired = owo::agent::decode_response(process_request(invocation, settings).payload);
+    if (!unpaired.ok || unpaired.value.error_code != "pairing_unavailable") return 3;
+    const auto cancelled = exchange_configured_agent(settings, invocation.payload, std::chrono::milliseconds(500));
+    if (cancelled.ok || cancelled.diagnostic != "pairing unavailable") return 4;
     return 0;
 }

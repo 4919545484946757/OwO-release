@@ -491,9 +491,12 @@ PluginInvokeResult PluginHostSession::invoke(PluginInvokeRequest request) {
             implementation_->pipe, remaining(deadline));
         if (!response.status.ok) {
             const auto reason = forced_reason.load(std::memory_order_acquire);
-            const bool timed_out = reason == 1 ||
-                (reason == 0 && std::chrono::steady_clock::now() +
-                    std::chrono::milliseconds(5) >= deadline);
+            // The pipe layer reports its own deadline expiry: Windows quantizes waits by the
+            // timer tick, so a read can fail a few milliseconds before the watchdog records
+            // the timeout. Inferring from the wall clock alone classified that as a plugin
+            // error and made owo.plugin.host flaky under load.
+            const bool timed_out = reason == 1 || response.status.timed_out ||
+                (reason == 0 && std::chrono::steady_clock::now() >= deadline);
             const bool cancelled = reason == 2 || reason == 3 || cancellation.stop_requested();
             const auto diagnostic = timed_out
                 ? std::string("plugin invocation exceeded its deadline")

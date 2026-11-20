@@ -32,6 +32,14 @@
       "displayName": "Windows x64 Debug"
     },
     {
+      "name": "windows-developer",
+      "inherits": "windows-base",
+      "displayName": "Isolated Windows developer CLI",
+      "cacheVariables": {
+        "OWO_BUILD_DEVELOPER_TOOLS": "ON"
+      }
+    },
+    {
       "name": "windows-release",
       "inherits": "windows-base",
       "displayName": "Windows x64 Release"
@@ -69,6 +77,11 @@
   ],
   "buildPresets": [
     {
+      "name": "windows-developer",
+      "configurePreset": "windows-developer",
+      "configuration": "Release"
+    },
+    {
       "name": "windows-debug",
       "configurePreset": "windows-debug",
       "configuration": "Debug"
@@ -100,6 +113,12 @@
     }
   ],
   "testPresets": [
+    {
+      "name": "windows-developer",
+      "configurePreset": "windows-developer",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    },
     {
       "name": "windows-debug",
       "configurePreset": "windows-debug",

@@ -14,6 +14,234 @@ pub(crate) struct GoalState {
     pub objective: String,
     pub iterations: usize,
     pub done: bool,
+    /// 按进度推进的账本（连续失败/连续同状态/轮数），驱动"继续/重试/停滞/结束"。
+    /// 只在 [`AdvanceMode::Progress`] 下读取：`/goal` 的既有语义不受影响。
+    pub progress: owo_agent_core::goal_progress::GoalProgress,
+    /// 推进模式：`/goal` = Legacy（保持既有行为），`/advance` = Progress（工作流增强）。
+    pub mode: AdvanceMode,
+}
+
+/// 目标推进模式。**工作流是额外功能**：默认 `Legacy` 完全不改变 `/goal` 的既有行为，
+/// 进度策略只在新命令 `/advance` 下生效。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AdvanceMode {
+    /// 既有行为：失败即停、状态不变继续跑、无停滞检测。
+    Legacy,
+    /// 按进度推进：有界重试 + 停滞检测（`/advance`）。
+    Progress,
+}
+
+// ---------------------------------------------------------------------------
+// `/advance --playbook`：剧本状态读取与提示词（只读；记录由模型经工具完成）
+// ---------------------------------------------------------------------------
+
+/// 剧本状态文件：与剧本同目录的 `<stem>.state.json`（与 CLI/API 同一约定）。
+pub(crate) fn playbook_state_path(file: &std::path::Path) -> std::path::PathBuf {
+    file.with_extension("state.json")
+}
+
+/// 读取剧本与当前运行状态（状态文件缺失 = 新运行）。路径必须在工作区内。
+pub(crate) fn load_playbook_run(
+    workspace: &std::path::Path,
+    file: &std::path::Path,
+) -> Result<
+    (
+        owo_agent_core::playbook::Playbook,
+        owo_agent_core::playbook::PlaybookRun,
+    ),
+    String,
+> {
+    let base = workspace
+        .canonicalize()
+        .unwrap_or_else(|_| workspace.to_path_buf());
+    let candidate = if file.is_absolute() {
+        file.to_path_buf()
+    } else {
+        base.join(file)
+    };
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|error| format!("剧本不存在或不可读（{}）：{error}", file.display()))?;
+    if !canonical.starts_with(&base) {
+        return Err(format!("剧本路径越出工作区：{}", file.display()));
+    }
+    let content = std::fs::read_to_string(&canonical)
+        .map_err(|error| format!("读取剧本失败（{}）：{error}", canonical.display()))?;
+    let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+    let playbook: owo_agent_core::playbook::Playbook =
+        serde_json::from_str(content).map_err(|error| format!("剧本不是合法 JSON：{error}"))?;
+    let issues = playbook.validate();
+    if !issues.is_empty() {
+        return Err(format!(
+            "剧本不合法（{} 个问题）：先运行 playbook validate",
+            issues.len()
+        ));
+    }
+    let state_path = playbook_state_path(&canonical);
+    let run = if state_path.exists() {
+        let state = std::fs::read_to_string(&state_path)
+            .map_err(|error| format!("读取状态文件失败：{error}"))?;
+        let state = state.strip_prefix('\u{feff}').unwrap_or(&state);
+        let run: owo_agent_core::playbook::PlaybookRun = serde_json::from_str(state)
+            .map_err(|error| format!("状态文件不是合法 JSON：{error}"))?;
+        if run.playbook_id != playbook.id {
+            return Err(format!(
+                "状态文件属于另一个剧本（{} ≠ {}）",
+                run.playbook_id, playbook.id
+            ));
+        }
+        run
+    } else {
+        owo_agent_core::playbook::PlaybookRun::new(&playbook)
+    };
+    Ok((playbook, run))
+}
+
+/// 剧本推进的宿主判定：完成 / 有下一步 / 阻塞。
+pub(crate) enum PlaybookDirective {
+    Complete,
+    Next(owo_agent_core::playbook::PlaybookStep),
+    /// 没有可执行步骤：附"重试耗尽"的步骤 id（可能为空 = 前置被跳过等）。
+    Blocked(Vec<String>),
+}
+
+/// 纯函数：宿主按剧本状态决定推进循环该做什么（不读文件、不执行命令）。
+pub(crate) fn playbook_directive(
+    playbook: &owo_agent_core::playbook::Playbook,
+    run: &owo_agent_core::playbook::PlaybookRun,
+) -> PlaybookDirective {
+    if run.is_complete(playbook) {
+        return PlaybookDirective::Complete;
+    }
+    match run.next_ready(playbook) {
+        Some(step) => PlaybookDirective::Next(step.clone()),
+        None => {
+            let exhausted: Vec<String> = playbook
+                .steps
+                .iter()
+                .filter(|step| {
+                    matches!(
+                        run.states.get(&step.id),
+                        Some(owo_agent_core::playbook::StepState::Failed { .. })
+                    ) && run.attempts_exhausted(step)
+                })
+                .map(|step| step.id.clone())
+                .collect();
+            PlaybookDirective::Blocked(exhausted)
+        }
+    }
+}
+
+/// 剧本推进的提示块：当前步骤 + 判据 + 命令 + 进度。
+pub(crate) fn playbook_prompt(
+    playbook: &owo_agent_core::playbook::Playbook,
+    run: &owo_agent_core::playbook::PlaybookRun,
+    step: &owo_agent_core::playbook::PlaybookStep,
+) -> String {
+    let kind = match step.kind {
+        owo_agent_core::playbook::StepKind::Model => "model",
+        owo_agent_core::playbook::StepKind::Check => "check",
+        owo_agent_core::playbook::StepKind::Human => "human",
+    };
+    let mut prompt = format!(
+        "【剧本推进】剧本：{}（{}）· 进度 {}\n当前步骤：{} — {}（{kind}）",
+        playbook.name,
+        playbook.id,
+        run.summary(playbook),
+        step.id,
+        step.title
+    );
+    if !step.detail.is_empty() {
+        prompt.push_str(&format!("\n说明：{}", step.detail));
+    }
+    if !step.acceptance.is_empty() {
+        prompt.push_str(&format!("\n完成判据：{}", step.acceptance));
+    }
+    if !step.command.is_empty() {
+        prompt.push_str(&format!(
+            "\n命令：{}（check 步骤用 playbook_check 执行，不要手工改状态）",
+            step.command
+        ));
+    }
+    if let Some(limit) = step.max_attempts {
+        prompt.push_str(&format!(
+            "\n重试上限：{limit} 次（已失败 {} 次）",
+            run.attempts(&step.id)
+        ));
+    }
+    if let Some(kind) = run.failure_kind(&step.id) {
+        prompt.push_str(&format!("\n上次失败类型：{kind}"));
+        if let Some(hint) = run.failure_recovery_hint(&step.id) {
+            prompt.push_str(&format!("\n恢复建议：{hint}"));
+        }
+    }
+    prompt.push_str(
+        "\n要求：本轮只推进这一步；完成后用 playbook_record（或 playbook_check）记录结果，\
+         不要跳步。剧本全部步骤通过后，再检查整体目标是否完成。",
+    );
+    prompt
+}
+
+/// 推进循环的下一步。
+pub(crate) enum GoalStep {
+    /// 继续下一轮（可带一条提示）。
+    Continue { note: Option<String> },
+    /// 目标达成。
+    Done,
+    /// 停止自动推进（附原因）。
+    Stop { message: String, failed: bool },
+}
+
+/// 按模式决定下一步——这是一个纯函数，便于把「既有行为不回归」写成测试。
+pub(crate) fn goal_step(
+    mode: AdvanceMode,
+    progress: &mut owo_agent_core::goal_progress::GoalProgress,
+    turn: &GoalTurnResult,
+    accepted: bool,
+) -> GoalStep {
+    match mode {
+        AdvanceMode::Legacy => {
+            if accepted {
+                GoalStep::Done
+            } else if turn.failed {
+                GoalStep::Stop {
+                    message: "回合失败，目标未完成（/goal status 查看；修复问题后可重新提交）"
+                        .to_string(),
+                    failed: true,
+                }
+            } else if turn.completion_status == owo_agent_protocol::CompletionStatusV1::Aborted {
+                GoalStep::Stop {
+                    message: "目标推进已中止".to_string(),
+                    failed: false,
+                }
+            } else {
+                GoalStep::Continue { note: None }
+            }
+        }
+        AdvanceMode::Progress => {
+            use owo_agent_core::goal_progress::AdvanceOutcome;
+            match goal_advance(progress, turn, accepted) {
+                AdvanceOutcome::Done => GoalStep::Done,
+                AdvanceOutcome::Continue => GoalStep::Continue { note: None },
+                AdvanceOutcome::Retry { .. } => GoalStep::Continue {
+                    note: goal_advance_message(&AdvanceOutcome::Retry {
+                        consecutive_failures: progress.consecutive_failures,
+                    }),
+                },
+                other => {
+                    let failed = matches!(
+                        other,
+                        AdvanceOutcome::Failed { .. } | AdvanceOutcome::Stall { .. }
+                    );
+                    GoalStep::Stop {
+                        message: goal_advance_message(&other)
+                            .unwrap_or_else(|| "目标推进已停止".to_string()),
+                        failed,
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -108,6 +336,86 @@ pub(crate) fn goal_is_done(final_text: &str) -> bool {
         .rev()
         .find(|line| !line.trim().is_empty())
         .is_some_and(|line| line.trim() == GOAL_DONE_MARKER)
+}
+
+/// 宿主完成状态的稳定短名（用于进度账本比较：同名才算"没变化"）。
+pub(crate) fn completion_status_label(
+    status: owo_agent_protocol::CompletionStatusV1,
+) -> &'static str {
+    use owo_agent_protocol::CompletionStatusV1 as Status;
+    match status {
+        Status::ResponseComplete => "response_complete",
+        Status::Candidate => "candidate",
+        Status::Accepted => "accepted",
+        Status::Unverified => "unverified",
+        Status::Blocked => "blocked",
+        Status::Aborted => "aborted",
+    }
+}
+
+/// 把本回合结果交给推进策略，得到「继续/重试/停滞/失败/完成/中止」决策。
+pub(crate) fn goal_advance(
+    progress: &mut owo_agent_core::goal_progress::GoalProgress,
+    turn: &GoalTurnResult,
+    accepted: bool,
+) -> owo_agent_core::goal_progress::AdvanceOutcome {
+    use owo_agent_core::goal_progress::{AdvancePolicy, TurnVerdict};
+    let policy = AdvancePolicy::from_env();
+    let verdict = if accepted {
+        TurnVerdict::Accepted
+    } else if turn.failed {
+        TurnVerdict::Failed
+    } else if turn.completion_status == owo_agent_protocol::CompletionStatusV1::Aborted {
+        TurnVerdict::Aborted
+    } else {
+        TurnVerdict::Status(completion_status_label(turn.completion_status))
+    };
+    progress.record(verdict, &policy)
+}
+
+/// `/goal status` 的进度行：把账本翻译成一句人话（停滞/失败streak 一眼可见）。
+pub(crate) fn goal_progress_line(progress: &owo_agent_core::goal_progress::GoalProgress) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if progress.consecutive_failures > 0 {
+        parts.push(format!("连续失败 {} 次", progress.consecutive_failures));
+    }
+    if progress.consecutive_same_status > 1 {
+        let status = progress.last_status.as_deref().unwrap_or("unknown");
+        parts.push(format!(
+            "连续 {} 轮宿主状态未变（{status}）",
+            progress.consecutive_same_status
+        ));
+    }
+    if parts.is_empty() {
+        "进度：正常（每轮都有新的宿主状态）".to_string()
+    } else {
+        format!("进度：{}", parts.join("；"))
+    }
+}
+
+/// 决策的终端可读说明（`None` = 正常继续，无需额外输出）。
+pub(crate) fn goal_advance_message(
+    outcome: &owo_agent_core::goal_progress::AdvanceOutcome,
+) -> Option<String> {
+    use owo_agent_core::goal_progress::AdvanceOutcome;
+    match outcome {
+        AdvanceOutcome::Continue => None,
+        AdvanceOutcome::Retry {
+            consecutive_failures,
+        } => Some(format!(
+            "回合失败（连续 {consecutive_failures} 次），仍在重试预算内，继续推进…"
+        )),
+        AdvanceOutcome::Failed {
+            consecutive_failures,
+        } => Some(format!(
+            "连续失败 {consecutive_failures} 次，已停止自动推进（/goal status 查看进度；修复后 /goal run 继续）"
+        )),
+        AdvanceOutcome::Stall { status, rounds } => Some(format!(
+            "目标停滞：连续 {rounds} 轮宿主状态都是 `{status}`，没有产生可验收的进展；已停止自动推进。建议拆分目标、补完成标准，或换更具体的下一步"
+        )),
+        AdvanceOutcome::Done => Some("目标完成".to_string()),
+        AdvanceOutcome::Aborted => Some("目标推进已中止".to_string()),
+    }
 }
 
 /// 目标激活且未完成时，把目标附到输入前；否则原样返回。

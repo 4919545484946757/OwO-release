@@ -24,6 +24,8 @@ public partial class App : Application
     private Window? _window;
     internal static string? InstallPackageRoot { get; private set; }
     internal static string? InstallPreviewStage { get; private set; }
+    internal static InstallerPayload? BundledInstaller => null;
+    internal static string ResourceDirectory => AppContext.BaseDirectory;
     internal Window MainWindow => _window
         ?? throw new InvalidOperationException("主窗口尚未创建。");
     
@@ -48,6 +50,17 @@ public partial class App : Application
         } catch {
             // Preserve the original WinUI exception when diagnostics cannot be written.
         }
+    }
+
+    internal static void LogStage(string stage)
+    {
+        try {
+            var directory = System.IO.Path.Combine(Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData), "OwO", "InputMethod", "logs");
+            Directory.CreateDirectory(directory);
+            File.AppendAllText(System.IO.Path.Combine(directory, "setup-startup.log"),
+                $"{DateTimeOffset.Now:O} {stage}\n");
+        } catch { }
     }
 
     /// <summary>

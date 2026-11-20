@@ -1,0 +1,14 @@
+[
+  {
+    "event": "pre_tool_use",
+    "matcher": "desktop_*",
+    "command": "./hooks/guard.cmd",
+    "args": ["--block-desktop"],
+    "fail_mode": "closed"
+  },
+  {
+    "event": "user_prompt_submit",
+    "command": "${PLUGIN_ROOT}/hooks/guard.cmd",
+    "args": ["--check-prompt"]
+  }
+]

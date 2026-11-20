@@ -57,9 +57,9 @@
                 <StackPanel Orientation="Horizontal"
                             Spacing="10"
                             VerticalAlignment="Center">
-                    <FontIcon Glyph=""
-                            FontSize="22"
-                            VerticalAlignment="Center"/>
+                    <Image Source="Assets/Square44x44Logo.scale-200.png"
+                           Width="28" Height="28"
+                           VerticalAlignment="Center"/>
 
                     <Button Click="GeneralSettings_Click" Background="Transparent" BorderThickness="0" Padding="0" AutomationProperties.Name="打开通用设置">
                         <TextBlock Text="OwO 输入法"
@@ -93,6 +93,9 @@
                         <FontIcon Glyph=""/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem x:Name="UserLexiconNavigationItem" Content="用户词库" Tag="user-lexicon">
+                    <NavigationViewItem.Icon><SymbolIcon Symbol="Library"/></NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem x:Name="PluginNavigationItem" Content="插件" Tag="plugins">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph=""/>
@@ -100,7 +103,7 @@
                 </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.PaneFooter>
-                <TextBlock Text="OwO 0.2.3" Margin="16,8,8,16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <TextBlock Text="OwO 0.2.5" Margin="16,8,8,16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             </NavigationView.PaneFooter>
             <Grid Background="{ThemeResource SettingsContentBackgroundBrush}" x:Name="MainContentRoot">
                 <Grid.RowDefinitions>
@@ -154,7 +157,7 @@
                                         <ComboBox x:Name="InputScheme" Grid.Column="1" MinWidth="200" SelectedValuePath="Id" DisplayMemberPath="Name" VerticalAlignment="Center" SelectionChanged="InputScheme_SelectionChanged"/>
                                     </Grid>
                                 </Border>
-                                <InfoBar x:Name="InputSchemeCapabilities" IsOpen="True" IsClosable="False" Severity="Informational" Message="正在读取输入方案能力。"/>
+                                <InfoBar x:Name="InputSchemeCapabilities" Visibility="Collapsed" IsOpen="False" IsClosable="False" Severity="Informational"/>
                                 <Button x:Name="DiscoverSchemesButton" Content="发现已授权插件输入方案" Click="DiscoverSchemes_Click"/>
                                 <TextBlock x:Name="CandidateSectionTitle" Text="候选显示与组合" Style="{StaticResource SectionTitleStyle}"/>
                                 <Border x:Name="CandidatePageSizeCard" Style="{StaticResource SettingsCardStyle}">
@@ -193,7 +196,20 @@
                                             <TextBlock Text="候选分区" Style="{StaticResource SettingTitleStyle}"/>
                                             <TextBlock Text="平衡词语候选与首字候选的屏内位置。" Style="{StaticResource SettingDescriptionStyle}"/>
                                         </StackPanel>
-                                        <ToggleSwitch x:Name="CandidatePartition" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
+                                        <ToggleSwitch x:Name="CandidatePartition" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="CandidateSingleCharacterFirstCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center" Spacing="4">
+                                            <TextBlock Text="完整单字拼音时单字区优先" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="启用候选分区时，可完整组成一个字的拼音会在每一页先显示单字区，再显示多字区；不改变各区数量。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="CandidateSingleCharacterFirst" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="CandidateImmediateCommitCard" Style="{StaticResource SettingsCardStyle}">
@@ -665,6 +681,34 @@
                                             <StackPanel x:Name="NextPageShortcutBindings" Spacing="8"/>
                                         </StackPanel>
                                     </Border>
+                                    <Border x:Name="ExpandedPreviousPageShortcutCard" Style="{StaticResource SettingsCardStyle}">
+                                        <StackPanel Spacing="10">
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="展开并选中上一候选页" Style="{StaticResource SettingTitleStyle}"/>
+                                                    <TextBlock Text="自动展开并将高亮移到上一页，数字键选择高亮页内的候选。默认 ↑。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                                </StackPanel>
+                                                <ToggleSwitch x:Name="ExpandedPreviousPageShortcutEnabled" Grid.Column="1"/>
+                                                <Button Grid.Column="2" Content="＋" Tag="expanded-previous-page" Click="AddShortcutButton_Click"/>
+                                            </Grid>
+                                            <StackPanel x:Name="ExpandedPreviousPageShortcutBindings" Spacing="8"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border x:Name="ExpandedNextPageShortcutCard" Style="{StaticResource SettingsCardStyle}">
+                                        <StackPanel Spacing="10">
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="展开并选中下一候选页" Style="{StaticResource SettingTitleStyle}"/>
+                                                    <TextBlock Text="自动展开并将高亮移到下一页，数字键选择高亮页内的候选。默认 ↓。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                                </StackPanel>
+                                                <ToggleSwitch x:Name="ExpandedNextPageShortcutEnabled" Grid.Column="1"/>
+                                                <Button Grid.Column="2" Content="＋" Tag="expanded-next-page" Click="AddShortcutButton_Click"/>
+                                            </Grid>
+                                            <StackPanel x:Name="ExpandedNextPageShortcutBindings" Spacing="8"/>
+                                        </StackPanel>
+                                    </Border>
                                     <Border x:Name="TextNavigationShortcutCard" Style="{StaticResource SettingsCardStyle}">
                                         <StackPanel Spacing="10">
                                             <Grid ColumnSpacing="8">
@@ -771,6 +815,7 @@
                             </ContentControl>
                         </Grid>
                     </ScrollViewer>
+                    <ContentControl x:Name="UserLexiconPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                     <ScrollViewer x:Name="GeneralPreferencesPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">
                             <Border x:Name="AutoSaveCard" Style="{StaticResource SettingsCardStyle}">
@@ -780,10 +825,108 @@
                                         <TextBlock Text="自动保存设置" Style="{StaticResource SettingTitleStyle}"/>
                                         <TextBlock Text="自动保存输入、快捷键、标点及插件配置。关闭后使用保存按钮；此开关立即保存。" Style="{StaticResource SettingDescriptionStyle}"/>
                                     </StackPanel>
-                                    <ToggleSwitch x:Name="AutoSaveSettings" Grid.Column="1" Toggled="AutoSaveSettings_Toggled" AutomationProperties.Name="自动保存设置"/>
+                                    <ToggleSwitch x:Name="AutoSaveSettings" Grid.Column="1" IsOn="True" Toggled="AutoSaveSettings_Toggled" AutomationProperties.Name="自动保存设置"/>
                                 </Grid>
                             </Border>
-                            <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Message="连续调整会合并为一次保存。无效配置不会覆盖已保存内容；安装、启用插件及权限授权仍需明确操作。"/>
+                            <Border x:Name="ConfigurationTransferCard" Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="配置导入与导出" Style="{StaticResource SettingTitleStyle}"/>
+                                    <TextBlock Text="备份或迁移输入方案、候选、学习与排序、快捷键、标点和自动保存偏好。不包含用户词库、插件配置及权限授权。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="导入配置" Click="ImportConfiguration_Click"/>
+                                        <Button Content="导出配置" Click="ExportConfiguration_Click"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <InfoBar x:Name="ConfigurationTransferStatus" IsOpen="False" IsClosable="True"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <ScrollViewer x:Name="StyleProfilePage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">
+                            <Button Content="返回学习与排序" Click="StyleProfileBack_Click"/>
+                            <InfoBar x:Name="StyleProfileNotice" IsOpen="True" IsClosable="False" Severity="Informational"/>
+                            <Border x:Name="StyleSceneCard" Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="按场景统计" Style="{StaticResource SettingTitleStyle}"/>
+                                    <TextBlock Text="场景由应用名推断，同一句话只归入一个场景。关闭某个场景后，档案和按语气起草都不再用它。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                    <StackPanel x:Name="StyleSceneFields" Spacing="8"/>
+                                </StackPanel>
+                            </Border>
+                            <Border x:Name="StylePreferencesCard" Style="{StaticResource SettingsCardStyle}">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="3">
+                                        <TextBlock Text="我手写的偏好" Style="{StaticResource SettingTitleStyle}"/>
+                                        <TextBlock Text="用一句话描述你希望怎么说话，例如“简短、少用感叹号”。它会和统计结果一起交给按语气起草；不会自动改写。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="StylePreferencesCount" Grid.Column="1" Text="0/512" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </Grid>
+                            </Border>
+                            <TextBox x:Name="StylePreferencesBox" MaxLength="512" PlaceholderText="简短、少用感叹号；对老师要正式一些" TextChanged="StylePreferences_TextChanged" AcceptsReturn="False"/>
+                            <TextBlock Text="档案" Style="{StaticResource SectionTitleStyle}"/>
+                            <InfoBar x:Name="StyleProfileStatus" IsOpen="True" IsClosable="False" Severity="Informational"/>
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock x:Name="StyleProfileText" Text="打开此页后自动统计。" FontFamily="Consolas" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                                    <Button Content="重新统计" Click="RefreshStyleProfile_Click"/>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="发送预览" Style="{StaticResource SectionTitleStyle}"/>
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="输入一条消息或一句开头，查看按语气起草时究竟会发送什么。这里只读取本机语料和配置，不会联网。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                    <TextBox x:Name="TonePreviewMessage" PlaceholderText="例如：明天组会几点？" AcceptsReturn="False"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button x:Name="TonePreviewButton" Content="查看将要发送的内容" Click="TonePreview_Click"/>
+                                        <ToggleSwitch x:Name="TonePreviewContinuation" OnContent="整句续写" OffContent="回复消息" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="TonePreviewText" Text="尚未预览。" FontFamily="Consolas" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                                </StackPanel>
+                            </Border>
+                            <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Message="档案只显示汇总数字和重复出现过的口头语，不列出原句。删除语料后刷新即可看到变化；已发给云端模型的内容无法撤回。"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <ScrollViewer x:Name="ToneFeedbackPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">
+                            <Button Content="返回学习与排序" Click="ToneFeedbackBack_Click"/>
+                            <InfoBar x:Name="ToneFeedbackNotice" IsOpen="True" IsClosable="False" Severity="Informational"/>
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="学到了什么" Style="{StaticResource SettingTitleStyle}"/>
+                                    <TextBlock x:Name="ToneFeedbackSummary" Text="打开此页后自动统计。" TextWrapping="Wrap"/>
+                                    <TextBlock Text="反馈加密保存在本机，包含草稿、最终文字、应用、时间与类型。超过 12 字的采纳、拒绝、撤销仅计数；局部修改可学习替换。最多 3 条说法进入后续请求。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="记录" Style="{StaticResource SectionTitleStyle}"/>
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="8">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button x:Name="ToneFeedbackRefreshButton" Content="刷新" Click="RefreshToneFeedback_Click"/>
+                                        <Button x:Name="ToneFeedbackClearButton" Content="全部清空" Click="ToneFeedbackClear_Click" IsEnabled="False"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="ToneFeedbackEmpty" Text="还没有反馈记录。" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <ItemsControl x:Name="ToneFeedbackList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource SettingsCardStyle}" Margin="0,0,0,8">
+                                                    <Grid ColumnSpacing="16">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Spacing="3">
+                                                            <TextBlock Text="{Binding Title}"/>
+                                                            <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                        </StackPanel>
+                                                        <Button Grid.Column="1" Content="删除" Tag="{Binding}" Click="ToneFeedbackDelete_Click"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                            <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Message="这里的记录与授权语料完全分开：删除反馈不会删除语料，关闭语料学习也不会删除反馈。"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer x:Name="StyleProfilePage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">

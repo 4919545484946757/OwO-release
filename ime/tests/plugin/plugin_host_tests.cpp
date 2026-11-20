@@ -1,5 +1,6 @@
 #include "owo/plugin/plugin_authorization_store.h"
 #include "owo/plugin/plugin_host.h"
+#include "owo/plugin/plugin_pipe.h"
 #include "owo/plugin/plugin_sandbox.h"
 #include "owo/plugin/plugin_store.h"
 
@@ -247,6 +248,27 @@ int main(const int argc, char** argv) {
     if (forced_cancelled.status != owo::plugin::PluginStatus::cancelled ||
         !forced_cancelled.forced_termination || forced_cancel_session.session.valid())
         return finish(31);
+
+    // A silent peer must surface as a pipe deadline, not as a generic read error: the host
+    // reports timeout from this flag, because Windows timer quantization lets the read expire
+    // before the watchdog records its own deadline.
+    {
+        auto silent_server = owo::plugin::create_full_trust_plugin_pipe_server();
+        if (!silent_server) return finish(43);
+        auto silent_client = owo::plugin::connect_plugin_pipe_client(
+            silent_server.pipe_name, std::chrono::seconds(2));
+        if (!silent_client ||
+            !owo::plugin::accept_plugin_pipe_client(
+                silent_server.pipe, std::chrono::seconds(2)).ok) return finish(43);
+        const auto silent = owo::plugin::receive_plugin_pipe_message(
+            silent_server.pipe, std::chrono::milliseconds(50));
+        if (silent.status.ok || !silent.status.timed_out) {
+            std::cerr << "pipe deadline not reported: ok=" << silent.status.ok
+                      << " timed_out=" << silent.status.timed_out
+                      << " diagnostic=" << silent.status.diagnostic << '\n';
+            return finish(44);
+        }
+    }
 
     auto timed_session = owo::plugin::launch_active_plugin(
         root, plugin_id, std::chrono::seconds(5));

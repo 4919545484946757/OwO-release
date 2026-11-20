@@ -97,17 +97,13 @@ pub(super) async fn workspace_trust_set(
 /// （避免"点一下信任"隐式拉起任意子进程）。
 fn apply_workspace_config_after_trust_change(state: &AppState, trusted: bool) {
     if !trusted {
-        state
-            .agent
-            .set_hooks(owo_agent_core::hooks::HookManager::from_configs(&[]));
+        // 撤销信任：连同插件来源一起清空（插件 hooks 属于"配置即代码"）。
+        state.install_settings_hooks(&[]);
+        state.install_plugin_hooks(Vec::new());
         return;
     }
     let settings = owo_agent_core::Settings::load(&state.workspace);
-    state
-        .agent
-        .set_hooks(owo_agent_core::hooks::HookManager::from_configs(
-            &settings.hooks,
-        ));
+    state.install_settings_hooks(&settings.hooks);
     state
         .agent
         .apply_policy_settings(settings.read_only, &settings.deny_commands);

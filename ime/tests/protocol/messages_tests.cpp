@@ -5,6 +5,12 @@
 int main() {
     using namespace owo::protocol;
     int failures = 0;
+    for (const auto type : {MessageType::user_lexicon_request, MessageType::user_lexicon_response}) {
+        Message management{type, 77, 42, "list\t-\t0\t50\tmerge\n\n\t\n"};
+        const auto result = decode_message(encode_message(management));
+        if (!result.validation || result.message.type != type || result.message.text != management.text)
+            ++failures;
+    }
     Message original{MessageType::candidate_response, 9, 4, "你好",
                      {"你好", "你号", "a\\\"b\n中文"}, 2, true};
     original.syllables = {"ni", "hao"};

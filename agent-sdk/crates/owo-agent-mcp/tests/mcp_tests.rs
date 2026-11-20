@@ -271,6 +271,59 @@ async fn official_clipboard_plugin_lists_and_reads() {
     client.shutdown().await.unwrap();
 }
 
+/// Agent Plugins 1.0.0 端到端：规范包 → 加载器映射出的 `McpServerConfig` → 真实连接。
+///
+/// 同时验证 `env` 的 `${PLUGIN_ROOT}` 展开与 `cwd` 缺省（`plugin_info` 会回显两者）。
+#[tokio::test]
+async fn agent_plugins_package_connects_with_env_and_cwd() {
+    fn normalize(path: &str) -> String {
+        path.strip_prefix(r"\\?\")
+            .unwrap_or(path)
+            .replace('/', "\\")
+            .to_lowercase()
+    }
+    let package = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../plugins/owo-demo-kit")
+        .canonicalize()
+        .expect("示例规范包应存在");
+    let loaded = owo_agent_core::agent_plugins::load_agent_plugin(&package, None)
+        .expect("示例规范包应通过校验");
+    let mut config = loaded.mcp_servers[0].config.clone();
+    config.name = "owo-demo-kit/demo".to_string();
+
+    let mut client = McpClient::connect(&config)
+        .await
+        .expect("规范包声明的服务器应能连接");
+    let tools = client.tools();
+    assert!(tools.iter().any(|tool| tool.name == "echo"));
+    assert!(tools.iter().any(|tool| tool.name == "plugin_info"));
+
+    let echoed = client
+        .call_tool("echo", json!({ "text": "hello-agent-plugins" }))
+        .await
+        .unwrap();
+    assert!(echoed["text"]
+        .as_str()
+        .unwrap_or("")
+        .contains("hello-agent-plugins"));
+
+    let info = client.call_tool("plugin_info", json!({})).await.unwrap();
+    let payload: serde_json::Value = serde_json::from_str(info["text"].as_str().unwrap_or("{}"))
+        .expect("plugin_info 应返回 JSON");
+    let expected = normalize(&package.to_string_lossy());
+    assert_eq!(
+        normalize(payload["plugin_root"].as_str().unwrap_or("")),
+        expected,
+        "env 里的 ${{PLUGIN_ROOT}} 应展开为包根"
+    );
+    assert_eq!(
+        normalize(payload["cwd"].as_str().unwrap_or("")),
+        expected,
+        "cwd 缺省应落包根"
+    );
+    client.shutdown().await.unwrap();
+}
+
 #[test]
 fn official_example_plugins_discover_and_validate() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../");

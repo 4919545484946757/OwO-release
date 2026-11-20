@@ -1,0 +1,20 @@
+# Only simulated commits, never writes into an application.
+query nihao
+expect 你好
+select 1
+expect-input
+expect-commit 你好
+query nihaoshijie
+expect 你好世界
+select 2
+expect-input shijie
+expect 世界
+select 1
+expect-input
+expect-commit 你好你好世界
+query nihaoshijie
+page 0
+expand
+clear
+query xian
+expect 西安

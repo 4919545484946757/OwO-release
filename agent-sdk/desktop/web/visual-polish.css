@@ -445,3 +445,96 @@ body.panel-open #panelRoot > section[data-panel] { border: 0; border-radius: 0; 
  .workbench-panel-header { padding-bottom: 8px; }
  .workbench-panel-header p { font-size: 11px; margin: 2px 0 0; }
 }
+
+/* 任务剧本面板（playbook.panel.js）：与现有工作台面板同一套排版语言。 */
+.owo-pb-panel { display: flex; flex-direction: column; gap: 10px; }
+.owo-pb-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.owo-pb-tools h3 { margin: 0; font-size: 15px; }
+.owo-pb-refresh, .owo-pb-toggle, .owo-pb-actions button {
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+  border-radius: 8px; padding: 4px 10px; font: inherit; cursor: pointer;
+}
+.owo-pb-refresh:hover, .owo-pb-toggle:hover, .owo-pb-actions button:hover { background: var(--accent-soft); }
+.owo-pb-actions button.owo-pb-pass { color: var(--green); border-color: var(--green); }
+.owo-pb-actions button.owo-pb-fail { color: var(--red); border-color: var(--red); }
+.owo-pb-list { display: grid; gap: 10px; }
+.owo-pb-card { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 12px 14px; }
+.owo-pb-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.owo-pb-bar { height: 6px; border-radius: 999px; background: var(--accent-soft); overflow: hidden; margin: 10px 0 8px; }
+.owo-pb-bar > span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.owo-pb-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.owo-pb-chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.owo-pb-chip.owo-pb-warn { background: var(--yellow-soft); color: var(--yellow); }
+.owo-pb-chip.owo-pb-bad { background: var(--red-soft); color: var(--red); }
+.owo-pb-issue { margin-top: 8px; font-size: 12px; color: var(--red); }
+.owo-pb-detail { margin-top: 12px; display: grid; gap: 8px; }
+.owo-pb-detail-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.owo-pb-step { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; }
+.owo-pb-step.owo-pb-passed { border-color: var(--green); background: var(--green-soft); }
+.owo-pb-step.owo-pb-failed { border-color: var(--red); background: var(--red-soft); }
+.owo-pb-step-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.owo-pb-mark { font-weight: 700; }
+.owo-pb-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.owo-pb-actions input {
+  flex: 1 1 180px; min-width: 120px; border: 1px solid var(--border-strong);
+  border-radius: 8px; padding: 5px 8px; font: inherit; background: var(--surface); color: var(--text);
+}
+
+.owo-pb-cmd { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.owo-pb-copy {
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+  border-radius: 6px; padding: 1px 8px; font: inherit; cursor: pointer;
+}
+.owo-pb-copy:hover { background: var(--accent-soft); }
+.owo-pb-error.owo-pb-ok { color: var(--green); }
+.owo-pb-panel button:focus-visible,
+.owo-pb-panel input:focus-visible,
+.owo-pb-panel summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.owo-pb-history { margin-top: 10px; display: grid; gap: 6px; }
+.owo-pb-run { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 8px; border: 1px dashed var(--border); border-radius: 8px; }
+.owo-pb-run-marker { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }
+
+.owo-pb-card-actions { display: flex; gap: 6px; align-items: center; }
+.owo-pb-archive { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 10px; font: inherit; cursor: pointer; }
+.owo-pb-archive:hover { background: var(--accent-soft); }
+
+.owo-pb-run { cursor: pointer; text-align: left; font: inherit; color: var(--text); background: var(--surface); width: 100%; }
+.owo-pb-run:hover { border-color: var(--accent); }
+.owo-pb-compare { margin-top: 8px; display: grid; gap: 4px; }
+.owo-pb-compare-list { display: grid; gap: 4px; }
+.owo-pb-compare-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; background: var(--accent-soft); font-size: 12px; }
+.owo-pb-compare-row.owo-pb-bad { background: var(--red-soft); }
+
+.owo-pb-new { display: flex; gap: 8px; align-items: center; }
+.owo-pb-new-id { flex: 1 1 200px; border: 1px solid var(--border-strong); border-radius: 8px; padding: 5px 8px; font: inherit; background: var(--surface); color: var(--text); }
+.owo-pb-create { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); border-radius: 8px; padding: 5px 12px; font: inherit; cursor: pointer; }
+.owo-pb-create:hover { background: var(--accent-soft); }
+
+.owo-pb-reset { border: 1px solid var(--border-strong); background: var(--surface); color: var(--red); border-radius: 8px; padding: 4px 10px; font: inherit; cursor: pointer; }
+.owo-pb-reset:hover { background: var(--red-soft); }
+
+.owo-pb-pair { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.owo-pb-pair select { border: 1px solid var(--border-strong); border-radius: 8px; padding: 4px 8px; font: inherit; background: var(--surface); color: var(--text); }
+.owo-pb-pair-btn { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 10px; font: inherit; cursor: pointer; }
+.owo-pb-pair-btn:hover { background: var(--accent-soft); }
+
+.owo-sc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.owo-sc-actions { display: flex; gap: 8px; }
+.owo-sc-refresh { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 12px; font: inherit; cursor: pointer; }
+.owo-sc-refresh:hover { background: var(--accent-soft); }
+.owo-sc-card { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin: 0 0 10px; background: var(--surface); }
+.owo-sc-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.owo-sc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.owo-sc-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 1px 8px; font-size: 12px; background: var(--accent-soft); color: var(--text); }
+.owo-sc-chip.owo-sc-ok { background: var(--green-soft); }
+.owo-sc-chip.owo-sc-warn { background: var(--amber-soft); }
+.owo-sc-chip.owo-sc-bad { background: var(--red-soft); }
+.owo-sc-section { margin-top: 8px; }
+.owo-sc-list { margin: 4px 0 0; padding-left: 18px; }
+.owo-sc-batch, .owo-sc-blocked, .owo-sc-conflict, .owo-sc-row, .owo-sc-task { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 3px 0; }
+.owo-sc-task-title { font-weight: 600; }
+.owo-sc-empty { border: 1px dashed var(--border-strong); border-radius: 12px; padding: 16px; }

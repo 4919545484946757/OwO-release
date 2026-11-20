@@ -1,0 +1,14 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "demo": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["./servers/demo_server.py"],
+      "env": {
+        "OWO_DEMO_PLUGIN_ROOT": "${PLUGIN_ROOT}"
+      },
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}
